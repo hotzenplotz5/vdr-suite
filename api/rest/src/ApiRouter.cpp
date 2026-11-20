@@ -1161,8 +1161,14 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("durationMaxMinutes", 0));
         previewSearchTimer.filterOptions().setUseTime(
             queryBoolOrDefault(queryParameters, "useTime", false));
+        previewSearchTimer.filterOptions().setStartTime(
+            queryParameters.getInt("startTime", 0));
+        previewSearchTimer.filterOptions().setStopTime(
+            queryParameters.getInt("stopTime", 0));
         previewSearchTimer.filterOptions().setUseDayOfWeek(
             queryBoolOrDefault(queryParameters, "useDayOfWeek", false));
+        previewSearchTimer.filterOptions().setDayOfWeek(
+            queryParameters.getInt("dayOfWeek", 0));
 
         const std::vector<VdrEvent> events =
             queryParameters.get("backend").empty()

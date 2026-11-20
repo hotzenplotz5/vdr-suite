@@ -338,3 +338,33 @@ epgsearch-Aufnahmeentscheidungen. CI, MLD- und yaVDR-Abnahme folgen separat.
 ## Back
 
 - [Back to Development Index](index.md)
+
+
+## ST.F3 – Uhrzeit- und Wochentagsfilter in der echten EPG-Vorschau (20.11.2026)
+
+Der bereits vorhandene Browser-Editor übermittelt die ausgewählten
+`startTime`, `stopTime` und `dayOfWeek` als Teile der GET-Vorschau.
+Die Web-Route hatte die drei Zahlenwerte bisher nicht in den
+`SearchTimerPreviewService` überführt. Der Service gab für Uhrzeit-
+und Wochentagsfilter lediglich einen Hinweis aus, ohne zu filtern.
+
+Der Browser-GET-Adapter überträgt die drei Werte jetzt an das **bestehende**
+gemeinsame Domainobjekt. Der gemeinsame `SearchTimerPreviewService`
+wertet Zeitfenster und Wochentage anhand des lokalen EPG-Startzeitpunkts
+**vor** Suche, Zählung und Paginierung aus, auch bei Zeitfenstern über
+Mitternacht. Unterstützt sind Unix-Epoch-Sekunden und lokale bzw.
+offsetbehaftete ISO-Ereigniszeiten. Die native epgsearch-Kodierung für
+Wochentage wird beibehalten: `0=Sonntag`, `6=Samstag`,
+negative Werte `-(1 << weekday)` als kombinierbare Bitmaske.
+Ungültige Grenzen oder nicht entzifferbare EPG-Zeiten erzeugen
+einen sichtbaren Warnhinweis statt stillschweigend falsche Nulltreffer.
+Andere noch nicht prognostizierbare Aspekte (Wiederholungen, native
+Aufnahmeentscheidungen) bleiben ausdrücklich außerhalb dieser
+**EPG-Treffervorschau**.
+
+Abdeckung: gemeinsame Preview-Service-Regressionsfälle für reguläres
+Abendfenster, Mitternachtsübergang, einzelne/mehrere Wochentage,
+korrekte Gesamtanzahl und Offset-Paginierung, fehlerhafte EPG-Zeiten;
+API-Router-Test für die tatsächliche Übernahme der HTTP-Query-Parameter.
+Keine Veränderung an CREATE/UPDATE, vorhandener Autorisierung,
+Recordings oder PWA-Cache. Native VDR-/yaVDR-Abnahme separat.

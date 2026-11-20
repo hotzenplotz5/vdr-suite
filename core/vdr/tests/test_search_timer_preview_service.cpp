@@ -487,8 +487,76 @@ static void test_missing_catalogue_warning_and_single_channel()
     assert(single.warnings().empty());
 }
 
+static void test_hhmm_time_window_and_epgsearch_weekdays()
+{
+    const std::vector<VdrEvent> events{
+        makeEvent("1", "A", "Tatort", "", "", "2026-11-20T18:00:00"),
+        makeEvent("2", "A", "Tatort", "", "", "2026-11-20T20:15:00"),
+        makeEvent("3", "A", "Tatort", "", "", "2026-11-21T00:30:00"),
+        makeEvent("4", "A", "Tatort", "", "", "2026-11-21T20:15:00"),
+        makeEvent("5", "A", "Tatort", "", "", "2026-11-22T20:15:00")};
+    SearchTimer timer = makeSearchTimer();
+    SearchTimerPreviewService service;
+    timer.filterOptions().setUseTime(true);
+    timer.filterOptions().setStartTime(2000);
+    timer.filterOptions().setStopTime(2200);
+    const auto evening = service.preview(timer, events, 1, 1);
+    assert(evening.totalCount() == 3);
+    assert(evening.returnedCount() == 1);
+    assert(evening.searchResult().matches()[0].event().id == "4");
+    assert(evening.warnings().empty());
+
+    timer.filterOptions().setUseDayOfWeek(true);
+    timer.filterOptions().setDayOfWeek(5); // Friday, epgsearch day 5
+    const auto friday = service.preview(timer, events);
+    assert(friday.totalCount() == 1);
+    assert(friday.searchResult().matches()[0].event().id == "2");
+    assert(friday.warnings().empty());
+
+    timer.filterOptions().setDayOfWeek(-96); // Fri+Sat: -(32|64)
+    const auto fridaySaturday = service.preview(timer, events);
+    assert(fridaySaturday.totalCount() == 2);
+
+    timer.filterOptions().setUseTime(true);
+    timer.filterOptions().setStartTime(2300);
+    timer.filterOptions().setStopTime(100);
+    timer.filterOptions().setDayOfWeek(6); // Saturday
+    const auto afterMidnight = service.preview(timer, events);
+    assert(afterMidnight.totalCount() == 1);
+    assert(afterMidnight.searchResult().matches()[0].event().id == "3");
+}
+
+static void test_uncertain_time_input_warns_without_dropping_matches()
+{
+    SearchTimer timer = makeSearchTimer();
+    timer.filterOptions().setUseTime(true);
+    timer.filterOptions().setStartTime(2000);
+    timer.filterOptions().setStopTime(2200);
+    const auto badStart = makeEvent("unknown", "A", "Tatort", "", "", "unknown");
+    SearchTimerPreviewService service;
+    const auto unknown = service.preview(timer, {badStart});
+    assert(unknown.totalCount() == 1);
+    assert(!unknown.warnings().empty());
+
+    timer.filterOptions().setStartTime(2460);
+    const auto badFilter = service.preview(timer, {
+        makeEvent("valid", "A", "Tatort", "", "", "2026-11-20T10:00:00")});
+    assert(badFilter.totalCount() == 1);
+    assert(!badFilter.warnings().empty());
+
+    timer.filterOptions().setUseTime(false);
+    timer.filterOptions().setUseDayOfWeek(true);
+    timer.filterOptions().setDayOfWeek(100);
+    const auto badWeekday = service.preview(timer, {
+        makeEvent("valid", "A", "Tatort", "", "", "2026-11-20T10:00:00")});
+    assert(badWeekday.totalCount() == 1);
+    assert(!badWeekday.warnings().empty());
+}
+
 int main()
 {
+    test_hhmm_time_window_and_epgsearch_weekdays();
+    test_uncertain_time_input_warns_without_dropping_matches();
     test_channel_range_uses_vdr_numbers_before_pagination();
     test_group_fta_and_hhmm_duration_filter();
     test_missing_catalogue_warning_and_single_channel();

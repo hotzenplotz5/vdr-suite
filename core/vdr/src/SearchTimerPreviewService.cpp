@@ -8,7 +8,10 @@
 #include "SearchTimerPreviewEpgInputContext.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
+#include <cstdlib>
+#include <ctime>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -280,6 +283,121 @@ int hhmmToMinutes(int value)
     return (positive / 100) * 60 + (positive % 100);
 }
 
+bool validHhmm(int value)
+{
+    return value >= 0 && value <= 2359 && (value % 100) < 60;
+}
+
+int decimalAt(const std::string& value, std::size_t at, std::size_t count)
+{
+    if (at + count > value.size()) return -1;
+    int number = 0;
+    for (std::size_t i = at; i < at + count; ++i)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(value[i]))) return -1;
+        number = number * 10 + value[i] - '0';
+    }
+    return number;
+}
+
+bool validDate(int year, int month, int day)
+{
+    if (year < 1970 || year > 9999 || month < 1 || month > 12)
+        return false;
+    constexpr int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    const bool leap = (year % 4 == 0 && year % 100 != 0) ||
+        year % 400 == 0;
+    return day >= 1 && day <= days[month - 1] +
+        (month == 2 && leap ? 1 : 0);
+}
+
+// VDR EPG uses epoch seconds; also accept ISO local and offset-aware times
+// found in source/adapter fixtures. Resolve the event's local calendar day
+// before applying epgsearch's time/weekday constraints.
+bool eventLocalStart(const std::string& value, std::tm& out)
+{
+    if (value.size() >= 9U &&
+        std::all_of(value.begin(), value.end(),
+            [](unsigned char c) { return std::isdigit(c) != 0; }))
+    {
+        errno = 0;
+        char* end = nullptr;
+        const long long seconds = std::strtoll(value.c_str(), &end, 10);
+        if (errno != 0 || !end || *end != '\0' || seconds < 0)
+            return false;
+        const std::time_t epoch = static_cast<std::time_t>(seconds);
+        return static_cast<long long>(epoch) == seconds &&
+            localtime_r(&epoch, &out) != nullptr;
+    }
+
+    if (value.size() != 16U && value.size() != 19U &&
+        value.size() != 20U && value.size() != 25U)
+        return false;
+    if (value[4] != '-' || value[7] != '-' ||
+        (value[10] != 'T' && value[10] != ' ') || value[13] != ':')
+        return false;
+    if (value.size() >= 19U && value[16] != ':')
+        return false;
+
+    const int year = decimalAt(value, 0U, 4U);
+    const int month = decimalAt(value, 5U, 2U);
+    const int day = decimalAt(value, 8U, 2U);
+    const int hour = decimalAt(value, 11U, 2U);
+    const int minute = decimalAt(value, 14U, 2U);
+    const int second = value.size() == 16U
+        ? 0 : decimalAt(value, 17U, 2U);
+    if (!validDate(year, month, day) || hour < 0 || hour > 23 ||
+        minute < 0 || minute > 59 || second < 0 || second > 59)
+        return false;
+
+    std::tm calendar{};
+    calendar.tm_year = year - 1900;
+    calendar.tm_mon = month - 1;
+    calendar.tm_mday = day;
+    calendar.tm_hour = hour;
+    calendar.tm_min = minute;
+    calendar.tm_sec = second;
+    calendar.tm_isdst = -1;
+
+    std::time_t epoch;
+    if (value.size() == 16U || value.size() == 19U)
+    {
+        epoch = std::mktime(&calendar);
+    }
+    else
+    {
+        int offsetMinutes = 0;
+        if (value.size() == 20U)
+        {
+            if (value[19] != 'Z') return false;
+        }
+        else
+        {
+            if ((value[19] != '+' && value[19] != '-') ||
+                value[22] != ':') return false;
+            const int hh = decimalAt(value, 20U, 2U);
+            const int mm = decimalAt(value, 23U, 2U);
+            if (hh < 0 || hh > 23 || mm < 0 || mm > 59)
+                return false;
+            offsetMinutes = (hh * 60 + mm) *
+                (value[19] == '+' ? 1 : -1);
+        }
+        epoch = timegm(&calendar) -
+            static_cast<std::time_t>(offsetMinutes) * 60;
+    }
+    return epoch != static_cast<std::time_t>(-1) &&
+        localtime_r(&epoch, &out) != nullptr;
+}
+
+bool dayMatches(int dayOfWeek, int weekday)
+{
+    // epgsearch.conf: 0=Sunday .. 6=Saturday; a negative number is the
+    // negated weekday bitmask (1=Sunday, 2=Monday, ..., 64=Saturday).
+    return dayOfWeek >= 0
+        ? weekday == dayOfWeek
+        : ((-dayOfWeek) & (1 << weekday)) != 0;
+}
+
 // EPG/channel constraints apply before match/pagination: never filter a
 // limited first page and then misreport the total or later candidates.
 std::vector<VdrEvent> previewCandidates(
@@ -342,9 +460,23 @@ std::vector<VdrEvent> previewCandidates(
     if (mode != 0 && !restrictChannels)
         warnings.push_back(
             "Kanalfilter konnte ohne vollstaendige Kanalliste nicht ausgewertet werden.");
-    if (filters.useTime() || filters.useDayOfWeek())
+    const bool timeValid = validHhmm(filters.startTime()) &&
+        validHhmm(filters.stopTime());
+    const bool applyTime = filters.useTime() && timeValid;
+    if (filters.useTime() && !timeValid)
         warnings.push_back(
-            "Uhrzeit- und Wochentagsfilter werden in dieser EPG-Vorschau noch nicht ausgewertet.");
+            "Uhrzeitfilter hat ungueltige HHMM-Grenzen und wurde nicht angewendet.");
+
+    const int weekday = filters.dayOfWeek();
+    const bool dayValid = weekday >= -127 && weekday <= 6;
+    const bool applyDay = filters.useDayOfWeek() && dayValid;
+    if (filters.useDayOfWeek() && !dayValid)
+        warnings.push_back(
+            "Wochentagsfilter hat eine ungueltige epgsearch-Kodierung und wurde nicht angewendet.");
+
+    const int startMinute = hhmmToMinutes(filters.startTime());
+    const int stopMinute = hhmmToMinutes(filters.stopTime());
+    bool unparseableStart = false;
     if (timer.repeatOptions().avoidRepeats())
         warnings.push_back(
             "Wiederholungspruefung ist nicht Bestandteil der EPG-Vorschau.");
@@ -364,8 +496,31 @@ std::vector<VdrEvent> previewCandidates(
                 (filters.durationMaxMinutes() > 0 && minutes > maxDuration))
                 continue;
         }
+        if (applyTime || applyDay)
+        {
+            std::tm local{};
+            if (!eventLocalStart(event.startTime, local))
+            {
+                // Do not silently turn uncertain EPG input into zero matches.
+                unparseableStart = true;
+            }
+            else
+            {
+                const int eventMinute = local.tm_hour * 60 + local.tm_min;
+                if (applyTime &&
+                    (startMinute <= stopMinute
+                        ? eventMinute < startMinute || eventMinute > stopMinute
+                        : eventMinute < startMinute && eventMinute > stopMinute))
+                    continue;
+                if (applyDay && !dayMatches(weekday, local.tm_wday))
+                    continue;
+            }
+        }
         selected.push_back(event);
     }
+    if (unparseableStart)
+        warnings.push_back(
+            "Einige EPG-Startzeiten sind nicht lesbar; diese Treffer wurden ohne Zeitfilter belassen.");
     return selected;
 }
 

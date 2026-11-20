@@ -1320,6 +1320,23 @@ int main()
     assert(vdrSearchTimerPreviewResponse.body.find("\"returnedCount\":1")
            != std::string::npos);
 
+    // Web draft preview must forward the selected HHMM and native weekday
+    // options, not silently ignore the new UI fields.
+    const ApiResponse timeExcluded = router.handleGet(
+        "/api/vdr/searchtimers/preview?text=Router&useTime=1&startTime=2100&stopTime=2200");
+    assert(timeExcluded.statusCode == 200);
+    assert(timeExcluded.body.find("\"totalCount\":0") != std::string::npos);
+
+    const ApiResponse weekdayIncluded = router.handleGet(
+        "/api/vdr/searchtimers/preview?text=Router&useDayOfWeek=1&dayOfWeek=4");
+    assert(weekdayIncluded.statusCode == 200);
+    assert(weekdayIncluded.body.find("\"totalCount\":1") != std::string::npos);
+
+    const ApiResponse weekdayExcluded = router.handleGet(
+        "/api/vdr/searchtimers/preview?text=Router&useDayOfWeek=1&dayOfWeek=-32");
+    assert(weekdayExcluded.statusCode == 200);
+    assert(weekdayExcluded.body.find("\"totalCount\":0") != std::string::npos);
+
     ApiResponse vdrSearchTimersResponse =
         router.handleGet("/api/vdr/searchtimers?backend=ferienhaus&state=inactive");
 
