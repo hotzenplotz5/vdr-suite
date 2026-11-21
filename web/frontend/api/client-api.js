@@ -150,6 +150,7 @@
       body: normalized.body,
       cache: normalized.cache,
       credentials: normalized.credentials,
+      priority: normalized.priority,
       signal: normalized.signal
     };
   }
@@ -590,7 +591,7 @@
       return snapshot;
     });
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
-      Object.assign({}, normalizeOptions(options), {backendId: id})
+      Object.assign({}, normalizeOptions(options), {backendId: id, priority: undefined})
     ).catch(function () {
       return null;
     });

@@ -1977,3 +1977,38 @@ PWA.15.21-Dateibaum. Weder die schnelle PWA.15.17-IO-Logik
 noch der Service Worker, API, Berechtigungen, Daemon und
 No-Artwork-Fallback werden geaendert. Eine reale Browserabnahme
 muss vor dem naechsten Slice bestaetigt werden.
+
+## PWA.15.22 kompatibel — Home-Snapshot mit hoher Prioritaet (2026-11-21)
+
+PWA.15.21 und der PWA.15.25 No-Artwork-Fallback wurden
+auf der schnellen PWA.15.17-Basis im realen Browser bestaetigt.
+Der originale PWA.15.22-Gesamtstand enthielt dagegen auch die
+zuvor verworfene PWA.15.18-IntersectionObserver-Logik.
+Fruehere defekte Cover auf historischem PWA.15.22 sind
+daher nicht als isolierte Regression von PWA.15.22 belegt.
+
+Die drei produktiven/zugehoerigen Testdateien von PWA.15.22
+bauen unveraendert auf dem hier vorhandenen PWA.15.21-
+Ausgangsstand auf und werden exakt aus dem **zweiten,
+abschliessenden** Originalcommit von PWA.15.22 uebernommen:
+`web/frontend/app.js`,
+`web/frontend/api/client-api.js` und
+`web/frontend/tests/test_phase66_home_initial_load.js`.
+
+Die existierende Home-Snapshot-Abfrage wird vom echten
+`loadBackendDetails`-Aufrufer mit `priority:'high'`
+angestossen. `requestOptions` reicht dieses optionale
+Fetch-Priority-Hint an den Browser weiter. Die unabhaengige
+Recording-Count-Abfrage bleibt bei der bisherigen Prioritaet.
+Es gibt **keinen** neuen Snapshot-Aufruf, keine Bildsperre,
+kein Warten auf Proof, keine Aenderung an Artwork-URLs,
+Home-Rendering, Sichtbarkeitslogik, Cache, Grants oder
+Service Worker. Browser koennen die Prioritaet ignorieren.
+Das historisch gepruefte Home-Bootstrap-Testmodul
+stellt Anzahl, Reihenfolge und Prioritaet der beiden
+bereits existierenden Requests sicher.
+
+Die schnellen PWA.15.17-/21-Home-Renderer und die schwarze
+No-Artwork-Darstellung bleiben unveraendert. Ein realer
+Cold-/Warm-Home-Test ist vor der naechsten Aenderung
+verbindlicher Akzeptanznachweis.

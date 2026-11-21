@@ -32,6 +32,8 @@ assert(loadStart > markEnd && loadEnd > loadStart);
 const markSelectedSource = appSource.slice(markStart, markEnd);
 const loadBackendDetailsSource = appSource.slice(loadStart, loadEnd);
 assert(loadBackendDetailsSource.includes('markSelected(backendId);'));
+assert(loadBackendDetailsSource.includes("cache: 'no-store', priority: 'high'"),
+  'the real Home bootstrap assigns high priority to its existing small scope readback');
 assert(
   loadBackendDetailsSource.indexOf('markSelected(backendId);') <
   loadBackendDetailsSource.indexOf("selectModule('overview');"),
@@ -188,6 +190,43 @@ async function main() {
     1,
     'Already-ready Discovery runtime must not be injected a second time'
   );
+
+  // PWA.15.22: the first existing Home snapshot is the authorization
+  // readback needed for local artwork. It must be dispatched before the
+  // recording-count request, and with a browser network priority hint.
+  // No duplicate snapshot or separate authorization request is allowed.
+  const clientSource = fs.readFileSync(path.join(frontendRoot, 'api/client-api.js'), 'utf8');
+  const snapshotRequests = [];
+  const clientWindow = {};
+  vm.runInNewContext(clientSource, {
+    window:clientWindow, Promise, URLSearchParams,
+    fetch(url, options) {
+      snapshotRequests.push({url, options});
+      const payload = url.indexOf('/snapshot') >= 0
+        ? {recordingCount:1} : {totalCount:12};
+      return Promise.resolve({
+        ok:true, status:200, redirected:false,
+        text() { return Promise.resolve(JSON.stringify(payload)); }
+      });
+    }
+  }, {filename:'web/frontend/api/client-api.js'});
+  let earlySnapshot;
+  const snapshotResult = await clientWindow.VdrSuiteClientApi.fetchClientBackendSnapshot(
+    'backend-a', {cache:'no-store',priority:'high'}, value => {earlySnapshot = value; });
+  assert.strictEqual(snapshotRequests.length,2,
+    'the normal snapshot plus recording-count read; no extra HTTP readback');
+  assert.strictEqual(snapshotRequests[0].url,'/api/backends/backend-a/snapshot');
+  assert.strictEqual(snapshotRequests[0].options.priority,'high',
+    'first small scope-bearing snapshot wins priority over speculative images');
+  assert.strictEqual(snapshotRequests[0].options.cache,'no-store');
+  assert.strictEqual(snapshotRequests[0].options.credentials,undefined,
+    'no new auth mode or request credentials');
+  assert.strictEqual(snapshotRequests[1].options.priority,undefined,
+    'large/independent recording count read remains normal priority');
+  assert.strictEqual(earlySnapshot.recordingCount,1,
+    'early snapshot callback still fires before count composition');
+  assert.strictEqual(snapshotResult.recordingCount,12,
+    'normal combined snapshot result still uses the recording-count read');
 
   console.log('phase66 home initial bootstrap backend readiness ok');
 }
