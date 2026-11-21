@@ -4331,9 +4331,7 @@ function loadBackendDetails(backend) {
   // Dispatch the small snapshot before Home-resume listeners launch discovery reads.
   markHomeStartup('snapshot-requested');
   const request = clientApi.fetchClientBackendSnapshot(backendId, {
-    // Prefer the existing small scope-bearing readback over competing images.
-    // This is a scheduling hint, not another request or an artwork gate.
-    cache: 'no-store', priority: 'high'
+    cache: 'no-store'
   }, snapshot => {
     // The lightweight snapshot's provisional total is not the inventory.
     if (snapshot && typeof snapshot === 'object')
