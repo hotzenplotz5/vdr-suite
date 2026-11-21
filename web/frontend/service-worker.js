@@ -193,6 +193,8 @@ function artworkMeasurement(event) {
       foregroundHttpSamples: 0, foregroundHttpTotalMs: 0, foregroundHttpMaxMs: 0,
       backgroundHttpSamples: 0, backgroundHttpTotalMs: 0, backgroundHttpMaxMs: 0,
       foregroundHttpWhileBackgroundActive: 0,
+      foregroundPriorityHigh: 0, foregroundPriorityLow: 0,
+      foregroundPriorityAuto: 0, foregroundPriorityUnknown: 0,
       maxImageHttpInFlight: 0, maxBackgroundHttpInFlight: 0};
     artworkMeasurements.set(event.clientId, value);
     while (artworkMeasurements.size > 128) artworkMeasurements.delete(artworkMeasurements.keys().next().value);
@@ -478,6 +480,15 @@ async function artworkFetch(event, tags, background = false) {
     cache: 'no-store', ...(background ? {priority: 'low'} : {})});
   const started = Date.now();
   countArtwork(event, 'imageHttpRequests');
+  // Classify the *incoming* browser image request, not the constructed
+  // HTTP Request: browsers may omit Request.priority in service workers.
+  // These are exposed hints, not proof of actual network scheduling.
+  if (!background) {
+    const priority = request.priority;
+    countArtwork(event, priority === 'high' ? 'foregroundPriorityHigh' :
+      priority === 'low' ? 'foregroundPriorityLow' :
+      priority === 'auto' ? 'foregroundPriorityAuto' : 'foregroundPriorityUnknown');
+  }
   if (!background && artworkBackgroundHttpInFlight > 0)
     countArtwork(event, 'foregroundHttpWhileBackgroundActive');
   artworkHttpInFlight++;

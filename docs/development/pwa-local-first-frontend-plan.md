@@ -1847,3 +1847,35 @@ pruefen originale Vordergrund-Prioritaet, zwei statt vier
 gleichzeitig offene Hintergrund-HTTP-Abrufe, sofortige lokale
 Antwort auch bei voller Refresh-Kapazitaet, 304-Revalidierung,
 bestehende Proof-/Scope-Isolierung und diagnostische Unterzaehler.
+
+## PWA.15.19 (kompatibler Teil) — HTTP-Prioritaetszaehler auf PWA.15.17 (2026-11-21)
+
+PWA.15.18 fuehrte im realen yaVDR-Browsertest zu einer massiven
+Verlangsamung. Der komplette Stand PWA.15.17 wurde wiederhergestellt
+und vom Anwender als wesentlich schneller bestaetigt.
+
+Daher wird PWA.15.19 **nicht vollstaendig** uebernommen. Die
+Sichtbarkeits-/IntersectionObserver-Korrektur aus PWA.15.19 bleibt aus:
+Sie baut auf dem veraenderten Artwork-Koordinator von PWA.15.18 auf.
+Der bewaehrte Home-Renderer aus PWA.15.17 bleibt byteidentisch.
+
+Als unabhaengiger, additiver Teil werden nur die historischen
+Service-Worker-Diagnosezaehler uebernommen:
+`foregroundPriorityHigh`, `foregroundPriorityLow`,
+`foregroundPriorityAuto` und `foregroundPriorityUnknown`.
+Sie klassifizieren ausschliesslich die eingehenden Request-Prioritaets-
+Hinweise normaler Artwork-HTTP-Anfragen, soweit diese vom Browser
+bereitgestellt werden. Das neue Ergebnis ist eine Messung, kein
+Nachweis der tatsaechlichen Netzwerksortierung. Die Daten bleiben
+aggregiert und an den bisherigen Diagnosekanal gebunden.
+
+Keine Aenderung an Home-Rendering, src-Zuweisungen, IO-Logik,
+Artwork-Anfragewegen, Refresh-Budget, Cache-Partitionen, Grants,
+Berechtigungen, Daemon oder Backend. Der originale PWA.15.19-
+SW-Vertragstest prueft die vier Prioritaetsklassen und das Verhalten
+bei nicht unterstuetztem Request.priority.
+
+Abnahme: gezielter Node-Service-Worker-Vertragstest, Frontend-CI und
+realer Home-Erstaufruf ohne Scrollen. Erst nach Browser-PASS weitere
+PWA-Aenderungen uebernehmen. Dieser Zwischenstand ist explizit
+**PWA.15.17 + unabhaengige PWA.15.19-Diagnose**, nicht PWA.15.19.

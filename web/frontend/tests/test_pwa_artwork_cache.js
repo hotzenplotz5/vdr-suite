@@ -67,9 +67,10 @@ async function run(prefix) {
   }};
   vm.createContext(context); vm.runInContext(code, context);
   const invoke = (name, args) => {context.args = args; return vm.runInContext(name+'(...args)',context);};
-  async function image(address = url, clientId) {
+  async function image(address = url, clientId, priorityHint) {
     const request = new Request(address,{credentials:'same-origin'});
     Object.defineProperty(request,'destination',{value:'image'});
+    if (priorityHint !== undefined) Object.defineProperty(request,'priority',{value:priorityHint});
     assert.equal(invoke('artworkRequest',[request]),true);
     const pending = [];
     let result; listeners.fetch({request, clientId, waitUntil:p=>pending.push(p), respondWith:p=>{result=p;}});
@@ -430,5 +431,27 @@ async function run(prefix) {
   listeners.fetch({request:logout,respondWith:p=>{result=p;}}); await result;
   assert.equal(stores.size,0);
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+
+  // PWA.15.19: the *incoming* browser priority hint is observed, but
+  // missing browser support is explicitly counted as unknown. Nothing
+  // about scope, cache reuse or actual HTTP scheduling is inferred.
+  const priorityBefore = {...measurement('tab-a').counters};
+  for (const [priorityHint, recordingId] of [['high',901101],['low',901102],
+    ['auto',901103],[undefined,901104]]) {
+    await image(url.replace('recordingId=7','recordingId='+recordingId),
+      'tab-a',priorityHint);
+  }
+  const priorityAfter = measurement('tab-a').counters;
+  for (const [field, difference] of [['foregroundPriorityHigh',1],
+    ['foregroundPriorityLow',1],['foregroundPriorityAuto',1],
+    ['foregroundPriorityUnknown',1],['backgroundRefreshes',0]]) {
+    assert.equal(priorityAfter[field]-priorityBefore[field],difference,
+      field+' must only reflect the corresponding incoming browser request');
+  }
+  assert.equal(priorityAfter.foregroundHttpSamples-priorityBefore.foregroundHttpSamples,4);
+  assert(!JSON.stringify(priorityAfter).includes('recordingId') &&
+    !JSON.stringify(priorityAfter).includes('https://'),
+    'priority diagnostics must not disclose image URLs or IDs');
+  console.log('PWA.15.19 incoming HTTP priority classification PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});
