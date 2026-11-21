@@ -301,10 +301,12 @@
       // All counters are aggregate and use image readiness, not raw URLs.
       const previouslyVisible = new Set(), pendingOnEntry = new Map();
       const previousRailScroll = new Map();
+      let hasScrolledRail = false;
       const prefetch = {enteredVisible:0, readyBeforeEntry:0, notReadyOnEntry:0,
         becameReadyAfterEntry:0, pendingAtStop:0, delaySamples:0, delayTotalMs:0,
         delayMaxMs:0, maxPendingImageRequests:0, rightScrollFrames:0,
-        leftScrollFrames:0, maxScrollStepPx:0, requestLeadSamples:0,
+        leftScrollFrames:0, maxScrollStepPx:0, scrolledEnteredVisible:0,
+        scrolledReadyBeforeEntry:0, requestLeadSamples:0,
         requestLeadTotalMs:0, requestLeadMaxMs:0, forwardEntries:0, reverseEntries:0};
       function inspectPrefetch() {
         const now = perf.now();
@@ -313,11 +315,27 @@
         const pending = all.filter(image => !image.complete &&
           (image.src || image.currentSrc)).length;
         prefetch.maxPendingImageRequests = Math.max(prefetch.maxPendingImageRequests, pending);
+        // Sample rail motion before classifying a cover's first visible frame.
+        for (const rail of Array.from(doc.querySelectorAll(
+          '.media-home-discovery-rail, .media-home-series-season-rail'))) {
+          const position = Number(rail.scrollLeft) || 0;
+          if (previousRailScroll.has(rail)) {
+            const delta = position - previousRailScroll.get(rail);
+            if (delta > 0) prefetch.rightScrollFrames++;
+            if (delta < 0) prefetch.leftScrollFrames++;
+            if (delta) hasScrolledRail = true;
+            prefetch.maxScrollStepPx = Math.max(prefetch.maxScrollStepPx, Math.abs(delta));
+          }
+          previousRailScroll.set(rail, position);
+        }
         for (const image of visible) {
           if (previouslyVisible.has(image)) continue;
           prefetch.enteredVisible++;
-          if (image.complete && image.naturalWidth > 0) prefetch.readyBeforeEntry++;
-          else {
+          if (hasScrolledRail) prefetch.scrolledEnteredVisible++;
+          if (image.complete && image.naturalWidth > 0) {
+            prefetch.readyBeforeEntry++;
+            if (hasScrolledRail) prefetch.scrolledReadyBeforeEntry++;
+          } else {
             prefetch.notReadyOnEntry++;
             if (!pendingOnEntry.has(image)) pendingOnEntry.set(image, now);
           }
@@ -344,18 +362,6 @@
         }
         previouslyVisible.clear();
         visible.forEach(image => previouslyVisible.add(image));
-        const rails = Array.from(doc.querySelectorAll(
-          '.media-home-discovery-rail, .media-home-series-season-rail'));
-        for (const rail of rails) {
-          const position = Number(rail.scrollLeft) || 0;
-          if (previousRailScroll.has(rail)) {
-            const delta = position - previousRailScroll.get(rail);
-            if (delta > 0) prefetch.rightScrollFrames++;
-            if (delta < 0) prefetch.leftScrollFrames++;
-            prefetch.maxScrollStepPx = Math.max(prefetch.maxScrollStepPx, Math.abs(delta));
-          }
-          previousRailScroll.set(rail, position);
-        }
         prefetch.pendingAtStop = pendingOnEntry.size;
       }
       function inspectViewport() {
@@ -428,11 +434,13 @@
           return {...prefetch,
             prefetchHitRatePercent: prefetch.enteredVisible
               ? round(100 * prefetch.readyBeforeEntry / prefetch.enteredVisible) : null,
+            scrollPrefetchHitRatePercent: prefetch.scrolledEnteredVisible
+              ? round(100 * prefetch.scrolledReadyBeforeEntry / prefetch.scrolledEnteredVisible) : null,
             meanReadyDelayMs: prefetch.delaySamples
               ? round(prefetch.delayTotalMs / prefetch.delaySamples) : null,
             meanRequestLeadMs: prefetch.requestLeadSamples
               ? round(prefetch.requestLeadTotalMs / prefetch.requestLeadSamples) : null,
-            basis: 'Animation-frame observations. Hit rate means ready on entry, including browser cache; not proven network prefetch. Lead means request-start to viewport entry, not time spent fully ready. Pending count is incomplete img elements, not active network sockets.'};
+            basis: 'Animation-frame observations. The scroll hit rate excludes entries before the first observed rail movement; both hit rates include browser cache and do not prove network prefetch. Lead is request-start to viewport entry, not ready time. Pending count is incomplete img elements, not active network sockets.'};
         }, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll(),
         finalViewport: function () {
           if (viewportImages) inspectViewport();
