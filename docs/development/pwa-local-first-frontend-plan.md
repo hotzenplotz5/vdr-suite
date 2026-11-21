@@ -2027,3 +2027,50 @@ Erst diese Messung soll entscheiden, ob Proof-Race,
 Cache-Kandidatensuche, eigentliche HTTP-Wartezeit oder
 Cover-Bereitschaft beim Scrollen die naechste konkrete
 Produktkorrektur rechtfertigt.
+
+## PWA.15.21 — Naechstes Cover innerhalb unveraendertem Vorlaufbudget (2026-11-21)
+
+Die PWA.15.20-Browsermessungen zeigten bei warmem und kaltem
+Home nur ungefaehr 50 % rechtzeitig fertige Scroll-Cover. Der direkte
+Cache-Zugriff war im Mittel unter 1 ms; `firstProofGap` war in beiden
+Laeufen 0. Die eigentlichen Bild-HTTP-Wartezeiten lagen hingegen bei
+hunderten Millisekunden und teilweise mehreren Sekunden. Diese Daten
+begrenzen den naechsten Slice auf die Priorisierung **bereits erlaubter**
+Artwork-Vorausladungen, ohne eine globale HTTP-Sperre einzufuehren.
+
+Zwei konkrete Coordinator-Eigenschaften begruendeten den Eingriff:
+
+1. `candidates.sort` zog bislang saemtliche Vorlaufkandidaten in
+   Scrollrichtung vor. Ein Cover 20px unterhalb des Viewports konnte
+   so hinter mehrere 200–600px entfernte horizontale Kandidaten
+   zurueckfallen, obwohl der vorhandene `IntersectionObserver`
+   dieses vertikal naechste Cover bereits gemeldet hatte.
+   Kandidaten im bisherigen 120px-Nahbereich erhalten nun zuerst
+   einen der **gleichen** maximal vier Starts pro Frame und sechs
+   ausstehenden spekulativen Slots. Erst dann entscheidet
+   Scrollrichtung vor Entfernung. Sichtbare Cover bleiben sofort
+   `high`; nahe spekulative Cover bleiben `low`.
+2. Der Zustand `motion.fast` blieb bei unveraenderter
+   Scrollposition dauerhaft gesetzt. Ein spaeteres `load` eines
+   Bildes aktivierte damit noch nach beendeter Wischbewegung
+   den weiten Vorlauf ueber drei Railbreiten. Nach mehr als
+   250 ms ohne Bewegung wird nur dieser Fast-Zustand beim
+   naechsten ohnehin stattfindenden Coordinator-Lauf
+   zurueckgenommen. Die bestehende normale Zwei-Railbreiten-
+   Vorschau nach realem Scrollen bleibt erhalten. Kein Timer,
+   Polling, neuer Event-Handler oder neuer HTTP-Pfad.
+
+Die produktionsnahen JavaScript-Regressionsfaelle pruefen:
+tatsaechliche sichtbare Cover zuerst, nahes vertikales
+Cover vor weiter entfernten horizontalen Kandidaten, dass
+insgesamt nicht mehr als vier spekulative Starts zugleich
+freigegeben werden, kein `src` doppelt gesetzt wird,
+und das Abklingen der Fast-Vorausschau nach Scrollstillstand.
+Aeltere PWA.3/14/15/15.8/15.10.1/15.11/15.14/15.15/15.18/15.19-
+Vertraege bleiben unveraendert. Der Service Worker, Cache,
+Proof-/Scope-Schutz, API, Backend und Daemon bleiben unberuehrt.
+
+Eine Verbesserung der gefuehlten Warm-/Kaltstartzeit im echten
+Browser muss weiterhin anhand vergleichbarer Navigations- und
+Scrollmessungen auf yaVDR nachgewiesen werden. Eine fehlende
+Cover-URL nutzt unveraendert den vorhandenen Ersatzbuchstaben.

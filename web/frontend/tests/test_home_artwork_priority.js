@@ -462,3 +462,73 @@ assert.equal(slowScene.posters[12].src,'',
 assert.equal(new Set(smoothScene.starts.map(x=>x.index)).size,smoothScene.starts.length,
   'smooth scroll must never restart an assigned src');
 console.log('PWA.15.15 velocity-aware, bounded directional prewarm PASS');
+
+
+// PWA.15.21: nearby vertical-rail artwork must receive the *existing*
+// speculative slots before farther directional candidates. A load event
+// triggers the same coordinator, with no extra HTTP start owner.
+const nearFrames=[], nearStarts=[];
+let nearObserver;
+const nearWindow={innerWidth:800,innerHeight:600,
+  requestAnimationFrame(fn){nearFrames.push(fn);},
+  IntersectionObserver:class{
+    constructor(callback,options){this.callback=callback;this.options=options;
+      if(options.rootMargin==='120px 0px')nearObserver=this;}
+    observe(){}unobserve(){}
+    notify(entries){this.callback(entries);}
+  }};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:nearWindow});
+const nearDiscovery=nearWindow.VdrSuiteHomeRecordingDiscovery;
+const nearRail={isConnected:true,scrollLeft:0,clientWidth:400,
+  getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
+  querySelectorAll(){return [nearVisible,...nearFar];}};
+function nearImage(id,left,top,rail){
+  let src='';const callbacks={};
+  const img={isConnected:true,complete:false,naturalWidth:0,loading:'lazy',
+    closest(){return rail||null;},
+    addEventListener(type,fn){callbacks[type]=fn;},
+    getBoundingClientRect(){return {left,right:left+100,top,bottom:top+150,width:100,height:150};},
+    finish(){this.complete=true;this.naturalWidth=100;if(callbacks.load)callbacks.load();}};
+  Object.defineProperty(img,'src',{get(){return src;},set(url){
+    assert.equal(src,'','never reassign near-rail src');
+    src=url;nearStarts.push({id,priority:this.fetchPriority});
+  }});
+  nearDiscovery.deferHomeArtworkImage(img,'/art/'+id+'?variant=home');
+  return img;
+}
+const nearVisible=nearImage('visible',140,20,nearRail);
+const nearFar=Array.from({length:5},(_,i)=>nearImage('far-'+i,710+100*i,20,nearRail));
+const nearBelow=nearImage('near-below',180,620,null);
+nearObserver.notify([{target:nearVisible,isIntersecting:true},
+  {target:nearBelow,isIntersecting:true}]);
+while(nearFrames.length)nearFrames.shift()();
+assert.deepEqual(nearStarts.map(x=>x.id),['visible'],
+  'cold Home still isolates first visible image from all speculative starts');
+nearVisible.finish();
+while(nearFrames.length)nearFrames.shift()();
+assert.equal(nearStarts[1].id,'near-below',
+  '20px below viewport must outrank >200px forward rail art within the same budget');
+assert.equal(nearStarts[1].priority,'low',
+  'nearby speculation remains low priority');
+assert(nearStarts.length<=5,'only four speculative starts plus visible demand');
+assert.equal(new Set(nearStarts.map(x=>x.id)).size,nearStarts.length,
+  'nearby-first sorting must not start duplicate requests');
+console.log('PWA.15.21 near-demand priority within unchanged 4/6 budget PASS');
+
+// A fast swipe must stop using its three-width prewarm window after
+// movement has ceased. Completion events must not keep it active forever.
+const pausedScene=scrollScene(0);
+settleInitial(pausedScene);
+pausedScene.advance(16);
+pausedScene.rail.scrollLeft=18;
+pausedScene.schedule();
+const beforePause=pausedScene.starts.length;
+assert(pausedScene.starts.slice(beforePause-4).some(x=>x.index>=12),
+  'rapid swipe still uses its original predictive lookahead');
+pausedScene.advance(300);
+pausedScene.completeOutstanding();
+pausedScene.schedule();
+assert(pausedScene.starts.slice(beforePause).every(x=>x.index<12),
+  'after 300ms idle, no further three-width speculative starts');
+assert.equal(new Set(pausedScene.starts.map(x=>x.index)).size,pausedScene.starts.length);
+console.log('PWA.15.21 stopped-swipe lookahead decay PASS');

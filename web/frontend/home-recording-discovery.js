@@ -982,6 +982,11 @@
       motion.moved = true;
       motion.position = position;
       motion.sampledAt = now;
+    } else if (motion.fast && Number.isFinite(now) && Number.isFinite(motion.sampledAt) &&
+               now - motion.sampledAt > 250) {
+      // After a swipe stops, a later image load can re-arm this coordinator.
+      // Do not keep the former fast-swipe three-width window indefinitely.
+      motion.fast = false;
     }
     return motion;
   }
@@ -1078,10 +1083,13 @@
       if ((doc && doc.hidden) || (global.navigator && global.navigator.onLine === false) ||
           (net && (net.saveData || ['slow-2g', '2g'].includes(net.effectiveType)))) return;
       let budget = Math.min(4, Math.max(0, 6 - activeArtworkPrefetch.size));
-      // Forward candidates win regardless of which rail happens to be first
-      // in the DOM. Each completed request re-arms this same rAF coordinator.
+      // A poster within the observer's actual 120px lookahead (including
+      // the next vertical rail) must not wait behind a much farther
+      // directional candidate. Reuse the same 4/6 speculative budget:
+      // nearby demand first, then direction and distance. No extra starts.
       candidates.sort(function (a,b) {
-        return Number(b.forward) - Number(a.forward) || a.distance - b.distance;
+        return Number(a.distance > 120) - Number(b.distance > 120) ||
+          Number(b.forward) - Number(a.forward) || a.distance - b.distance;
       });
       for (const item of candidates) {
         if (budget <= 0) break;
