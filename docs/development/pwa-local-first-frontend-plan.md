@@ -2074,3 +2074,53 @@ Eine Verbesserung der gefuehlten Warm-/Kaltstartzeit im echten
 Browser muss weiterhin anhand vergleichbarer Navigations- und
 Scrollmessungen auf yaVDR nachgewiesen werden. Eine fehlende
 Cover-URL nutzt unveraendert den vorhandenen Ersatzbuchstaben.
+
+## PWA.15.22 — Bestehenden Home-Proof-Readback im Browser vorziehen (2026-11-21)
+
+PWA.15.21 lieferte deutlich mehr fertig geladene Cover beim
+Scrollen; im Warm-Lauf wurden aber 31 Bildanfragen vor dem ersten
+akzeptierten Recording-Artwork-Proof gezaehlt. Der aggregierte
+`firstProofGap` betrug 2373 ms. Das ist die Zeit zwischen der
+ersten unbewiesenen Bildanforderung und dem ersten akzeptierten
+Readback **in diesem Messdokument**; es ist keine pro-Bild-
+Wartezeit oder ein Beleg fuer eine geaenderte Berechtigung.
+Die beobachtete Verbesserung der Scroll-Cover bleibt erhalten.
+
+Der vorhandene Ablauf wurde quellseitig geprueft:
+`app.js::loadBackendDetails` dispatcht
+`fetchClientBackendSnapshot` bereits vor `openHome()` und vor
+Home-Resume-Lesern. Dieser kleine bestehende GET
+`/api/backends/{id}/snapshot` ist ein durch
+`HomeCacheScope.h` belegter regularer Scope-Readback und wird
+im Service Worker als Autorisierungskontext fuer Home-Cover
+verwendet. **Er wird nicht erneut angefordert, verdoppelt oder
+von der Coveranzeige abgewartet.**
+
+Die konkrete Luecke: `web/frontend/api/client-api.js::requestOptions`
+reichte keinen Fetch-Priority-Hinweis an den Browser weiter.
+`fetchClientBackendSnapshot` versieht deshalb ausschliesslich
+den bestehenden Snapshot-GET mit
+`RequestInit.priority = 'high'`; der parallele
+`/api/vdr/recordings/cache/status`-GET bleibt bei der normalen
+Browser-Prioritaet. `requestOptions` leitet den optionalen
+`priority`-Wert unveraendert durch. Dies ist ein HTTP-
+Scheduling-*Hinweis*, keine Garantie einer Reihenfolge und
+keine beweisbare Erklaerung aller 31 fruehen Bildanfragen.
+Browser ohne Unterstuetzung ignorieren ihn.
+
+Keine weitere Request- oder Refresh-Schleife, kein Await
+fuer Bilder, kein neuer Grant/Auth-Gate, keine Aenderung der
+Cache-Scope-/Session-Logik und kein weiterer SW-Schreibpfad.
+Die funktionierenden 4/6-Vorlaufgrenzen aus PWA.15.21,
+auch unmittelbar sichtbare Cover, bleiben unveraendert.
+Die bestehende Phase-66-Home-Initialisierungstestdatei
+enthaelt einen fokussierten End-to-End-Client-API-Vertragstest:
+genau zwei vorhandene Requests, zuerst der kleine Snapshot mit
+`high`, danach normale Prioritaet fuer den Recording-Count,
+und die unveraenderte fruehe Callback-/Count-Komposition.
+
+Noch offen: gleicher realer yaVDR-Warm-/Kalttest.
+Sollten `missingProofBeforeAcceptedRead` und `firstProofGap`
+nicht sinken, muss der tatsaechliche Cache-Proof-Race mit
+Browsertiming/Service-Worker-Akzeptanz untersucht werden, statt
+eine weitere Prio-Vermutung oder restriktive Sperre einzubauen.
