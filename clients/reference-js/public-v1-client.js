@@ -268,6 +268,112 @@
 
 
 
+
+  // F3: Public-v1 read-only EPG and search queries. No browser-private fallback.
+  function f3CanonicalId(value, label, maxLength) {
+    if (typeof value !== 'string' || value.length > maxLength ||
+        !/^[A-Za-z0-9._-]+$/.test(value)) {
+      throw new Error(label + ' must be a canonical identifier');
+    }
+    return value;
+  }
+
+  function f3UnixSeconds(value, label) {
+    const text = typeof value === 'number' && Number.isSafeInteger(value)
+      ? String(value) : value;
+    if (typeof text !== 'string' || !/^[1-9][0-9]{9,11}$/.test(text)) {
+      throw new Error(label + ' must be Unix seconds (10..12 digits)');
+    }
+    return text;
+  }
+
+  function f3EpgQuery(query, window) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Public EPG query must be an object');
+    const permitted = window
+      ? ['backendId', 'channelId', 'fromTime', 'untilTime', 'limit', 'cursor']
+      : ['backendId', 'channelId', 'fromTime', 'limit'];
+    Object.keys(query).forEach(function (field) {
+      if (!permitted.includes(field))
+        throw new Error('unsupported Public EPG query field: ' + field);
+    });
+    const backend = f3CanonicalId(query.backendId, 'EPG backendId', 128);
+    const channel = f3CanonicalId(query.channelId, 'EPG channelId', 256);
+    const from = f3UnixSeconds(query.fromTime, 'EPG fromTime');
+    const fields = [
+      'backendId=' + encodeURIComponent(backend),
+      'channelId=' + encodeURIComponent(channel),
+      'fromTime=' + from
+    ];
+    if (window) {
+      const until = f3UnixSeconds(query.untilTime, 'EPG untilTime');
+      if (Number(until) <= Number(from))
+        throw new Error('EPG untilTime must follow fromTime');
+      fields.push('untilTime=' + until);
+    }
+    if (query.limit !== undefined) {
+      const maximum = window ? 192 : 2;
+      if (!Number.isInteger(query.limit) ||
+          query.limit < 1 || query.limit > maximum)
+        throw new Error('EPG limit must be an integer from 1 to ' + maximum);
+      fields.push('limit=' + query.limit);
+    }
+    if (window && query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' ||
+          query.cursor.length < 5 || query.cursor.length > 4200)
+        throw new Error('EPG cursor must be a non-empty opaque cursor');
+      fields.push('cursor=' + encodeURIComponent(query.cursor));
+    }
+    return '?' + fields.join('&');
+  }
+
+  function f3SearchQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Public search query must be an object');
+    const allowed = ['backendId', 'query', 'limit', 'offset'];
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.includes(key))
+        throw new Error('unsupported Public search field: ' + key);
+    });
+    const backend = f3CanonicalId(query.backendId, 'Search backendId', 128);
+    if (typeof query.query !== 'string' ||
+        query.query.length < 2 || query.query.length > 240)
+      throw new Error('Search text must contain 2..240 characters');
+    const params = [
+      'backendId=' + encodeURIComponent(backend),
+      'query=' + encodeURIComponent(query.query)
+    ];
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) ||
+          query.limit < 1 || query.limit > 30)
+        throw new Error('Public search limit must be 1..30');
+      params.push('limit=' + query.limit);
+    }
+    if (query.offset !== undefined) {
+      if (!Number.isInteger(query.offset) ||
+          query.offset < 0 || query.offset > 1000000)
+        throw new Error('Public search offset must be 0..1000000');
+      params.push('offset=' + query.offset);
+    }
+    return '?' + params.join('&');
+  }
+
+  function f3AdjacentChannelQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Adjacent Channel query must be an object');
+    Object.keys(query).forEach(function (field) {
+      if (!['backendId', 'relativeTo', 'direction'].includes(field))
+        throw new Error('unsupported adjacent Channel field: ' + field);
+    });
+    const backend = f3CanonicalId(query.backendId, 'Channel backendId', 128);
+    const current = f3CanonicalId(query.relativeTo, 'Current channelId', 256);
+    if (query.direction !== 'up' && query.direction !== 'down')
+      throw new Error('Adjacent Channel direction must be up or down');
+    return '?backendId=' + encodeURIComponent(backend) +
+      '&limit=1&relativeTo=' + encodeURIComponent(current) +
+      '&direction=' + query.direction;
+  }
+
   function recordingCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('Recording collection query must be an object');
@@ -1989,6 +2095,27 @@
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/channels' + channelQuery(normalizedOptions.query), normalizedOptions);
+      },
+      // F3: explicit, backend-scoped Public-v1 reads; no Web route substitution.
+      getAdjacentChannel(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/channels' + f3AdjacentChannelQuery(input.query), input);
+      },
+      getEpgWindow(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/epg/window' + f3EpgQuery(input.query, true), input);
+      },
+      getEpgNowNext(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/epg/now-next' + f3EpgQuery(input.query, false), input);
+      },
+      searchEpg(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search/epg' + f3SearchQuery(input.query), input);
+      },
+      searchRecordings(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search/recordings' + f3SearchQuery(input.query), input);
       },
       getSearchTimers(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
