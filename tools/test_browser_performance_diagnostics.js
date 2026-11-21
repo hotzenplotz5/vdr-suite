@@ -553,6 +553,9 @@ async function main() {
     assert.equal(scrollReport.railArtworkPrefetch.becameReadyAfterEntry,1);
     assert.equal(scrollReport.railArtworkPrefetch.meanReadyDelayMs,70);
     assert.equal(scrollReport.railArtworkPrefetch.prefetchHitRatePercent,50);
+    assert.equal(scrollReport.railArtworkPrefetch.scrolledEnteredVisible,2);
+    assert.equal(scrollReport.railArtworkPrefetch.scrolledReadyBeforeEntry,1);
+    assert.equal(scrollReport.railArtworkPrefetch.scrollPrefetchHitRatePercent,50);
     assert.equal(scrollReport.railArtworkPrefetch.rightScrollFrames,1);
     assert.equal(scrollReport.railArtworkPrefetch.forwardEntries,1);
     assert.ok(!JSON.stringify(scrollReport).includes('private-pending'));
