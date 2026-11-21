@@ -1,5 +1,25 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F1 – Source-Inventur und Parität (21.11.2026)
+
+**F1 abgeschlossen (Quellinventur, keine API-v1-Releasefreigabe):**
+[maschinelle F1-Paritätsklassifikation](../development/api-v1-f1-parity-matrix.json),
+[Bericht und Evidenzgrenzen](../development/api-v1-f1-parity-report.md),
+[lesender Report](../../tools/report_public_v1_f1_parity.js).
+Ausgangsstand `d306c38b88b0d997add7ee03120239304e9396aa`: 60 OpenAPI-Pfadvorlagen/75 Methoden-Paare;
+72 Browser-Client-Operationen aus dem historischen Phase-69.F-Quellumfang.
+Unterschiede zwischen Public-v1-Domänen, browserprivaten Hilfen und
+nicht äquivalenten Legacy-Routen sind explizit klassifiziert. Das ist
+**kein** vollständiger Runtime-/Security-/Schema- oder TV-Client-Audit.
+
+**Folge:** F2 = OpenAPI/JS/Security-Vertragsparität; F3 = Backends/Channels/EPG;
+F4 = Recordings/Metadaten/Artwork; F5 = Timer/Suchtimer; F6 =
+Marks/Cut-Scopeentscheidung; F7 = Playback/Resume-Device-End-to-End;
+F8 = gemeinsamer Release-/Installationsabschluss. Diese Slices sind
+**noch nicht begonnen**. Keine neuen Runtime-Gates, keine
+Legacy-Alias-Entfernung und keine erneuten anerkannten VDR-Schreibtests.
+
+
 ## Samsung S3.3 / TV-übergreifender Public-v1-Nachweis (25.10.2026)
 
 Am echten Samsung Tizen 5.5 sind Public-v1-Discovery (31 Capabilities), Pairing/Device-Authentifizierung, die leere Backendliste **ohne** `channels.view`, der neu und ausdrücklich erteilte `channels.view@default`-Grant sowie **20 echte Sender** aus dem anschließend autorisierten `GET /api/v1/channels` nachgewiesen. Der technische Teststand ist der S3.3-Client; Live-Playback, EPG und Recording-Wiedergabe wurden dadurch **nicht** abgenommen. Das erneute VS-Code-Testinstallieren verlor das Credential auf dem TV, nicht die alte Server-Device-Identität; zwei Samsung-Devices mit gleichem Namen standen im Admin-Inventar. PR #539 hat einen 10-Sekunden-Read-Polling-Mechanismus, dessen reale Zeitgarantie nicht separat gemessen wurde.

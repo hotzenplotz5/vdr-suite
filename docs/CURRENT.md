@@ -1,5 +1,17 @@
 # VDR-Suite Current State
 
+## API.V1.F1 – Quellinventur und Paritätsklassifikation (21.11.2026)
+
+F1 dokumentiert die aktuelle Public-v1-OpenAPI-Oberfläche und die historischen
+Browser-Client-Gruppen in einer [maschinenlesbaren Paritätsmatrix](development/api-v1-f1-parity-matrix.json)
+mit einem [lesenden Inventarbericht](development/api-v1-f1-parity-report.md).
+Ausgangsstand: 60 dokumentierte Pfade, 75 Methoden-Paare und 72 im
+historischen Client-Inventar benannte Browser-Operationen. Die weiterführende
+F2–F8-Arbeit steht aus; vollständige Client-/Schema-/Runtime-Parität und
+API-v1-Release sind **nicht** abgenommen. F1 verändert keine produktiven
+Routen, Berechtigungen, PWA-Performance oder Hardwarezustände.
+
+
 ## PWA / Home performance — PAUSIERT (Maintainerentscheidung 2026-11-21)
 
 **Performance-Optimierung vorlaeufig eingefroren; kein Rollback und keine

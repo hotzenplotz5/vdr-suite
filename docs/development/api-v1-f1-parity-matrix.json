@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "API.V1.F1",
+  "baselineCommit": "d306c38b88b0d997add7ee03120239304e9396aa",
+  "auditedAt": "2026-11-21",
+  "description": "Source-inventory and parity classification, not public-v1 release acceptance or proof that registered routes match spec at runtime.",
+  "sources": {
+    "openapi": "api/openapi.json",
+    "historicalBrowserContract": "docs/development/phase-69f-client-contract-matrix.json",
+    "browserFiles": [
+      "web/frontend/api/client-api.js",
+      "web/frontend/api/genre-client-api.js",
+      "web/frontend/api/live-remote-client-api.js"
+    ],
+    "nativeAcceptance": "docs/development/public-v1-final-hardware-acceptance.md",
+    "scopeOwner": "docs/planning/public-v1-coverage-roadmap.md"
+  },
+  "domains": [
+    {
+      "id": "discovery",
+      "prefixes": [
+        "/api/v1",
+        "/api/v1/capabilities"
+      ],
+      "browserGroups": [],
+      "parity": "public-contract",
+      "nextSlice": "F2",
+      "note": "Discovery/compatibility are public; do not equate platform capabilities with VDR runtime capabilities."
+    },
+    {
+      "id": "backends",
+      "prefixes": [
+        "/api/v1/backends"
+      ],
+      "browserGroups": [
+        "backends"
+      ],
+      "legacyExamples": [
+        "/api/backends",
+        "/api/backends/default"
+      ],
+      "parity": "partial-non-equivalent",
+      "nextSlice": "F3",
+      "note": "First-party Backend selector/snapshot is richer than actor-filtered Public-v1 discovery. No blind substitution."
+    },
+    {
+      "id": "channels",
+      "prefixes": [
+        "/api/v1/channels"
+      ],
+      "browserGroups": [
+        "channels"
+      ],
+      "legacyExamples": [
+        "/api/vdr/channels",
+        "/api/vdr/channels/move"
+      ],
+      "parity": "partial-non-equivalent",
+      "nextSlice": "F3",
+      "note": "Public Channel paging and optional channelNumber sort are not a drop-in replacement; channel move has no established equivalent."
+    },
+    {
+      "id": "epg-search",
+      "prefixes": [
+        "/api/v1/epg",
+        "/api/v1/search/epg"
+      ],
+      "browserGroups": [
+        "epg-read",
+        "global-search"
+      ],
+      "legacyExamples": [
+        "/api/epg/cache/window",
+        "/api/epg/search",
+        "/api/search"
+      ],
+      "parity": "partial-to-review",
+      "nextSlice": "F3",
+      "note": "EPG window/event, now-next and search share capabilities; first-party EPG cache and global search have separate semantics."
+    },
+    {
+      "id": "recordings",
+      "prefixes": [
+        "/api/v1/recordings",
+        "/api/v1/search/recordings",
+        "/api/v1/genres"
+      ],
+      "browserGroups": [
+        "recordings",
+        "genre-extension"
+      ],
+      "legacyExamples": [
+        "/api/vdr/recordings/query",
+        "/api/metadata/genres"
+      ],
+      "parity": "partial-to-review",
+      "nextSlice": "F4",
+      "note": "Public rec_ identity and action contracts exist; browser query, folder and genre presentation require field-by-field comparison."
+    },
+    {
+      "id": "metadata-artwork",
+      "prefixes": [
+        "/api/v1/backends/{backendId}/metadata/resolve",
+        "/api/v1/recordings/{recordingId}/artwork",
+        "/api/v1/epg/artwork",
+        "/api/v1/epg/preferred-artwork"
+      ],
+      "browserGroups": [
+        "metadata-persons"
+      ],
+      "legacyExamples": [
+        "/api/metadata",
+        "/api/vdr/persons"
+      ],
+      "parity": "partial-to-review",
+      "nextSlice": "F4",
+      "note": "Public metadata/artwork routes coexist with first-party people/metadata views; no claim of equivalence or 404 remediation."
+    },
+    {
+      "id": "native-timers-and-operations",
+      "prefixes": [
+        "/api/v1/native-timers",
+        "/api/v1/timer-assignments",
+        "/api/v1/epg/timer-intents",
+        "/api/v1/operations"
+      ],
+      "browserGroups": [
+        "timers",
+        "epg-timer-create"
+      ],
+      "legacyExamples": [
+        "/api/vdr/timers/live",
+        "/api/vdr/timers/actions/create"
+      ],
+      "parity": "partial-non-equivalent",
+      "nextSlice": "F5",
+      "note": "Native Timer, TimerIntent, TimerAssignment and durable Operation are distinct resources. Historic live-VDR passes retained."
+    },
+    {
+      "id": "search-timers",
+      "prefixes": [
+        "/api/v1/search-timers"
+      ],
+      "browserGroups": [
+        "search-timers",
+        "search-timer-create-staging"
+      ],
+      "legacyExamples": [
+        "/api/vdr/searchtimers",
+        "/api/vdr/searchtimers/delete"
+      ],
+      "parity": "public-in-use-with-legacy",
+      "nextSlice": "F5",
+      "note": "Public-v1 browser management accepted in bounded yaVDR scope; legacy helper routes still appear in source, full field/device parity not inferred."
+    },
+    {
+      "id": "accounts-and-devices",
+      "prefixes": [
+        "/api/v1/accounts",
+        "/api/v1/devices",
+        "/api/v1/device-pairings"
+      ],
+      "browserGroups": [],
+      "parity": "public-contract",
+      "nextSlice": "F2",
+      "note": "Account, Device, pairing, credentials and grants share public security contracts; first-party admin UI is not represented by the three historic wrappers."
+    },
+    {
+      "id": "playback-and-resume",
+      "prefixes": [
+        "/api/v1/live-playback-sessions",
+        "/api/v1/recording-playback-sessions"
+      ],
+      "browserGroups": [],
+      "parity": "source-with-hardware-gaps",
+      "nextSlice": "F7",
+      "note": "MediaSession/progress/continue-watching exist in source; TV playback and cross-device hardware proof remain separate."
+    },
+    {
+      "id": "recording-marks-cut",
+      "prefixes": [],
+      "browserGroups": [],
+      "parity": "public-v1-scope-undecided",
+      "nextSlice": "F6",
+      "note": "Legacy recording marks/cut are not established as independent public-v1 mutations; explicit inclusion or exclusion decision needed."
+    },
+    {
+      "id": "broadcast-companion",
+      "prefixes": [],
+      "browserGroups": [
+        "broadcast-companion"
+      ],
+      "legacyExamples": [
+        "/api/vdr/broadcast/teletext/service",
+        "/api/vdr/broadcast/hbbtv/applications"
+      ],
+      "parity": "intentional-separate-plane",
+      "nextSlice": null,
+      "note": "Teletext/HbbTV is a separate bounded domain plane; F1 does not promote its browser routes to Public v1."
+    },
+    {
+      "id": "first-party-support",
+      "prefixes": [],
+      "browserGroups": [
+        "vdr-capabilities-runtime",
+        "epg-cache",
+        "recording-support",
+        "search-timer-cache",
+        "live-remote-extension"
+      ],
+      "legacyExamples": [
+        "/api/epg/cache/status",
+        "/api/vdr/recordings/cache/status",
+        "/api/vdr/live/overlay"
+      ],
+      "parity": "intentional-first-party-or-transition",
+      "nextSlice": null,
+      "note": "Runtime status, cache, remote, SSE and browser-specific presentation helpers remain private or separately classified; not automatically Public v1."
+    }
+  ],
+  "releaseStatus": "NOT_RELEASE_ACCEPTED",
+  "changePolicy": "Read-only classification; no new public routes, restrictions, deprecation flags or testing/approval gates."
+}
