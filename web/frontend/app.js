@@ -4639,32 +4639,6 @@ function installBrowserSessionFrontendGate() {
   return true;
 }
 
-// A new Service Worker cannot retroactively observe a previously completed
-// authenticated Home snapshot. On a real controller transition, recover the
-// existing scope proof once, without reloading Home or blocking any images.
-function installHomeArtworkControllerRecovery() {
-  const worker = window.navigator && window.navigator.serviceWorker;
-  if (!worker || typeof worker.addEventListener !== 'function') return;
-  let previousController = worker.controller;
-  worker.addEventListener('controllerchange', function () {
-    const nextController = worker.controller;
-    if (nextController === previousController) return;
-    previousController = nextController;
-    if (!nextController || !browserSessionFrontendActive ||
-        selectedModule !== 'overview' || !selectedBackend || !selectedBackendId) return;
-    const clientApi = frontendPlatformClientApi();
-    if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') return;
-    // Only on actual controller change. The normal two-GET Home bootstrap
-    // and its proven fast request priorities are never modified.
-    try {
-      Promise.resolve(clientApi.fetchClientBackendSnapshot(selectedBackendId, {
-        cache: 'no-store', artworkProofReadbackOnly: true
-      })).catch(function () {});
-    } catch (_) { /* Optional proof recovery must never block visible covers. */ }
-  });
-}
-
-installHomeArtworkControllerRecovery();
 installBrowserSessionFrontendGate();
 
 // Phase 58.90b: integrated standalone pointer channel sorter.
