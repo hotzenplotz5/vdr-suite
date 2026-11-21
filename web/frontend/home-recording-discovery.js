@@ -1029,6 +1029,9 @@
         const rail = typeof image.closest === 'function' ? image.closest('.media-home-discovery-rail') : null;
         if (artworkDistance(image, artworkBounds(rail)) === 0) visible.add(image);
       }
+      // A prefetched poster that scrolls into view is now viewport demand.
+      // Free its speculative slot even if the original request is pending.
+      for (const image of visible) activeArtworkPrefetch.delete(image);
       let high = 12;
       for (const image of visible) {
         if (high <= 0) break;

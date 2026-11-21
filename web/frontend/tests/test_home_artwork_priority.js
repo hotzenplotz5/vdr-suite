@@ -303,3 +303,22 @@ assert(leftScene.starts.some(x=>x.index===3 && x.priority==='low'),
 assert.equal(leftScene.posters[25].src,'','left lookahead stays bounded');
 assert.equal(new Set(leftScene.starts.map(x=>x.index)).size,leftScene.starts.length);
 console.log('PWA.15.11 directional, rapid scroll, request reuse and bounded prefetch PASS');
+
+// PWA.15.14: pending lookahead images that become visible must no longer
+// occupy speculative slots while the user scrolls toward the next covers.
+const demandScene = scrollScene(0);
+demandScene.schedule();
+demandScene.completeOutstanding(); // first viewport finishes; adjacent warmup begins
+demandScene.schedule(); // fill another speculative slot, leave requests pending
+const beforeDemandScroll = demandScene.starts.length;
+assert(demandScene.starts.some(x => x.index === 4 && x.priority === 'low'));
+assert.equal(demandScene.posters[4].complete, false);
+demandScene.rail.scrollLeft = 500;
+demandScene.schedule();
+const demandAhead = demandScene.starts.slice(beforeDemandScroll)
+  .filter(x => x.index >= 9 && x.priority === 'low');
+assert(demandAhead.length >= 3,
+  'visible pending prefetch must release lookahead slots for the next low-priority posters');
+assert.equal(new Set(demandScene.starts.map(x => x.index)).size, demandScene.starts.length,
+  'promoting a prefetched image must never assign the same src again');
+console.log('PWA.15.14 scroll-demand prefetch budget release PASS');
