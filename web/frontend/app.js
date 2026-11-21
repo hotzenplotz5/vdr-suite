@@ -3744,6 +3744,46 @@ function appendSettingsLanguageCard(parent) {
   parent.appendChild(card);
 }
 
+// Report only the identity of the running server, never the checkout or a
+// guessed distribution/plugin version. Public API v1 is the existing owner.
+function appendSettingsBuildIdentityCard(parent) {
+  const card = document.createElement('article');
+  card.className = 'module-placeholder settings-card settings-build-identity-card';
+  card.appendChild(addText(document.createElement('h3'), 'Installierter VDR-Suite-Stand'));
+  card.appendChild(addText(document.createElement('p'),
+    'Kennung des laufenden Daemons (Public API v1). Eine Paketversion ist nicht automatisch eine Git-Commit-ID.'));
+  const versionValue = appendSettingsLine(card, 'Server-Build', 'Wird geladen …');
+  const apiValue = appendSettingsLine(card, 'Public API', 'Wird geladen …');
+  parent.appendChild(card);
+
+  const unavailable = function() {
+    versionValue.textContent = 'Nicht verfügbar';
+    apiValue.textContent = 'Nicht verfügbar';
+  };
+  const factory = window.VdrSuitePublicV1Client;
+  if (!factory || typeof factory.createClient !== 'function') {
+    unavailable();
+    return Promise.resolve();
+  }
+  // Reuse the public reference client's normal session transport.
+  return Promise.resolve().then(function() {
+    return factory.createClient({credentials: 'same-origin'}).getApiRoot({
+      credentials: 'same-origin', cache: 'no-store'
+    });
+  }).then(function(data) {
+    if (!data || typeof data !== 'object') {
+      unavailable();
+      return;
+    }
+    const version = typeof data.serverVersion === 'string'
+      ? data.serverVersion.trim() : '';
+    const api = typeof data.apiVersion === 'string'
+      ? data.apiVersion.trim() : '';
+    versionValue.textContent = version ? version.slice(0, 128) : 'Nicht angegeben';
+    apiValue.textContent = api ? api.slice(0, 32) : 'Nicht angegeben';
+  }).catch(unavailable);
+}
+
 function renderSettingsView(data) {
   detailDataElement.replaceChildren();
 
@@ -3766,6 +3806,8 @@ function renderSettingsView(data) {
   panel.appendChild(intro);
 
   appendSettingsLanguageCard(panel);
+
+  appendSettingsBuildIdentityCard(panel);
 
   // Paired TVs/Apps are distinct from Human browser sessions. Show first.
   const deviceAdminSettings = window.VdrSuiteDeviceAdminSettings;
