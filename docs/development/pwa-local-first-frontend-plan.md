@@ -1647,3 +1647,42 @@ avoidance; a diagnostics synthetic viewport-entry test with privacy assertion;
 and a noisy 400 × 600 PNG preview fixture plus persistent preview reuse. The
 live browser measurement and yaVDR incremental C++ compilation remain
 acceptance checks, not results established by the source change alone.
+
+## PWA.15.12 — Einfacher Artwork-Cache ohne Kurzzeit-Freigabe (2026-11-21)
+
+Der Maintainer moechte, dass `recordings.view` die Darstellung aller
+zugehoerigen Aufnahmen, Metadaten und Artwork abdeckt. Es wird **keine
+separate Artwork-Berechtigung** eingefuehrt: Die Serverrouten pruefen
+weiterhin die bestehenden Rechte (fuer EPG-Artwork `epg.view`). Der
+Service Worker verwendet nach einer erfolgreichen regulaeren,
+serverautorisierten Home-Lesantwort dieselbe sitzungs- und
+berechtigungsgebundene Cache-Partition fuer das jeweilige Browser-Dokument.
+Die bisherige **30-Sekunden-Frist ab Antwort / 60-Sekunden-Obergrenze ab
+Anfragestart** fuer die Artwork-Cache-Wiederverwendung entfaellt. Dieses
+PWA.15.12-Verhalten ersetzt die Artwork-Fristen aus PWA.11/11.2/13.2;
+die **separate Home-Read-Model-Frist** wird nicht geaendert.
+
+Ein nachweislich in derselben Partition gespeichertes Artwork wird auch
+nach 24 Stunden sofort aus Cache Storage bereitgestellt, sofern das
+aktuelle Dokument die autorisierte Partition bereits erhalten hat. Nach
+fuenf Minuten ist eine beschraenkte Hintergrund-Revalidierung moeglich,
+ohne die sichtbare Cache-Antwort zu blockieren. Ohne aktuelle Partition,
+bei einem neuen Browser-Dokument vor dessen erstem autorisierten Home-Read,
+nach Logout/Login, bei neuer Berechtigungs-Partition, 401/403, explizitem
+Proof-Reset und offline bleibt der vorhandene Online- beziehungsweise
+Sitzungs-Schutzpfad erhalten. Das ist **kein** Zugriff fuer
+nichtangemeldete Benutzer und keine Lockerung der Server-Autorisierung.
+Eine externe Rechteaenderung wird bei der naechsten regulaeren
+autorisierten Leseantwort erkannt; sie wird nicht bei jedem Cover
+abgefragt. Bereits vom Benutzer lokal gespeicherte Bilder sind wie bei
+anderen Offline-Caches nicht rueckwirkend loeschbar auf fremden Geraeten.
+
+Die bestehenden Client-/Session-/Backend-Partitionen, Logout-Clear,
+Generation-/Sequence-Fences, canonical `variant=home`-URL-Regeln,
+256-KiB-/1-MiB-Grenzen und bounded Cache bleiben unveraendert.
+Frontend-/Service-Worker-Aktivierung ist erforderlich, aber kein
+C++-Daemon-Build. Tests aktualisieren die langzeitige Cache-Wiederverwendung,
+EPG- und Direkt-Artwork, Partitionwechsel und Logout. Browsermessung
+einschliesslich F5-Neustart bleibt als Laufzeitabnahme offen; diese
+Vereinfachung allein garantiert noch keine sofortige Bilddekodierung
+im DOM oder Treffer fuer bislang nicht gecachte Cover.
