@@ -238,10 +238,11 @@ console.log('PWA.15.10.1 bounded near-rail src prewarm after visible load contra
 // coordinator and actual scroll geometry, including pending deferred src.
 function scrollScene(initial){
   const frames=[],starts=[];
+  let clock=50;
   const rail={isConnected:true,scrollLeft:initial,clientWidth:400,
     getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
     querySelectorAll(){return posters;}};
-  const env={innerWidth:800,innerHeight:600,performance:{now(){return 50;}},
+  const env={innerWidth:800,innerHeight:600,performance:{now(){return clock;}},
     requestAnimationFrame(fn){frames.push(fn);},
     IntersectionObserver:class{observe(){} unobserve(){}}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:env});
@@ -269,7 +270,7 @@ function scrollScene(initial){
     drain();
   };
   const schedule=()=>{discovery.prioritizeInlineRailArtwork(rail);drain();};
-  return {rail,starts,posters,schedule,drain,completeOutstanding};
+  return {rail,starts,posters,schedule,drain,completeOutstanding,advance(ms){clock+=ms;}};
 }
 const rightScene=scrollScene(0);
 rightScene.schedule();
@@ -322,3 +323,43 @@ assert(demandAhead.length >= 3,
 assert.equal(new Set(demandScene.starts.map(x => x.index)).size, demandScene.starts.length,
   'promoting a prefetched image must never assign the same src again');
 console.log('PWA.15.14 scroll-demand prefetch budget release PASS');
+
+// PWA.15.15: a smooth swipe has small per-frame distances but high
+// velocity. Prewarm farther down its direction, using the same bounded
+// coordinator and never loading the entire collection.
+function settleInitial(scene) {
+  scene.schedule();
+  scene.completeOutstanding(); // initial viewport
+  scene.completeOutstanding(); // first near-rail prefetch batch
+  scene.completeOutstanding(); // remaining cold 1.5-width lookahead
+}
+const smoothScene=scrollScene(0);
+settleInitial(smoothScene);
+assert.equal(smoothScene.posters[12].src,'',
+  'an untouched cold Home must not prefetch three screens ahead');
+const beforeSmooth=smoothScene.starts.length;
+smoothScene.advance(16);
+smoothScene.rail.scrollLeft=18; // 1125px/s, but < half a rail width per frame
+smoothScene.schedule();
+const smoothStarts=smoothScene.starts.slice(beforeSmooth);
+assert(smoothStarts.some(x=>x.index>=12 && x.priority==='low'),
+  'a fast smooth swipe must begin covers beyond the previous 2-width bound');
+assert(smoothStarts.length<=4,'no more than four new speculative starts per frame');
+assert(smoothScene.starts.filter(x=>!smoothScene.posters[x.index].complete).length<=6,
+  'no more than six outstanding speculative image requests');
+assert.equal(smoothScene.posters[25].src,'',
+  'even a fast swipe does not request distant posters');
+const slowScene=scrollScene(0);
+settleInitial(slowScene);
+const beforeSlow=slowScene.starts.length;
+slowScene.advance(1000);
+slowScene.rail.scrollLeft=18;
+slowScene.schedule();
+const slowStarts=slowScene.starts.slice(beforeSlow);
+assert(slowStarts.some(x=>x.index===9 && x.priority==='low'),
+  'ordinary scrolling should start the next 2-width window');
+assert.equal(slowScene.posters[12].src,'',
+  'ordinary scrolling retains the smaller lookahead window');
+assert.equal(new Set(smoothScene.starts.map(x=>x.index)).size,smoothScene.starts.length,
+  'smooth scroll must never restart an assigned src');
+console.log('PWA.15.15 velocity-aware, bounded directional prewarm PASS');
