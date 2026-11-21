@@ -522,7 +522,7 @@ async function main() {
       src:'https://example.test/api/vdr/recordings/metadata/image?id=private-ready',
       complete:true,naturalWidth:100,__vdrSuiteArtworkPrefetchStartedAt:20,
       __vdrSuiteArtworkPrefetchDirection:'forward',loading:'eager',closest(){return scrollRail;},
-      getBoundingClientRect(){const left=730-scrollOffset;return {left,right:left+100,top:20,bottom:170,width:100,height:150};}};
+      getBoundingClientRect(){const left=650-scrollOffset;return {left,right:left+100,top:20,bottom:170,width:100,height:150};}};
     const scrollEnv = {
       innerWidth:800,innerHeight:600,URL,
       location:{href:'https://example.test/frontend/',origin:'https://example.test'},
