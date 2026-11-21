@@ -1,5 +1,45 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5 – Timer/Suchtimer bewusst zurückgestellt (21.11.2026)
+
+**Betreiberentscheidung:** F5 wird nicht als weiterer sofortiger Timer-/Suchtimer-
+Implementierungsslice gestartet. Stattdessen zuerst F6 (Marks/Cut,
+Scopeentscheidung) und F7 (Playback/Device/Resume) bearbeiten.
+Die bereits weitgehend entwickelte Timer-/SearchTimer-Domäne bleibt stabil;
+F5 später als gezielter Delta-/Interop-Abgleich aufgreifen, besonders mit
+Rückmeldungen der MLD-Entwickler. Die Entwickler haben hier noch keine
+neue Testzusage oder Ergebnisse abgegeben. F8 bleibt die **eine**
+gemeinsame API-v1-Release- und Hardware-Endabnahme; F5 ist
+**zurückgestellt, nicht gestrichen**.
+
+**Quell-/Real-VDR-Nachweise:** Die Suchtimer-Browser-Verwaltung verwendet
+bereits `POST /api/v1/search-timers`, GET-Liste/Detail/Version und
+`/api/v1/search-timers/{id}/mutations`; am 17.11.2026 waren
+inaktives CREATE, LIST, Suchbegriff-UPDATE, ACTIVATE, DEACTIVATE, DELETE
+auf dem echten yaVDR bestätigt. Der Browser-EPG-TimerIntent nutzt
+`POST /api/v1/epg/timer-intents` und hatte einen realen
+CREATE-Readback. Die allgemeinen Browser-Timerlisten/-Aktionen
+verwenden dagegen weiterhin `/api/vdr/timers/live` und
+`/api/vdr/timers/actions/{create,update,delete}`;
+es darf daher **keine vollständige Umstellung** der normalen
+Timer-Verwaltung auf Public v1 behauptet werden. Bestehende
+`/api/vdr/searchtimers`-Hilfswrapper belegen ebenfalls nicht,
+dass die aktiv genutzte Suchtimer-Verwaltung Legacy verwendet.
+
+**Spätere MLD-/Interop-Prüfung:** Die MLD-Nutzer sollten mit ihrer
+wirklichen Installation vorrangig Browser-äquivalente
+SearchTimer-LIST/DETAIL/VERSION, inaktives CREATE,
+UPDATE/ACTIVATE/DEACTIVATE/DELETE, Operation-Readback,
+Fehlersemantik, IDs, Backend-Scopes und Client-Credentials testen.
+Unbelegte Fälle (z. B. aktives CREATE, vollständiges
+Feld-UPDATE oder device-spezifische Grants) separat kennzeichnen;
+keine bereits bestätigten realen yaVDR-Schreibtests wiederholen.
+MLD-Tests sind wertvoll für Interoperabilität, ersetzen jedoch nicht
+die am Schluss vorgesehene gemeinsame Release-Abnahme.
+Einzelheiten und historische Testergebnisse bleiben in der
+[einzigen Hardware-Abnahmematrix](../development/public-v1-final-hardware-acceptance.md).
+
+
 ## API.V1.F4 – Recording, Metadaten, Artwork (21.11.2026)
 
 **Reference-JS-Leseumfang umgesetzt** auf

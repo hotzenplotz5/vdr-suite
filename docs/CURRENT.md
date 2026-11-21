@@ -1,5 +1,21 @@
 # VDR-Suite Current State
 
+## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
+
+Nach Betreiberentscheidung wird F5 hinter F6/F7 geschoben:
+die bewiesenen yaVDR-Native-Timer-/Suchtimer-Funktionen
+werden nicht neu entwickelt oder erneut destruktiv getestet.
+SearchTimer-CREATE/LIST/DETAIL/VERSION/MUTATION und
+EPG-TimerIntent-CREATE laufen im Browser bereits über Public v1;
+die allgemeinen Timer-Modul-Lese-/Schreibpfade nutzen noch
+`/api/vdr/timers/*`. MLD-Entwickler sollen später die
+tatsächliche Public-v1-Interoperabilität eigenständig testen;
+keine Zusage oder neue Testergebnisse voraussetzen.
+[Reihenfolge/Abgrenzung](planning/public-v1-coverage-roadmap.md).
+F8 bleibt der gemeinsame Releaseabschluss. Kein produktiver
+Code und keine Hardware-Abnahme geändert.
+
+
 ## API.V1.F4 – Recording-/Metadata-/Artwork-Client-Parität (21.11.2026)
 
 Auf `work/api-v1-finalisierung-f2-f8` wurden vier
