@@ -5471,3 +5471,16 @@ body.channel-sorter-dragging * {
   height: 2rem;
   flex: 0 0 auto;
 }
+
+/* PWA.15.25: uniform poster fallback; a failed request is never
+   stored as a permanent negative artwork cache entry. */
+.media-home-discovery-artwork.no-artwork {
+  background: #050505;
+  color: #b9c0c8;
+  font-size: .84rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-align: center;
+  padding: .75rem;
+  box-sizing: border-box;
+}

@@ -173,10 +173,13 @@
   function createArtwork(item) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    const fallback = title(item).slice(0, 1).toUpperCase() || '▶';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const url = posterUrl(item);
     if (!url) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -189,7 +192,7 @@
     image.loading = 'lazy';
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     return artwork;
@@ -626,10 +629,13 @@
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
     const title = recordingTitle(recording);
-    const fallback = title.slice(0, 1).toUpperCase() || '▶';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const url = posterUrl(recording);
     if (!url) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -644,7 +650,7 @@
     image.fetchPriority = 'low';
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     return artwork;

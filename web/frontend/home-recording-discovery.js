@@ -1245,10 +1245,15 @@
   function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    const fallback = text(fallbackText) || text(title).slice(0, 1).toUpperCase() || '▶';
+    // No URL needs no image request. An image error gets the same visual
+    // fallback but is not persisted as missing: a later render can retry.
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const resolved = text(url);
     if (!resolved) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -1258,7 +1263,7 @@
     deferHomeArtworkImage(image, publicPath(homePreview(resolved)));
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     prioritizeVisibleArtwork(image);
