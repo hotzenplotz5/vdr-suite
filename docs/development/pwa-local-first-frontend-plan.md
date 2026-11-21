@@ -1686,3 +1686,36 @@ EPG- und Direkt-Artwork, Partitionwechsel und Logout. Browsermessung
 einschliesslich F5-Neustart bleibt als Laufzeitabnahme offen; diese
 Vereinfachung allein garantiert noch keine sofortige Bilddekodierung
 im DOM oder Treffer fuer bislang nicht gecachte Cover.
+
+## PWA.15.14 — Lookahead-Slots bei sichtbarem Artwork freigeben (2026-11-21)
+
+Die vorhandene Home-Priorisierung beschraenkt den spekulativen Artwork-Vorlauf
+auf maximal sechs gleichzeitig offene Bilder (maximal vier neue je Frame).
+Bei schnellen horizontalen Scrollbewegungen blieb ein aus dem Vorlauf in den
+sichtbaren Ausschnitt bewegtes Bild jedoch bis zu seinem `load`-/`error`-Event
+im Set `activeArtworkPrefetch`. Solange dessen Request noch lief, belegte
+es faelschlich weiterhin einen der sechs *spekulativen* Plaetze. Damit
+wurde das Voraussenden der naechsten Cover ausgebremst, obwohl die
+zuvor vorabgerufenen Bilder inzwischen echte sichtbare Nachfrage waren.
+
+Fix: Nach der bestehenden sichtbaren Rail-/Viewport-Ermittlung werden
+die jetzt sichtbaren Bilder aus der spekulativen Slot-Buchhaltung entfernt.
+Angefangene URLs, HTTP-Requests und Bildknoten bleiben unveraendert;
+neue Vorabrufe benutzen weiterhin denselben Rail-/rAF-Koordinator,
+vorhandene fetchPriority-/IntersectionObserver-Logik und dieselben Grenzen
+fuer *noch nicht sichtbare* spekulative Bilder. Kein neuer Request-Pfad,
+kein Cache-Clear, keine Aenderung an Service Worker, Grant-Partition,
+Preview-Cache, Daemon oder Metadatenzuordnung.
+
+Die produktionsnahe Regression `test_home_artwork_priority.js` reproduziert
+eine schnelle Scrollbewegung, waehrend niedriger priorisierte Vorabrufe
+noch nicht fertig sind. Vor dem Fix startete im Szenario nur ein neuer
+Offscreen-Vorabruf; danach vier. Sie prueft auch, dass die bereits
+gestarteten URLs nicht erneut zugewiesen werden. Das belegt den
+Frontend-Slot-Fehler, **nicht** die Ursache der gemessenen bis 11,243 s
+HTTP-Wartezeit. Browser-/Netzwerk-Queue, Service-Worker-Laufzeit und
+Server-Timing lassen sich aus den vorliegenden zusammengefassten Werten
+nicht eindeutig auseinanderhalten. PWA.15.12 und PWA.15.13 bleiben
+unveraendert. Echte Browser-/yaVDR-Abnahme und die Wirkung auf graue
+Kacheln stehen separat aus; die Interna der als Vergleich genannten
+IPTVnator-App sind nicht verifiziert.
