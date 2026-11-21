@@ -790,6 +790,23 @@ async function proveSettledNativeMissUsesNoArtwork(harness) {
   missing.nativeMetadata = {
     available: false, status: 'not-found', settled: true
   };
+  const foundMissing = makeRecording(
+    'found-missing', 'found-missing-native',
+    'Doku/FoundMissing/2026-11-21.rec', 'Found without poster', speculativeUrl);
+  foundMissing.nativeMetadata = {
+    available: true, status: 'ready',
+    preferredArtwork: {available: false}, images: []
+  };
+  const galleryUrl =
+    '/api/vdr/recordings/metadata/image?backend=default' +
+    '&backendNativeId=gallery-native&kind=gallery&index=1';
+  const gallery = makeRecording(
+    'gallery-cover', 'gallery-native',
+    'Doku/Gallery/2026-11-21.rec', 'Gallery poster', speculativeUrl);
+  gallery.nativeMetadata = {
+    available: true, status: 'ready', preferredArtwork: {available: false},
+    images: [{orientation: 'portrait', image: {available: true, url: galleryUrl}}]
+  };
   const unknown = makeRecording(
     'unknown-cover', 'unknown-native',
     'Doku/Unknown/2026-11-21.rec', 'Unknown cover', speculativeUrl);
@@ -802,7 +819,7 @@ async function proveSettledNativeMissUsesNoArtwork(harness) {
   };
   harness.setClient({
     fetchClientRecordings() {
-      return Promise.resolve({recordings: [missing, unknown, legacy]});
+      return Promise.resolve({recordings: [missing, foundMissing, gallery, unknown, legacy]});
     },
     fetchClientGenres() { return Promise.resolve({genres: []}); },
     fetchClientGenreRecordings() {
@@ -819,13 +836,23 @@ async function proveSettledNativeMissUsesNoArtwork(harness) {
   const newly = findRail(harness.host, 'newly-recorded');
   assert(newly, 'Home uses the production newly-recorded rail');
   const missingCard = findRecordingCard(newly, 'missing-cover');
+  const foundMissingCard = findRecordingCard(newly, 'found-missing');
+  const galleryCard = findRecordingCard(newly, 'gallery-cover');
   const unknownCard = findRecordingCard(newly, 'unknown-cover');
   const legacyCard = findRecordingCard(newly, 'legacy-cover');
-  assert(missingCard && unknownCard && legacyCard);
+  assert(missingCard && foundMissingCard && galleryCard && unknownCard && legacyCard);
   assert.strictEqual(findImage(missingCard), null,
     'a settled native miss must not create a failing image request');
   assert(hasText(missingCard, 'No Artwork'),
     'the existing black No Artwork tile is retained');
+  assert.strictEqual(findImage(foundMissingCard), null,
+    'known native metadata without any preferred/gallery image triggers no GET');
+  assert(hasText(foundMissingCard, 'No Artwork'));
+  assert.strictEqual(findImage(galleryCard).src, galleryUrl + '&variant=home',
+    'existing native portrait gallery survives without a preferred poster');
+  assert.strictEqual(harness.api.recordingMetadataProjection(
+    unknown, foundMissing.nativeMetadata, 'default', false).posterUrl, '',
+    'later found metadata without an image must remove a speculative URL');
   assert.strictEqual(findImage(unknownCard).src, speculativeUrl + '&variant=home',
     'unknown native state keeps existing compatibility behavior');
   assert.strictEqual(findImage(legacyCard).src,
