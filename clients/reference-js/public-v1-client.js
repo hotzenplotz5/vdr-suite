@@ -413,6 +413,64 @@
     return '?' + params.toString();
   }
 
+
+  // F4: Public Recording IDs are not native VDR paths.
+  function f4Id(value, label, pattern) {
+    if (typeof value !== 'string' || !pattern.test(value))
+      throw new Error(label + ' is invalid');
+    return value;
+  }
+
+  function f4RecordingDetailPath(input) {
+    const id = f4Id(input.recordingId, 'recordingId', /^rec_[0-9a-f]{32}$/);
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    return '/api/v1/recordings/' + id + '?backendId=' + encodeURIComponent(backend);
+  }
+
+  function f4PagedQuery(input, kind) {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new Error('Public Recording query must be an object');
+    const folder = kind === 'folders', membership = kind === 'membership';
+    const allowed = folder ? ['backendId', 'folderId', 'limit', 'offset']
+      : membership ? ['backendId', 'genreId', 'locale', 'limit', 'offset']
+      : ['backendId', 'locale', 'limit', 'offset'];
+    Object.keys(input).forEach(function (name) {
+      if (!allowed.includes(name))
+        throw new Error('Unsupported Recording query field: ' + name);
+    });
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    const values = ['backendId=' + encodeURIComponent(backend)];
+    if (folder) {
+      values.push('view=folders');
+      if (input.folderId !== undefined) {
+        const id = f4Id(input.folderId, 'folderId', /^fld1_[0-9a-f]{32}$/);
+        values.push('folderId=' + encodeURIComponent(id));
+      }
+    } else {
+      if (membership) {
+        const id = f4Id(input.genreId, 'genreId', /^[A-Za-z0-9._-]{1,128}$/);
+        values.push('genreId=' + encodeURIComponent(id));
+      }
+      if (input.locale !== undefined) {
+        if (input.locale !== 'de' && input.locale !== 'en')
+          throw new Error('Genre locale must be de or en');
+        values.push('locale=' + input.locale);
+      }
+    }
+    if (input.limit !== undefined) {
+      const max = folder ? 100 : 30;
+      if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > max)
+        throw new Error('Recording/Genre limit is invalid');
+      values.push('limit=' + input.limit);
+    }
+    if (input.offset !== undefined) {
+      if (!Number.isInteger(input.offset) ||
+          input.offset < 0 || input.offset > 1000000)
+        throw new Error('Recording/Genre offset is invalid');
+      values.push('offset=' + input.offset);
+    }
+    return '?' + values.join('&');
+  }
   function recordingArtworkPath(options, binary) {
     if (!options || typeof options !== 'object' ||
         typeof options.recordingId !== 'string' ||
@@ -2075,6 +2133,24 @@
           '/api/v1/recordings' + recordingCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+
+      getRecordingDetail(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f4RecordingDetailPath(o), o);
+      },
+      getRecordingFolders(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/recordings' + f4PagedQuery(o.query, 'folders'), o);
+      },
+      getRecordingGenres(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres' + f4PagedQuery(o.query, 'genres'), o);
+      },
+      getGenreRecordings(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/recordings' +
+          f4PagedQuery(o.query, 'membership'), o);
       },
       getRecordingArtwork(options) {
         const input = options && typeof options === 'object' ? options : {};
