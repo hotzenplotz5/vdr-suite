@@ -632,7 +632,15 @@ const posterFromRecording = vm.runInNewContext(
   {
     metadata: recording => recording.metadata || {},
     presentation: recording => recording.metadata.presentation || {},
-    text: value => String(value || '').trim()
+    text: value => String(value || '').trim(),
+    recordingMetadataPosterUrl: value => {
+      const portrait = (value.images || []).find(entry =>
+        entry.orientation === 'portrait' && entry.image &&
+        entry.image.available === true && entry.image.url);
+      return (portrait && portrait.image.url) ||
+        (value.preferredArtwork && value.preferredArtwork.available === true
+          ? value.preferredArtwork.url : '') || '';
+    }
   });
 const speculativePoster = '/api/vdr/recordings/metadata/image?kind=preferred&index=0';
 const unverifiedRecording = {
@@ -669,4 +677,42 @@ assert.equal(posterFromRecording({
   },
   nativeMetadata: {available: false, settled: true}
 }), cachedPoster, 'known cached legacy artwork takes precedence over a native miss');
+const confirmedMissingImage = {
+  ...unverifiedRecording,
+  nativeMetadata: {
+    available: true, status: 'ready',
+    preferredArtwork: {available: false}, images: []
+  }
+};
+assert.equal(posterFromRecording(confirmedMissingImage), '',
+  'found native metadata without preferred/gallery artwork must not emit an image GET');
+assert.equal(posterFromRecording(unverifiedRecording,
+  confirmedMissingImage.nativeMetadata), '',
+  'a later rich native read without image suppresses a speculative URL');
+const confirmedGallery = '/api/vdr/recordings/metadata/image?kind=gallery&index=2';
+const galleryMetadata = {
+  available: true, preferredArtwork: {available: false},
+  images: [{orientation: 'portrait', image: {available: true, url: confirmedGallery}}]
+};
+assert.equal(posterFromRecording(unverifiedRecording, galleryMetadata),
+  confirmedGallery, 'real gallery poster replaces a guessed preferred URL');
+assert.equal(posterFromRecording({
+  ...unverifiedRecording,
+  nativeCardMetadata: galleryMetadata
+}), confirmedGallery, 'embedded native gallery works before rich metadata GET');
+const revisionPoster = speculativePoster + '&assignmentRevision=12';
+assert.equal(posterFromRecording({
+  metadata: {
+    artwork: {available: false, preferredUrl: revisionPoster},
+    presentation: {posterUrl: revisionPoster}
+  },
+  nativeMetadata: {available: false, settled: true}
+}), revisionPoster, 'selected manual poster revisions are never suppressed');
+assert.equal(posterFromRecording({
+  metadata: {
+    artwork: {available: false, preferredUrl: '/external-legacy.jpg'},
+    presentation: {posterUrl: '/external-legacy.jpg'}
+  },
+  nativeMetadata: {available: false, settled: true}
+}), '/external-legacy.jpg', 'non-synthetic existing URLs are not suppressed');
 console.log('PWA.15.26 settled native misses and legacy poster fallback PASS');
