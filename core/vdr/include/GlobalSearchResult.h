@@ -16,6 +16,9 @@ struct GlobalSearchRecording
     int durationSeconds = 0;
     long long sizeMb = 0;
     bool artworkAvailable = false;
+    // Explicit legacy artwork is resolved by its opaque owner. When this is
+    // empty, a positive native/manual preferred path owns the image URL.
+    std::string artworkUrl;
     std::string matchedPerson;
     std::string matchedRole;
     std::string matchReason;

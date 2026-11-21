@@ -129,6 +129,8 @@ void normalizeWindow(std::int64_t& from, std::int64_t& until)
 
 std::string recordingArtworkUrl(const GlobalSearchRecording& item)
 {
+    if (!item.artworkAvailable) return {};
+    if (!item.artworkUrl.empty()) return item.artworkUrl;
     if (item.backendNativeId.empty()) return {};
     return "/api/recordings/metadata/image?backend=" + percentEncode(item.backendId) +
         "&backendNativeId=" + percentEncode(item.backendNativeId) +

@@ -258,6 +258,39 @@ int main()
     assert(none.recordingTotal == 0);
     assert(none.epgTotal == 0);
 
+    // Generic artwork delivery: no evidence => no request, native proof =>
+    // native owner, and legacy-only cache => opaque Recording artwork owner.
+    const GlobalSearchResult nativePoster = repository.search(
+        "default", "Pulp Fiction", 1785000000, 1785400000, 20, 0);
+    assert(nativePoster.recordingTotal == 1);
+    assert(nativePoster.recordings[0].artworkAvailable);
+    assert(nativePoster.recordings[0].artworkUrl.empty());
+
+    const GlobalSearchResult absentPoster = repository.search(
+        "default", "München", 1785000000, 1785400000, 20, 0);
+    assert(absentPoster.recordingTotal == 1);
+    assert(!absentPoster.recordings[0].artworkAvailable);
+    assert(absentPoster.recordings[0].artworkUrl.empty());
+
+    VdrRecordingMetadata legacyArtwork;
+    VdrRecordingArtworkRef legacyPoster;
+    legacyPoster.kind = VdrRecordingArtworkKind::Poster;
+    legacyPoster.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    legacyPoster.reference = "/var/cache/vdr/plugins/tvscraper/legacy.jpg";
+    legacyArtwork.artwork.push_back(legacyPoster);
+    const std::string encoded =
+        VdrRecordingMetadataCacheCodec::encode(legacyArtwork);
+    execute(database,
+        "UPDATE vdr_recording_cache SET metadata_payload='" + encoded +
+        "' WHERE backend_id='default' AND cache_key='r2';");
+    const GlobalSearchResult legacyOnly = repository.search(
+        "default", "München", 1785000000, 1785400000, 20, 0);
+    assert(legacyOnly.recordingTotal == 1);
+    assert(legacyOnly.recordings[0].artworkAvailable);
+    assert(legacyOnly.recordings[0].artworkUrl.find(
+        "/recording-artwork/default/") == 0);
+
     Database performanceDatabase;
     assert(performanceDatabase.open(":memory:"));
     createExistingSchemas(performanceDatabase);
