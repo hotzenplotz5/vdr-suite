@@ -29,9 +29,9 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies **55 documented HTTP method/resource contracts** across **43 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies **75 documented HTTP method/resource contracts** across **60 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
-The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
+F2 now documents five source-grounded authentication transport schemes and method-specific requirements for all 75 currently documented operations. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.\n\nThe public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
 ## TV client interoperability and actual hardware status (2026-10-25)
 

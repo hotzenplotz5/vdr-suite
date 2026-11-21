@@ -1,5 +1,14 @@
 # VDR-Suite Current State
 
+## API.V1.F2 – dokumentierte Authentifizierungsparität (21.11.2026)
+
+Auf dem Finalisierungsbranch sind für die 75 bereits dokumentierten
+OpenAPI-Methoden fünf vorhandene Transportprofile erfasst.
+[F2-Bericht](development/api-v1-f2-security-parity.md) und
+Reference-JS-Test vorhanden. Kein Backend-/Host-/PWA-Eingriff;
+API-v1-Release weiterhin offen, F3–F8 folgen separat.
+
+
 ## API.V1.F1 – Quellinventur und Paritätsklassifikation (21.11.2026)
 
 F1 dokumentiert die aktuelle Public-v1-OpenAPI-Oberfläche und die historischen

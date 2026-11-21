@@ -1,5 +1,17 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F2 – OpenAPI/Reference-JS-Authentifizierung (21.11.2026)
+
+**F2-Quellvertrag auf `work/api-v1-finalisierung-f2-f8`:**
+[Security-Paritätsbericht](../development/api-v1-f2-security-parity.md),
+[lesender Reporter](../../tools/report_public_v1_f2_security.js),
+[Reference-JS-Test](../../clients/reference-js/tests/test_public_v1_f2_auth_transport.js).
+Die partielle OpenAPI hat 75 Methoden mit expliziten Auth-Transportprofilen;
+Client-Credentials bleiben caller-owned. Keine Änderung an Runtime,
+Grants, API-Routen oder akzeptierten Hardware-Tests.
+F3–F8 und ein gemeinsamer API-v1-Release bleiben offen.
+
+
 ## API.V1.F1 – Source-Inventur und Parität (21.11.2026)
 
 **F1 abgeschlossen (Quellinventur, keine API-v1-Releasefreigabe):**

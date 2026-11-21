@@ -107,3 +107,22 @@ CSRF-protected established endpoint; it does not call private routes from
 Public-v1 reference clients. It now uses a revision handshake at playback
 owner creation and versioned checkpoints. HTTP 409 intentionally blocks an
 older player from replaying a stale position.
+
+## API.V1.F2 – caller-owned Authentifizierungs-Transporte
+
+Der vorhandene `createClient({baseUrl, fetch, headers, credentials})`
+übernimmt die Authentifizierung des Aufrufers; es wird kein
+zweiter Login-, Cache- oder Session-Owner eingeführt.
+
+- **Browser:** Default-Cookie `vdr_suite_session` via `credentials:'include'`;
+  für geschützte Browser-Mutationen außerdem `X-CSRF-Token`.
+- **Device:** `Authorization: VDR-Suite-Device <id>.<secret>`;
+  ausdrücklich kein Bearer-Token und kein Browser-Cookie.
+- **Pairing:** `X-VDR-Suite-Pairing-Token` für den begrenzten
+  Bootstrap-Status und die einmalige Credential-Ausgabe.
+- **Managed Basic:** nur wenn der Server es bereits entsprechend
+  konfiguriert hat und SecurityHttpGate es an dieser Route zulässt.
+
+Keine dieser Varianten erzeugt automatisch Grants. Die Bibliothek
+führt weder spekulative Mutations-Retries noch Legacy-Route-Fallbacks aus.
+Siehe [F2-Nachweis](../../docs/development/api-v1-f2-security-parity.md).
