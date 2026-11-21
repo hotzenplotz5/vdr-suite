@@ -154,6 +154,33 @@
     if (target) target.textContent = value;
   }
 
+  function autoCalibrationGuidance(snapshot) {
+    const calibration = snapshot.calibration || {};
+    const vaapi = snapshot.vaapi || {};
+    const mode = String(snapshot.effectiveMode || 'auto');
+    if (mode === 'software') return text(
+      'x264 ist erzwungen; das beweist noch keine ausreichende Echtzeit-Leistung für Auto.',
+      'x264 is forced; this does not establish real-time suitability for Auto.'
+    );
+    if (mode !== 'auto') return '';
+    if (!calibration.profilePresent) return text(
+      'Auto: Kalibrierprofil fehlt. vdr-suite-media-calibrate auf dem VDR-Host außerhalb laufender Wiedergaben ausführen. Unter MLD muss das Werkzeug im Paket verfügbar sein.',
+      'Auto: calibration profile is missing. Run vdr-suite-media-calibrate on the VDR host outside active playback. On MLD, the tool must be packaged.'
+    );
+    if (!calibration.profileValid) return text(
+      'Auto: Kalibrierprofil ungültig. Nur die Versionen 3 und 4 sind unterstützt. Das Profil mit vdr-suite-media-calibrate neu erzeugen.',
+      'Auto: invalid calibration profile. Only versions 3 and 4 are supported. Recreate it with vdr-suite-media-calibrate.'
+    );
+    if (!calibration.softwareSuitable && !vaapi.suitable) return text(
+      'Auto: Kein ausreichend schneller Encoder ausgewiesen. Entweder fehlen Messwerte für den Video-Workload oder die gemessene Leistung unterschreitet die Echtzeit-Schwelle. Mit repräsentativen Aufnahmen kalibrieren.',
+      'Auto: no suitable encoder recorded. Measurements for the video workload may be missing, or measured performance may be below the real-time threshold. Calibrate with representative recordings.'
+    );
+    return text(
+      'Auto: Mindestens ein Encoder ist grundsätzlich kalibriert. Für Live-TV muss auch der konkrete Video-Workload gemessen sein.',
+      'Auto: at least one encoder is calibrated. Live TV still needs measurements for the specific video workload.'
+    );
+  }
+
   function applySnapshot(card, snapshot) {
     const selector = card.querySelector('[data-media-transcode-mode]');
     selector.value = snapshot.managed
@@ -196,6 +223,8 @@
         ' · ' + text('geeignet: ', 'suitable: ') + booleanText(Boolean(vaapi.suitable))
     );
     setDiagnostic(card, 'vaapi-reason', String(vaapi.reason || '—'));
+    const guidance = card.querySelector('[data-media-transcode-guidance]');
+    if (guidance) guidance.textContent = autoCalibrationGuidance(snapshot);
   }
 
   function diagnosticRow(list, label, attribute) {
@@ -250,6 +279,11 @@
     diagnosticRow(diagnostics, 'VAAPI', 'vaapi');
     diagnosticRow(diagnostics, text('VAAPI-Status', 'VAAPI status'), 'vaapi-reason');
     card.appendChild(diagnostics);
+    card.appendChild(element('p', {
+      className: 'media-transcode-settings-muted',
+      'data-media-transcode-guidance': 'true',
+      role: 'status'
+    }, ''));
 
     const help = element('div', {className: 'media-transcode-settings-muted'});
     const notes = element('ul', {className: 'media-transcode-settings-help'});
