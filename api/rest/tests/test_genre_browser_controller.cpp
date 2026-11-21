@@ -262,9 +262,9 @@ int main()
     // Legacy schema remains usable; native summaries are an additive cache read.
     const ApiResponse legacyRecordings = controller.getRecordings("default", "science-fiction", 10, 0);
     assert(legacyRecordings.statusCode == 200);
-    // Unknown older backends retain their legacy URL; absence of a
-    // cache summary alone must not suppress potentially valid artwork.
-    assert(contains(legacyRecordings, "&kind=poster&index=0"));
+    // Unknown image state never warrants a speculative metadata image GET.
+    assert(contains(legacyRecordings, "\"posterUrl\":\"\""));
+    assert(!contains(legacyRecordings, "&kind=poster&index=0"));
     assert(!contains(legacyRecordings, "&kind=preferred&index=0"));
     // Native ID without any artwork in either cache must not fabricate an
     // image URL that can only lead to HTTP 404.
@@ -280,7 +280,8 @@ int main()
         encoded + "' WHERE backend_id='default' AND cache_key='recording-1';"));
     const ApiResponse cachedLegacyRecording =
         controller.getRecordings("default", "science-fiction", 10, 0);
-    assert(contains(cachedLegacyRecording, "&kind=poster&index=0"));
+    assert(contains(cachedLegacyRecording, "/recording-artwork/default/"));
+    assert(!contains(cachedLegacyRecording, "&kind=poster&index=0"));
     assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='' "
         "WHERE backend_id='default' AND cache_key='recording-1';"));
     assert(!contains(legacyRecordings, "seriesMetadata"));
@@ -320,7 +321,8 @@ int main()
         encoded + "' WHERE backend_id='default' AND cache_key='recording-1';"));
     const ApiResponse nativeWithLegacyPoster =
         controller.getRecordings("default", "science-fiction", 10, 0);
-    assert(contains(nativeWithLegacyPoster, "&kind=poster&index=0"));
+    assert(contains(nativeWithLegacyPoster, "/recording-artwork/default/"));
+    assert(!contains(nativeWithLegacyPoster, "&kind=poster&index=0"));
     assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='' "
         "WHERE backend_id='default' AND cache_key='recording-1';"));
 
