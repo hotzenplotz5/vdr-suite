@@ -153,7 +153,8 @@ int main() {
     fs::remove_all(cacheRoot);
     fs::create_directory(cacheRoot);
     ::chmod(cacheRoot.c_str(), 0700);
-    // Capacity is enforced before publishing the next output.
+    // The 256-entry limit used to evict posters even with plenty of disk
+    // space: preserve those entries when the new byte/entry bounds allow it.
     for (unsigned i = 0; i < 256; ++i) {
         char name[69];
         std::snprintf(name, sizeof(name), "%064x.jpg", i);
@@ -162,7 +163,20 @@ int main() {
     assert(!cache.home("eviction", "image/png", png).empty());
     std::size_t count = 0, bytes = 0;
     for (const auto& entry : fs::directory_iterator(cacheRoot)) { ++count; bytes += entry.file_size(); }
-    assert(count <= 256 && bytes <= 32 * 1024 * 1024);
+    assert(count == 257 && bytes <= 64 * 1024 * 1024);
+
+    // Even with many entries and an overfull byte budget, publication must
+    // evict the oldest files and remain bounded (no unbounded disk growth).
+    for (unsigned i = 256; i < 1024; ++i) {
+        char name[69];
+        std::snprintf(name, sizeof(name), "%064x.jpg", i);
+        write(cacheRoot / name, std::string(48 * 1024, 'x'));
+    }
+    const auto nextSource = fixture("png", "900x1300");
+    assert(!cache.home("eviction-at-capacity", "image/png", nextSource).empty());
+    count = 0; bytes = 0;
+    for (const auto& entry : fs::directory_iterator(cacheRoot)) { ++count; bytes += entry.file_size(); }
+    assert(count <= 1024 && bytes <= 64 * 1024 * 1024);
     // A timed-out decoder is killed; a repeated failed identity is cooled down.
     write(root / "slow", "#!/bin/sh\nsleep 10\n");
     ::chmod((root / "slow").c_str(), 0700);
