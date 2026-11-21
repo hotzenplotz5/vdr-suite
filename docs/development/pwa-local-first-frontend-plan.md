@@ -1797,3 +1797,53 @@ Messungen und einen real zeitgleich laufenden Hintergrund- und
 Vordergrund-HTTP-Abruf. Erst die naechste vergleichbare Messung
 kann entscheiden, ob Hintergrundrefreshs den sichtbaren Abruf
 ausbremsen oder ob die Wartezeit anderswo entsteht.
+
+## PWA.15.17 — Niedrig priorisierte, begrenzte Artwork-Revalidierung (2026-11-21)
+
+Die PWA.15.16-Laufzeitmessung mit rund 71 s und 353 sichtbaren
+Scroll-Eintritten ergab eine Trefferquote von 67,4 %, mittlere
+Nachladezeit 462 ms und maximale Nachladezeit 3994 ms. Der SW
+lieferte 145 lokale Cover in maximal 4 ms, aber HTTP-Bilder
+warteten bis zu 4234 ms auf Antwort-Header. Von 208 gestarteten
+Bild-HTTP-Anfragen waren 60 Hintergrundaktualisierungen; 24
+Vordergrundanfragen starteten waehrend noch laufendem Refresh.
+Dies zeigt Ueberlappung, **beweist keine verursachte Verlangsamung**.
+
+Die vorhandene stale-while-revalidate-Logik bleibt erhalten, aber
+laesst hoechstens **zwei statt vier** gleichzeitig laufende
+optionale Hintergrund-Refreshes zu. Ihr HTTP-Request erhaelt den
+Web-RequestInit-Hinweis `priority: 'low'`, sofern vom Browser
+unterstuetzt; sichtbare und andere Vordergrund-Bildabrufe behalten
+ihre urspruengliche Prioritaet. Bei bereits belegten Refresh-Slots
+bleibt die vorhandene lokale Antwort sofort verfuegbar; die
+ausgelassene Aktualisierung kann beim naechsten autorisierten
+Cache-Treffer erneut gestartet werden. Keine Timer, Warteschlangen,
+zusaetzlichen Requests oder neuen Sperren.
+
+Um die 50 `missingProof`-Ereignisse aus PWA.15.16 einzuordnen,
+liefert die **bestehende** rein optionale, pro kontrolliertem
+Dokument gehaltene Worker-Diagnose drei sich gegenseitig
+ausschliessende Unterzaehler:
+`missingProofBeforeAcceptedRead` (noch nie eine passende
+regulaere Server-Lesantwort bestaetigt),
+`missingProofOtherKind` (passender Backend-Proof, jedoch
+nur fuer die andere Artwork-Art: EPG vs. Recording) und
+`missingProofAfterAcceptedRead` (nach zuvor akzeptierter
+Leseantwort, ohne passenden aktuellen Proof). Der letzte
+Zaehler beweist weder eine Rechteaenderung noch einen Fehler:
+andere Backends oder ein regulaerer Sitzungs-/Proof-Reset sind
+moegliche Gruende. Leere clientId erhaelt wie zuvor keine
+Diagnose; keine Kennungen oder URL-Parameter werden exportiert.
+
+Unveraendert: normale HTTP-Antworten, Backend- und
+Client-Partitionierung, vorhandene Grants, lokaler Artwork-Cache,
+TTL/Refresh-Schwelle, 304-Verarbeitung, Fehlerbehandlung, Logout-
+Invalidierung. Eine erfolgreich abgeschlossene HTTP-Revalidierung
+kann weiterhin die unveraenderten Bildkoerper/-Header liefern.
+PWA.15.17 haengt weiterhin von der Browser-Unterstuetzung fuer
+HTTP-Prioritaets-Hints ab; reale Lastverbesserung ist durch
+Node-Vertragstests allein nicht nachgewiesen. Regressionen
+pruefen originale Vordergrund-Prioritaet, zwei statt vier
+gleichzeitig offene Hintergrund-HTTP-Abrufe, sofortige lokale
+Antwort auch bei voller Refresh-Kapazitaet, 304-Revalidierung,
+bestehende Proof-/Scope-Isolierung und diagnostische Unterzaehler.
