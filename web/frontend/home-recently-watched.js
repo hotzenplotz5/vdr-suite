@@ -273,6 +273,9 @@
     target.appendChild(rail);
     const owner = host();
     if (owner && owner.lastElementChild !== target) owner.appendChild(target);
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
+      discovery.prioritizeInlineRailArtwork(rail);
     return true;
   }
   function refresh(options) {
@@ -769,6 +772,9 @@
     }
     state.moreButton = more;
     positionBeforeSeries();
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
+      discovery.prioritizeInlineRailArtwork(rail);
     return true;
   }
 
@@ -963,6 +969,9 @@
         rail.appendChild(createMovieCard(recording, state.backendId));
       });
       positionBeforeSeries();
+      const discovery = global.VdrSuiteHomeRecordingDiscovery;
+      if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
+        discovery.prioritizeInlineRailArtwork(rail);
       return true;
     }).catch(function () {
       // Preserve the visible rail and offset. A subsequent scroll can retry.

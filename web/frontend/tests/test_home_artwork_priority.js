@@ -716,3 +716,29 @@ assert.equal(posterFromRecording({
   nativeMetadata: {available: false, settled: true}
 }), '/external-legacy.jpg', 'non-synthetic existing URLs are not suppressed');
 console.log('PWA.15.26 settled native misses and legacy poster fallback PASS');
+
+// Cold Home regression: every recording rail must hand newly attached
+// images to the existing visible-first coordinator, not wait for a scroll.
+const coldAttachDiscovery = fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8');
+const coldAttachRecent = fs.readFileSync(path.join(__dirname, '..', 'home-recently-watched.js'), 'utf8');
+const coldAttachInline = fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery-bootstrap.js'), 'utf8');
+function coldFunctionBody(source, start, next) {
+  const from = source.indexOf(start);
+  assert(from !== -1, 'missing Home rail renderer: ' + start);
+  const to = source.indexOf(next, from + start.length);
+  assert(to > from, 'missing boundary for Home rail renderer: ' + start);
+  return source.slice(from, to);
+}
+assert(/reconcileDiscoveryChildren\(rail, cards\);\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*prioritizeInlineRailArtwork\(rail\)/.test(
+  coldFunctionBody(coldAttachDiscovery, '  function renderRecordingRail(', '  function updateNewlyRecordedTile(')),
+  'initial generic Recording rails must schedule visible artwork after attachment');
+assert(/owner\.appendChild\(target\);\s*const discovery =/.test(
+  coldFunctionBody(coldAttachRecent, '  function render(items)', '  function refresh(options)')),
+  'Recently Watched must wake visible posters after adding its rail');
+assert(/positionBeforeSeries\(\);\s*const discovery =/.test(
+  coldFunctionBody(coldAttachRecent, '  function render(recordings, backendId, visibleLimit)', '  function renderState(')),
+  'Recent Movies must wake visible posters when its rail is attached');
+assert(/if \(published > previous\) prioritizeFolderRail\(rail\);/.test(
+  coldFunctionBody(coldAttachInline, '  function renderGenreContents(', '  function openGenreInline(')),
+  'inline Genre must activate visible artwork as async cards arrive');
+console.log('PWA.15.27 cold-attach visible artwork rails PASS');

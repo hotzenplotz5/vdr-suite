@@ -1592,6 +1592,9 @@
       return updateRecordingCard(card, recording, backendId, projected);
     });
     reconcileDiscoveryChildren(rail, cards);
+    // Images are created before their cards are attached. Start visible
+    // demand once the final rail geometry exists, without requiring a swipe.
+    prioritizeInlineRailArtwork(rail);
     return true;
   }
 

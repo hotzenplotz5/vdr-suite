@@ -921,6 +921,7 @@
       recordings.forEach(function (recording) {
         rail.appendChild(createInlineRecordingCard(recording, backendId));
       });
+      prioritizeFolderRail(rail);
       return Promise.resolve(true);
     }
 
@@ -941,6 +942,7 @@
 
     function publishReady() {
       if (!stillCurrent()) return;
+      const previous = published;
       while (published < recordings.length && settled[published] !== undefined) {
         const original = recordings[published];
         const rich = settled[published];
@@ -948,6 +950,8 @@
         rail.appendChild(createInlineRecordingCard(projected, backendId, original));
         published += 1;
       }
+      // Re-arm only when newly attached cards need an initial visible read.
+      if (published > previous) prioritizeFolderRail(rail);
     }
 
     function worker() {
