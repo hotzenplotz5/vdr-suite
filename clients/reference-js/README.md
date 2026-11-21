@@ -126,3 +126,49 @@ zweiter Login-, Cache- oder Session-Owner eingeführt.
 Keine dieser Varianten erzeugt automatisch Grants. Die Bibliothek
 führt weder spekulative Mutations-Retries noch Legacy-Route-Fallbacks aus.
 Siehe [F2-Nachweis](../../docs/development/api-v1-f2-security-parity.md).
+
+## API.V1.F3 – Read-only Discovery, Channel, EPG und Suche
+
+Der Reference-JS-Client ergänzt die bereits akzeptierten `getBackends`
+und `getChannels` um fünf reine Public-v1-Reads:
+
+```js
+const client = VdrSuitePublicV1Client.createClient({
+  baseUrl: 'https://suite.example',
+  headers: {Authorization: 'VDR-Suite-Device <credentialId>.<secret>'}
+});
+const backendId = 'default';
+const channels = await client.getChannels({
+  query: {backendIds: [backendId], sort: 'backendId,channelNumber,channelId'}
+});
+const neighbor = await client.getAdjacentChannel({
+  query: {backendId, relativeTo: 'S19.2E-1-1019-10301', direction: 'up'}
+});
+const events = await client.getEpgWindow({
+  query: {backendId, channelId: 'S19.2E-1-1019-10301',
+    fromTime: '1763733600', untilTime: '1763906400', limit: 100}
+});
+const nowNext = await client.getEpgNowNext({
+  query: {backendId, channelId: 'S19.2E-1-1019-10301',
+    fromTime: '1763733600'}
+});
+const epgMatches = await client.searchEpg({
+  query: {backendId, query: 'Tatort München', limit: 30, offset: 0}
+});
+const recordings = await client.searchRecordings({
+  query: {backendId, query: 'Café & Urlaub', limit: 30, offset: 0}
+});
+```
+
+Die genannten Unix-Zeiten sind Beispielwerte. Der Client erzeugt **keinen**
+Login und keine zusätzlichen Grants. Ein EPG-Fenster wird seitenweise
+weitergelesen, indem `events.page.nextCursor` unverändert und zusammen
+mit **identischem** Backend, Sender und Zeitfenster erneut übergeben wird.
+EPG-/Recording-Suche verwenden explizit eine Quelle und `limit/offset`;
+die Aufnahmen liefern opake `rec_`-IDs. Ein `503` oder `409`
+wird als typisierter Fehler weitergegeben, nicht durch private Routen
+umgangen. Der anonyme Pairing-Prozess bleibt davon unberührt.
+
+Die bestehende Web-API ist **nicht** automatisch kompatibel mit diesen
+Rückgabeformen. Migrationsgrenzen und offene Web-vs-v1-Abnahme:
+[F3-Paritätsbericht](../../docs/development/api-v1-f3-discovery-epg-search-parity.md).

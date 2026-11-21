@@ -1,5 +1,17 @@
 # VDR-Suite Current State
 
+## API.V1.F3 – Public-v1-Reads für Discovery, Sender, EPG und Suche (21.11.2026)
+
+Auf `work/api-v1-finalisierung-f2-f8` stehen im Reference-JS-Client
+neben bestehenden Backends/Channels fünf ergänzte Public-v1-GETs
+(Nachbarsender, EPG-Window, Now/Next, EPG-/Recording-Suche) bereit.
+Die [F3-Paritätsmatrix](development/api-v1-f3-discovery-epg-search-parity.md)
+hält nicht gleichwertige Web-Backend-/Sender-/EPG-/Global-Search-Routen
+ausdrücklich unverändert; keine unbewiesene Webmigration. Nur Reference-JS
+mit Mock-Transport geprüft, keine neue Hardware- oder API-Release-Abnahme.
+Der PWA-Performance-Freeze bleibt unberührt.
+
+
 ## API.V1.F2 – dokumentierte Authentifizierungsparität (21.11.2026)
 
 Auf dem Finalisierungsbranch sind für die 75 bereits dokumentierten

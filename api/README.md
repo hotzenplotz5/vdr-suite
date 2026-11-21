@@ -120,3 +120,13 @@ API changes must be reviewed together with the **matching developer contract**, 
 
 - [Project README](../README.md)
 - [Documentation index](../docs/index.md)
+
+### API.V1.F3: unabhängiger Public-v1-Client für Channel/EPG/Search
+
+Die Reference-JS-API unterstützt die bestehende Backend-/Channel-Discovery
+und jetzt die vorhandenen Public-v1-Reads für Nachbarsender,
+EPG-Fenster/Now-Next und EPG-/Recording-Suche. Die Unterschiede zu
+browserprivatem Default-Backend-/Snapshot-/EPG-/Global-Search-Verhalten
+sind in der [F3-Paritätsmatrix](../docs/development/api-v1-f3-discovery-epg-search-parity.md)
+dokumentiert. Dieser Teil beweist keinen vollständigen Web-Client-Migrationsstand
+und keine neue reale Hardware-Abnahme.

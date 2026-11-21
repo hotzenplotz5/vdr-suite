@@ -1,5 +1,21 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F3 – Discovery, Channel, EPG und Suche (21.11.2026)
+
+**Referenzclient-Quellpfad umgesetzt:** öffentliche
+[Paritätsmatrix](../development/api-v1-f3-discovery-epg-search-parity.md)
+mit Web-gegen-v1-Grenzen sowie
+[Node-Transporttest](../../clients/reference-js/tests/test_public_v1_f3_epg_search_client.js).
+Neue `getAdjacentChannel`, `getEpgWindow`, `getEpgNowNext`,
+`searchEpg`, `searchRecordings` auf dem freigegebenen
+Finalisierungsbranch; vorhandene `getBackends`/`getChannels` bleiben.
+Die Web-Routen `/api/backends/default`, Backend-Snapshot, Channel-Move,
+Cache-EPG und globale Suche sind **fachlich nicht 1:1 identisch** und
+werden ohne nachgewiesene Parität **nicht** umgestellt.
+**F3-Browser-Migration offen**, keine F3-Live- oder Hardware-Abnahme.
+F4–F8 und API-v1-Release separat offen.
+
+
 ## API.V1.F2 – OpenAPI/Reference-JS-Authentifizierung (21.11.2026)
 
 **F2-Quellvertrag auf `work/api-v1-finalisierung-f2-f8`:**
