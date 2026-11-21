@@ -74,4 +74,26 @@ assert.strictEqual(typeof window.VdrSuiteMediaTranscodeSettings.start, 'function
 assert.strictEqual(typeof window.VdrSuiteMediaTranscodeSettings.mount, 'function');
 assert.strictEqual(typeof document.listeners.DOMContentLoaded, 'function');
 
+// Validate the actual UI decision helper for MLD calibration outcomes.
+const guidanceStart = source.indexOf('function autoCalibrationGuidance(');
+const guidanceEnd = source.indexOf('function applySnapshot(', guidanceStart);
+assert(guidanceStart >= 0 && guidanceEnd > guidanceStart);
+const guidance = new Function('text',
+  source.slice(guidanceStart, guidanceEnd) + '\nreturn autoCalibrationGuidance;')(
+    function(de) {return de;});
+assert(guidance({effectiveMode:'auto',calibration:{profilePresent:false}})
+  .includes('vdr-suite-media-calibrate'));
+assert(guidance({effectiveMode:'auto',
+  calibration:{profilePresent:true,profileValid:false}})
+  .includes('Versionen 3 und 4'));
+assert(guidance({effectiveMode:'auto', calibration:{
+  profilePresent:true,profileValid:true,softwareSuitable:false},vaapi:{suitable:false}})
+  .includes('Video-Workload'));
+assert(guidance({effectiveMode:'auto', calibration:{
+  profilePresent:true,profileValid:true,softwareSuitable:true},vaapi:{suitable:false}})
+  .includes('Live-TV'));
+assert(guidance({effectiveMode:'software'}).includes('x264'));
+assert.strictEqual(guidance({effectiveMode:'vaapi'}), '');
+assert(source.includes('data-media-transcode-guidance'));
+
 console.log('test_media_transcode_settings_runtime passed');
