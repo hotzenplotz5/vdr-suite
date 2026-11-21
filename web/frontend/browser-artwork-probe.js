@@ -255,7 +255,7 @@
     function visibleArtwork(image) {
       if (!image || typeof image.getBoundingClientRect !== 'function') return false;
       let url;
-      try { url = new URL(image.currentSrc || image.src || '', win.location.href); }
+      try { url = new URL(image.currentSrc || image.src || image.__vdrSuiteDeferredArtworkUrl || '', win.location.href); }
       catch (_) { return false; }
       if (url.origin !== win.location.origin) return false;
       const path = url.pathname.startsWith('/vdr-suite/') ? url.pathname.slice('/vdr-suite'.length) : url.pathname;
@@ -298,6 +298,66 @@
         alreadyLoadedAtFirstObservation:0, readyAtStop:0, pendingAtStop:0,
         firstReadyObservedMs:null, allReadyObservedMs:null};
       const viewportReady = new Set();
+      // All counters are aggregate and use image readiness, not raw URLs.
+      const previouslyVisible = new Set(), pendingOnEntry = new Map();
+      const previousRailScroll = new Map();
+      const prefetch = {enteredVisible:0, readyBeforeEntry:0, notReadyOnEntry:0,
+        becameReadyAfterEntry:0, pendingAtStop:0, delaySamples:0, delayTotalMs:0,
+        delayMaxMs:0, maxPendingImageRequests:0, rightScrollFrames:0,
+        leftScrollFrames:0, maxScrollStepPx:0, requestLeadSamples:0,
+        requestLeadTotalMs:0, requestLeadMaxMs:0, forwardEntries:0, reverseEntries:0};
+      function inspectPrefetch() {
+        const now = perf.now();
+        const all = Array.from(doc.querySelectorAll('img'));
+        const visible = new Set(all.filter(visibleArtwork));
+        const pending = all.filter(image => !image.complete &&
+          (image.src || image.currentSrc)).length;
+        prefetch.maxPendingImageRequests = Math.max(prefetch.maxPendingImageRequests, pending);
+        for (const image of visible) {
+          if (previouslyVisible.has(image)) continue;
+          prefetch.enteredVisible++;
+          if (image.complete && image.naturalWidth > 0) prefetch.readyBeforeEntry++;
+          else {
+            prefetch.notReadyOnEntry++;
+            if (!pendingOnEntry.has(image)) pendingOnEntry.set(image, now);
+          }
+          const started = image.__vdrSuiteArtworkPrefetchStartedAt;
+          if (Number.isFinite(started) && started <= now) {
+            const lead = round(now - started);
+            prefetch.requestLeadSamples++;
+            prefetch.requestLeadTotalMs += lead;
+            prefetch.requestLeadMaxMs = Math.max(prefetch.requestLeadMaxMs, lead);
+            if (image.__vdrSuiteArtworkPrefetchDirection === 'forward')
+              prefetch.forwardEntries++;
+            if (image.__vdrSuiteArtworkPrefetchDirection === 'reverse')
+              prefetch.reverseEntries++;
+          }
+        }
+        for (const [image, began] of pendingOnEntry) {
+          if (!image.complete || !(image.naturalWidth > 0)) continue;
+          const delay = round(now - began);
+          prefetch.becameReadyAfterEntry++;
+          prefetch.delaySamples++;
+          prefetch.delayTotalMs += delay;
+          prefetch.delayMaxMs = Math.max(prefetch.delayMaxMs, delay);
+          pendingOnEntry.delete(image);
+        }
+        previouslyVisible.clear();
+        visible.forEach(image => previouslyVisible.add(image));
+        const rails = Array.from(doc.querySelectorAll(
+          '.media-home-discovery-rail, .media-home-series-season-rail'));
+        for (const rail of rails) {
+          const position = Number(rail.scrollLeft) || 0;
+          if (previousRailScroll.has(rail)) {
+            const delta = position - previousRailScroll.get(rail);
+            if (delta > 0) prefetch.rightScrollFrames++;
+            if (delta < 0) prefetch.leftScrollFrames++;
+            prefetch.maxScrollStepPx = Math.max(prefetch.maxScrollStepPx, Math.abs(delta));
+          }
+          previousRailScroll.set(rail, position);
+        }
+        prefetch.pendingAtStop = pendingOnEntry.size;
+      }
       function inspectViewport() {
         const now = round(perf.now() - begin);
         if (!viewportImages) {
@@ -323,7 +383,10 @@
         viewportQueued = true;
         function run() {
           viewportQueued = false;
-          if (active && active.begin === begin) inspectViewport();
+          if (active && active.begin === begin) {
+            inspectViewport();
+            inspectPrefetch();
+          }
         }
         if (typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(run);
         else run();
@@ -354,8 +417,23 @@
         // scrolling or opening another rail.
         if (!viewportImages || viewportImages.includes(event.target)) queueViewport();
       }
-      if (typeof doc.addEventListener === 'function') doc.addEventListener('load', imageLoaded, true);
-      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, imageLoaded: imageLoaded, imageLoadTimes: imageLoadTimes, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll(),
+      function scrollChanged() { queueViewport(); }
+      if (typeof doc.addEventListener === 'function') {
+        doc.addEventListener('load', imageLoaded, true);
+        doc.addEventListener('scroll', scrollChanged, true);
+      }
+      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, imageLoaded: imageLoaded, scrollChanged: scrollChanged, imageLoadTimes: imageLoadTimes,
+        finalPrefetch: function () {
+          inspectPrefetch();
+          return {...prefetch,
+            prefetchHitRatePercent: prefetch.enteredVisible
+              ? round(100 * prefetch.readyBeforeEntry / prefetch.enteredVisible) : null,
+            meanReadyDelayMs: prefetch.delaySamples
+              ? round(prefetch.delayTotalMs / prefetch.delaySamples) : null,
+            meanRequestLeadMs: prefetch.requestLeadSamples
+              ? round(prefetch.requestLeadTotalMs / prefetch.requestLeadSamples) : null,
+            basis: 'Animation-frame observations. Hit rate means ready on entry, including browser cache; not proven network prefetch. Lead means request-start to viewport entry, not time spent fully ready. Pending count is incomplete img elements, not active network sockets.'};
+        }, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll(),
         finalViewport: function () {
           if (viewportImages) inspectViewport();
           viewport.readyAtStop = viewportReady.size;
@@ -378,7 +456,10 @@
           else if (entry.type === 'longtask') session.tasks.push.apply(session.tasks, pending.filter(function (item) { return item.entryType === 'longtask'; }));
         } finally { observer.disconnect(); }
       });
-      if (typeof doc.removeEventListener === 'function') doc.removeEventListener('load', session.imageLoaded, true);
+      if (typeof doc.removeEventListener === 'function') {
+        doc.removeEventListener('load', session.imageLoaded, true);
+        doc.removeEventListener('scroll', session.scrollChanged, true);
+      }
       const current = images();
       const visible = Array.from(doc.querySelectorAll('img')).filter(visibleArtwork);
       const loaded = visible.filter(function (image) { return image.complete && image.naturalWidth > 0; });
@@ -391,6 +472,7 @@
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
         initialViewportArtwork: session.finalViewport(),
+        railArtworkPrefetch: session.finalPrefetch(),
         visibleArtwork: {
           visibleAtStop: visible.length,
           loadedAtStop: loaded.length,
