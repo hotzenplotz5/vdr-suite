@@ -109,6 +109,22 @@ int main() {
     const auto changed = fixture("png", "1100x700");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", changed).empty());
     assert(cache.home("small", "image/png", fixture("png", "200x300")).empty());
+    // A Home image can already fit the pixel box but still be too large for
+    // the existing 256-KiB SW cache (noisy originals used to pass through).
+    const auto noisySmall = MediaProcessRunner{}.runAndCapture({
+        "/usr/bin/ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi",
+        "-i", "testsrc2=size=400x600", "-vf", "noise=alls=70:allf=t+u",
+        "-frames:v", "1", "-threads", "1", "-c:v", "png",
+        "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(10), 16 * 1024 * 1024);
+    assert(noisySmall.success && noisySmall.output.size() > 256 * 1024);
+    const auto compactSmall = cache.home("noisy-small", "image/png", noisySmall.output);
+    assert(!compactSmall.empty() && compactSmall.size() <= 256 * 1024);
+    write(root / "compact-small.jpg", compactSmall);
+    probe = MediaProcessRunner{}.runAndCapture({"/usr/bin/ffprobe", "-v", "error",
+        "-show_entries", "stream=width,height", "-of", "csv=p=0",
+        (root / "compact-small.jpg").string()}, "/", std::chrono::seconds(5), 100);
+    assert(probe.success && probe.output == "400,600\n");
+    assert(cache.home("noisy-small-again", "image/png", noisySmall.output) == compactSmall);
     assert(cache.home("wrong-type", "image/jpeg", png).empty());
     assert(cache.home("unsupported", "image/svg+xml", "<svg/>").empty());
     assert(cache.home("broken", "image/jpeg", "\xff\xd8\xff").empty());
