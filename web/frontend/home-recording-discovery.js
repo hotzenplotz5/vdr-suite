@@ -186,12 +186,16 @@
     const syntheticPreferred = /^\/api\/(?:vdr\/)?recordings\/metadata\/image\?/.test(url) &&
       /[?&]kind=preferred(?:&|$)/.test(url) &&
       !/[?&]assignmentRevision=/.test(url);
+    const nativePoster = native && native.available === true
+      ? recordingMetadataPosterUrl(native) : '';
     const settledMissing = native && native.available === false && native.settled === true;
     const readyWithoutArtwork = native && native.available === true &&
       native.preferredArtwork && native.preferredArtwork.available === false &&
-      !recordingMetadataPosterUrl(native);
-    if (syntheticPreferred && artwork.available !== true &&
-        (settledMissing || readyWithoutArtwork)) return '';
+      !nativePoster;
+    if (syntheticPreferred && artwork.available !== true) {
+      if (nativePoster) return nativePoster;
+      if (settledMissing || readyWithoutArtwork) return '';
+    }
     return url;
   }
 
