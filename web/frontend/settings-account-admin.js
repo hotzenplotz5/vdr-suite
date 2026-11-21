@@ -415,42 +415,61 @@
         permissionInput.className =
           'settings-account-admin-display-name-input settings-account-admin-grant-permission-input';
         permissionInput.disabled = Boolean(actions.busy);
-        appendOption(permissionInput, '',
-          t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
         const permissionCategories = [
           { id: 'role', label: t('settings.accountAdminRolesGroup', 'Rollen') },
           { id: 'permission', label: t('settings.accountAdminPermissionsGroup', 'Berechtigungen') },
           { id: 'addon', label: t('settings.accountAdminAddonsGroup', 'Add-ons') }
         ];
-        permissionCategories.forEach(function(category) {
-          const choices = permissionOptions.filter(function(option) {
-            if (!option || !option.permission) return false;
-            // Add-on rights are shown only after an authoritative effective
-            // capability projection supplies selectable permissions.
-            if (option.category === 'addon') {
-              const available = Array.isArray(overview.addonPermissions)
-                ? overview.addonPermissions : [];
-              if (!available.some(function(entry) {
-                return entry && entry.permission === option.permission &&
-                  entry.selectable === true;
+        const refreshPermissionChoices = function(scope) {
+          const previous = permissionInput.value;
+          permissionInput.replaceChildren();
+          appendOption(permissionInput, '',
+            t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
+          // The current server-supported Human permissions are covered by
+          // role.admin in AuthorizationService, except distinct role grants.
+          // Only the picker changes; the server remains the grant authority.
+          const isAdmin = activeGrants.some(function(grant) {
+            return grant && grant.permission === 'role.admin' &&
+              (grant.backendId === '*' || grant.backendId === scope);
+          });
+          const available = [];
+          permissionCategories.forEach(function(category) {
+            const choices = permissionOptions.filter(function(option) {
+              if (!option || !option.permission) return false;
+              // Exact and globally granted rights need no duplicate entry.
+              if (activeGrants.some(function(grant) {
+                return grant && grant.permission === option.permission &&
+                  (grant.backendId === '*' || grant.backendId === scope);
               })) return false;
-            }
-            return (option.category === category.id ||
-                (category.id === 'permission' &&
-                 option.category !== 'role' && option.category !== 'addon'));
+              if (isAdmin && (option.permission === 'role.admin' ||
+                  option.category === 'permission' || option.category === 'addon')) return false;
+              // Add-on rights require effective provider visibility.
+              if (option.category === 'addon') {
+                const addons = Array.isArray(overview.addonPermissions)
+                  ? overview.addonPermissions : [];
+                if (!addons.some(function(entry) {
+                  return entry && entry.permission === option.permission &&
+                    entry.selectable === true;
+                })) return false;
+              }
+              return (option.category === category.id ||
+                  (category.id === 'permission' &&
+                   option.category !== 'role' && option.category !== 'addon'));
+            });
+            if (!choices.length) return;
+            const group = document.createElement('optgroup');
+            group.label = category.label;
+            choices.forEach(function(option) {
+              const label = permissionLabel(option.permission, permissionOptions);
+              appendOption(group, option.permission,
+                label === option.permission ? label : label + ' — ' + option.permission,
+                false);
+              available.push(option.permission);
+            });
+            permissionInput.appendChild(group);
           });
-          if (!choices.length) return;
-          const group = document.createElement('optgroup');
-          group.label = category.label;
-          choices.forEach(function(option) {
-            const label = permissionLabel(option.permission, permissionOptions);
-            appendOption(group, option.permission,
-              label === option.permission ? label : label + ' — ' + option.permission,
-              false);
-          });
-          permissionInput.appendChild(group);
-        });
-        permissionInput.value = '';
+          permissionInput.value = available.indexOf(previous) !== -1 ? previous : '';
+        };
         permissionField.appendChild(permissionInput);
         grantControls.appendChild(permissionField);
 
@@ -481,6 +500,12 @@
               false);
           });
         }
+
+        backendInput.addEventListener('change', function() {
+          refreshPermissionChoices(backendInput.value);
+        });
+        refreshPermissionChoices(backendInput.value ||
+          (scopeKinds.indexOf('global') !== -1 ? '*' : (backends[0] && backends[0].backendId) || ''));
 
         const ensure = addText(document.createElement('button'),
           t('settings.accountAdminEnsureGrant', 'Zugriff hinzufügen'));
