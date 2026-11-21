@@ -507,6 +507,58 @@ async function main() {
     assert.equal(productionResult.metrics.resourceDiagnostics.observedEntries, sample.length);
     assert.ok(!JSON.stringify(productionResult).includes('private-recording'));
     assert.ok(productionObservers.every(observer => observer.disconnected));
+    // PWA.15.11: a horizontally clipped image with an unassigned deferred
+    // URL must count as not ready upon entry, then record its visible delay.
+    // A completed prefetch already in view counts as ready, without IDs in JSON.
+    let scrollNow = 0, scrollOffset = 0;
+    const scrollFrames = [], scrollHandlers = {};
+    const scrollRail = {scrollLeft:0,
+      getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};}};
+    const pendingScrollPoster = {
+      src:'',__vdrSuiteDeferredArtworkUrl:'https://example.test/api/vdr/recordings/metadata/image?id=private-pending',
+      complete:false,naturalWidth:0,loading:'lazy',closest(){return scrollRail;},
+      getBoundingClientRect(){const left=620-scrollOffset;return {left,right:left+100,top:20,bottom:170,width:100,height:150};}};
+    const preparedScrollPoster = {
+      src:'https://example.test/api/vdr/recordings/metadata/image?id=private-ready',
+      complete:true,naturalWidth:100,__vdrSuiteArtworkPrefetchStartedAt:20,
+      __vdrSuiteArtworkPrefetchDirection:'forward',loading:'eager',closest(){return scrollRail;},
+      getBoundingClientRect(){const left=730-scrollOffset;return {left,right:left+100,top:20,bottom:170,width:100,height:150};}};
+    const scrollEnv = {
+      innerWidth:800,innerHeight:600,URL,
+      location:{href:'https://example.test/frontend/',origin:'https://example.test'},
+      performance:{now(){return scrollNow;}},
+      requestAnimationFrame(fn){scrollFrames.push(fn);},
+      document:{documentElement:{},
+        querySelectorAll(selector){
+          if(selector==='img')return [pendingScrollPoster,preparedScrollPoster];
+          if(selector.includes('.media-home-discovery-rail'))return [scrollRail];
+          return [];
+        },
+        addEventListener(name,fn){scrollHandlers[name]=fn;},
+        removeEventListener(name){delete scrollHandlers[name];}}
+    };
+    const scrollProbe = createProbe(scrollEnv);
+    scrollProbe.start('scroll-prefetch');
+    scrollFrames.shift()(); // both covers remain horizontally clipped
+    scrollNow=50;scrollOffset=220;scrollRail.scrollLeft=220;
+    scrollHandlers.scroll();scrollFrames.shift()();
+    assert.equal(pendingScrollPoster.src,'');
+    scrollNow=120;pendingScrollPoster.src=pendingScrollPoster.__vdrSuiteDeferredArtworkUrl;
+    pendingScrollPoster.complete=true;pendingScrollPoster.naturalWidth=100;
+    scrollHandlers.load({target:pendingScrollPoster});scrollFrames.shift()();
+    const scrollReport = scrollProbe.stop();
+    assert.equal(scrollReport.railArtworkPrefetch.enteredVisible,2);
+    assert.equal(scrollReport.railArtworkPrefetch.readyBeforeEntry,1);
+    assert.equal(scrollReport.railArtworkPrefetch.notReadyOnEntry,1);
+    assert.equal(scrollReport.railArtworkPrefetch.becameReadyAfterEntry,1);
+    assert.equal(scrollReport.railArtworkPrefetch.meanReadyDelayMs,70);
+    assert.equal(scrollReport.railArtworkPrefetch.prefetchHitRatePercent,50);
+    assert.equal(scrollReport.railArtworkPrefetch.rightScrollFrames,1);
+    assert.equal(scrollReport.railArtworkPrefetch.forwardEntries,1);
+    assert.ok(!JSON.stringify(scrollReport).includes('private-pending'));
+    assert.ok(!JSON.stringify(scrollReport).includes('private-ready'));
+    assert.equal(scrollHandlers.scroll,undefined);
+
     console.log('browser diagnostics composition, lifecycle, mutation observer, buffered observers, resource classification and privacy ok');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
