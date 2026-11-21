@@ -1719,3 +1719,36 @@ nicht eindeutig auseinanderhalten. PWA.15.12 und PWA.15.13 bleiben
 unveraendert. Echte Browser-/yaVDR-Abnahme und die Wirkung auf graue
 Kacheln stehen separat aus; die Interna der als Vergleich genannten
 IPTVnator-App sind nicht verifiziert.
+
+## PWA.15.15 — Scrollgeschwindigkeit und gestuftes Lookahead (2026-11-21)
+
+Die Browser-Abnahme von PWA.15.14 bestaetigt den installierten Frontend-Stand
+und den persistenten Cache (im zweiten Lauf 37 lokale Artwork-Treffer).
+Die scrollbezogene Bereitschaft der Cover bleibt bei etwa 46 Prozent;
+nicht fertige Cover benoetigten beim zweiten Lauf im Mittel noch 531 ms.
+Unterschiedliche Scrollwege verbieten einen kausalen Vergleich der beiden
+Messungen. Der aktuelle Frontend-Code erkannte schnelle Bewegung nur dann,
+wenn **ein einzelner** Scrollschritt mindestens eine halbe Rail-Breite
+erreichte. Gleichmaessige Touchpad-/Touch-Wischbewegungen mit vielen kleinen
+Schritten wurden deshalb nicht als schnell erkannt.
+
+Der vorhandene Rail-/rAF-Koordinator betrachtet nun neben grossen
+Scrollschritten auch die gemessene Bewegung pro Zeitintervall. Ab 1 Pixel
+pro Millisekunde in einem maximal 250-ms-Beobachtungsabstand gilt ein
+Scrollschritt als schnell. Ohne Scrollbewegung bleibt der kalte Vorlauf
+auf 1,5 sichtbare Rail-Breiten begrenzt; nach normalem Scrollen werden
+zwei Breiten und bei schnellen Wischbewegungen maximal drei Breiten
+(vorgegebenes Distanzlimit: 2000px) beruecksichtigt. Damit startet
+der Coordinator bei flussigen Wischbewegungen frueher Cover in deren
+Richtung. Die Gegenrichtung bleibt auf 0,35 Rail-Breiten bzw. 400px
+begrenzt. Pro Frame starten weiterhin maximal vier, gleichzeitig maximal
+sechs *spekulative* Bildanfragen. Sichtbare Anfragen haben Vorrang;
+der Kaltstart wartet wie zuvor auf die initial sichtbaren Bilder.
+
+Es gibt weder Timer/Polling noch neue Fetch-Routen, Cache-Loeschungen,
+Aenderungen an Worker, Berechtigungen, API oder Backend. Der gezielte
+Regressionstest prueft einen schnellen glatten Wischvorgang (18px in
+16ms), einen langsamen Scrollschritt (18px in 1000ms), unveraendertes
+Cold-Home-Verhalten, Richtungsvorlauf, begrenzte Requestzahl und
+Vermeidung doppelter src-Zuweisung. Eine tatsaechliche Verbesserung
+der Sichtbarkeitsquote bedarf noch einer vergleichbaren yaVDR-Messung.

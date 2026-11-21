@@ -963,16 +963,24 @@
 
   function motionForRail(rail) {
     const position = Number(rail.scrollLeft) || 0;
+    const now = global.performance && typeof global.performance.now === 'function'
+      ? global.performance.now() : null;
     let motion = railArtworkMotion.get(rail);
     if (!motion) {
-      motion = {position: position, direction: 1, moved: false, fast: false};
+      motion = {position: position, direction: 1, moved: false, fast: false, sampledAt: now};
       railArtworkMotion.set(rail, motion);
     } else if (position !== motion.position) {
       const delta = position - motion.position;
+      const elapsed = Number.isFinite(now) && Number.isFinite(motion.sampledAt)
+        ? now - motion.sampledAt : 0;
       motion.direction = delta > 0 ? 1 : -1;
-      motion.fast = Math.abs(delta) >= Math.max(120, (Number(rail.clientWidth) || 400) / 2);
+      // Smooth touchpad/swipe motion advances only a few pixels per frame.
+      // Detect its speed as well as large single-frame scroll jumps.
+      motion.fast = Math.abs(delta) >= Math.max(120, (Number(rail.clientWidth) || 400) / 2) ||
+        (elapsed > 0 && elapsed <= 250 && Math.abs(delta) / elapsed >= 1);
       motion.moved = true;
       motion.position = position;
+      motion.sampledAt = now;
     }
     return motion;
   }
@@ -1010,7 +1018,9 @@
         userScrolled = userScrolled || motion.moved;
         // Normal swipes stay about 1.5 rail widths ahead; a rapid swipe
         // extends to two, with only a short trailing window on reversal.
-        const ahead = Math.min(1600, width * (motion.fast ? 2 : 1.5));
+        // Preserve cold-Home restraint; warm farther ahead only after real
+        // movement, with the strongest lookahead during a fast swipe.
+        const ahead = Math.min(2000, width * (motion.fast ? 3 : motion.moved ? 2 : 1.5));
         const behind = Math.min(400, width * 0.35);
         for (const image of rail.querySelectorAll('img')) {
           handled.add(image);
