@@ -90,8 +90,10 @@ async function main() {
     assert.equal(sent.at(-1).message.type,'result');
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
-    assert.deepEqual(sent.at(-1).message.value.serviceWorkerLifecycle,
-      {controlledAtStart:true,controlledAtStop:true,controllerChanges:1});
+    const lifecycle = sent.at(-1).message.value.serviceWorkerLifecycle;
+    assert.equal(lifecycle.controlledAtStart,true);
+    assert.equal(lifecycle.controlledAtStop,true);
+    assert.equal(lifecycle.controllerChanges,1);
     assert.equal(consoleSummaries.at(-1).result.snapshotProofReads,1);
     assert.equal(consoleSummaries.at(-1).result.snapshotProofAccepted,1);
     assert.equal(consoleSummaries.at(-1).result.proofReadsAtFirstImage,0);
