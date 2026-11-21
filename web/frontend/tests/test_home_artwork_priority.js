@@ -232,3 +232,74 @@ assert.equal(aheadStarts.filter(x=>x.id==='near-1').length,1);
 console.log('PWA.15.10.1 bounded near-rail src prewarm after visible load contract PASS');
 
 
+
+
+// PWA.15.11 directional lookahead: exercise the same exported production
+// coordinator and actual scroll geometry, including pending deferred src.
+function scrollScene(initial){
+  const frames=[],starts=[];
+  const rail={isConnected:true,scrollLeft:initial,clientWidth:400,
+    getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
+    querySelectorAll(){return posters;}};
+  const env={innerWidth:800,innerHeight:600,performance:{now(){return 50;}},
+    requestAnimationFrame(fn){frames.push(fn);},
+    IntersectionObserver:class{observe(){} unobserve(){}}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:env});
+  const discovery=env.VdrSuiteHomeRecordingDiscovery;
+  function make(index){
+    const callbacks={};let src='';
+    const img={isConnected:true,complete:false,naturalWidth:0,loading:'lazy',
+      closest(){return rail;},addEventListener(t,cb){callbacks[t]=cb;},
+      getBoundingClientRect(){
+        const left=160+110*index-rail.scrollLeft;
+        return {left,right:left+100,top:20,bottom:170,width:100,height:150};
+      },
+      finish(){this.complete=true;this.naturalWidth=100;if(callbacks.load)callbacks.load();}};
+    Object.defineProperty(img,'src',{get(){return src;},set(url){
+      assert.equal(src,'','duplicate src start for '+index);
+      src=url;starts.push({index,priority:this.fetchPriority,loading:this.loading});
+    }});
+    discovery.deferHomeArtworkImage(img,'/art/'+index+'?variant=home');
+    return img;
+  }
+  const posters=Array.from({length:32},(_,i)=>make(i));
+  const drain=()=>{while(frames.length)frames.shift()();};
+  const completeOutstanding=()=>{
+    starts.filter(x=>!posters[x.index].complete).forEach(x=>posters[x.index].finish());
+    drain();
+  };
+  const schedule=()=>{discovery.prioritizeInlineRailArtwork(rail);drain();};
+  return {rail,starts,posters,schedule,drain,completeOutstanding};
+}
+const rightScene=scrollScene(0);
+rightScene.schedule();
+assert(rightScene.starts.length>=3);
+assert(rightScene.starts.every(x=>x.priority==='high'),
+  'initial visible requests precede speculation');
+assert.equal(rightScene.posters[4].src,'','cold viewport remains protected');
+rightScene.completeOutstanding();
+assert(rightScene.starts.some(x=>x.index===4 && x.priority==='low'));
+assert.equal(rightScene.posters[20].src,'','no full-collection initial loading');
+rightScene.completeOutstanding();
+const beforeRight=rightScene.starts.length;
+rightScene.rail.scrollLeft=500;rightScene.schedule();
+assert(rightScene.starts.some(x=>x.index>=9),
+  'fast right scroll anticipates upcoming posters');
+assert(rightScene.starts.slice(beforeRight).every(x=>x.index<18),
+  'right lookahead remains within two visible widths');
+assert.equal(rightScene.posters[25].src,'','far image remains deferred');
+rightScene.schedule();
+assert.equal(new Set(rightScene.starts.map(x=>x.index)).size,rightScene.starts.length,
+  'repeat scheduling never reassigns src');
+assert(rightScene.posters[4].complete && rightScene.posters[4].src,
+  'loaded covers survive scrolling');
+const leftScene=scrollScene(900);
+leftScene.schedule();leftScene.completeOutstanding();leftScene.completeOutstanding();
+leftScene.rail.scrollLeft=500;leftScene.schedule();
+assert(leftScene.starts.some(x=>x.index===4 && x.priority==='high'),
+  'newly visible images are started at high priority on reversal');
+assert(leftScene.starts.some(x=>x.index===3 && x.priority==='low'),
+  'reverse motion prefetches earlier left-hand cards');
+assert.equal(leftScene.posters[25].src,'','left lookahead stays bounded');
+assert.equal(new Set(leftScene.starts.map(x=>x.index)).size,leftScene.starts.length);
+console.log('PWA.15.11 directional, rapid scroll, request reuse and bounded prefetch PASS');
