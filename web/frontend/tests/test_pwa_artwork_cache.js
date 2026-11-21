@@ -268,6 +268,36 @@ async function run(prefix) {
   const refreshed=imageReads;
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   assert.equal(imageReads,refreshed,'successful 304 refresh renews local freshness');
+  // PWA.15.16: a stale cache hit is served locally while its background
+  // HTTP refresh overlaps an unrelated foreground image miss. Report
+  // diagnostic timing and overlap, never image URLs or authorization scopes.
+  clock+=5*60*1000+1;
+  await proof();
+  const heldRefresh = {entered:deferred(), release:deferred()};
+  holdImage=heldRefresh;
+  const refreshInProgress=image(url,'tab-a');
+  await heldRefresh.entered.promise;
+  const duringRefresh=image(url.replace('recordingId=7','recordingId=998899'),'tab-a');
+  for(let turn=0;turn<40&&!measurement('tab-a').counters.foregroundHttpWhileBackgroundActive;turn++)
+    await Promise.resolve();
+  assert(measurement('tab-a').counters.foregroundHttpWhileBackgroundActive>0,
+    'foreground requests started during an active background HTTP fetch are counted');
+  clock+=1100;
+  heldRefresh.release.resolve();
+  await Promise.all([refreshInProgress,duringRefresh]);
+  const timings=measurement('tab-a').counters;
+  assert(timings.cacheLookupSamples>0 && timings.cacheHitResolveSamples>0,
+    'scoped cache lookup and local-hit response phases are measured');
+  assert(timings.backgroundHttpSamples>0 && timings.backgroundHttpMaxMs>=1100,
+    'background HTTP duration to response headers is independently measured');
+  assert(timings.foregroundHttpSamples>0 && timings.maxImageHttpInFlight>=2 &&
+    timings.maxBackgroundHttpInFlight>=1,
+    'worker measures simultaneous HTTP fetches without inferring causation');
+  assert(!JSON.stringify(timings).includes('recordingId') &&
+    !JSON.stringify(timings).includes('https://'),
+    'no image URL or identity may enter artwork diagnostic counters');
+  console.log('PWA.15.16 cache, HTTP-phase and background overlap diagnostics PASS');
+
   clock+=24*60*60*1000+1;
   await proof();
   const beforeOldArtwork = imageReads;
