@@ -616,3 +616,57 @@ assert(css.includes('.media-home-discovery-artwork.no-artwork {') &&
   css.includes('background: #050505;') && css.includes('letter-spacing: .09em;'),
   'no-artwork class must show a styled black tile in the installed main stylesheet');
 console.log('PWA.15.25 no-artwork fallback in all Home poster renderers PASS');
+
+
+// PWA.15.26: a settled negative native read must not turn the cached
+// synthetic preferred URL into an HTTP 404. Unknown reads retain fallback.
+const artworkSource = fs.readFileSync(
+  path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8');
+const posterStart = artworkSource.indexOf('  function recordingPosterUrl(recording) {');
+const posterEnd = artworkSource.indexOf(
+  '\n  function recordingMetadataPosterUrl(', posterStart);
+assert(posterStart >= 0 && posterEnd > posterStart,
+  'the real Home poster selector must be present');
+const posterFromRecording = vm.runInNewContext(
+  artworkSource.slice(posterStart, posterEnd) + '\nrecordingPosterUrl',
+  {
+    metadata: recording => recording.metadata || {},
+    presentation: recording => recording.metadata.presentation || {},
+    text: value => String(value || '').trim()
+  });
+const speculativePoster = '/api/vdr/recordings/metadata/image?kind=preferred&index=0';
+const unverifiedRecording = {
+  metadata: {
+    artwork: {available: false, preferredUrl: speculativePoster},
+    presentation: {posterUrl: speculativePoster}
+  }
+};
+assert.equal(posterFromRecording(unverifiedRecording), speculativePoster,
+  'unknown native status keeps the existing legacy fallback');
+const settledMiss = {
+  ...unverifiedRecording,
+  nativeMetadata: {available: false, status: 'not-found', settled: true}
+};
+assert.equal(posterFromRecording(settledMiss), '',
+  'settled native not-found must not request an invented preferred image');
+assert.equal(posterFromRecording({
+  ...unverifiedRecording,
+  nativeCardMetadata: {available: false, settled: true}
+}), '', 'the same settled read applies to cached Home cards');
+assert.equal(posterFromRecording({
+  ...unverifiedRecording,
+  nativeMetadata: {available: false, settled: false}
+}), speculativePoster, 'an unsettled native read is not a negative artwork proof');
+assert.equal(posterFromRecording({
+  ...unverifiedRecording,
+  nativeMetadata: {available: true, settled: true}
+}), speculativePoster, 'positive native metadata retains its image route');
+const cachedPoster = '/recording-artwork/default/cached-poster';
+assert.equal(posterFromRecording({
+  metadata: {
+    artwork: {available: true, preferredUrl: cachedPoster},
+    presentation: {posterUrl: cachedPoster}
+  },
+  nativeMetadata: {available: false, settled: true}
+}), cachedPoster, 'known cached legacy artwork takes precedence over a native miss');
+console.log('PWA.15.26 settled native misses and legacy poster fallback PASS');
