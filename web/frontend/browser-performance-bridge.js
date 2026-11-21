@@ -11,33 +11,12 @@
   if (!probe || !token) return;
   let active = false;
   let checking = false;
-  let controllerAtStart = null;
-  let controllerChanges = 0;
-  let listeningToController = null;
-  function serviceWorker() {
-    return root.navigator && root.navigator.serviceWorker || null;
-  }
-  function onControllerChange() {
-    if (active) controllerChanges++;
-  }
-  function stopControllerTracking() {
-    if (listeningToController && typeof listeningToController.removeEventListener === 'function')
-      listeningToController.removeEventListener('controllerchange', onControllerChange);
-    listeningToController = null;
-  }
   function send(type, value) {
     parent.postMessage({ channel: channel, token: token, type: type, value: value }, origin);
   }
   function start(label, initial) {
     if (active || checking) return;
     probe.start(label, { buffered: Boolean(initial) });
-    const sw = serviceWorker();
-    controllerAtStart = sw ? Boolean(sw.controller) : null;
-    controllerChanges = 0;
-    if (sw && typeof sw.addEventListener === 'function') {
-      sw.addEventListener('controllerchange', onControllerChange);
-      listeningToController = sw;
-    }
     active = true;
     send('started', label);
   }
@@ -88,31 +67,13 @@
       cacheLookup: phase('cacheLookup'),
       candidateLookup: phase('candidateLookup'),
       foregroundHttp: phase('foregroundHttp'),
-      foregroundPriorityUnknown: worker.foregroundPriorityUnknown ?? null,
-      snapshotProofReads: worker.snapshotProofReads ?? null,
-      snapshotProofAccepted: worker.snapshotProofAccepted ?? null,
-      otherProofReads: worker.otherProofReads ?? null,
-      otherProofAccepted: worker.otherProofAccepted ?? null,
-      proofReadsAtFirstImage: worker.proofReadsAtFirstImage ?? null,
-      acceptedProofsAtFirstImage: worker.acceptedProofsAtFirstImage ?? null,
-      firstImageWorkerUptimeMs: worker.firstImageWorkerUptimeMs ?? null,
-      firstProofWorkerUptimeMs: worker.firstProofWorkerUptimeMs ?? null,
-      firstAcceptedProofWorkerUptimeMs: worker.firstAcceptedProofWorkerUptimeMs ?? null,
-      workerUptimeMs: (metrics.artworkWorker && metrics.artworkWorker.workerUptimeMs) ?? null,
-      controllerLifecycle: report.serviceWorkerLifecycle || null
+      foregroundPriorityUnknown: worker.foregroundPriorityUnknown ?? null
     });
   }
   function stop(includeCache) {
     if (!active) return;
     active = false;
     const report = probe.stop();
-    const sw = serviceWorker();
-    report.serviceWorkerLifecycle = {
-      controlledAtStart: controllerAtStart,
-      controlledAtStop: sw ? Boolean(sw.controller) : null,
-      controllerChanges: controllerChanges
-    };
-    stopControllerTracking();
     const measurement = includeCache !== false && readArtworkMeasurement();
     if (!measurement) {
       report.metrics.artworkWorker = {available:false};

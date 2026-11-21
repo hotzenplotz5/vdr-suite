@@ -177,8 +177,6 @@ let artworkHttpInFlight = 0, artworkBackgroundHttpInFlight = 0;
 // Diagnostic counters are deliberately per controlled document and in memory.
 // No recording identifiers, URL, account, scope or credential is exported.
 const artworkMeasurements = new Map();
-// Per-worker uptime, never absolute timestamps or a persistent authorization.
-const artworkWorkerStartedAt = Date.now();
 function artworkMeasurement(event) {
   if (!event.clientId) return null;
   let value = artworkMeasurements.get(event.clientId);
@@ -190,11 +188,6 @@ function artworkMeasurement(event) {
       expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
       backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
       proofReads: 0, acceptedProofs: 0,
-      snapshotProofReads: 0, snapshotProofAccepted: 0,
-      otherProofReads: 0, otherProofAccepted: 0,
-      proofReadsAtFirstImage: null, acceptedProofsAtFirstImage: null,
-      firstImageWorkerUptimeMs: null, firstProofWorkerUptimeMs: null,
-      firstAcceptedProofWorkerUptimeMs: null,
       proofHttpSamples: 0, proofHttpTotalMs: 0, proofHttpMaxMs: 0,
       firstProofGapSamples: 0, firstProofGapTotalMs: 0, firstProofGapMaxMs: 0,
       candidateLookupSamples: 0, candidateLookupTotalMs: 0, candidateLookupMaxMs: 0,
@@ -317,14 +310,6 @@ async function observeArtworkProof(event, backend) {
   const key = kind => proofKey(event.clientId, backend, kind);
   countArtwork(event, 'proofReads');
   const proofStarted = Date.now();
-  const measurement = artworkMeasurement(event);
-  const snapshotRead = /^\/api\/backends\/[^/]+\/snapshot$/.test(
-    new URL(event.request.url).pathname.slice(installationPath.length));
-  if (measurement) {
-    measurement[snapshotRead ? 'snapshotProofReads' : 'otherProofReads']++;
-    if (measurement.firstProofWorkerUptimeMs === null)
-      measurement.firstProofWorkerUptimeMs = proofStarted - artworkWorkerStartedAt;
-  }
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
   catch (error) { forgetArtworkProofs(); throw error; }
@@ -360,14 +345,10 @@ async function observeArtworkProof(event, backend) {
   for (const [kind, value] of admitted)
     artworkProofs.set(key(kind), {partition:value, sequence});
   countArtwork(event, 'acceptedProofs');
-  if (measurement) {
-    measurement[snapshotRead ? 'snapshotProofAccepted' : 'otherProofAccepted']++;
-    if (measurement.firstAcceptedProofWorkerUptimeMs === null)
-      measurement.firstAcceptedProofWorkerUptimeMs = Date.now() - artworkWorkerStartedAt;
-  }
   // Measure only the first missed-proof -> accepted-proof gap for this
   // document. The internal start timestamp is deliberately not enumerable,
   // so diagnostic exports include durations, never wall-clock timestamps.
+  const measurement = artworkMeasurement(event);
   if (measurement && Number.isFinite(measurement.__firstUnprovenArtworkAt)) {
     timeArtwork(event, 'firstProofGap', measurement.__firstUnprovenArtworkAt);
     measurement.__firstUnprovenArtworkAt = undefined;
@@ -615,12 +596,6 @@ function revalidateSharedArtwork(event, proof, generation, scopedMiss) {
 async function handleArtwork(event) {
   countArtwork(event, 'requests');
   const decisionStarted = Date.now();
-  const measurement = artworkMeasurement(event);
-  if (measurement && measurement.firstImageWorkerUptimeMs === null) {
-    measurement.firstImageWorkerUptimeMs = decisionStarted - artworkWorkerStartedAt;
-    measurement.proofReadsAtFirstImage = measurement.proofReads;
-    measurement.acceptedProofsAtFirstImage = measurement.acceptedProofs;
-  }
   const generation = artworkGeneration;
   const proof = currentArtworkProof(event);
   let scopedMiss = false;
@@ -633,6 +608,7 @@ async function handleArtwork(event) {
       countArtwork(event, 'missingProof');
       // Distinguish first-use/proof-ordering from a missing kind or an
       // invalidated/different grant. This never changes authorization.
+      const measurement = artworkMeasurement(event);
       if (measurement) {
         const otherKind = epg ? 'recording' : 'epg';
         if (artworkProofs.has(proofKey(event.clientId, backend, otherKind)))
@@ -753,8 +729,7 @@ self.addEventListener('message', event => {
       event.source && event.source.id && event.ports && event.ports[0]) {
     const measurement = artworkMeasurements.get(event.source.id);
     event.ports[0].postMessage({schema: 1, capacity: artworkLimit, maxPreviewBytes: artworkBytes, maxEpgArtworkBytes: epgArtworkBytes,
-      counters: measurement ? {...measurement} : null,
-      workerUptimeMs: Date.now() - artworkWorkerStartedAt});
+      counters: measurement ? {...measurement} : null});
   }
 });
 
