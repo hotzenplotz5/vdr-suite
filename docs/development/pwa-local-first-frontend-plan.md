@@ -2018,3 +2018,49 @@ Keine Service-Worker-Claims, Wartegates oder neuen HTTP-Pfade.
 Die browserseitige Performance und die Fehlerfreiheit der
 Artwork-Anzeige sind trotz gruenem Unit-Test erst nach realer
 yaVDR-Abnahme bestaetigt.
+
+## PWA.15.24 kompatibel — Proof nach echtem Controllerwechsel wiederherstellen (2026-11-21)
+
+Die urspruengliche PWA.15.24-Funktion wurde aus dem historischen
+Commit `acbc097c718e7a62f859ecadc16930cd2b713fc9` gezielt
+auf den auf yaVDR bestaetigten PWA.15.21-basierten Home-Stand
+uebernommen. Das inzwischen als langsamer abgelehnte PWA.15.22
+(`RequestInit.priority:'high'` fuer den initialen Home-Snapshot)
+bleibt ausgebaut, genau wie der langsame PWA.15.18-
+IntersectionObserver-Koordinator. Alle erfolgreichen Diagnosen
+bis PWA.15.23 und der No-Artwork-Fallback bleiben erhalten.
+
+Ein vorhandener, bereits abgeschlossener Home-Snapshot kann von
+einem erst spaeter aktivierten Service Worker nicht rueckwirkend
+als Scope-Readback bestaetigt werden. Deshalb registriert der
+authentifizierte Home-Owner einen `controllerchange`-Listener.
+Nur wenn der Controller **tatsaechlich wechselt**, vorhanden ist,
+Home aktiv und eine gueltige Frontend-Sitzung mit ausgewaehltem
+Backend existiert, startet einmalig der vorhandene kleine
+`/api/backends/{id}/snapshot`-GET. Das neue interne
+`artworkProofReadbackOnly:true`-Flag im bestehenden Client-API-
+Wrapper verhindert hierbei den unabhaengigen Recording-Count-GET.
+Die normale Home-Initialisierung laedt wie bisher genau zwei GETs.
+
+Anders als im historischen PWA.15.24-Commit gibt es hier
+**keinen** Browser-Fetch-Priority-Hinweis `high`: das wurde
+mit PWA.15.22 auf realem yaVDR als Verlangsamung bewertet.
+Auch fuer den Controllerwechsel-Readback wird kein neuer
+Prioritaets-Hinweis vergeben. Es entsteht niemals ein weiterer
+Snapshot-GET ohne echten Controllerwechsel; Bildanfragen werden
+nicht verzoegert, priorisiert oder gesperrt. Kein
+`clients.claim()`, kein Seiten-Reload, kein Polling, keine
+Aenderung an Auth-/Scope-Grant-Logik, Service Worker,
+Home-Renderer, Artwork-URLs oder No-Artwork-CSS.
+
+Der urspruengliche PWA.15.24-API-/Home-Owner-Regressionstest
+wird auf die nachweislich vorhandene PWA.15.21-Basis
+zurueckportiert. Die Tests erwarten fuer den initialen
+Snapshot und den Controllerwechsel-Readback die **bisherige
+Browser-Standardprioritaet** statt der verworfenen hohen
+Prioritaet. Abgedeckt sind normale Initialisierung,
+genau ein Readback pro echtem Controllerwechsel, keine
+Anfrage bei abgemeldetem oder inaktivem Home,
+wiederholte Controller-Events ohne neue Instanz und
+Wiederanmeldung. Ein realer Home-Kalt-/Warmtest bleibt
+die Freigabe fuer den naechsten Slice.

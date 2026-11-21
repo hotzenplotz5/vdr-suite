@@ -589,6 +589,10 @@
       if (typeof onSnapshot === 'function') onSnapshot(snapshot);
       return snapshot;
     });
+    // Restore a scope proof only after a genuine SW controller change.
+    // Normal Home initialization still makes its two existing requests.
+    if (normalizeOptions(options).artworkProofReadbackOnly === true)
+      return snapshotRequest;
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
       Object.assign({}, normalizeOptions(options), {backendId: id})
     ).catch(function () {
