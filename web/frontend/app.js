@@ -4641,34 +4641,6 @@ function installBrowserSessionFrontendGate() {
   return true;
 }
 
-// A newly activated Service Worker has no in-memory artwork proof for this
-// already-authenticated Home document. Reuse the existing scoped snapshot
-// exactly once per *actual* controller transition; never reload the page,
-// remount Home, defer visible artwork or add an authorization gate.
-function installHomeArtworkControllerRecovery() {
-  const worker = window.navigator && window.navigator.serviceWorker;
-  if (!worker || typeof worker.addEventListener !== 'function') return;
-  let previousController = worker.controller;
-  worker.addEventListener('controllerchange', function () {
-    const nextController = worker.controller;
-    if (nextController === previousController) return;
-    previousController = nextController;
-    if (!nextController || !browserSessionFrontendActive ||
-        selectedModule !== 'overview' || !selectedBackend || !selectedBackendId) return;
-    const clientApi = frontendPlatformClientApi();
-    if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') return;
-    // The normal API owner dispatches one small scope-bearing snapshot;
-    // artworkProofReadbackOnly skips its independent recording-count request.
-    // A failing readback leaves normal direct artwork HTTP untouched.
-    try {
-      Promise.resolve(clientApi.fetchClientBackendSnapshot(selectedBackendId, {
-        cache: 'no-store', priority: 'high', artworkProofReadbackOnly: true
-      })).catch(function () {});
-    } catch (_) { /* Optional cache proof; ordinary Home keeps working. */ }
-  });
-}
-
-installHomeArtworkControllerRecovery();
 installBrowserSessionFrontendGate();
 
 // Phase 58.90b: integrated standalone pointer channel sorter.

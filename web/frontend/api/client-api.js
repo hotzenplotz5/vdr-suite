@@ -590,11 +590,6 @@
       if (typeof onSnapshot === 'function') onSnapshot(snapshot);
       return snapshot;
     });
-    // A controllerchange only needs the same scope-bearing snapshot response.
-    // Do not launch an unrelated recording-count request for that one-off
-    // readback; normal Home initialization keeps its existing composition.
-    if (normalizeOptions(options).artworkProofReadbackOnly === true)
-      return snapshotRequest;
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
       Object.assign({}, normalizeOptions(options), {backendId: id, priority: undefined})
     ).catch(function () {
