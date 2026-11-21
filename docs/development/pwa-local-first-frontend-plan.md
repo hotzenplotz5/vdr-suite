@@ -1617,7 +1617,8 @@ reference, not a PWA.15.11 result.
   transport.
 - The opt-in browser JSON now exports `railArtworkPrefetch`: cover readiness
   on observed viewport entry, pending and completed-after-entry counters,
-  ready-delay distribution, fraction ready on entry, request lead, maximum
+  ready-delay distribution, overall and scroll-only fractions ready on entry,
+  request lead, maximum
   incomplete-image count and left/right scroll samples. These are sampled at
   animation frames, **not** exact decoded paint or network socket counts.
   The so-called prefetch-hit rate includes images already warm from caches
