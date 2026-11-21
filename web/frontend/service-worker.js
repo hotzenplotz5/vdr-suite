@@ -188,6 +188,9 @@ function artworkMeasurement(event) {
       expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
       backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
       proofReads: 0, acceptedProofs: 0,
+      proofHttpSamples: 0, proofHttpTotalMs: 0, proofHttpMaxMs: 0,
+      firstProofGapSamples: 0, firstProofGapTotalMs: 0, firstProofGapMaxMs: 0,
+      candidateLookupSamples: 0, candidateLookupTotalMs: 0, candidateLookupMaxMs: 0,
       cacheLookupSamples: 0, cacheLookupTotalMs: 0, cacheLookupMaxMs: 0,
       cacheHitResolveSamples: 0, cacheHitResolveTotalMs: 0, cacheHitResolveMaxMs: 0,
       foregroundHttpSamples: 0, foregroundHttpTotalMs: 0, foregroundHttpMaxMs: 0,
@@ -306,9 +309,11 @@ async function observeArtworkProof(event, backend) {
   const kinds = proofKinds(event.request);
   const key = kind => proofKey(event.clientId, backend, kind);
   countArtwork(event, 'proofReads');
+  const proofStarted = Date.now();
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
   catch (error) { forgetArtworkProofs(); throw error; }
+  finally { timeArtwork(event, 'proofHttp', proofStarted); }
   if (epoch !== artworkProofEpoch || artworkSessionMutations) return response;
   const prior = ['recording', 'epg'].map(kind => artworkProofs.get(key(kind))).filter(Boolean);
   if (prior.some(proof => proof.sequence > sequence)) return response;
@@ -340,6 +345,14 @@ async function observeArtworkProof(event, backend) {
   for (const [kind, value] of admitted)
     artworkProofs.set(key(kind), {partition:value, sequence});
   countArtwork(event, 'acceptedProofs');
+  // Measure only the first missed-proof -> accepted-proof gap for this
+  // document. The internal start timestamp is deliberately not enumerable,
+  // so diagnostic exports include durations, never wall-clock timestamps.
+  const measurement = artworkMeasurement(event);
+  if (measurement && Number.isFinite(measurement.__firstUnprovenArtworkAt)) {
+    timeArtwork(event, 'firstProofGap', measurement.__firstUnprovenArtworkAt);
+    measurement.__firstUnprovenArtworkAt = undefined;
+  }
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
 }
@@ -600,9 +613,12 @@ async function handleArtwork(event) {
         const otherKind = epg ? 'recording' : 'epg';
         if (artworkProofs.has(proofKey(event.clientId, backend, otherKind)))
           measurement.missingProofOtherKind++;
-        else if (!measurement.acceptedProofs)
+        else if (!measurement.acceptedProofs) {
           measurement.missingProofBeforeAcceptedRead++;
-        else measurement.missingProofAfterAcceptedRead++;
+          if (!Number.isFinite(measurement.__firstUnprovenArtworkAt))
+            Object.defineProperty(measurement, '__firstUnprovenArtworkAt',
+              {value: Date.now(), writable: true, configurable: true});
+        } else measurement.missingProofAfterAcceptedRead++;
       }
     }
   }
@@ -657,7 +673,9 @@ async function revalidateArtwork(event, scopedMiss = false, background = false) 
   const base = artworkBase(request);
   // An exact current-scope miss cannot reuse validators from a different
   // authorization partition. Avoid enumerating other cached partitions.
+  const candidateStarted = Date.now();
   const candidates = scopedMiss ? [] : await artworkCandidates(base, artworkByteLimit(request));
+  if (!background && !scopedMiss) timeArtwork(event, 'candidateLookup', candidateStarted);
   let response;
   try {
     response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : [], background);

@@ -37,6 +37,39 @@
       catch (_) { finish(null); }
     });
   }
+  // Console output belongs only to this opt-in diagnostic iframe.
+  // One aggregate object per completed capture, never per-image logging.
+  function logArtworkSummary(report) {
+    if (!root.console || typeof root.console.info !== 'function') return;
+    const metrics = report.metrics || {};
+    const worker = metrics.artworkWorker && metrics.artworkWorker.counters || {};
+    const rails = report.railArtworkPrefetch || {};
+    const rows = metrics.resourceDiagnostics && metrics.resourceDiagnostics.rows || [];
+    const phase = function (name) {
+      const samples = Number(worker[name + 'Samples']) || 0;
+      return {samples: samples, meanMs: samples
+        ? Math.round(Number(worker[name + 'TotalMs']) / samples * 10) / 10 : null,
+      maxMs: samples ? Number(worker[name + 'MaxMs']) : null};
+    };
+    root.console.info('[VDR-Suite Artwork] Diagnose (nur nach Stop)', {
+      homeFrameMs: report.startupTiming && report.startupTiming.homeFrameMs || null,
+      scrollReadyPercent: rails.scrollPrefetchHitRatePercent ?? null,
+      afterEntryMeanMs: rails.meanReadyDelayMs ?? null,
+      afterEntryMaxMs: rails.delayMaxMs ?? null,
+      image404: rows.filter(row => row.initiator === 'img' && row.status === '404')
+        .reduce((total, row) => total + (Number(row.count) || 0), 0),
+      missingProofBeforeRead: worker.missingProofBeforeAcceptedRead ?? null,
+      localCacheHits: worker.localHits ?? null,
+      cacheMisses: worker.cacheMiss ?? null,
+      parallelImageHttpPeak: worker.maxImageHttpInFlight ?? null,
+      firstProofGap: phase('firstProofGap'),
+      proofHttp: phase('proofHttp'),
+      cacheLookup: phase('cacheLookup'),
+      candidateLookup: phase('candidateLookup'),
+      foregroundHttp: phase('foregroundHttp'),
+      foregroundPriorityUnknown: worker.foregroundPriorityUnknown ?? null
+    });
+  }
   function stop(includeCache) {
     if (!active) return;
     active = false;
@@ -44,6 +77,7 @@
     const measurement = includeCache !== false && readArtworkMeasurement();
     if (!measurement) {
       report.metrics.artworkWorker = {available:false};
+      logArtworkSummary(report);
       send('result', report);
       return;
     }
@@ -52,6 +86,7 @@
       report.metrics.artworkWorker = value && value.schema === 1
         ? {available:true, ...value, interval:'controlled document since worker start; cumulative'}
         : {available:false};
+      logArtworkSummary(report);
       send('result', report);
     }).finally(function () { checking = false; });
   }

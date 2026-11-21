@@ -1905,3 +1905,39 @@ uebernommen und um die Filmkarten-Aktualisierung erweitert.
 Ein echter Browser-Test bleibt fuer die Freigabe erforderlich.
 Ein weiterhin vom Backend gemeldeter 404 ist durch die
 rein visuelle Korrektur nicht beseitigt.
+
+## PWA.15.20 (kompatibel) — Opt-in Ursachenmessung bei schneller Home-Basis (2026-11-21)
+
+Nach den bestaetigten Performance-Regressionsproblemen von PWA.15.18
+bleiben Home-Discovery, Artwork-Priorisierung, der alte
+IntersectionObserver und der No-Artwork-Fallback unveraendert.
+Die zuvor separat uebernommene kompatible PWA.15.19-Diagnose
+ist bereits Bestandteil dieses Standes.
+
+Die vier Originaldateien von PWA.15.20 bauen byteidentisch auf
+dieser vorhandenen Diagnosebasis auf und werden unveraendert
+uebernommen: `web/frontend/service-worker.js`,
+`web/frontend/tests/test_pwa_artwork_cache.js`,
+`web/frontend/browser-performance-bridge.js` und
+`tools/test_browser_performance_diagnostics.js`.
+
+Im Service Worker werden die bestehenden Phasen der
+Proof-HTTP-Readbacks, der ersten Proof-Luecke und der
+Cache-Kandidatensuche gemessen. Ihre Zeitwerte sind nur
+aggregierte numerische Kennzahlen, keine URLs, IDs oder
+Berechtigungsinformationen. Die Browser-Bridge gibt nur
+nach aktivierter, explizit gestoppter Performance-Messung
+ein einziges strukturiertes Diagnoseobjekt auf der Console aus.
+Die regulaere Home-Seite erzeugt dadurch keine neuen Logs.
+
+Kein neuer Fetch, kein Polling, keine Sperre fuer sichtbare Cover,
+keine neue Warteschlange, keine neue Netzwerkanfrage, keine
+Aenderung an Cache-, Scope- oder Grant-Verhalten. Das
+PWA.15.18-Vorlaufverhalten bleibt entfernt. Die normalen
+Home-Renderer einschliesslich des uebernommenen PWA.15.25-
+No-Artwork-Fallbacks bleiben unangetastet.
+
+Abnahme durch die relevanten originalen Service-Worker- und
+Browser-Diagnosetests sowie den realen Home-Browser-Test
+auf dem yaVDR. Testpassagen allein belegen nicht, dass das
+Cover-Laden in jedem Browser weiter gleich schnell bleibt.
