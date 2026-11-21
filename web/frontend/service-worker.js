@@ -183,6 +183,8 @@ function artworkMeasurement(event) {
   if (!value) {
     value = {requests: 0, localHits: 0, revalidatedHits: 0, imageHttpRequests: 0, coalescedRequests: 0,
       serverImages: 0, serverOther: 0, networkErrors: 0, missingProof: 0,
+      missingProofBeforeAcceptedRead: 0, missingProofOtherKind: 0,
+      missingProofAfterAcceptedRead: 0,
       expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
       backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
       proofReads: 0, acceptedProofs: 0,
@@ -469,7 +471,11 @@ async function artworkFetch(event, tags, background = false) {
   headers.delete('If-None-Match');
   headers.delete('If-Modified-Since');
   if (tags.length) headers.set('If-None-Match', tags.join(', '));
-  const networkRequest = new Request(request, {headers, mode: 'same-origin', cache: 'no-store'});
+  // Background revalidations may run beside visible image requests.
+  // Hint low priority only for those optional HTTP refreshes; keep the
+  // normal request's browser priority and all credentials unchanged.
+  const networkRequest = new Request(request, {headers, mode: 'same-origin',
+    cache: 'no-store', ...(background ? {priority: 'low'} : {})});
   const started = Date.now();
   countArtwork(event, 'imageHttpRequests');
   if (!background && artworkBackgroundHttpInFlight > 0)
@@ -576,6 +582,17 @@ async function handleArtwork(event) {
     if (!backend) countArtwork(event, 'otherArtworkRoute');
     else {
       countArtwork(event, 'missingProof');
+      // Distinguish first-use/proof-ordering from a missing kind or an
+      // invalidated/different grant. This never changes authorization.
+      const measurement = artworkMeasurement(event);
+      if (measurement) {
+        const otherKind = epg ? 'recording' : 'epg';
+        if (artworkProofs.has(proofKey(event.clientId, backend, otherKind)))
+          measurement.missingProofOtherKind++;
+        else if (!measurement.acceptedProofs)
+          measurement.missingProofBeforeAcceptedRead++;
+        else measurement.missingProofAfterAcceptedRead++;
+      }
     }
   }
   if (proof) {
@@ -596,7 +613,10 @@ async function handleArtwork(event) {
           const key = base + '?scope=' + proof.partition;
           // A stale image can paint now; keep network refresh optional,
           // deduplicated and bounded, never a barrier to visible covers.
-          if (artworkRefreshing.size < 4 && !artworkRefreshing.has(key)) {
+          // Two low-priority validations leave more HTTP capacity for
+          // immediately requested covers. Saturated refreshes remain
+          // optional and retry on the next authorized cache use.
+          if (artworkRefreshing.size < 2 && !artworkRefreshing.has(key)) {
             artworkRefreshing.add(key);
             countArtwork(event, 'backgroundRefreshes');
             // Independently read the cached candidate for background validation:
