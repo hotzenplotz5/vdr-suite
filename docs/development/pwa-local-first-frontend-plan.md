@@ -1962,3 +1962,68 @@ der Browser-Prioritaets-Hinweise bleiben bis zum naechsten
 vergleichbaren yaVDR-Browsertest offen. Weder eine weitere
 Vorauslade-Erhoehung noch ein globales HTTP-Gate wird daraus
 ohne konkrete Messung abgeleitet.
+
+## PWA.15.20 — Opt-in Ursachenmessung ohne Console-Spam (2026-11-21)
+
+PWA.15.19 ergab im Warm-Test eine subjektiv spuerbare und in den
+aggregierten Rails-Messwerten leichte Verschlechterung gegenueber
+PWA.15.18. Der Browser-Service-Worker meldete 42 Artwork-Anfragen
+ohne akzeptierten ersten Readback; die Browser-`Request.priority`
+wurde fuer alle erfassten Vordergrund-Anfragen als `unknown`
+exportiert. Daraus folgt weder eine bewiesene Ursache der warmen
+Verzoegerung noch eine Erlaubnis, bereits sichtbare Bilder zu bremsen.
+Sieben HTTP-404 betrafen Metadaten-Bild-URLs; das ist **nicht**
+gleichbedeutend mit sieben einzigartigen Aufnahmen. Ein vorhandener
+Poster-URL kann ohne tatsaechliche Serverdatei enden; im Frontend
+greift nach `img.error` bereits der Buchstaben-Fallback.
+
+Die bestehende SW-Messung erhaelt drei auf den **einmaligen**
+Diagnoseabruf begrenzte, rein numerische Zeitphasen:
+
+- `proofHttp*`: Dauer vom Start der vorhandenen autorisierten
+  Snapshot-/Recording-Readback-Anfrage bis zu deren HTTP-Headern;
+- `firstProofGap*`: Zeitraum von der ersten Bildanfrage eines
+  kontrollierten Dokuments **vor** dessen akzeptiertem Readback bis
+  zum ersten erfolgreichen Proof. Das misst die beobachtete
+  Zeitluecke, nicht eine eingefuehrte Sperre: die Bildanfrage
+  benutzt unveraendert den regulieren HTTP-Fallback. Der interne
+  Startzeitpunkt ist nicht enumerable und wird nicht exportiert;
+- `candidateLookup*`: Dauer der bereits vorhandenen optionalen
+  Suche nach Cache-Kandidaten vor normalen HTTP-Anfragen, falls
+  kein aktueller `scopedMiss` den Suchpfad ohnehin ausschliesst.
+  Enthaltene Cache-Storage-Zeiten werden dadurch beobachtbar,
+  nicht auf einen anderen Pfad umgeleitet.
+
+Alle Phasen exportieren nur Samples, kumulierte Dauer in Millisekunden
+und Maximum. Sie werden in derselben bereits autorisierten
+per-Client-Service-Worker-Diagnose abgefragt wie die frueheren
+`cacheLookup*`, `foregroundHttp*`, `backgroundHttp*` und
+`missingProof*`-Zaehler. Keine URL, Recording-ID, Client-ID,
+Partition, Session, ETag oder konkrete Bilddatei erscheint im Report.
+Kein neuer Fetch, kein Polling, kein neuer Wartemechanismus,
+kein Write-/Cache-/Grant- oder Auth-Verhalten.
+
+Nur der bereits vorhandene, explizit aufgerufene
+`browser-performance-diagnostics.html`-Bridge-Frame schreibt
+nach **Stop** genau einen aggregierten `console.info`-Eintrag
+`[VDR-Suite Artwork] Diagnose (nur nach Stop)` mit Warmstart,
+sichtbaren Scroll-Covern, Proof-Luecke, Cache-/HTTP-Phasen,
+maximaler Bild-HTTP-Parallelitaet und beobachteter Anzahl
+404-Antworten bei Bildern. Keine `console.log`-Zeile pro Bild
+oder waehrend des Scrollens. Die normale Home-Seite laedt
+weder den Bridge-Code noch dessen Console-Summary.
+
+Die 404-Zahl ist eine Anzahl von HTTP-Ressourceneintraegen,
+keine Liste eindeutig fehlender Aufnahmen. Fehlende URL-Werte
+zeigen schon vorher direkt den bestehenden Fallback; echte
+404-Antworten loesen weiterhin `img.error` aus. Eine neue
+dauerhafte Negativ-Cache-Sperre oder ein ungefragter
+Backend-/Metadaten-Umbau waere ohne Beleg nicht gerechtfertigt.
+
+Abnahme: gepruefte SW-Testregression fuer Proof-Gap,
+Proof-HTTP und Kandidatensuche, opt-in-Console-Regression,
+und ein vergleichbarer Warm- sowie Kalttest im Browser.
+Erst diese Messung soll entscheiden, ob Proof-Race,
+Cache-Kandidatensuche, eigentliche HTTP-Wartezeit oder
+Cover-Bereitschaft beim Scrollen die naechste konkrete
+Produktkorrektur rechtfertigt.

@@ -453,5 +453,33 @@ async function run(prefix) {
     !JSON.stringify(priorityAfter).includes('https://'),
     'priority diagnostics must not disclose image URLs or IDs');
   console.log('PWA.15.19 incoming HTTP priority classification PASS');
+
+  // PWA.15.20: first unproven image precedes an accepted readback.
+  // Only durations are reported; the internal wall-clock start must stay
+  // absent from the diagnostic payload.
+  const unprovenUrl = url.replace('recordingId=7','recordingId=901105');
+  await image(unprovenUrl, 'timing-tab');
+  const withoutProof = measurement('timing-tab').counters;
+  assert.equal(withoutProof.missingProofBeforeAcceptedRead, 1);
+  assert.equal(withoutProof.candidateLookupSamples, 1,
+    'unproven first-use candidate lookup is measured separately from HTTP');
+  assert.equal(withoutProof.firstProofGapSamples, 0,
+    'no accepted readback means no reported first-proof gap yet');
+  clock += 80;
+  proofDelay = 17;
+  await proof('timing-tab');
+  proofDelay = 0;
+  const withProof = measurement('timing-tab').counters;
+  assert.equal(withProof.proofHttpSamples, 1);
+  assert(withProof.proofHttpTotalMs >= 17,
+    'real proof HTTP readback duration is recorded');
+  assert.equal(withProof.firstProofGapSamples, 1);
+  assert(withProof.firstProofGapTotalMs >= 97,
+    'first unproven image -> accepted proof gap includes prior HTTP overlap');
+  assert(!Object.keys(withProof).some(key => key.includes('UnprovenArtworkAt')),
+    'internal first-miss timestamp must not be exported');
+  assert.equal((await image(unprovenUrl,'timing-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),
+    'local', 'normal authorized cache behavior remains unchanged');
+  console.log('PWA.15.20 proof readback and candidate lookup phases PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});
