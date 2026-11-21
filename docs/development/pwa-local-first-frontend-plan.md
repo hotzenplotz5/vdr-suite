@@ -1752,3 +1752,48 @@ Regressionstest prueft einen schnellen glatten Wischvorgang (18px in
 Cold-Home-Verhalten, Richtungsvorlauf, begrenzte Requestzahl und
 Vermeidung doppelter src-Zuweisung. Eine tatsaechliche Verbesserung
 der Sichtbarkeitsquote bedarf noch einer vergleichbaren yaVDR-Messung.
+
+## PWA.15.16 — Messung der Service-Worker-Artwork-Wartephasen (2026-11-21)
+
+Die PWA.15.15-Browsermessung ergab 50,3 % beim Scroll-Eintritt
+bereits fertige Cover (168 von 334), im Mittel 1818 ms und maximal
+8734 ms nachtraegliche Bildwartezeit. Der Worker meldete 119 lokale
+Treffer, 89 Cache-Misses sowie 31 Hintergrundaktualisierungen.
+Eine Ressourcengruppe hatte bis zu 9311 ms Request-to-first-byte,
+aber nur 90 von 189 Bildressourcen dieser Gruppe zeigten Artwork-
+Server-Timing. Damit ist nicht bewiesen, ob sich Browser-Queue,
+Service-Worker-Cache-Storage, normale HTTP-Requests oder
+Hintergrundaktualisierungen gegenseitig verzoegern.
+
+Der bestehende, ausschliesslich angeforderte
+`vdr-suite-artwork-measurement`-Kanal liefert deshalb weitere
+aggregierte Werte je kontrolliertem Browser-Dokument:
+
+- `cacheLookupSamples/TotalMs/MaxMs`: Dauer der bestehenden
+  aktuellen, partitionierten Cache-Storage-Abfrage;
+- `cacheHitResolveSamples/TotalMs/MaxMs`: SW-Fetch-Handler-
+  Eintritt bis zum Rueckgabepunkt eines lokalen Cache-Treffers;
+- `foregroundHttpSamples/TotalMs/MaxMs`: SW-interner normaler
+  HTTP-Fetch bis zu seinen Response-Headern;
+- `backgroundHttpSamples/TotalMs/MaxMs`: entsprechende Dauer
+  eines zeitlich unabhaengigen stale-while-revalidate-Abrufs;
+- `foregroundHttpWhileBackgroundActive`: Start einer normalen
+  HTTP-Anfrage waehrend mindestens eines offenen Background-Fetches;
+- `maxImageHttpInFlight` und `maxBackgroundHttpInFlight`:
+  maximale zu einem Messzeitpunkt gleichzeitig im Worker offene
+  HTTP-Fetches.
+
+Die Dauer zaehlt **nicht** den Koerpertransfer, die Bilddekodierung
+oder Paint. Parallelitaet beweist nur Ueberlappung, keine ursachliche
+Beeintraechtigung. Zeitwerte bleiben im Arbeitsspeicher und werden
+nur mit der bereits vorhandenen per-Client-Diagnose abgefragt.
+Es werden weder URLs, Nutzer-IDs, Artwork-Hashes, Berechtigungs-
+Partitionen noch Response-Inhalte ausgegeben oder gespeichert.
+
+Keine Aenderung an Cache-Limit und -Freigaben, Refresh-Intervall,
+Anfragepriorisierung, Backend, Service-Worker-Routen oder Sicherheit.
+Der Regressionstest prueft getrennte HTTP-Zeitmessung, Cache-
+Messungen und einen real zeitgleich laufenden Hintergrund- und
+Vordergrund-HTTP-Abruf. Erst die naechste vergleichbare Messung
+kann entscheiden, ob Hintergrundrefreshs den sichtbaren Abruf
+ausbremsen oder ob die Wartezeit anderswo entsteht.
