@@ -167,10 +167,7 @@ const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/rec
 const epgProofRoutes = new Set(['/api/epg/cache/now-next-artwork', '/api/epg/cache/now-next', '/api/epg/cache/window', '/api/epg/cache/metadata']);
 // Artwork-only window starts on receipt of existing server authorization.
 // Expiry falls back to the original network path, not a new UI gate.
-const artworkProofMs = 30000;
-const artworkProofMaxRoundTripAgeMs = 60000;
 const artworkFreshMs = 5 * 60 * 1000;
-const artworkStaleMs = 24 * 60 * 60 * 1000;
 const artworkProofs = new Map();
 let artworkProofEpoch = 0, artworkProofSequence = 0;
 const artworkRefreshing = new Set();
@@ -283,19 +280,10 @@ function recordingArtworkBackend(url) {
       ? url.searchParams.get('backend') : '');
 }
 
-function artworkProofExpired(proof) {
-  const now = Date.now();
-  const age = now - proof.confirmedAt;
-  const totalAge = now - proof.started;
-  return age < 0 || age > artworkProofMs ||
-    totalAge < 0 || totalAge > artworkProofMaxRoundTripAgeMs;
-}
-
 async function observeArtworkProof(event, backend) {
   const epoch = artworkProofEpoch, sequence = ++artworkProofSequence;
   const kinds = proofKinds(event.request);
   const key = kind => proofKey(event.clientId, backend, kind);
-  const started = Date.now();
   countArtwork(event, 'proofReads');
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
@@ -325,10 +313,11 @@ async function observeArtworkProof(event, backend) {
       (kinds.includes('epg') && artworkProofs.has(key('epg')) &&
        !admitted.some(([kind]) => kind === 'epg'))) forgetArtworkProofs();
   for (const kind of kinds) artworkProofs.delete(key(kind));
-  const confirmedAt = Date.now();
-  if (confirmedAt < started || confirmedAt - started > artworkProofMaxRoundTripAgeMs) return response;
+  // One authenticated Home read binds artwork to this document and grant scope.
+  // No short-lived artwork-only clock: session changes and permission drift
+  // still invalidate the binding through the existing scope/reset paths.
   for (const [kind, value] of admitted)
-    artworkProofs.set(key(kind), {partition:value, sequence, started, confirmedAt});
+    artworkProofs.set(key(kind), {partition:value, sequence});
   countArtwork(event, 'acceptedProofs');
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
@@ -341,7 +330,7 @@ function currentArtworkProof(event) {
   const backend = epg || recordingArtworkBackend(url);
   if (!backend) return null;
   const proof = artworkProofs.get(proofKey(event.clientId, backend, epg ? 'epg' : 'recording'));
-  return proof && !artworkProofExpired(proof) ? proof : null;
+  return proof || null;
 }
 
 function artworkRequest(request) {
@@ -549,8 +538,7 @@ async function handleArtwork(event) {
     const backend = epg || recordingArtworkBackend(url);
     if (!backend) countArtwork(event, 'otherArtworkRoute');
     else {
-      const previous = artworkProofs.get(proofKey(event.clientId, backend, epg ? 'epg' : 'recording'));
-      countArtwork(event, previous && artworkProofExpired(previous) ? 'expiredProof' : 'missingProof');
+      countArtwork(event, 'missingProof');
     }
   }
   if (proof) {
@@ -562,7 +550,9 @@ async function handleArtwork(event) {
     const current = currentArtworkProof(event);
     if (candidate && generation === artworkGeneration && current && current.partition === proof.partition) {
       const age = Date.now() - candidate.validatedAt;
-      if (candidate.validatedAt > 0 && age >= 0 && age <= artworkStaleMs) {
+      if (candidate.validatedAt > 0 && age >= 0) {
+        // Cached bytes paint immediately; even an old poster revalidates
+        // independently in the background instead of blocking a reload.
         if (age > artworkFreshMs) {
           const key = base + '?scope=' + proof.partition;
           // A stale image can paint now; keep network refresh optional,
