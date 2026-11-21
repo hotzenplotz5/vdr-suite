@@ -266,6 +266,45 @@ function setEnsureFields(root, permission, backendId) {
 
   addonEffective = false;
 
+  // Available grants follow selected scope; existing grant mutations are not changed.
+  function choicesForScope(root, scope) {
+    const picker = findByClass(root, 'settings-account-admin-grant-permission-input');
+    const backend = findByClass(root, 'settings-account-admin-grant-backend-input');
+    backend.value = scope;
+    backend.listeners.change();
+    return picker.children.flatMap(function(child) {
+      return child.tagName === 'OPTGROUP'
+        ? child.children.map(option => option.value) : [child.value];
+    });
+  }
+  const originalGrants = cloneItems();
+  grantItems = [{permission: 'role.admin', backendId: '*'}];
+  let roleRoot = await renderRoot();
+  assert.deepStrictEqual(choicesForScope(roleRoot, '*'), ['', 'role.read-only']);
+  assert.deepStrictEqual(choicesForScope(roleRoot, 'default'), ['', 'role.read-only']);
+  assert.deepStrictEqual(choicesForScope(roleRoot, 'bedroom'), ['', 'role.read-only']);
+
+  grantItems = [{permission: 'role.admin', backendId: 'default'}];
+  roleRoot = await renderRoot();
+  assert.deepStrictEqual(choicesForScope(roleRoot, 'default'), ['', 'role.read-only']);
+  assert(choicesForScope(roleRoot, '*').includes('timers.view'),
+    'backend administrator must not hide global permissions');
+  assert(choicesForScope(roleRoot, 'bedroom').includes('channels.view'),
+    'backend administrator must not hide another backend');
+
+  grantItems = [{permission: 'channels.view', backendId: 'default'}];
+  roleRoot = await renderRoot();
+  assert(!choicesForScope(roleRoot, 'default').includes('channels.view'));
+  assert(choicesForScope(roleRoot, '*').includes('channels.view'),
+    'backend grant must not hide global scope');
+  assert(choicesForScope(roleRoot, 'bedroom').includes('channels.view'));
+
+  grantItems = [{permission: 'channels.view', backendId: '*'}];
+  roleRoot = await renderRoot();
+  assert(!choicesForScope(roleRoot, '*').includes('channels.view'));
+  assert(!choicesForScope(roleRoot, 'default').includes('channels.view'));
+  grantItems = originalGrants;
+
   assert(calls.some(call => call.name === 'getBackends'),
     'backend selector must use canonical Public-v1 backend discovery');
 
