@@ -1168,20 +1168,23 @@
   function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    const fallback = text(fallbackText) || text(title).slice(0, 1).toUpperCase() || '▶';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const resolved = text(url);
     if (!resolved) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
-    image.alt = 'Poster zu ' + text(title);
+    image.alt = '';
     image.loading = 'lazy';
     image.decoding = 'async';
     deferHomeArtworkImage(image, publicPath(homePreview(resolved)));
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     prioritizeVisibleArtwork(image);

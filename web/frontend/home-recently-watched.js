@@ -173,10 +173,13 @@
   function createArtwork(item) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    const fallback = title(item).slice(0, 1).toUpperCase() || '▶';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const url = posterUrl(item);
     if (!url) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -185,11 +188,11 @@
     if (discovery && typeof discovery.deferHomeArtworkImage === 'function')
       discovery.deferHomeArtworkImage(image, resolved);
     else image.src = resolved;
-    image.alt = 'Poster zu ' + title(item);
+    image.alt = '';
     image.loading = 'lazy';
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     return artwork;
@@ -626,10 +629,13 @@
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
     const title = recordingTitle(recording);
-    const fallback = title.slice(0, 1).toUpperCase() || '▶';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const url = posterUrl(recording);
     if (!url) {
-      artwork.textContent = fallback;
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -638,13 +644,13 @@
     if (discovery && typeof discovery.deferHomeArtworkImage === 'function')
       discovery.deferHomeArtworkImage(image, resolved);
     else image.src = resolved;
-    image.alt = 'Poster zu ' + title;
+    image.alt = '';
     image.loading = 'lazy';
     image.decoding = 'async';
     image.fetchPriority = 'low';
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      showNoArtwork();
     });
     artwork.appendChild(image);
     return artwork;
@@ -688,8 +694,8 @@
       card.__vdrSuiteMovieArtworkUrl = nextUrl;
     } else if (artwork) {
       const image = artwork.children[0];
-      if (image && image.tagName === 'IMG') image.alt = 'Poster zu ' + title;
-      else artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
+      if (image && image.tagName === 'IMG') image.alt = '';
+      // Preserve No Artwork when a cached tile gets an unchanged URL.
     }
     const copy = card.children[1];
     if (copy && copy.children[0]) copy.children[0].textContent = title;

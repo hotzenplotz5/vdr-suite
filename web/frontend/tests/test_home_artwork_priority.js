@@ -303,3 +303,90 @@ assert(leftScene.starts.some(x=>x.index===3 && x.priority==='low'),
 assert.equal(leftScene.posters[25].src,'','left lookahead stays bounded');
 assert.equal(new Set(leftScene.starts.map(x=>x.index)).size,leftScene.starts.length);
 console.log('PWA.15.11 directional, rapid scroll, request reuse and bounded prefetch PASS');
+
+// PWA.15.25: use the actual four Home poster renderers, not only a
+// source-level string assertion. A missing URL must never start HTTP; an
+// image error changes the visual fallback only, without negative caching.
+function artworkRenderer(sourceName, startName, stopName, bindingFactory, from) {
+  const src=fs.readFileSync(path.join(__dirname,'..',sourceName),'utf8');
+  const start=src.indexOf('  function '+startName+'(',from||0);
+  const stop=src.indexOf('\n  function '+stopName+'(',start);
+  assert(start>=0&&stop>start,sourceName+' renderer source exists');
+  const harness=makeArtworkDoc();
+  const bindings=bindingFactory(harness.doc);
+  const fn=vm.runInNewContext(src.slice(start,stop)+'\n'+startName,
+    bindings,{filename:sourceName+':'+startName});
+  return {fn,harness};
+}
+function makeArtworkDoc(){
+  const images=[];
+  const doc={createElement(tag){
+    const node={tagName:tag.toUpperCase(),className:'',textContent:'',children:[],
+      listeners:{},parentNode:null,
+      appendChild(child){child.parentNode=this;this.children.push(child);return child;},
+      addEventListener(name,callback){this.listeners[name]=callback;},
+      remove(){if(this.parentNode){
+        this.parentNode.children=this.parentNode.children.filter(x=>x!==this);
+        this.parentNode=null;
+      }},
+      fail(){if(this.listeners.error)this.listeners.error();}};
+    if(tag==='img')images.push(node);
+    return node;
+  }};
+  return {doc,images};
+}
+function assertNoArtwork(renderer,label){
+  const {fn,harness}=renderer;
+  const missing=fn({title:'Doku ohne Cover',posterUrl:''});
+  assert.equal(missing.className,'media-home-discovery-artwork no-artwork',label+' no URL class');
+  assert.equal(missing.textContent,'No Artwork',label+' missing artwork label');
+  assert.equal(missing.children.length,0,label+' no image request for empty URL');
+  const present=fn({title:'Doku mit Cover',posterUrl:'/image'});
+  assert.equal(present.className,'media-home-discovery-artwork',label+' ordinary poster');
+  assert.equal(present.children.length,1,label+' poster still uses native img');
+  assert.equal(present.children[0].alt,'',label+' no huge browser fallback title');
+  assert.equal(present.textContent,'',label+' gray while cover is pending');
+  present.children[0].fail();
+  assert.equal(present.className,'media-home-discovery-artwork no-artwork',label+' failed poster');
+  assert.equal(present.textContent,'No Artwork',label+' failed poster text');
+  assert.equal(present.children.length,0,label+' broken image removed');
+  const retry=fn({title:'Doku mit Cover',posterUrl:'/image'});
+  assert.equal(retry.children.length,1,label+' later render retries image, no negative cache');
+  assert.equal(retry.className,'media-home-discovery-artwork');
+  assert.equal(harness.images.length,2,label+' exactly two image attempts; none on missing URL');
+}
+const normalRenderer=artworkRenderer('home-recording-discovery.js',
+  'createPosterArtwork','createArtwork',doc=>({
+    doc,text:value=>String(value||''),publicPath:x=>x,homePreview:x=>x,
+    deferHomeArtworkImage:(image,url)=>{image.src=url;},prioritizeVisibleArtwork:()=>{}
+  }));
+const normalWrap={fn:value=>normalRenderer.fn(value.title,value.posterUrl,value.title),
+  harness:normalRenderer.harness};
+assertNoArtwork(normalWrap,'discovery');
+const bootstrapRenderer=artworkRenderer('home-recording-discovery-bootstrap.js',
+  'createInlineArtwork','ensureRecordings2',doc=>({
+    doc,global:{},recordingTitle:r=>r.title,recordingPosterUrl:r=>r.posterUrl,
+    publicPath:x=>x
+  }));
+assertNoArtwork(bootstrapRenderer,'bootstrap inline');
+const recentRenderer=artworkRenderer('home-recently-watched.js',
+  'createArtwork','ensureRecordings2',doc=>({
+    doc,global:{},title:item=>item.title,posterUrl:item=>item.posterUrl,
+    publicPath:x=>x,homePreview:x=>x
+  }));
+assertNoArtwork(recentRenderer,'recently watched');
+const movieSrc=fs.readFileSync(path.join(__dirname,'..','home-recently-watched.js'),'utf8');
+const movieOffset=movieSrc.indexOf('  function posterUrl(recording)');
+const movieRenderer=artworkRenderer('home-recently-watched.js',
+  'createArtwork','createMovieCard',doc=>({
+    doc,global:{},recordingTitle:r=>r.title,posterUrl:r=>r.posterUrl,
+    publicPath:x=>x,homePreview:x=>x
+  }),movieOffset);
+assertNoArtwork(movieRenderer,'recent movies');
+const css=fs.readFileSync(path.join(__dirname,'..','style.css'),'utf8');
+assert(css.includes('.media-home-discovery-artwork.no-artwork {') &&
+  css.includes('background: #050505;') && css.includes('letter-spacing: .09em;'),
+  'no-artwork class must show a styled black tile in the installed main stylesheet');
+console.log('PWA.15.25 no-artwork fallback in all Home poster renderers PASS');
+
+
