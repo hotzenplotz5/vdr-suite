@@ -2362,23 +2362,33 @@ im selben Genre-Page-Read vorhandenen Felder:
   `metadataPayload` mit dem bestehenden
   `VdrRecordingMetadataCacheCodec` dekodieren und
   `hasArtwork()` pruefen;
-- **kein** Native-/Manual-/Legacy-Nachweis:
-  `posterUrl`/Metadata-`preferredUrl` sind leer,
+- **bereits bekannte** native/Serien-Metadaten,
+  aber kein Native-/Manual-/Legacy-Artwork-Nachweis:
+  `posterUrl`/Metadata-`preferredUrl` sind leer;
   der Frontend-Renderer zeigt sofort `No Artwork`
-  ohne den spekulativen GET.
+  ohne den spekulativen GET;
+- **kein bekannter** nativer Metadatenstatus
+  (etwa ein aelteres Backend): die bisherige URL
+  bleibt als Kompatibilitaets-Fallback bestehen,
+  weil fehlende Belege noch **kein** nachgewiesenes
+  Artwork-Nichtvorhandensein sind.
 
-Diese Regel **wertet nur vorhandene positive Belege
-aus**, fuehrt keine zusaetzlichen HTTP-/Datenbank-
+Diese Regel verwendet einen **bereits bekannten
+nativen/Serien-Metadatenzustand** als Voraussetzung
+fuer die Unterdrueckung unbegruendeter URLs und
+bewaahrt jeden vorhandenen positiven Artwork-Beleg.
+Sie fuehrt keine zusaetzlichen HTTP-/Datenbank-
 Abfragen, kein Persistieren von negativen Ergebnissen
 und keine neuen Berechtigungs- oder UI-Gates ein.
 Der normale spaetere Metadaten-Readback kann neue
 Artwork-Belege weiterhin anzeigen.
 
 Die Regression `test_genre_browser_controller`
-deckt ab: Aufnahme ohne Artwork ergibt keine URL,
-native Portrait-Aufnahme behaelt `kind=poster`,
-persistiertes Legacy-Artwork behaelt die bisherige
-URL. `mk/genre-browser.mk` verlinkt fuer diesen
+deckt ab: bekannter nativer Metadatenstatus ohne
+Artwork ergibt keine URL, native Portrait-Aufnahme
+behaelt `kind=poster`, persistiertes Legacy-Artwork
+behaelt die bisherige URL und ein unbekannter
+Legacy-Metadatenstatus bleibt kompatibel. `mk/genre-browser.mk` verlinkt fuer diesen
 Test den bereits im Daemon eingesetzten Codec.
 
 **Grenze**: Das ist der Fix fuer *synthetische Genre-

@@ -262,8 +262,9 @@ int main()
     // Legacy schema remains usable; native summaries are an additive cache read.
     const ApiResponse legacyRecordings = controller.getRecordings("default", "science-fiction", 10, 0);
     assert(legacyRecordings.statusCode == 200);
-    assert(contains(legacyRecordings, "\"posterUrl\":\"\""));
-    assert(!contains(legacyRecordings, "&kind=poster&index=0"));
+    // Unknown older backends retain their legacy URL; absence of a
+    // cache summary alone must not suppress potentially valid artwork.
+    assert(contains(legacyRecordings, "&kind=poster&index=0"));
     assert(!contains(legacyRecordings, "&kind=preferred&index=0"));
     // Native ID without any artwork in either cache must not fabricate an
     // image URL that can only lead to HTTP 404.
@@ -304,6 +305,25 @@ int main()
     assert(contains(seriesSummary, "&kind=gallery&index=3"));
     assert(contains(seriesSummary, "&kind=poster&index=0"));
     assert(!contains(seriesSummary, "/private/poster.jpg"));
+    // A successfully read native metadata record with no native/legacy
+    // artwork is *known* to lack a poster; do not fabricate a GET.
+    assert(database.execute(
+        "DELETE FROM vdr_recording_native_artwork "
+        "WHERE backend_id='default' AND recording_key='recording-1';"));
+    const ApiResponse knownMissingPoster =
+        controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(knownMissingPoster.statusCode == 200);
+    assert(contains(knownMissingPoster, "\"posterUrl\":\"\""));
+    assert(!contains(knownMissingPoster, "&kind=poster&index=0"));
+    assert(contains(knownMissingPoster, "\"preferredArtwork\":{\"available\":false"));
+    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='" +
+        encoded + "' WHERE backend_id='default' AND cache_key='recording-1';"));
+    const ApiResponse nativeWithLegacyPoster =
+        controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(contains(nativeWithLegacyPoster, "&kind=poster&index=0"));
+    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='' "
+        "WHERE backend_id='default' AND cache_key='recording-1';"));
+
     assert(contains(seriesSummary, "\"nativeCardMetadata\":{\"available\":true,\"mediaType\":\"series\",\"title\":\"Testserie\""));
     assert(database.execute(
         "UPDATE vdr_recording_native_metadata SET media_type='movie',title='Film aus Cache',"
