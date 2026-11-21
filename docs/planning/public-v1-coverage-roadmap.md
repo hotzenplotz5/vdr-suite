@@ -1,5 +1,32 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F6 – Native Recording Marks/Cut: Scope entschieden (21.11.2026)
+
+**F6 abgeschlossen als bewusste Public-v1-Scope-Ausnahme.**
+[Quellenbeleg und Entscheidung](../development/api-v1-f6-recording-marks-cut-scope.md):
+VDR-native Markenlesen/-Bearbeiten und Native-Cut inkl.
+Browsereditor, Revision, Agent/SuiteBridge und früherer
+Real-VDR-Abnahmen existieren bereits. Sie sind gegenwärtig
+über `/api/vdr/recordings/marks` und
+`/api/vdr/recordings/cut` erreichbar, **nicht** als
+eigenständige `/api/v1/...`-Ressourcen. Vorhandene
+Public-v1-Recording-Aktionen sind **kein** Cut-Alias.
+
+Für F1–F8 werden daher **keine** zusätzlichen
+öffentlichen Native-Marks-/Cut-Schreibrechte,
+Routen, SDK-Methoden oder destruktiven Hardwaretests
+eröffnet. Keine stillschweigende Gleichwertigkeit mit
+dem Webfrontend und keine TV-Schnittfreigabe.
+Soll eine eigenständige Public-v1-Marks-/Cut-API
+später hinzukommen, braucht das einen separat
+genehmigten und nach ADR-0059 abgenommenen Umfang.
+
+**Nächster Schritt: F7 Playback/Resume/Devices.**
+F5 Timer/SearchTimer bleibt bis zu den MLD-Interop-
+Rückmeldungen zurückgestellt. F8 ist weiterhin die
+einzige gemeinsame API-v1-Release-/Hardware-Endabnahme.
+
+
 ## API.V1.F5 – Timer/Suchtimer bewusst zurückgestellt (21.11.2026)
 
 **Betreiberentscheidung:** F5 wird nicht als weiterer sofortiger Timer-/Suchtimer-

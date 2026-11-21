@@ -130,3 +130,16 @@ browserprivatem Default-Backend-/Snapshot-/EPG-/Global-Search-Verhalten
 sind in der [F3-Paritätsmatrix](../docs/development/api-v1-f3-discovery-epg-search-parity.md)
 dokumentiert. Dieser Teil beweist keinen vollständigen Web-Client-Migrationsstand
 und keine neue reale Hardware-Abnahme.
+
+### API.V1.F6 — Native Recording Marks/Cut scope
+
+`GET/POST /api/vdr/recordings/marks` and
+`GET/POST /api/vdr/recordings/cut` remain established
+Recording-editing Control Plane routes. They are **not**
+new `/api/v1/` contracts and are **not** interchangeable with
+the public-v1 RENAME/MOVE/DELETE recording-action endpoints.
+The F1–F8 API-v1 finalization explicitly excludes promotion of
+native Marks/Cut to Public v1, without removing existing Web
+features or redoing real cut acceptance. See
+[the F6 scope decision](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
+and [ADR-0059](../docs/adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md).

@@ -1,5 +1,22 @@
 # VDR-Suite Current State
 
+## API.V1.F6 – Marks/Cut nicht in Public-v1-Releaseumfang (21.11.2026)
+
+F6 hat die bestehende native Marks-/Cut-Implementierung
+bis zu `RecordingMarksApiRuntime` und
+`RecordingCutApiRuntime`, den SecurityHttpGate, die
+Browsermodule und die partielle OpenAPI geprüft.
+[Begründete Scopeentscheidung](development/api-v1-f6-recording-marks-cut-scope.md):
+Marks-GET/POST und Cut-GET/POST bleiben über die vorhandenen
+Web-/Kontrollplan-Routen erhalten; **keine** separate
+Public-v1-Marks-/Cut-Ressource im F1–F8-Abschluss,
+kein neuer Writer, keine wiederholten Real-VDR-Mutationen.
+Die historische native Editing-/Cut-/Marks-Abnahme bleibt
+gültig im dokumentierten Umfang. F7 Playback/Device
+ist nächster Schritt; F5 MLD-Timer-Interop zurückgestellt,
+F8 einheitlicher Releaseabschluss.
+
+
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 
 Nach Betreiberentscheidung wird F5 hinter F6/F7 geschoben:
