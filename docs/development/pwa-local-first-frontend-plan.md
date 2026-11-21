@@ -1941,3 +1941,39 @@ Abnahme durch die relevanten originalen Service-Worker- und
 Browser-Diagnosetests sowie den realen Home-Browser-Test
 auf dem yaVDR. Testpassagen allein belegen nicht, dass das
 Cover-Laden in jedem Browser weiter gleich schnell bleibt.
+
+## PWA.15.21 (kompatibel) — Nahes Artwork zuerst, Fast-Swipe-Vorlauf beenden (2026-11-21)
+
+PWA.15.17 wurde auf dem yaVDR nach dem zu langsamen PWA.15.18
+als wesentlich schneller bestaetigt. PWA.15.18 und sein
+zusaetzlicher IntersectionObserver-Vorlauf bleiben ausgeschlossen;
+der No-Artwork-Fallback und die kompatiblen Diagnosen bis PWA.15.20
+sind bereits integriert.
+
+Der historische PWA.15.21-Commit enthaelt zwei voneinander
+unabhaengige Aenderungen innerhalb des bestehenden Rail-Coordinators:
+Im schon vorhandenen 4-neue/6-offene-Request-Budget erhaelt ein
+nahe am sichtbaren Rail-Ausschnitt liegender Vorlaufkandidat
+(hoechstens 120px entfernt) Vorrang vor weiter entfernten
+Kandidaten in Wischrichtung. Das aendert nur die Reihenfolge,
+nicht die Anzahl von Requests. Nach ueber 250ms ohne weitere
+Scrollbewegung klingt der `fast`-Status beim naechsten ohnehin
+laufenden Coordinator-Durchlauf ab, ohne Polling oder Timer.
+
+Die urspruenglichen PWA.15.21-Tests fuer einen **vertikal**
+benachbarten, vom zusaetzlichen PWA.15.18-Observer
+vorselektierten Bildknoten sind auf dieser schnellen Basis
+nicht gueltig. Stattdessen prueft eine neue Regression
+den tatsaechlichen PWA.15.17-Rail-Koordinator:
+ein nahe liegendes, aber horizontal abgeschnittenes
+Rueckwaerts-Cover muss vor weiter entfernten Vorwaerts-
+Kandidaten starten; normale Prioritaeten und Request-Budgets
+bleiben erhalten. Eine zweite Regression prueft den
+Fast-Swipe-Timeout nach Bildabschluss.
+
+Diese PWA.15.21-Version ist ausdruecklich eine **kompatible
+Teiluebernahme**, nicht der vollstaendige historische
+PWA.15.21-Dateibaum. Weder die schnelle PWA.15.17-IO-Logik
+noch der Service Worker, API, Berechtigungen, Daemon und
+No-Artwork-Fallback werden geaendert. Eine reale Browserabnahme
+muss vor dem naechsten Slice bestaetigt werden.

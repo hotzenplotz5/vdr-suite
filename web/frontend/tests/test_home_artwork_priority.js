@@ -468,3 +468,81 @@ assert.equal(noArtworkCard.children[0].className,'media-home-discovery-artwork n
 assert.equal(noArtworkCard.children[0].textContent,'No Artwork',
   'reused missing-artwork card must preserve No Artwork on metadata refresh');
 console.log('No Artwork survives recent-movie metadata refresh PASS');
+
+// PWA.15.21-compatible on the fast PWA.15.17 owner: a nearby,
+// clipped reverse-rail poster wins a slot over more distant forward
+// candidates. This test does not rely on PWA.15.18's extra IO queue.
+const compatibleFrames=[], compatibleStarts=[];
+let compatibleClock=50, compatibleImages=[];
+const compatibleWindow={
+  innerWidth:800,innerHeight:600,
+  performance:{now(){return compatibleClock;}},
+  requestAnimationFrame(fn){compatibleFrames.push(fn);},
+  IntersectionObserver:class{observe(){}unobserve(){}}
+};
+vm.runInNewContext(
+  fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),
+  {window:compatibleWindow});
+const compatibleDiscovery=compatibleWindow.VdrSuiteHomeRecordingDiscovery;
+const compatibleRail={
+  isConnected:true,scrollLeft:0,clientWidth:400,
+  getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
+  querySelectorAll(){return compatibleImages;}
+};
+function compatiblePoster(id,left){
+  let src='';
+  const img={
+    isConnected:true,complete:false,loading:'lazy',
+    closest(){return compatibleRail;},
+    addEventListener(){},
+    getBoundingClientRect(){
+      return {left,right:left+100,top:20,bottom:170,width:100,height:150};
+    }
+  };
+  Object.defineProperty(img,'src',{get(){return src;},set(url){
+    assert.equal(src,'','nearby preference cannot restart an artwork URL');
+    src=url;compatibleStarts.push({id,priority:this.fetchPriority});
+  }});
+  compatibleDiscovery.deferHomeArtworkImage(img,'/art/'+id+'?variant=home');
+  return img;
+}
+function runCompatibleRail(){
+  compatibleDiscovery.prioritizeInlineRailArtwork(compatibleRail);
+  while(compatibleFrames.length)compatibleFrames.shift()();
+}
+runCompatibleRail(); // establish old scroll position
+compatibleImages=[
+  compatiblePoster('far-forward',660),
+  compatiblePoster('near-behind',-10),
+  compatiblePoster('farther-forward',800)
+];
+compatibleClock+=16;
+compatibleRail.scrollLeft=18;
+runCompatibleRail();
+assert.equal(compatibleStarts[0].id,'near-behind',
+  'a near-viewport image must be preferred to far forward speculation');
+assert(compatibleStarts.every(x=>x.priority==='low'),
+  'nearby speculation cannot demote true visible high-priority requests');
+assert(compatibleStarts.length<=4,
+  'the original four-start frame budget remains unchanged');
+assert.equal(new Set(compatibleStarts.map(x=>x.id)).size,compatibleStarts.length,
+  'nearby preference cannot create a duplicate artwork request');
+console.log('PWA.15.21 compatible near-rail prefetch preference PASS');
+
+// A completed fast swipe must not hold a three-width lookahead forever.
+// Image completion triggers the existing coordinator (no new timer).
+const compatibleIdle=scrollScene(0);
+settleInitial(compatibleIdle);
+compatibleIdle.advance(16);
+compatibleIdle.rail.scrollLeft=18;
+compatibleIdle.schedule();
+const beforeIdle=compatibleIdle.starts.length;
+assert(compatibleIdle.starts.slice(Math.max(0,beforeIdle-4)).some(x=>x.index>=12),
+  'fast swipe must initially retain long directional lookahead');
+compatibleIdle.advance(300);
+compatibleIdle.completeOutstanding();
+compatibleIdle.schedule();
+assert(compatibleIdle.starts.slice(beforeIdle).every(x=>x.index<12),
+  'after 300ms idle no new three-width prefetch may start');
+assert.equal(new Set(compatibleIdle.starts.map(x=>x.index)).size,compatibleIdle.starts.length);
+console.log('PWA.15.21 compatible fast-swipe idle decay PASS');
