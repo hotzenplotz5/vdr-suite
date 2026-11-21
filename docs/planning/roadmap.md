@@ -45,7 +45,19 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ## PWA — Local-first Webfrontend modernization (decision 2026-11-19)
 
-**Next prioritized frontend workstream:** PWA.1–PWA.13.1 (local artwork, selected series covers, authorized Local-first startup and public logos), extending the existing
+**Status 2026-11-21: PAUSIERT (Performance-Optimierung; kein Rollback).**
+Die funktionierende PWA-/Home-Basis bleibt bestehen. Nach den realen
+yaVDR-Regressionen von PWA.15.18 und dem wieder revertierten PWA.15.24
+wird die experimentelle Cold-Start-/Artwork-Beschleunigung bis zur
+erneuten Priorisierung eingefroren. Der visuelle No-Artwork-Fallback
+aus PWA.15.25 bleibt erhalten; das ist keine abgeschlossene
+Cold-/Warm-/Return-Performanceabnahme. Spaetere Optimierung setzt
+reproduzierbare Browsermessungen und gezielte Regressionspruefung
+voraus. Funktionale Artwork-404-Korrekturen und unabhaengige Arbeiten
+bleiben zulaessig. Details:
+[PWA-Entwicklungsplan](../development/pwa-local-first-frontend-plan.md).
+
+**Urspruenglicher Arbeitsumfang:** PWA.1–PWA.13.1 (local artwork, selected series covers, authorized Local-first startup and public logos), extending the existing
 Webfrontend for both ordinary browser use and optional PWA installation.
 Reuse the server read models, Client API, artwork previews and SSE feed;
 add a versioned app shell, scoped IndexedDB read-model persistence and

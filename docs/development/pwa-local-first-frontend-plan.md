@@ -2018,3 +2018,56 @@ Keine Service-Worker-Claims, Wartegates oder neuen HTTP-Pfade.
 Die browserseitige Performance und die Fehlerfreiheit der
 Artwork-Anzeige sind trotz gruenem Unit-Test erst nach realer
 yaVDR-Abnahme bestaetigt.
+
+## PWA.15 — vorlaeufiger Performance-Freeze (Maintainerentscheidung 2026-11-21)
+
+**Status: PAUSIERT, nicht abgeschlossen; kein Rollback und kein neuer
+Implementierungs-Slice.** Der vorherige Performance-Chat wurde versehentlich
+geloescht. Die nachfolgenden Angaben erhalten den aus Git-Historie,
+bestehendem Entwicklungsplan und vorliegenden realen Rueckmeldungen
+belegbaren technischen Stand; sie sind kein Ersatz fuer nicht mehr
+vorliegende Messdaten.
+
+- **Bewaehrte Basis:** PWA.15.17 wurde auf dem realen yaVDR nach
+  PWA.15.18 als deutlich schneller bestaetigt. Beibehalten werden die
+  kompatiblen Teiluebernahmen aus PWA.15.19/.20/.21/.23 und der
+  rein visuelle schwarze `No Artwork`-Fallback aus PWA.15.25
+  fuer vier Home-Poster-Renderer. Fehlende URLs verursachen dabei
+  keinen Bildrequest; Image-Fehler werden nicht dauerhaft negativ
+  gespeichert. Der zuletzt gesondert dokumentierte
+  PWA.15.25-Renderer-/Installationsstand wurde mit
+  `PWA1525_INSTALLATION=PASS` gemeldet. Das allein beweist keine
+  allgemeine Browser-Performanceabnahme.
+- **Ausdruecklich nicht wieder einfuehren:** Die auf dem echten yaVDR
+  als langsam gemeldete PWA.15.18-Vorlauf-/Observer-Aenderung;
+  ebenso die spaeter verworfene PWA.15.22-Aenderung. PWA.15.24
+  (Controllerwechsel-/Proof-Recovery) wurde nach fehlgeschlagener
+  subjektiver Performanceabnahme mit
+  `8be6119bba7d9935b29e260f26d141742ef92123` revertiert.
+  Ein gruenes Unit-Testergebnis ersetzt diese realen Beobachtungen nicht.
+- **Offen, nicht als PASS deklarieren:** Vergleichbare Messungen fuer
+  Home-Kaltstart, Warmstart und Rueckkehr zur Home-Seite;
+  Zeit bis zum sichtbaren ersten Artwork der initial sichtbaren
+  Rails, nach Scroll-/Swipe-Bewegung sowie unter echten Cache-/
+  Service-Worker-Lebenszyklen; Nachweis fuer Series-, Movies-,
+  Genre- und Folder-Cover. Noch sichtbare HTTP-404 oder fehlende
+  Metadaten sind separat ursachenbezogen zu behandeln.
+- **Wiederaufnahme spaeter:** Exakten dann aktuellen `main`-
+  und installierten Browser-Stand feststellen, bereits bestehende
+  opt-in Performance-Diagnostik und kontrollierte Cold-/Warm-/
+  Return-Messungen wiederverwenden, Unterschiede nach Request-
+  Start/Netzwerk/Service Worker/Decode/Rendering trennen, nur
+  belegte Engpaesse mit kleinen kompatiblen Slices beheben und
+  jeden Kandidaten mit der schnellen Ausgangsbasis im realen
+  yaVDR vergleichen. Keine neue allgemeine Queue, keine
+  zusaetzlichen Wartegates, keine Polling-Schleifen und keine
+  pauschale Cache- oder Berechtigungsumstellung.
+- **Abgrenzung:** Der Freeze betrifft nur weitere Performance-
+  Experimente. Er beendet weder das PWA-Projekt noch blockiert er
+  funktionale Fehlerkorrekturen (insbesondere allgemeine
+  Artwork-URL-/HTTP-404-Ursachen), MLD, API, Paketierung oder
+  sonstige bereits genehmigte VDR-Suite-Arbeit.
+
+Wiederaufnahme nur nach neuer Maintainer-Priorisierung; bis dahin
+keine weiteren PWA.15.x-Optimierungs-Commits allein wegen dieser
+offenen Messpunkte. Der aktuelle Stand wird bewusst konserviert.

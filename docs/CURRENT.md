@@ -1,6 +1,24 @@
 # VDR-Suite Current State
 
-## PWA / Home performance — next frontend priority (19.11.2026)
+## PWA / Home performance — PAUSIERT (Maintainerentscheidung 2026-11-21)
+
+**Performance-Optimierung vorlaeufig eingefroren; kein Rollback und keine
+Freigabe als fertig optimiert.** Die auf echtem yaVDR als schneller
+bestaetigte PWA.15.17-Basis bleibt mit den separat kompatibel
+uebernommenen Diagnosen/Teilverbesserungen und dem visuellen
+PWA.15.25-No-Artwork-Fallback erhalten. PWA.15.18 und PWA.15.22
+wurden wegen schlechter Browser-Performance nicht weitergefuehrt;
+PWA.15.24 wurde nach fehlgeschlagener subjektiver yaVDR-Abnahme
+revertiert (`8be6119bba7d9935b29e260f26d141742ef92123`).
+Eine durchgaengige aktuelle Cold-/Warm-/Return-Performanceabnahme
+ist **nicht** belegt. Keine weiteren experimentellen PWA.15.x-
+Performance-Slices bis zur erneuten ausdruecklichen Priorisierung.
+Funktionale Fehlerkorrekturen (einschliesslich ursachenbezogener
+Artwork-404-Korrekturen) und andere freigegebene VDR-Suite-Arbeiten
+sind davon nicht blockiert. Wiederaufnahme und Messplan:
+[PWA-Entwicklungsplan](development/pwa-local-first-frontend-plan.md).
+
+**Historischer Zwischenstand vom 19.11.2026 (keine aktuelle Priorisierung):**
 
 **PWA.13.7 = source candidate; combined Home folder card pagination and scoped bounded lookahead for automatic folder expansion. PWA.13.6 operator-installed PASS at `b3925f80`; bounded idle movie prefetch, viewport-ahead EPG/movie paging trigger, progressive folder categories. PWA.13.5 installation PASS at `6ca56e8b`; release-date ordered movie pagination with twelve initial cards and scroll-driven loading. PWA.13.4 operator-installed PASS; snapshot dispatch precedes Home resume, authenticated module navigation no longer waits for snapshot, pending metrics update independently; snapshot Resource Timing breakdown. PWA.13.2/.13.3 operator-installed PASS at `26149a168`; warm image caching works, startup remains above target. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
