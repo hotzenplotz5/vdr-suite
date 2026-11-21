@@ -215,9 +215,9 @@ async function run(prefix) {
   await image(url,'other-tab');
   assert.equal(imageReads,afterCoalescing+1,'another tab needs its own fresh proof');
   clock+=30001;
-  await image(url,'tab-a');
-  assert.equal(imageReads,afterCoalescing+2,'expired proof uses original revalidation');
-  assert.equal(measurement('tab-a').counters.expiredProof,1);
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
+    'artwork stays locally reusable after 30 seconds without a new read proof');
+  assert.equal(imageReads,afterCoalescing+1,'elapsed time alone does not cause another HTTP artwork request');
   assert.equal(measurement('other-tab').counters.missingProof,1);
   // Delay must not consume the post-response artwork window.
   proofDelay=9000;
@@ -240,11 +240,13 @@ async function run(prefix) {
     assert.equal(invoke('artworkRequest',[req]),false);
   }
   clock+=16000;
-  assert.notEqual((await image(direct,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await image(direct,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
+    'direct artwork continues to use the authorized document scope');
   proofDelay=60001;
   await proof();
   proofDelay=0;
-  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
+    'no new 60-second artwork-specific round-trip gate');
   await proof();
   partition=scopeB; tag=tagB; content='different-account';
   await proof();
@@ -268,7 +270,10 @@ async function run(prefix) {
   assert.equal(imageReads,refreshed,'successful 304 refresh renews local freshness');
   clock+=24*60*60*1000+1;
   await proof();
-  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local', 'over-age artwork must use online validation');
+  const beforeOldArtwork = imageReads;
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
+    'even an aged cover paints from local cache before background revalidation');
+  assert.equal(imageReads,beforeOldArtwork+1,'aged artwork revalidates in the background');
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   const epg = 'https://suite.test'+prefix+'/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
   const epgDetail = epg.replace('/artwork?', '/metadata/image?')+'&kind=preferred&index=0';
@@ -291,7 +296,8 @@ async function run(prefix) {
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','EPG proof is not recording authorization');
   tag=epgTag; content='x'.repeat(414*1024);
   clock+=30001;
-  assert.notEqual((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
+    'EPG artwork also has no short-lived extra proof');
   await proof('tab-a','https://suite.test'+prefix+'/api/epg/cache/now-next-artwork?backend=default&channelIds=C-1');
   assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   clock+=5*60*1000+1;
