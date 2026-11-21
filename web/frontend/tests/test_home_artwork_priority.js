@@ -622,7 +622,7 @@ console.log('PWA.15.25 no-artwork fallback in all Home poster renderers PASS');
 // synthetic preferred URL into an HTTP 404. Unknown reads retain fallback.
 const artworkSource = fs.readFileSync(
   path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8');
-const posterStart = artworkSource.indexOf('  function recordingPosterUrl(recording) {');
+const posterStart = artworkSource.indexOf('  function recordingPosterUrl(');
 const posterEnd = artworkSource.indexOf(
   '\n  function recordingMetadataPosterUrl(', posterStart);
 assert(posterStart >= 0 && posterEnd > posterStart,
