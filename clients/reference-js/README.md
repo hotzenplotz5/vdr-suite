@@ -172,3 +172,48 @@ umgangen. Der anonyme Pairing-Prozess bleibt davon unberührt.
 Die bestehende Web-API ist **nicht** automatisch kompatibel mit diesen
 Rückgabeformen. Migrationsgrenzen und offene Web-vs-v1-Abnahme:
 [F3-Paritätsbericht](../../docs/development/api-v1-f3-discovery-epg-search-parity.md).
+
+## API.V1.F4 — Recording-Browse, Genre und Metadaten
+
+Auf dem bestehenden Public-v1-Referenzclient sind zusätzlich zu
+`getRecordings`, `searchRecordings`, `getRecordingArtwork`,
+`getRecordingArtworkImage` und `resolveMetadata` diese
+**lesenden** Methoden verfügbar:
+
+```js
+const recordingId = 'rec_0123456789abcdef0123456789abcdef';
+const client = VdrSuitePublicV1Client.createClient({
+  baseUrl: 'https://suite.example',
+  headers: {Authorization: 'VDR-Suite-Device <id>.<secret>'}
+});
+const root = await client.getRecordingFolders({
+  query: {backendId: 'home-vdr', limit: 50, offset: 0}
+});
+const directory = await client.getRecordingFolders({
+  query: {backendId: 'home-vdr', folderId: 'fld1_0123456789abcdef0123456789abcdef',
+          limit: 50, offset: 0}
+});
+const details = await client.getRecordingDetail({backendId: 'home-vdr', recordingId});
+const genres = await client.getRecordingGenres({
+  query: {backendId: 'home-vdr', locale: 'de', limit: 30, offset: 0}
+});
+const genreRecords = await client.getGenreRecordings({
+  query: {backendId: 'home-vdr', genreId: 'fantasy', locale: 'de',
+          limit: 30, offset: 0}
+});
+```
+
+Ordner und Genres verwenden `offset/totalCount`-Paging,
+nicht den flachen Recording-`rc1_`-Cursor. IDs bleiben
+opak, Artwork-Missing liefert entweder eine leere
+Referenzliste oder einen typisierten 404 für ein konkretes Bild;
+keine synthetischen Provider-URLs oder 404-Fallbacks.
+Metadatenauflösung via `resolveMetadata` bleibt ein
+unverbindlicher Kandidaten-Read (technisch POST). Kein
+Playback-, Rename-, Move- oder Delete-Helper wird durch
+diese neuen Methoden ausgelöst.
+
+**Wichtig:** Die browserprivaten Folder-/Home-/Genre-/Search-DTOs
+sind **nicht** automatisch 1:1 gleichwertig. Die
+[Web-vs-Public-v1 F4-Matrix](../../docs/development/api-v1-f4-recording-metadata-artwork-parity.md)
+dokumentiert die bekannten Grenzen vor einer Web-Migration.

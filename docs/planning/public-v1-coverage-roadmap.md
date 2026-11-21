@@ -1,5 +1,25 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F4 – Recording, Metadaten, Artwork (21.11.2026)
+
+**Reference-JS-Leseumfang umgesetzt** auf
+`work/api-v1-finalisierung-f2-f8`:
+`getRecordingDetail`, `getRecordingFolders`,
+`getRecordingGenres`, `getGenreRecordings`, ergänzend
+zum bestehenden Browse, Search, Artwork und Metadata-Resolve.
+[F4-Paritätsmatrix](../development/api-v1-f4-recording-metadata-artwork-parity.md)
+und [gezielter Test](../../clients/reference-js/tests/test_public_v1_f4_recording_read_client.js).
+Ordner-`fld1_`/Offset, flache Recording-`rec_`/Cursor und
+Genre-Offset sind getrennte Verträge; browserprivates Home,
+Metadatentitel, Zeitbereichs-Genre, Trailer und Cache
+bleiben mangels nachgewiesener Gleichwertigkeit unangetastet.
+Nur isolierte Source-/HTTP-Mockprüfung bestanden; reale
+Web-vs-Public-v1-Parität und Artwork-404-Ursachenabnahme
+**nicht** beansprucht. Kein Backend-Writer, keine
+Produktionsaufnahme, keine Änderung auf `main`.
+F5–F8 bleiben offen.
+
+
 ## API.V1.F3 – Discovery, Channel, EPG und Suche (21.11.2026)
 
 **Referenzclient-Quellpfad umgesetzt:** öffentliche

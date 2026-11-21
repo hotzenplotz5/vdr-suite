@@ -1,5 +1,19 @@
 # VDR-Suite Current State
 
+## API.V1.F4 – Recording-/Metadata-/Artwork-Client-Parität (21.11.2026)
+
+Auf `work/api-v1-finalisierung-f2-f8` wurden vier
+Read-Methoden des Public-v1-Reference-JS-Clients ergänzt:
+Recording-Detail, Folder Browse, Genre-Facetten,
+Genre-Zugehörigkeit. Existing Search/Artwork/Metadata
+werden wiederverwendet.
+[Abnahmematrix](development/api-v1-f4-recording-metadata-artwork-parity.md)
+beschreibt verbleibende Unterschiede zum funktionierenden
+Webfrontend und nicht belegte Artwork-404-Ursachen;
+keine Webmigration, kein Server-/PWA-Change oder neue
+Hardwareabnahme. F5–F8 und API-v1-Release offen.
+
+
 ## API.V1.F3 – Public-v1-Reads für Discovery, Sender, EPG und Suche (21.11.2026)
 
 Auf `work/api-v1-finalisierung-f2-f8` stehen im Reference-JS-Client

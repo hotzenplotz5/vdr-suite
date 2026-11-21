@@ -546,6 +546,12 @@ test-frontend-contracts: test-phase69f-read-alias-fallback-removal
 test-phase69f-client-contract-matrix:
 	python3 tools/check_phase69f_client_contract_matrix.py
 
+.PHONY: test-api-v1-f4-recording-read-client
+test-api-v1-f4-recording-read-client:
+	node clients/reference-js/tests/test_public_v1_f4_recording_read_client.js
+
+test-frontend-contracts: test-api-v1-f4-recording-read-client
+
 test-frontend-contracts: test-phase69f-client-contract-matrix
 
 
