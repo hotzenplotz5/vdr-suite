@@ -1,0 +1,70 @@
+.TH VDR-SUITE-MEDIA-CALIBRATE 1 "October 2026" "VDR-Suite" "User Commands"
+.SH NAME
+vdr-suite-media-calibrate \- benchmark transcoding performance for VDR-Suite auto policy
+.SH SYNOPSIS
+.B vdr-suite-media-calibrate
+.RI [ --output " FILE" ]
+.RI [ --seconds " N" ]
+.RI [ --real-seconds " N" ]
+.RI [ --real-start " N" ]
+.RI [ --standard-source " FILE-OR-REC-DIR" ]
+.RI [ --deinterlace-source " FILE-OR-REC-DIR" ]
+.RI [ --uhd-source " FILE-OR-REC-DIR" ]
+.RI [ --vaapi-device " PATH" ]
+.RI [ --no-vaapi ]
+.SH DESCRIPTION
+Measure representative FFmpeg transcoding performance for standard,
+deinterlacing and UHD-source workloads, then write a versioned media
+performance profile used by VDR-Suite's automatic transcode policy.
+Without explicitly supplied real references, the tool generates temporary
+compressed test sources.  When given a VDR recording directory, it reads
+the first numbered TS segment as its reference.
+.PP
+Measurements use FFmpeg and its libx264 encoder.  Optional UHD VAAPI
+benchmarking needs a compatible hardware render node and encoder.
+The program writes the requested profile, but does not restart the daemon;
+the new auto policy is loaded after an operator-controlled daemon restart.
+.SH OPTIONS
+.TP
+.BI --output " FILE"
+Write the performance profile to FILE.  Default:
+.IR /var/lib/vdr-suite/media-transcode-performance.conf .
+.TP
+.BI --seconds " N"
+Seconds per generated test benchmark, permitted 3 to 30; default 6.
+.TP
+.BI --real-seconds " N"
+Seconds per real-reference benchmark, permitted 15 to 60; default 30.
+.TP
+.BI --real-start " N"
+Skip this many seconds at the beginning of a real reference, permitted 0 to
+3600; default 15.  Set 0 to include a recording's pre-roll.
+.TP
+.BI --standard-source " FILE-OR-REC-DIR"
+Use a real reference for the standard workload.
+.TP
+.BI --deinterlace-source " FILE-OR-REC-DIR"
+Use a real interlaced reference for the deinterlacing workload.
+.TP
+.BI --uhd-source " FILE-OR-REC-DIR"
+Use a real UHD source for the UHD workload.
+.TP
+.BI --vaapi-device " PATH"
+VAAPI render node for an optional hardware UHD test, default
+.IR /dev/dri/renderD128 .
+.TP
+.B --no-vaapi
+Skip the optional VAAPI UHD benchmark.
+.SH ENVIRONMENT
+.TP
+.B VDR_SUITE_MEDIA_VAAPI_DEVICE
+Default VAAPI device if no command-line override is given.
+.SH SECURITY
+The benchmark consumes CPU/GPU resources and may read local recording
+content.  Use only permitted reference recordings and an approved maintenance
+window.  Generating a real profile overwrites the specified output file;
+consider a private staging output first.  Writing the default system path
+may require administrator permissions.  No daemon service is restarted
+automatically.
+.SH SEE ALSO
+.BR vdr-suite-daemon (8)

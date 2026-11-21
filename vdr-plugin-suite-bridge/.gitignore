@@ -1,0 +1,8 @@
+*.o
+*.so
+*.so.*
+*.tgz
+.dependencies
+*.d
+*.gcda
+*.gcno

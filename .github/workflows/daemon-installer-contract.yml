@@ -1,0 +1,32 @@
+name: Daemon-only installer safety contracts
+
+on:
+  pull_request:
+    paths:
+      - tools/install_daemon.py
+      - tools/test_install_daemon.py
+      - tools/README.md
+      - docs/development/daemon-only-installer.md
+      - .github/workflows/daemon-installer-contract.yml
+  push:
+    branches:
+      - main
+      - 'work/daemon-installer-*'
+    paths:
+      - tools/install_daemon.py
+      - tools/test_install_daemon.py
+      - .github/workflows/daemon-installer-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  installer-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and isolated DB/build/rollback tests
+        run: |
+          python3 -m py_compile tools/install_daemon.py tools/test_install_daemon.py
+          python3 tools/test_install_daemon.py -v

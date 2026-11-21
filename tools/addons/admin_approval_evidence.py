@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Read-only local administrator-approval record diagnostics.
+
+A root-managed approval file is independent of installed addon.json and
+dpkg. This probe never produces an execution permit or packageTrusted.
+The future privileged installer/Agent must own issuance, revocation and
+descriptor-pinned dispatch validation.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import stat
+from pathlib import Path
+
+from manual_handler_evidence import examine as examine_binary
+from addon_contract import ContractError, validate_directory
+
+APPROVAL_PATH = "etc/vdr-suite/addon-approvals/rectools.json"
+EXPECTED_KEYS = frozenset(("schemaVersion", "id", "package", "version", "sha256", "origin", "state"))
+HEX = re.compile(r"[0-9a-f]{64}\Z")
+VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
+
+
+def examine(root: Path, module: str) -> dict:
+    def denied(reason: str) -> dict:
+        return {"consistent": False, "reason": reason}
+    if module != "rectools":
+        return denied("no-reviewed-approval")
+    if not root.is_absolute() or "." in root.parts or ".." in root.parts:
+        return denied("unsafe-root")
+    held = None
+    try:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        held = os.open("/", flags)
+        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+            parent = os.fstat(held)
+            if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                    parent.st_mode & 0o022):
+                return denied("unsafe-approval-parent")
+            next_fd = os.open(part, flags, dir_fd=held)
+            os.close(held)
+            held = next_fd
+        parent = os.fstat(held)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                parent.st_mode & 0o022):
+            return denied("unsafe-approval-parent")
+        fd = os.open(APPROVAL_PATH.rsplit("/", 1)[-1],
+                     os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK |
+                     os.O_CLOEXEC, dir_fd=held)
+        with os.fdopen(fd, "rb") as file:
+            first = os.fstat(file.fileno())
+            if (not stat.S_ISREG(first.st_mode) or first.st_uid != 0 or
+                    first.st_mode & 0o022 or first.st_nlink != 1 or
+                    not 0 < first.st_size <= 4096):
+                return denied("unsafe-approval-record")
+            raw = file.read(4097)
+            final = os.fstat(file.fileno())
+            if (len(raw) != first.st_size or
+                    (first.st_dev, first.st_ino, first.st_uid, first.st_mode,
+                     first.st_nlink, first.st_size, first.st_mtime_ns,
+                     first.st_ctime_ns) !=
+                    (final.st_dev, final.st_ino, final.st_uid, final.st_mode,
+                     final.st_nlink, final.st_size, final.st_mtime_ns,
+                     final.st_ctime_ns)):
+                return denied("approval-record-changed")
+        def unique(pairs):
+            data = {}
+            for key, value in pairs:
+                if key in data:
+                    raise ValueError("duplicate JSON key")
+                data[key] = value
+            return data
+        record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+        if not isinstance(record, dict) or set(record) != EXPECTED_KEYS:
+            return denied("invalid-approval-schema")
+        if type(record["schemaVersion"]) is not int or record["schemaVersion"] != 1:
+            return denied("invalid-approval-schema")
+        if record["id"] != "rectools" or record["package"] != "vdr-suite-addon-media-tools":
+            return denied("invalid-approval-identity")
+        if not isinstance(record["version"], str) or not VERSION.fullmatch(record["version"]):
+            return denied("invalid-approval-version")
+        if not isinstance(record["sha256"], str) or not HEX.fullmatch(record["sha256"]):
+            return denied("invalid-approval-digest")
+        if record["origin"] not in ("manual", "debian"):
+            return denied("invalid-approval-origin")
+        if record["state"] == "revoked":
+            return denied("approval-revoked")
+        if record["state"] != "approved":
+            return denied("invalid-approval-state")
+        manifest_path = root / "usr/share/vdr-suite/addons/rectools"
+        try:
+            manifest = validate_directory(manifest_path, "rectools")
+        except (ContractError, OSError, ValueError, UnicodeError):
+            return denied("invalid-installed-metadata")
+        if manifest["version"] != record["version"] or manifest["package"] != record["package"]:
+            return denied("approval-metadata-mismatch")
+        binary = examine_binary(root, module, record["sha256"])
+        if not binary["consistent"]:
+            return denied("approved-binary-" + binary["reason"])
+        # This proves agreement with local root-owned administrative state,
+        # not an authenticated release signature or runtime dispatch lease.
+        return {"consistent": True, "reason": "root-owned-approval-and-binary-match"}
+    except (OSError, ValueError, UnicodeError, TypeError):
+        return denied("missing-or-invalid-approval")
+    finally:
+        if held is not None:
+            os.close(held)
+
+
+if __name__ == "__main__":
+    raise SystemExit("diagnostic module only; use the isolated registry tests")

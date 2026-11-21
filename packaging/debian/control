@@ -1,0 +1,26 @@
+Source: vdr-suite
+Section: video
+Priority: optional
+Maintainer: VDR-Suite contributors <noreply@github.com>
+Build-Depends: debhelper-compat (= 13), g++, make, pkg-config, libsqlite3-dev, vdr-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/hotzenplotz5/vdr-suite
+
+Package: vdr-suite-daemon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: VDR-Suite server daemon and bundled web interface
+ VDR-Suite backend server with its own web frontend.
+
+Package: vdr-suite-backend-agent
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: VDR-Suite native backend agent
+ Agent for controlled VDR-Suite and local VDR integration.
+
+Package: vdr-plugin-suitebridge
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, vdr
+Description: VDR native bridge for VDR-Suite
+ Native VDR plugin, compiled against a distribution-specific VDR API.

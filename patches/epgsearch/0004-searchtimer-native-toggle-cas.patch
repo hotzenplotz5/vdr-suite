@@ -1,0 +1,152 @@
+From: VDR-Suite S1 guarded SearchTimer state mutation
+Subject: [PATCH 4/4] epgsearch: add native atomic-generation+revision TOGGLE service
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-searchtimer-owner-lock-legacy-writers.patch
+Apply-after: 0002-searchtimer-native-generation-observe.patch
+Apply-after: 0003-searchtimer-native-revision-observe-v11.patch
+
+Add a versioned internal plugin service that compares the native rule
+generation and revision under epgsearch's own SearchExts mutex and updates
+useAsSearchTimer with one cSafeFile-backed Save(). A successful native
+toggle returns the new persisted revision and same generation. Stale
+generation/revision and missing rule are zero-write outcomes. A failed
+save is outcome_unknown, NEVER a retryable no-write acknowledgement.
+A matching rule with unsaved legacy settings changes is rejected.
+
+The OSD search rule edit now holds the same native mutex across its full
+rule mutation and Save(). That prevents a concurrent native toggle from
+interleaving an ordinary OSD edit.
+
+This is a PARTIAL native CAS implementation for TOGGLE only. There is
+NO native guarded UPDATE or DELETE yet and remaining native writers
+need review. Do not advertise the full Suite CAS provider capability or
+open Public-v1 mutations. No hardware acceptance or upstream merge.
+
+diff --git a/services.h b/services.h
+--- a/services.h
++++ b/services.h
+@@ -136,6 +136,30 @@
+     std::string revision;      // sr_ + 32 lowercase hex digits
+ };
+ 
++// Native guarded TOGGLE only. This is NOT the full update/delete CAS
++// capability and must not unlock a Public API v1 mutation route.
++enum eEpgsearchNativeToggleCasStatus {
++    entcsUnavailable = 0,
++    entcsApplied,
++    entcsNotFound,
++    entcsStaleGeneration,
++    entcsStaleRevision,
++    entcsUnpersistedChange,
++    entcsOutcomeUnknown
++};
++
++struct Epgsearch_searchtimer_toggle_cas_v1_0 {
++    int nativeId;                    // input
++    std::string expectedGeneration; // input: sg_ + 32 lowercase hex
++    std::string expectedRevision;   // input: sr_ + 32 lowercase hex
++    bool activate;                   // input
++    eEpgsearchNativeToggleCasStatus status; // output
++    bool atomicCompareAndWrite;      // output
++    bool noWriteAttested;            // output on negative comparisons
++    std::string confirmedGeneration; // output on success
++    std::string resultingRevision;   // output on success
++};
++
+ // Data structures for service "Epgsearch-services-v1.0"
+ class cServiceHandler
+ {
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -222,6 +222,69 @@
+ 
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
++    if (strcmp(Id, "Epgsearch-searchtimer-toggle-cas-v1.0") == 0) {
++        if (Data == NULL)
++            return true;
++        Epgsearch_searchtimer_toggle_cas_v1_0 *out =
++            (Epgsearch_searchtimer_toggle_cas_v1_0 *)Data;
++        out->status = entcsUnavailable;
++        out->atomicCompareAndWrite = false;
++        out->noWriteAttested = false;
++        out->confirmedGeneration.clear();
++        out->resultingRevision.clear();
++        bool startSearchTimers = false;
++        {
++            // The comparison and Save() MUST share this native owner lock.
++            cMutexLock SearchExtsLock(&SearchExts);
++            cSearchExt *rule = SearchExts.GetSearchFromID(out->nativeId);
++            out->atomicCompareAndWrite = true;
++            if (!rule) {
++                out->status = entcsNotFound;
++                out->noWriteAttested = true;
++            } else if (!rule->nativeGenerationDurable ||
++                       !rule->nativeRevisionDurable) {
++                out->status = entcsUnavailable;
++                out->noWriteAttested = true;
++            } else if (rule->nativeGeneration != out->expectedGeneration) {
++                out->status = entcsStaleGeneration;
++                out->noWriteAttested = true;
++            } else if (rule->nativeRevision != out->expectedRevision) {
++                out->status = entcsStaleRevision;
++                out->noWriteAttested = true;
++            } else if (rule->lastPersistedText != rule->ToText()) {
++                // Another legacy writer has already staged changes in RAM.
++                // Reject instead of committing them under the old revision.
++                out->status = entcsUnpersistedChange;
++                out->noWriteAttested = true;
++            } else {
++                const int oldMode = rule->useAsSearchTimer;
++                const std::string oldRevision = rule->nativeRevision;
++                const std::string oldText = rule->lastPersistedText;
++                rule->useAsSearchTimer = out->activate ? 1 : 0;
++                // Even an idempotent TOGGLE consumes a new native revision.
++                rule->lastPersistedText.clear();
++                if (!SearchExts.Save()) {
++                    // The safe-file close may have reached disk before a
++                    // reported error. Never attest a zero-write result.
++                    rule->useAsSearchTimer = oldMode;
++                    rule->nativeRevision = oldRevision;
++                    rule->lastPersistedText = oldText;
++                    rule->nativeGenerationDurable = false;
++                    rule->nativeRevisionDurable = false;
++                    out->status = entcsOutcomeUnknown;
++                } else {
++                    out->status = entcsApplied;
++                    out->confirmedGeneration = rule->nativeGeneration;
++                    out->resultingRevision = rule->nativeRevision;
++                    startSearchTimers = out->activate &&
++                        !EPGSearchConfig.useSearchTimers;
++                }
++            }
++        }
++        if (startSearchTimers)
++            cSearchTimerThread::Init(this, true);
++        return true;
++    }
+     if (strcmp(Id, "Epgsearch-searchtimer-observe-v1.1") == 0) {
+         if (Data == NULL)
+             return true;
+diff --git a/menu_searchedit.c b/menu_searchedit.c
+--- a/menu_searchedit.c
++++ b/menu_searchedit.c
+@@ -591,6 +591,9 @@
+                 break;
+ 
+             if (searchExt) {
++                // Cover the OSD edit, rule ID assignment and Save() as
++                // a single epgsearch-owned mutation critical section.
++                cMutexLock SearchExtsLock(&SearchExts);
+                 *searchExt = data;
+                 if (data.DayOfWeek == 7)
+                     searchExt->DayOfWeek = UserDefDayOfWeek;
+@@ -631,7 +634,6 @@
+                     searchExt->blacklists.Clear();
+ 
+                 if (addIfConfirmed) {
+-                    cMutexLock SearchExtsLock(&SearchExts);
+                     searchExt->ID = SearchExts.GetNewID();
+                     SearchExts.Add(searchExt);
+                 }

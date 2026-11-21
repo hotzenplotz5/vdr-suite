@@ -1,0 +1,479 @@
+#include "AccountabilityEventRepository.h"
+#include "CredentialVerifierRepository.h"
+#include "Database.h"
+#include "HumanAccountAdministrationRepository.h"
+#include "HumanAccountGrantAdministrationService.h"
+#include "HumanAccountRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstddef>
+#include <string>
+#include <vector>
+
+namespace
+{
+struct Fixture
+{
+    Database database;
+    AccountabilityEventRepository accountability;
+    SecurityIdentityRepository identities;
+    SecurityIdentityProvisioningRepository provisioning;
+    HumanAccountRepository accounts;
+    HumanAccountAdministrationRepository administration;
+    SecurityPermissionGrantRepository grants;
+    CredentialVerifierRepository verifiers;
+    unsigned char entropyCounter = 1;
+    bool addonEnabled = false;
+    HumanAccountGrantAdministrationService service;
+
+    Fixture(bool secondAdmin = false, bool addonAvailable = false)
+        : accountability(database),
+          identities(database),
+          provisioning(database),
+          accounts(database),
+          administration(database),
+          grants(database),
+          verifiers(database),
+          addonEnabled(addonAvailable),
+          service(
+              database,
+              accounts,
+              identities,
+              grants,
+              administration,
+              accountability,
+              [this](unsigned char* output, std::size_t size)
+              {
+                  for (std::size_t index = 0; index < size; ++index)
+                  {
+                      output[index] = entropyCounter++;
+                  }
+                  return true;
+              },
+              []
+              {
+                  return std::chrono::system_clock::time_point(
+                      std::chrono::seconds(1700000000));
+              },
+              [this](const std::string& permission,
+                     const std::string& backendId) {
+                  return addonEnabled &&
+                      (permission == "addons.media.import" ||
+                       permission == "addons.media.shrink") &&
+                      backendId == "backend-a";
+              })
+    {
+        assert(database.open(":memory:"));
+        assert(accountability.ensureSchema());
+        assert(identities.ensureSchema());
+        assert(accounts.ensureSchema());
+        assert(grants.ensureSchema());
+        assert(verifiers.ensureSchema());
+
+        createHuman(
+            "account-admin",
+            "actor-admin",
+            "credential-admin",
+            "admin",
+            "Administrator");
+        createHuman(
+            "account-viewer",
+            "actor-viewer",
+            "credential-viewer",
+            "viewer",
+            "Viewer");
+
+        assert(grants.ensureGrant(
+            "actor-admin",
+            "role.admin",
+            "*"));
+
+        if (secondAdmin)
+        {
+            assert(grants.ensureGrant(
+                "actor-viewer",
+                "role.admin",
+                "*"));
+        }
+    }
+
+    void createHuman(
+        const std::string& accountId,
+        const std::string& actorId,
+        const std::string& credentialId,
+        const std::string& loginName,
+        const std::string& displayName)
+    {
+        auto lease = database.acquireTransactionLease();
+        assert(database.execute("BEGIN IMMEDIATE;"));
+        assert(provisioning.ensureHumanCredentialInActiveTransaction(
+            actorId,
+            displayName,
+            credentialId,
+            "human-password"));
+        assert(accounts.ensureAccountInActiveTransaction(
+            accountId,
+            actorId,
+            displayName));
+        assert(database.execute("COMMIT;"));
+        assert(verifiers.ensureVerifier(
+            credentialId,
+            loginName,
+            "$6$test$not-used-for-login"));
+    }
+};
+
+HumanAccountGrantAdministrationContext context()
+{
+    HumanAccountGrantAdministrationContext value;
+    value.actorId = "actor-admin";
+    value.requestId = "mu7-grant-test";
+    value.correlationId = "mu7-correlation";
+    return value;
+}
+
+bool hasGrant(
+    const HumanAccountGrantSet& set,
+    const std::string& permission,
+    const std::string& backendId)
+{
+    for (const PermissionGrant& grant : set.grants)
+    {
+        if (grant.permission == permission &&
+            grant.backendId == backendId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+}
+
+int main()
+{
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "*"));
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "*"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "../unsafe"));
+
+    {
+        const std::vector<std::string> permissions =
+            HumanAccountGrantAdministrationService::
+                supportedGrantPermissions();
+        assert(!permissions.empty());
+        assert(std::is_sorted(
+            permissions.begin(),
+            permissions.end()));
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "role.admin") != permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "role.read-only") != permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "accounts.view") == permissions.end());
+
+        const std::vector<std::string> scopes =
+            HumanAccountGrantAdministrationService::
+                supportedGrantScopeKinds();
+        assert(scopes ==
+            std::vector<std::string>({"global", "backend"}));
+
+        const std::vector<HumanAccountGrantOption> options =
+            HumanAccountGrantAdministrationService::
+                supportedGrantPermissionOptions();
+        assert(options.size() == permissions.size());
+        assert(!options.empty());
+        assert(options.front().category == "role");
+        assert(options.front().permission.find("role.") == 0U);
+        for (const HumanAccountGrantOption& option : options)
+        {
+            assert(!option.permission.empty());
+            assert(option.presentationKey == option.permission);
+            assert(option.category == "role" ||
+                option.category == "permission" ||
+                option.category == "addon");
+            if (option.permission == "addons.media.import")
+                assert(option.category == "addon");
+        }
+    }
+
+    {
+        Fixture fixture;
+
+        const HumanAccountLookupResult beforeAccount =
+            fixture.accounts.findByAccountId("account-viewer");
+        assert(beforeAccount.status ==
+            HumanAccountRepositoryStatus::ok);
+
+        const HumanAccountGrantAdministrationResult initial =
+            fixture.service.read("account-viewer");
+        assert(initial.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(initial.grantSet.accountId == "account-viewer");
+        assert(initial.grantSet.actorId == "actor-viewer");
+        assert(initial.grantSet.grants.empty());
+        assert(initial.grantSet.resourceRevision.find(
+            "grant-set:") == 0U);
+
+        // Internal/unsupported low-level grants are deliberately invisible
+        // to the MU.7 product grant set and do not perturb its revision.
+        assert(fixture.grants.ensureGrant(
+            "actor-viewer",
+            "authentication.access",
+            "*"));
+        const HumanAccountGrantAdministrationResult internalOnly =
+            fixture.service.read("account-viewer");
+        assert(internalOnly.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(internalOnly.grantSet.grants.empty());
+        assert(internalOnly.grantSet.resourceRevision ==
+            initial.grantSet.resourceRevision);
+
+        const HumanAccountGrantAdministrationResult ensured =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                initial.grantSet.resourceRevision,
+                "channels.view",
+                "default",
+                true);
+        assert(ensured.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(
+            ensured.grantSet,
+            "channels.view",
+            "default"));
+        assert(ensured.grantSet.resourceRevision !=
+            initial.grantSet.resourceRevision);
+
+        // Repeating the same desired state with a stale observed revision is
+        // terminal success and must not change the grant-set revision.
+        const HumanAccountGrantAdministrationResult replayEnsure =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                initial.grantSet.resourceRevision,
+                "channels.view",
+                "default",
+                true);
+        assert(replayEnsure.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(replayEnsure.grantSet.resourceRevision ==
+            ensured.grantSet.resourceRevision);
+
+        // The same stale revision cannot change a different tuple.
+        const HumanAccountGrantAdministrationResult conflict =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                initial.grantSet.resourceRevision,
+                "timers.view",
+                "default",
+                true);
+        assert(conflict.status ==
+            HumanAccountGrantAdministrationStatus::revisionConflict);
+        assert(!hasGrant(
+            conflict.grantSet,
+            "timers.view",
+            "default"));
+
+        // Revoke of an already-absent tuple is likewise terminal success,
+        // even from stale observed state.
+        const HumanAccountGrantAdministrationResult absentRevoke =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                initial.grantSet.resourceRevision,
+                "timers.view",
+                "default",
+                false);
+        assert(absentRevoke.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(absentRevoke.grantSet.resourceRevision ==
+            ensured.grantSet.resourceRevision);
+
+        const HumanAccountGrantAdministrationResult revoked =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                ensured.grantSet.resourceRevision,
+                "channels.view",
+                "default",
+                false);
+        assert(revoked.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(!hasGrant(
+            revoked.grantSet,
+            "channels.view",
+            "default"));
+        assert(revoked.grantSet.resourceRevision ==
+            initial.grantSet.resourceRevision);
+
+        // Account-owned revision is independent from grant-set revision.
+        const HumanAccountLookupResult afterAccount =
+            fixture.accounts.findByAccountId("account-viewer");
+        assert(afterAccount.status ==
+            HumanAccountRepositoryStatus::ok);
+        assert(afterAccount.account.revision ==
+            beforeAccount.account.revision);
+
+        const HumanAccountGrantAdministrationResult invalidInternal =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                revoked.grantSet.resourceRevision,
+                "authentication.access",
+                "*",
+                true);
+        assert(invalidInternal.status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+
+        const HumanAccountGrantAdministrationResult invalidScope =
+            fixture.service.setGrant(
+                context(),
+                "account-viewer",
+                revoked.grantSet.resourceRevision,
+                "channels.view",
+                "unsafe/scope",
+                true);
+        assert(invalidScope.status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+
+        const HumanAccountGrantAdministrationResult missing =
+            fixture.service.read("does-not-exist");
+        assert(missing.status ==
+            HumanAccountGrantAdministrationStatus::accountNotFound);
+    }
+
+    {
+        // The sole usable administrator cannot lose role.admin@*.
+        Fixture fixture;
+        const HumanAccountGrantAdministrationResult adminSet =
+            fixture.service.read("account-admin");
+        assert(adminSet.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(
+            adminSet.grantSet,
+            "role.admin",
+            "*"));
+
+        const HumanAccountGrantAdministrationResult blocked =
+            fixture.service.setGrant(
+                context(),
+                "account-admin",
+                adminSet.grantSet.resourceRevision,
+                "role.admin",
+                "*",
+                false);
+        assert(blocked.status ==
+            HumanAccountGrantAdministrationStatus::finalAdministrator);
+
+        const HumanAccountGrantAdministrationResult stillAdmin =
+            fixture.service.read("account-admin");
+        assert(stillAdmin.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(
+            stillAdmin.grantSet,
+            "role.admin",
+            "*"));
+    }
+
+    {
+        // With another usable administrator, role.admin@* can be revoked.
+        Fixture fixture(true);
+        const HumanAccountGrantAdministrationResult adminSet =
+            fixture.service.read("account-admin");
+        assert(adminSet.status ==
+            HumanAccountGrantAdministrationStatus::success);
+
+        const HumanAccountGrantAdministrationResult revokedAdmin =
+            fixture.service.setGrant(
+                context(),
+                "account-admin",
+                adminSet.grantSet.resourceRevision,
+                "role.admin",
+                "*",
+                false);
+        assert(revokedAdmin.status ==
+            HumanAccountGrantAdministrationStatus::success);
+        assert(!hasGrant(
+            revokedAdmin.grantSet,
+            "role.admin",
+            "*"));
+    }
+
+    {
+        // A recognized but currently inactive add-on cannot accumulate
+        // latent grants that silently reactivate on later reinstall.
+        Fixture fixture;
+        auto blocked = fixture.service.read("account-viewer");
+        assert(blocked.status == HumanAccountGrantAdministrationStatus::success);
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", blocked.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+    }
+
+    {
+        // Real SQLite grant cycle when the trusted Core provider reports
+        // exactly this backend's import capability.
+        Fixture fixture(false, true);
+        const auto baseline = fixture.service.read("account-viewer");
+        assert(baseline.status == HumanAccountGrantAdministrationStatus::success);
+        const auto granted = fixture.service.setGrant(
+            context(), "account-viewer", baseline.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true);
+        assert(granted.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(granted.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-b", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+        const auto globalDenied = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "*", true);
+        assert(globalDenied.status == HumanAccountGrantAdministrationStatus::invalidGrant);
+        // Removing grants stays possible after provider revocation.
+        fixture.addonEnabled = false;
+        const auto removed = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", false);
+        assert(removed.status == HumanAccountGrantAdministrationStatus::success);
+        assert(!hasGrant(removed.grantSet, "addons.media.import", "backend-a"));
+    }
+
+    {
+        // HEVC remains a separate, explicit grant even if import is enabled.
+        Fixture fixture(false, true);
+        const auto before = fixture.service.read("account-viewer");
+        assert(before.status == HumanAccountGrantAdministrationStatus::success);
+        const auto enabled = fixture.service.setGrant(
+            context(), "account-viewer", before.grantSet.resourceRevision,
+            "addons.media.shrink", "backend-a", true);
+        assert(enabled.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(enabled.grantSet, "addons.media.shrink", "backend-a"));
+        assert(!hasGrant(enabled.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", enabled.grantSet.resourceRevision,
+            "addons.media.shrink", "*", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+    }
+
+    return 0;
+}

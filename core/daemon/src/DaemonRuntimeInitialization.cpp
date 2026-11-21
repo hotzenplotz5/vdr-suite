@@ -1,0 +1,6646 @@
+#include "DaemonRuntime.h"
+
+#include "DaemonRuntimeRecordingCut.h"
+#include "EpgTimerIntentAdmissionRepository.h"
+#include "EpgTimerIntentAtomicAdmissionService.h"
+#include "EpgNativeTimerClockAttestation.h"
+#include "EpgNativeTimerPreviewAttestation.h"
+#include "SuiteBridgeNativeTimerCreateTransport.h"
+#include "TimerIntentApplicationService.h"
+#include "MediaImport.h"
+#include "MediaImportOperationAdmission.h"
+#include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
+#include "MediaShrinkOperationAdmission.h"
+#include "DaemonMediaShrinkAdmissionAuthority.h"
+#include "BackendAgentMediaShrinkAssignment.h"
+#include "BackendAgentMediaImportAssignment.h"
+#include "MediaShrinkAuthorityCodec.h"
+#include "MediaShrinkAgentExecutor.h"
+#include "AddonRootApproval.h"
+#include "AddonAdministrationService.h"
+#include "AddonActivationHttpPayload.h"
+#include "LocalMediaImportSourceAdmin.h"
+
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
+#include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerModifyDispatchService.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerModifyOperationCompletionService.h"
+#include "BackendAgentNativeTimerModifyAssignment.h"
+#include "NativeTimerDeleteOperationPreparationService.h"
+#include "NativeTimerModifyOperationPreparationService.h"
+#include "NativeTimerDeletePublicPreflight.h"
+#include "NativeTimerPublicDetailRevision.h"
+#include "MutationOperationIdentity.h"
+#include "NativeTimerAbsenceReadbackVerificationService.h"
+#include "NativeTimerDeleteOperationCompletionService.h"
+#include "BackendAgentNativeTimerDeleteAssignment.h"
+#include <openssl/rand.h>
+#include <array>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
+#include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
+#include "ManualRecordingMetadataApiRuntime.h"
+#include "RecordingArtworkHttpServer.h"
+#include "VdrRecordingArtworkIdentity.h"
+#include "PublicResourcePreconditions.h"
+#include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingMetadataDetailProjection.h"
+#include "PublicRecordingPlaybackTargetResolver.h"
+#include "DaemonMediaRecordingSourceResolution.h"
+#include "PublicRecordingActionReadback.h"
+#include "RestfulApiRecordingMapper.h"
+#include "HttpRequest.h"
+#include "PublicRecordingDisplayName.h"
+#include "PublicSearchProjection.h"
+#include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
+#include "PublicChannelNeighbor.h"
+#include "RecordingSeriesHierarchyApiRuntime.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
+#include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeVideoDirectoryDiscovery.h"
+#include "RestfulApiSearchTimerDiscoveryProvider.h"
+#include "SearchTimerPreviewService.h"
+#include "SearchTimerCreateAdmissionService.h"
+#include "SearchTimerCreateDispatchService.h"
+#include "EpgsearchStockRule.h"
+#include <openssl/sha.h>
+#include <mutex>
+#include "SearchTimerCreateDeviceAdmissionService.h"
+#include "SearchTimerDiscoveryStaticProvider.h"
+#include "SimpleHttpListener.h"
+#include "TestHttpServer.h"
+#include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingNativePersonSearchService.h"
+#include "NativeTimerPublicDetailRevision.h"
+#include "NativeTimerBindingRepository.h"
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdlib>
+#include <csignal>
+#include <iostream>
+#include <iterator>
+#include <limits>
+#include <utility>
+#include <vector>
+
+namespace
+{
+bool searchCasReplayMatches(
+    const std::string& canonical,
+    const std::string& action,
+    const std::string& backendId,
+    const std::string& publicId,
+    const std::string& revision,
+    const std::string& query)
+{
+    constexpr const char* prefix = "searchtimer-native-cas-evidence/1|";
+    std::size_t pos = std::char_traits<char>::length(prefix);
+    if (canonical.compare(0U, pos, prefix) != 0) return false;
+    std::array<std::string, 7> fields;
+    for (auto& field : fields)
+    {
+        if (pos >= canonical.size()) return false;
+        std::size_t size = 0U;
+        const auto start = pos;
+        while (pos < canonical.size() && canonical[pos] >= '0' &&
+               canonical[pos] <= '9')
+        {
+            const std::size_t digit =
+                static_cast<std::size_t>(canonical[pos++] - '0');
+            if (size > (16384U - digit) / 10U) return false;
+            size = size * 10U + digit;
+        }
+        if (pos == start || pos >= canonical.size() ||
+            canonical[pos++] != ':' || size >= canonical.size() - pos)
+            return false;
+        field = canonical.substr(pos, size);
+        pos += size;
+        if (canonical[pos++] != '|') return false;
+    }
+    if (pos != canonical.size() || fields[0] != action ||
+        fields[1] != backendId || fields[2] != publicId ||
+        fields[5] != revision)
+        return false;
+    if (action != "update") return fields[6].empty() && query.empty();
+    const auto first = fields[6].find(':');
+    if (first == std::string::npos || fields[6].substr(0U, first) != fields[3])
+        return false;
+    const auto second = fields[6].find(':', first + 1U);
+    return second != std::string::npos &&
+        fields[6].substr(first + 1U, second - first - 1U) == query;
+}
+
+// Serialize Suite's own SearchTimer management. External epgsearch writers
+// are not covered: stock epgsearch has no atomic generation/revision CAS.
+std::mutex stockSearchTimerMutex;
+
+std::int64_t stockSearchTimerNow()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+std::string stockSearchTimerDigest(const std::string& value)
+{
+    std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
+    if (!SHA256(reinterpret_cast<const unsigned char*>(value.data()),
+                value.size(), digest.data())) return {};
+    constexpr char hex[] = "0123456789abcdef";
+    std::string out;
+    for (const auto byte : digest)
+    {
+        out += hex[byte >> 4U];
+        out += hex[byte & 15U];
+    }
+    return out;
+}
+
+std::string stockSearchTimerRevision(const std::string& publicId,
+    const std::string& raw)
+{
+    const auto hash = stockSearchTimerDigest(
+        "searchtimer-stock-revision-v1|" + publicId + "|" + raw);
+    return hash.empty() ? std::string{} : "sr_" + hash.substr(0U, 32U);
+}
+
+enum class StockSearchTimerObservationStatus { unavailable, notFound, ok };
+struct StockSearchTimerObservation
+{
+    StockSearchTimerObservationStatus status =
+        StockSearchTimerObservationStatus::unavailable;
+    std::string nativeId;
+    std::optional<vdrsuite::agent::EpgsearchStockRule> rule;
+    std::string revision;
+};
+
+bool stockSearchTimerMissing(const vdrsuite::agent::SuiteBridgeCommandReply& reply,
+    const std::string& nativeId)
+{
+    return reply.transportSucceeded() && reply.replyCode == 901 &&
+        reply.payload == "search id " + nativeId + " not defined";
+}
+
+StockSearchTimerObservation observeStockSearchTimer(
+    BackendRuntimeContext& runtime, PublicSearchTimerIdentityRepository& identities,
+    const std::string& publicId)
+{
+    StockSearchTimerObservation out;
+    if (!runtime.searchTimerAdapter || !runtime.suiteBridgeTransport) return out;
+    // Reconcile the complete RESTfulAPI catalogue before resolving any
+    // numeric ID. The stock observation then covers all native settings.
+    const auto catalogue = runtime.searchTimerAdapter->list(
+        SearchTimerQuery::byBackend(runtime.backendId));
+    if (!catalogue.available() ||
+        catalogue.totalCount() != catalogue.returnedCount()) return out;
+    const auto ids = identities.reconcileAuthoritativeSnapshot(
+        runtime.backendId, catalogue.items());
+    if (!ids || ids->size() != catalogue.items().size()) return out;
+    const auto pos = std::find(ids->begin(), ids->end(), publicId);
+    if (pos == ids->end())
+    {
+        out.status = StockSearchTimerObservationStatus::notFound;
+        return out;
+    }
+    const auto& timer = catalogue.items()[static_cast<std::size_t>(
+        std::distance(ids->begin(), pos))];
+    out.nativeId = timer.backendNativeId();
+    const auto reply = runtime.suiteBridgeTransport->readStockSearchTimer(out.nativeId);
+    if (stockSearchTimerMissing(reply, out.nativeId))
+    {
+        out.status = StockSearchTimerObservationStatus::notFound;
+        return out;
+    }
+    if (!reply.transportSucceeded() || reply.replyCode != 900) return out;
+    out.rule = vdrsuite::agent::EpgsearchStockRule::parse(out.nativeId, reply.payload);
+    if (!out.rule || out.rule->query() != timer.query() ||
+        timer.state() == SearchTimerState::Unknown ||
+        out.rule->active() != timer.isActive()) return out;
+    out.revision = stockSearchTimerRevision(publicId, out.rule->text());
+    if (!out.revision.empty()) out.status = StockSearchTimerObservationStatus::ok;
+    return out;
+}
+
+std::string stockSearchTimerRequestPayload(
+    const PublicSearchTimerNativeMutationRequest& request, const std::string& action)
+{
+    std::string data = "searchtimer-stock-operation/1|";
+    for (const auto* value : {&action, &request.backendId,
+            &request.publicSearchTimerId, &request.ifMatch, &request.query})
+        data += std::to_string(value->size()) + ":" + *value + "|";
+    // No suffix for historic query-only requests: preserve their fingerprints.
+    for (const auto& [key, value] : request.settings)
+        data += std::to_string(key.size()) + ":" + key + "|" +
+            std::to_string(value.size()) + ":" + value + "|";
+    return data;
+}
+
+class SearchTimerCurrentBackendGeneration final :
+    public ISearchTimerBackendGenerationAuthority
+{
+public:
+    explicit SearchTimerCurrentBackendGeneration(
+        BackendAgentRepository& agents)
+        : agents_(agents) {}
+
+    std::optional<std::uint64_t> currentGeneration(
+        const std::string& backendId) const override
+    {
+        // A slow inventory/readback can outlive the lease at HTTP admission.
+        // Recheck current wall time at EVERY dispatch generation probe.
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        const auto agent = agents_.findAgentForBackend(backendId);
+        if (!agent || agent->revoked || agent->incompatible ||
+            agent->backendGeneration == 0U ||
+            agent->leaseExpiresAt <= now)
+            return std::nullopt;
+        return agent->backendGeneration;
+    }
+private:
+    BackendAgentRepository& agents_;
+};
+} // namespace
+
+std::string DaemonRuntime::trustedMediaToolsHandlerDigest(
+    const std::string& backendId, std::int64_t now) const
+{
+    if (now <= 0 || backendId.empty() || !backendAgentRepository_ ||
+        !mediaImportCatalog_)
+        return {};
+    const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+    if (!agent) return {};
+    const auto approval =
+        vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
+    return mediaImportCatalog_->matchesIndependentCoreApproval(
+        *agent, backendId, now, approval) ? approval.sha256 : std::string{};
+}
+
+bool DaemonRuntime::trustedMediaToolsProvider(
+    const std::string& backendId, std::int64_t now) const
+{
+    return !trustedMediaToolsHandlerDigest(backendId, now).empty();
+}
+
+bool DaemonRuntime::tryReconcileMediaShrinkStage(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandResult& result,
+    std::int64_t now, std::string* diagnostic)
+{
+    if (diagnostic) diagnostic->clear();
+    const auto fail = [diagnostic](const char* reason) {
+        if (diagnostic) *diagnostic = reason;
+        return false;
+    };
+    using namespace vdrsuite::mediatools;
+    using State = vdrsuite::operations::MutationOperationState;
+    // A durable "starting/outcome_unknown" result can have no review ID
+    // even though the worker completed and wrote its private Core marker.
+    // Neither case authorizes a second execution: only a full independent
+    // recording/candidate readback may advance the original Operation.
+    const bool agentReview =
+        result.dispatchState == "accepted_by_executor" &&
+        result.errorCategory == "none" &&
+        validShrinkReviewEvidence(assignment, result.resultEvidence);
+    const bool unreportedReview =
+        shrinkUnknownStageAllowsPrivateReadback(result);
+    if (!mediaShrinkPlanRuntime_ || !mutationOperationRepository_ ||
+        !mediaShrinkReviewRepository_ || !backendAgentCommandRepository_ ||
+        assignment.commandType != kMediaShrinkStageCommandType ||
+        result.commandId != assignment.commandId ||
+        result.requestFingerprint != assignment.requestFingerprint ||
+        result.resultCategory != "outcome_unknown" ||
+        result.verificationState != "outcome_unknown" ||
+        result.retryClassification != "reconcile_only" ||
+        (!agentReview && !unreportedReview) || now <= 0)
+        return fail("agent_result_not_eligible_for_recovery");
+    const auto persisted = backendAgentCommandRepository_->resultForCommand(
+        assignment.commandId);
+    if (!persisted ||
+        backendAgentCommandResultIdentity(*persisted) !=
+            backendAgentCommandResultIdentity(result))
+        return fail("durable_agent_result_identity_missing");
+    const auto selected = mutationOperationRepository_->findById(
+        assignment.operationId);
+    if (!selected.ok()) return fail("original_operation_not_found");
+    const auto& op = selected.operation;
+    if (op.operationId != assignment.operationId ||
+        op.backendId != assignment.backendId ||
+        op.backendGeneration != assignment.backendGeneration ||
+        op.actionFamily != "media.shrink.stage" ||
+        op.resourceType != "Recording" ||
+        !shrinkOpaqueId(op.resourceId, "rec_") ||
+        (op.state != State::outcomeUnknown &&
+         op.state != State::succeeded))
+        return fail("original_operation_identity_or_state_mismatch");
+    if (op.state == State::outcomeUnknown &&
+        op.resultReference !=
+            "agent.media.shrink:" + assignment.commandId)
+        return fail("original_operation_reference_mismatch");
+    if (op.state == State::succeeded &&
+        !shrinkOpaqueId(op.resultReference, "shk_"))
+        return fail("verified_operation_has_invalid_review");
+    // This is readback of the ORIGINAL immutable operation, not admission
+    // of a new mutation. A restarted Agent can have a newer generation, or
+    // be briefly offline, while the completed candidate still belongs to
+    // the old assignment. Never require a current-generation Stage grant to
+    // verify existing private bytes: require the recorded Agent result,
+    // exact Core-bound marker and independently validated source instead.
+    NativeProcessRunner runner(std::chrono::seconds(120));
+    const auto verified = agentReview
+        ? mediaShrinkPlanRuntime_->verifyStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration,
+            result.resultEvidence, runner, diagnostic)
+        : mediaShrinkPlanRuntime_->recoverStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration, runner,
+            diagnostic);
+    if (!verified) {
+        if (diagnostic && diagnostic->empty())
+            *diagnostic = "private_stage_verification_failed";
+        return false;
+    }
+    if (op.state == State::succeeded &&
+        op.resultReference != verified->reviewId)
+        return fail("verified_review_reference_conflict");
+    if (op.state != State::succeeded) {
+        const auto advanced = mutationOperationRepository_->transition(
+            op.operationId, op.operationRevision, op.state,
+            State::succeeded, verified->reviewId, now);
+        if (!advanced.ok()) return fail("operation_transition_failed");
+    }
+    const auto review = mediaShrinkReviewRepository_->registerStaged(
+        verified->reviewId, op.operationId);
+    const bool registered = review.ok() ||
+        review.status == vdrsuite::addons::MediaShrinkReviewStatus::replayed;
+    // The original actor-owned operation SSE stream is the notification
+    // channel. Never require a refresh button or a second operation.
+    if (registered && deviceLiveEventHub_)
+        deviceLiveEventHub_->publishOperation(op.operationId);
+    if (!registered) return fail("review_registration_failed");
+    return true;
+}
+
+bool DaemonRuntime::initialize()
+{
+    std::cout << "vdr-suite-daemon runtime initializing" << std::endl;
+    std::cout << "database path: " << config_.databasePath() << std::endl;
+
+    if (!database_.open(config_.databasePath())) {
+        std::cerr << "failed to open database" << std::endl;
+        return false;
+    }
+
+    std::cout << "database opened" << std::endl;
+
+    mutationOperationRepository_ =
+        std::make_unique<vdrsuite::operations::MutationOperationRepository>(
+            database_);
+    if (!mutationOperationRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize mutation operation schema"
+            << std::endl;
+        return false;
+    }
+    mutationOperationReadService_ =
+        std::make_unique<vdrsuite::operations::MutationOperationReadService>(
+            *mutationOperationRepository_);
+    mediaShrinkReviewRepository_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkReviewRepository>(
+            database_, *mutationOperationRepository_);
+    if (!mediaShrinkReviewRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize HEVC review binding schema"
+                  << std::endl;
+        return false;
+    }
+
+    std::cout
+        << "mutation operation read runtime initialized"
+        << std::endl;
+
+    timerIntentRepository_ =
+        std::make_unique<vdrsuite::timers::TimerIntentRepository>(
+            database_);
+    if (!timerIntentRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize TimerIntent schema"
+            << std::endl;
+        return false;
+    }
+
+    timerAssignmentRepository_ =
+        std::make_unique<vdrsuite::timers::TimerAssignmentRepository>(
+            database_);
+    if (!timerAssignmentRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize TimerAssignment schema"
+            << std::endl;
+        return false;
+    }
+    nativeTimerBindingRepository_ =
+        std::make_unique<vdrsuite::timers::NativeTimerBindingRepository>(
+            database_);
+    if (!nativeTimerBindingRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize NativeTimerBinding schema"
+            << std::endl;
+        return false;
+    }
+
+    timerAssignmentReadService_ =
+        std::make_unique<vdrsuite::timers::TimerAssignmentReadService>(
+            *timerAssignmentRepository_);
+    timerAssignmentFulfillmentService_ =
+        std::make_unique<vdrsuite::timers::TimerAssignmentFulfillmentService>(
+            *timerAssignmentRepository_,
+            *nativeTimerBindingRepository_);
+
+    nativeTimerCreateOperationPreparationService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateOperationPreparationService>(
+                *timerIntentRepository_,
+                *timerAssignmentRepository_,
+                *mutationOperationRepository_);
+    nativeTimerCreateAdmissionService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateAdmissionService>(
+                database_,
+                *timerAssignmentRepository_,
+                *mutationOperationRepository_,
+                *timerAssignmentFulfillmentService_,
+                *nativeTimerCreateOperationPreparationService_);
+    nativeTimerCreateDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerCreateDispatchService>(
+            *mutationOperationRepository_);
+    nativeTimerDeleteDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerDeleteDispatchService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerModifyDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyDispatchService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerModifyReadbackVerificationService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyReadbackVerificationService>(
+            *nativeTimerBindingRepository_);
+    nativeTimerModifyOperationCompletionService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyOperationCompletionService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerAbsenceReadbackVerificationService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerAbsenceReadbackVerificationService>(
+            *nativeTimerBindingRepository_);
+    nativeTimerDeleteOperationCompletionService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerDeleteOperationCompletionService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerCreateReadbackVerificationService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateReadbackVerificationService>(
+                *nativeTimerBindingRepository_);
+    nativeTimerCreateOperationCompletionService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateOperationCompletionService>(
+                *mutationOperationRepository_,
+                *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_);
+
+    std::cout
+        << "TimerAssignment read, fulfillment, atomic native Timer CREATE admission, preparation and reconciliation runtime initialized"
+        << std::endl;
+
+    if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
+        !RecordingSeriesHierarchyApiRuntime::instance().configure(database_))
+    {
+        std::cerr
+            << "failed to initialize recording Series hierarchy override runtime"
+            << std::endl;
+        return false;
+    }
+
+    std::cout
+        << "recording Series hierarchy override runtime initialized"
+        << std::endl;
+
+
+    jobRepository_ = std::make_unique<JobRepository>(database_);
+    recordingRepository_ = std::make_unique<RecordingRepository>(database_);
+    publicRecordingIdentities_ =
+        std::make_unique<PublicRecordingIdentityRepository>(database_);
+    if (!publicRecordingIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public Recording identities"
+                  << std::endl;
+        return false;
+    }
+    publicSearchTimerIdentities_ =
+        std::make_unique<PublicSearchTimerIdentityRepository>(database_);
+    if (!publicSearchTimerIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public SearchTimer identities"
+                  << std::endl;
+        return false;
+    }
+    metadataRepository_ = std::make_unique<MetadataRepository>(database_);
+    jobDashboardService_ = std::make_unique<JobDashboardService>(*jobRepository_);
+    recordingDashboardService_ = std::make_unique<RecordingDashboardService>(*recordingRepository_, *metadataRepository_);
+    dashboardFacade_ = std::make_unique<DashboardFacade>(*jobDashboardService_, *recordingDashboardService_);
+    dashboardJsonSerializer_ = std::make_unique<DashboardJsonSerializer>();
+    dashboardController_ = std::make_unique<DashboardController>(*dashboardFacade_, *dashboardJsonSerializer_);
+    jobsController_ = std::make_unique<JobsController>(*jobRepository_);
+    recordingsController_ = std::make_unique<RecordingsController>(*recordingRepository_);
+    metadataController_ = std::make_unique<MetadataController>(*metadataRepository_);
+
+    std::cout << "REST controller runtime initialized" << std::endl;
+
+    BackendNode defaultBackend;
+    defaultBackend.backendId = "default";
+    defaultBackend.backendName = "Default VDR";
+    defaultBackend.backendType = "restfulapi";
+    defaultBackend.connection.enabled = true;
+    defaultBackend.connection.mode = config_.vdrMode();
+    defaultBackend.connection.host = config_.vdrHost();
+    defaultBackend.connection.port = config_.vdrPort();
+    defaultBackend.enabled = true;
+    defaultBackend.online = true;
+    defaultBackend.capabilities = VdrCapabilitySet::snapshotReadOnly();
+
+    backendRegistry_.addBackend(defaultBackend);
+    backendRegistryService_ = std::make_unique<BackendRegistryService>(backendRegistry_);
+    backendAccessPolicy_ = std::make_unique<BackendAccessPolicy>();
+    backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
+    backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
+
+    backendAgentIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(database_);
+    backendAgentProvisioningRepository_ =
+        std::make_unique<SecurityIdentityProvisioningRepository>(database_);
+    backendAgentCredentialVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(database_);
+    backendAgentAccountabilityRepository_ =
+        std::make_unique<AccountabilityEventRepository>(database_);
+    backendAgentRepository_ =
+        std::make_unique<BackendAgentRepository>(database_);
+    backendAgentCommandRepository_ =
+        std::make_unique<BackendAgentCommandRepository>(database_);
+    backendAgentCommandReservationRepository_ =
+        std::make_unique<BackendAgentCommandReservationRepository>(database_);
+
+    if (!backendAgentIdentityRepository_->ensureSchema() ||
+        !backendAgentCredentialVerifierRepository_->ensureSchema() ||
+        !backendAgentAccountabilityRepository_->ensureSchema() ||
+        !backendAgentRepository_->ensureSchema() ||
+        !backendAgentCommandRepository_->ensureSchema() ||
+        !backendAgentCommandReservationRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize Backend Agent control-plane schema" << std::endl;
+        return false;
+    }
+
+    // Poll Command delivery independently from the main busy SQLite handle:
+    // the cache/genre worker can occupy that connection for >1 second even
+    // while an idle command poll needs only BEGIN/SELECT/COMMIT. The existing
+    // per-file transaction lease still serializes all writers.
+    if (!backendAgentCommandPollDatabase_.open(config_.databasePath())) {
+        std::cerr << "failed to open Backend Agent command poll connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentCommandPollRepository_ =
+        std::make_unique<BackendAgentCommandRepository>(
+            backendAgentCommandPollDatabase_);
+
+    // Share the existing durable tables but not the busy main sqlite3 handle.
+    // These repositories perform SELECTs only; mutations stay on database_.
+    if (!backendAgentAuthReadDatabase_.open(config_.databasePath()) ||
+        !backendAgentAuthReadDatabase_.execute("PRAGMA query_only=ON;")) {
+        std::cerr << "failed to open Backend Agent authentication read connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentAuthReadRepository_ =
+        std::make_unique<BackendAgentRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(backendAgentAuthReadDatabase_);
+
+    humanAccountRepository_ =
+        std::make_unique<HumanAccountRepository>(database_);
+    if (!humanAccountRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize Human Account schema"
+            << std::endl;
+        return false;
+    }
+    firstAdminBootstrapRepository_ =
+        std::make_unique<FirstAdminBootstrapRepository>(database_);
+    if (!firstAdminBootstrapRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize first-admin bootstrap schema"
+            << std::endl;
+        return false;
+    }
+
+    humanAccountReadService_ =
+        std::make_unique<HumanAccountReadService>(
+            *humanAccountRepository_);
+
+    std::cout
+        << "Human Account read and first-admin bootstrap persistence "
+           "runtime initialized"
+        << std::endl;
+
+    backendAgentNativeTimerDeleteAssignmentService_ =
+        std::make_unique<vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentService>(
+            *backendAgentCommandRepository_, *backendAgentRepository_);
+    backendAgentNativeTimerModifyAssignmentService_ =
+        std::make_unique<vdrsuite::agent::BackendAgentNativeTimerModifyAssignmentService>(
+            *backendAgentCommandRepository_, *backendAgentRepository_);
+    backendAgentNativeTimerCreateReservationService_ =
+        std::make_unique<
+            vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>(
+                *backendAgentCommandRepository_,
+                *backendAgentCommandReservationRepository_,
+                *backendAgentRepository_);
+    backendAgentNativeTimerCreateActivationService_ =
+        std::make_unique<
+            vdrsuite::agent::BackendAgentNativeTimerCreateActivationService>(
+                *mutationOperationRepository_,
+                *backendAgentCommandReservationRepository_,
+                *backendAgentCommandRepository_);
+
+    backendAgentLifecycleService_ =
+        std::make_unique<BackendAgentLifecycleService>(
+            database_,
+            *backendAgentRepository_,
+            *backendRegistryService_,
+            *backendAgentProvisioningRepository_,
+            *backendAgentIdentityRepository_,
+            *backendAgentCredentialVerifierRepository_,
+            *backendAgentAccountabilityRepository_);
+    embeddedBackendLifecycleService_ =
+        std::make_unique<EmbeddedBackendLifecycleService>(database_);
+    if (!embeddedBackendLifecycleService_->ensureSchema()) {
+        std::cerr << "failed to initialize embedded backend lifecycle schema"
+                  << std::endl;
+        return false;
+    }
+    // Command delivery only reads Agent identity/binding state; keep those
+    // lookups off the busy primary connection, just like HTTP authentication.
+    // Command transactions and accountability writes still use their owners.
+    backendAgentCommandDeliveryService_ =
+        std::make_unique<BackendAgentCommandDeliveryService>(
+            *backendAgentCommandRepository_,
+            *backendAgentAuthReadRepository_,
+            *backendAgentAccountabilityRepository_,
+            backendAgentCommandPollRepository_.get());
+
+    // A6: bind the real Core operation and effective grant authorities at
+    // the Agent receipt boundary. This does not advertise or execute Media
+    // Tools: the production Agent still injects no Media Import executor.
+    mediaImportGrantRepository_ =
+        std::make_unique<SecurityPermissionGrantRepository>(database_);
+    if (!mediaImportGrantRepository_->ensureSchema())
+        return false;
+    mediaImportActivationIntents_ =
+        std::make_unique<vdrsuite::addons::AddonActivationIntentRepository>(
+            database_);
+    if (!mediaImportActivationIntents_->ensureSchema())
+        return false;
+    mediaImportOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaImportOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsHandlerDigest(backendId, now);
+            });
+    mediaShrinkOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            *mediaShrinkReviewRepository_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsHandlerDigest(backendId, now);
+            });
+    backendAgentCommandDeliveryService_->setMediaShrinkReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaShrinkOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
+    backendAgentCommandDeliveryService_->setMediaShrinkResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool committed = mediaShrinkOperationFence_->applyResult(
+                assignment, result, now, reason);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType)
+                (void)tryReconcileMediaShrinkStage(
+                    assignment, result, now);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+                recordingCacheRefreshQueue_.request(assignment.backendId);
+            // Failure or unavailable readback keeps the canonical Operation
+            // outcomeUnknown and does not requeue the destructive command.
+            return committed;
+        });
+    // Agent receipts remain unverified until a separate candidate readback
+    // or a successfully committed native Recording cache reconciliation.
+    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>(database_);
+    PublicApiRuntime::instance().registerMediaImportSourceLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportSourceResult result;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            // Browsing is not an Agent command. Keep actor/backend grants
+            // but never turn a transient lease, capability, provider or
+            // activation state into an empty media directory.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason))
+            {
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_backend_unavailable")
+                    result.status = API::MediaImportSourceStatus::forbidden;
+                return result;
+            }
+            const auto live = backendAgentRepository_->findAgentForBackend(backendId);
+            if (live && mediaImportCatalog_->list(
+                    *live, backendId, now, result.ids, result.labels,
+                    &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
+                return result;
+            }
+            // An authenticated Agent observation may remain useful for
+            // read-only browsing after its lease/generation expires. Never
+            // treat this cached presentation as fresh or as import authority.
+            if (mediaImportCatalog_->listLastObserved(
+                    backendId, result.ids, result.labels,
+                    &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
+                result.stale = true;
+            }
+            return result;
+        });
+    PublicApiRuntime::instance().registerMediaImportPreviewLookup(
+        [this](const std::string& actorId, const std::string& backendId,
+               const std::string& sourceId, bool refresh, bool cachedFirst)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportPreviewResult out;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return out;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            // A source preview is READ-ONLY. A quarantined command from an
+            // older Agent generation must not hide the already observed
+            // sources or prevent an operator from inspecting a VDR target.
+            // Command capability, activation and provider approval remain
+            // enforced at actual import/cleanup admission and dispatch.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason)) {
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_backend_unavailable")
+                    out.status = API::MediaImportPreviewStatus::forbidden;
+                return out;
+            }
+            const auto live =
+                backendAgentRepository_->findAgentForBackend(backendId);
+            if (!live) return out;
+            BackendAgentMediaImportCatalog::Preview observed;
+            const auto state = mediaImportCatalog_->requestPreview(
+                *live, backendId, now, sourceId, observed, refresh, cachedFirst);
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::denied)
+                return out;
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::pending) {
+                out.status = API::MediaImportPreviewStatus::pending;
+                return out;
+            }
+            out.status = API::MediaImportPreviewStatus::ready;
+            out.sourceId = observed.sourceId;
+            out.inspectionStatus = observed.status;
+            out.title = observed.title;
+            out.targetFolder = observed.targetFolder;
+            out.videoCodec = observed.videoCodec;
+            out.sourceBytes = observed.sourceBytes;
+            out.availableBytes = observed.availableBytes;
+            out.requiredBytes = observed.requiredBytes;
+            out.videoReencodeRequired = observed.videoReencodeRequired;
+            out.failureCode = observed.failureCode;
+            out.nfoOutline = observed.nfoOutline;
+            out.nfoPlot = observed.nfoPlot;
+            out.nfoYear = observed.nfoYear;
+            out.nfoGenre = observed.nfoGenre;
+            out.durationSeconds = observed.durationSeconds;
+            out.posterDataUri = observed.posterDataUri;
+            out.fanartDataUri = observed.fanartDataUri;
+            return out;
+        });
+    PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            if (!mediaImportOperationFence_) return false;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            return mediaImportOperationFence_->effectiveMediaImportCapability(
+                actorId, backendId, now, reason);
+        });
+    PublicApiRuntime::instance().registerMediaImportRecentLookup(
+        [this](const std::string& actor, const std::string& backend) {
+            PublicMediaImportRecentResult output;
+            if (!mutationOperationRepository_) return output;
+            const auto found =
+                mutationOperationRepository_->listRecentForActorBackendActionFamily(
+                    actor, backend, "media.import", 128U);
+            if (!found.ok()) return output;
+            for (const auto& op : found.operations) {
+                const auto payload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        op.operationId);
+                if (!payload.ok()) return output;
+                std::string sourceId;
+                vdrsuite::mediatools::MediaImportDecision decision;
+                if (!vdrsuite::mediatools::parseMediaImportSelection(
+                        payload.payload.payload, sourceId, decision) ||
+                    sourceId != op.resourceId) return output;
+                PublicMediaImportRecentItem item;
+                item.operationId = op.operationId;
+                item.backendId = op.backendId;
+                item.sourceId = sourceId;
+                // Read the exact immutable snapshot already stored for this
+                // operation; never search TMDb or match a recording by title.
+                const std::string frozen =
+                    vdrsuite::mediatools::mediaImportSelectionMetadata(
+                        payload.payload.payload);
+                vdrsuite::mediatools::ImportConfirmedMetadata selected;
+                if (!frozen.empty() &&
+                    vdrsuite::mediatools::parseFrozenImportMetadata(
+                        frozen, selected)) {
+                    if (selected.mediaType == "episode") {
+                        const auto padded = [](int number) {
+                            return (number < 10 ? std::string("0") : std::string{}) +
+                                std::to_string(number);
+                        };
+                        item.title = selected.seriesTitle + " · S" +
+                            padded(selected.seasonNumber) + "E" +
+                            padded(selected.episodeNumber) + " · " +
+                            selected.title;
+                    } else {
+                        item.title = selected.title;
+                    }
+                    if (item.title.size() > 240U) item.title.clear();
+                }
+                item.state =
+                    vdrsuite::operations::mutationOperationStateName(op.state);
+                item.requestedAt = op.requestedAt;
+                // Recognize durable batches by exact closed-form operation
+                // idempotency keys; no second source of job truth.
+                const auto& key = op.idempotencyKey;
+                if (key.size() == 40U &&
+                    key.compare(0U, 4U, "mb1_") == 0 &&
+                    key[36] == '_' &&
+                    std::all_of(key.begin() + 4, key.begin() + 36,
+                        [](unsigned char ch) {
+                            return (ch >= '0' && ch <= '9') ||
+                                   (ch >= 'a' && ch <= 'f');
+                        }) &&
+                    std::all_of(key.begin() + 37, key.end(),
+                        [](unsigned char ch) {
+                            return ch >= '0' && ch <= '9';
+                        })) {
+                    item.batchId = key.substr(0U, 36U);
+                    item.batchIndex = std::stoi(key.substr(37U, 3U));
+                }
+                switch (decision) {
+                    case vdrsuite::mediatools::MediaImportDecision::import:
+                        break;
+                    case vdrsuite::mediatools::MediaImportDecision::local:
+                        item.videoDecision = "local"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::desktop:
+                        item.videoDecision = "desktop"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::skip:
+                        item.videoDecision = "skip"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::release:
+                        item.videoDecision = "release"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::duplicate:
+                        item.videoDecision = "duplicate"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::deleteDuplicate:
+                        item.videoDecision = "delete_duplicate"; break;
+                }
+                output.items.push_back(std::move(item));
+            }
+            output.available = true;
+            return output;
+        });
+    PublicApiRuntime::instance().registerMediaImportAdmission(
+        [this](const PublicMediaImportAdmissionRequest& request) {
+            return admitMediaImport(request);
+        });
+    backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaImportOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
+    backendAgentCommandDeliveryService_->setMediaImportResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool applied = mediaImportOperationFence_->applyResult(
+                assignment, result, now, reason);
+            // Reuse the existing coalesced, read-only Recording refresh
+            // queue. Never spawn another job or mutate VDR from this callback.
+            if (applied &&
+                vdrsuite::mediatools::validMediaImportResultRecordingEvidence(
+                    result.resultEvidence) &&
+                result.dispatchState == "accepted_by_executor")
+                recordingCacheRefreshQueue_.request(assignment.backendId, 2);
+            return applied;
+        });
+    backendAgentCommandDeliveryService_->setMediaImportCleanupPublished(
+        [this](const std::string& operationId) {
+            if (deviceLiveEventHub_)
+                deviceLiveEventHub_->publishOperation(operationId);
+        });
+    std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
+
+    epgSearchNativeFuzzyCapabilityRepository_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityRepository>(
+            database_);
+    epgSearchNativeFuzzyCapabilityDetector_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityDetector>();
+    epgSearchNativeFuzzyCapabilityFreshnessPolicy_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityFreshnessPolicy>();
+    epgSearchNativeFuzzyStartupRestoreService_ =
+        std::make_unique<EpgSearchNativeFuzzyStartupRestoreService>(
+            *epgSearchNativeFuzzyCapabilityRepository_,
+            *epgSearchNativeFuzzyCapabilityDetector_,
+            *backendRegistryService_,
+            *epgSearchNativeFuzzyCapabilityFreshnessPolicy_);
+
+    const auto nativeFuzzyStartupRestoreSummary =
+        epgSearchNativeFuzzyStartupRestoreService_->restoreAllBackends();
+    const auto nativeFuzzyStartupRestoreDiagnostics =
+        EpgSearchNativeFuzzyStartupRestoreDiagnostics::fromSummary(
+            nativeFuzzyStartupRestoreSummary);
+
+    runtimeDiagnosticsService_.recordMeasurement(
+        nativeFuzzyStartupRestoreDiagnostics.toRuntimeMeasurement());
+
+    if (nativeFuzzyStartupRestoreDiagnostics.schemaReady) {
+        std::cout
+            << "EPGSearch native fuzzy persisted capability restore: "
+            << "status=" << nativeFuzzyStartupRestoreDiagnostics.status()
+            << ", reason=\"" << nativeFuzzyStartupRestoreDiagnostics.reason() << "\""
+            << ", backends=" << nativeFuzzyStartupRestoreDiagnostics.backendsSeen
+            << ", persisted=" << nativeFuzzyStartupRestoreDiagnostics.persistedResultsFound
+            << ", updated=" << nativeFuzzyStartupRestoreDiagnostics.backendsUpdated
+            << ", nativeAvailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyAvailable
+            << ", nativeUnavailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyUnavailable
+            << ", staleIgnored=" << nativeFuzzyStartupRestoreDiagnostics.staleResultsIgnored
+            << std::endl;
+    }
+    else {
+        std::cerr
+            << "EPGSearch native fuzzy persisted capability restore skipped: "
+            << nativeFuzzyStartupRestoreDiagnostics.reason()
+            << std::endl;
+    }
+    const auto runtimeBackends =
+        backendRegistry_.listBackends();
+
+    if (runtimeBackends.empty()) {
+        std::cout << "no VDR backends configured" << std::endl;
+    }
+
+    snapshotCache_ = std::make_unique<SnapshotCache>();
+    snapshotCacheService_ = std::make_unique<SnapshotCacheService>(*snapshotCache_);
+    snapshotAccessService_ = std::make_unique<SnapshotAccessService>(*snapshotCacheService_);
+    vdrSnapshotReadService_ = std::make_unique<VdrSnapshotReadService>(*snapshotAccessService_);
+    vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
+
+    backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
+    vdrTimerActionExecutorAdapterRegistry_ = std::make_unique<VdrTimerActionExecutorAdapterRegistry>();
+    searchTimerPreviewEpgCache_ = std::make_unique<SearchTimerPreviewEpgCache>();
+    searchTimerPreviewEpgCacheRefreshServiceRegistry_ =
+        std::make_unique<SearchTimerPreviewEpgCacheRefreshServiceRegistry>();
+    epgEventRepository_ = std::make_unique<EpgEventRepository>(database_);
+
+    if (!epgEventRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize EPG cache repository schema" << std::endl;
+        return false;
+    }
+
+    epgArtworkRepository_ = std::make_unique<EpgArtworkRepository>(database_);
+
+    if (!epgArtworkRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize EPG artwork repository schema" << std::endl;
+        return false;
+    }
+
+    epgArtworkPublicJsonSerializer_ =
+        std::make_unique<EpgArtworkPublicJsonSerializer>();
+
+    vdrRecordingCacheRepository_ = std::make_unique<VdrRecordingCacheRepository>(database_);
+
+    if (!vdrRecordingCacheRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize VDR recording cache repository schema" << std::endl;
+        return false;
+    }
+
+    epgCacheServiceRegistry_ = std::make_unique<EpgCacheServiceRegistry>();
+
+    for (const BackendNode& runtimeBackend : runtimeBackends) {
+        auto backendRuntimeContext =
+            createBackendRuntimeContext(runtimeBackend);
+
+        if (backendRuntimeContext->searchTimerPreviewEpgCacheRefreshService) {
+            searchTimerPreviewEpgCacheRefreshServiceRegistry_->registerService(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->searchTimerPreviewEpgCacheRefreshService);
+        }
+
+        if (backendRuntimeContext->epgCacheService) {
+            epgCacheServiceRegistry_->registerService(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->epgCacheService);
+        }
+
+        backendPollingCoordinator_->addPollingService(
+            backendRuntimeContext->backendId,
+            *backendRuntimeContext->pollingService);
+
+        backendRuntimeContexts_.push_back(
+            std::move(backendRuntimeContext));
+    }
+
+    snapshotChangeFeed_ = std::make_unique<SnapshotChangeFeed>();
+    snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
+    snapshotChangeFeedJsonSerializer_ = std::make_unique<SnapshotChangeFeedJsonSerializer>();
+
+    if (!backendRuntimeContexts_.empty()) {
+        pollVdrAndUpdateChangeFeed();
+    }
+
+    std::cout << "VDR snapshot runtime initialized" << std::endl;
+
+    vdrOverviewService_ = std::make_unique<VdrOverviewService>(*snapshotAccessService_);
+    vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
+    vdrController_ = std::make_unique<VdrController>(
+        *vdrOverviewService_,
+        *vdrOverviewJsonSerializer_,
+        *vdrSnapshotReadService_,
+        *vdrSnapshotReadJsonSerializer_,
+        backendRuntimeContexts_.empty()
+            ? nullptr
+            : backendRuntimeContexts_.front()->service.get());
+
+    if (!backendRuntimeContexts_.empty()) {
+        vdrRecordingQueryService_ = std::make_unique<VdrRecordingQueryService>(
+            *backendRuntimeContexts_.front()->service,
+            vdrRecordingCacheRepository_.get(),
+            backendRuntimeContexts_.front()->backendId);
+    }
+    else {
+        std::cerr << "failed to initialize VDR recording query controller: no VDR backend configured" << std::endl;
+        return false;
+    }
+
+    vdrRecordingQueryResultJsonSerializer_ = std::make_unique<VdrRecordingQueryResultJsonSerializer>();
+    vdrRecordingQueryController_ = std::make_unique<VdrRecordingQueryController>(
+        *vdrRecordingQueryService_,
+        *vdrRecordingQueryResultJsonSerializer_,
+        [this](const std::string& backendId)
+        {
+            return metadataController_
+                ->findManualRecordingMetadataForBackend(
+                    backendId);
+        });
+    vdrRecordingFolderController_ =
+        std::make_unique<VdrRecordingFolderController>(
+            *vdrRecordingCacheRepository_,
+            [this](
+                const std::string& backendId,
+                const std::string& backendNativeId)
+            {
+                const std::string normalizedBackendId =
+                    backendId.empty()
+                        ? "default"
+                        : backendId;
+
+                for (const auto& backendRuntimeContext :
+                     backendRuntimeContexts_)
+                {
+                    if (!backendRuntimeContext ||
+                        backendRuntimeContext->backendId !=
+                            normalizedBackendId ||
+                        !backendRuntimeContext
+                             ->recordingMetadataRepository)
+                    {
+                        continue;
+                    }
+
+                    return backendRuntimeContext
+                        ->recordingMetadataRepository
+                        ->findByBackendNativeId(
+                            normalizedBackendId,
+                            backendNativeId);
+                }
+
+                return VdrRecordingNativeMetadataRecord{};
+            });
+
+    capabilityResolver_ =
+        std::make_unique<BackendRegistryCapabilityResolver>(
+            *backendRegistryService_,
+            "default");
+    capabilityReportBuilder_ = std::make_unique<CapabilityReportBuilder>();
+    capabilityReportService_ = std::make_unique<CapabilityReportService>(
+        "default",
+        *capabilityResolver_,
+        *capabilityReportBuilder_);
+    capabilityReportJsonSerializer_ = std::make_unique<CapabilityReportJsonSerializer>();
+    capabilityController_ = std::make_unique<CapabilityController>(
+        *capabilityReportService_,
+        *capabilityReportJsonSerializer_);
+
+    std::cout << "capability controller runtime initialized" << std::endl;
+
+    if (!backendRuntimeContexts_.empty()) {
+        epgQueryService_ = std::make_unique<EpgQueryService>(
+            *backendRuntimeContexts_.front()->service);
+        epgSearchService_ = std::make_unique<EpgSearchService>();
+        epgSearchResultJsonSerializer_ = std::make_unique<EpgSearchResultJsonSerializer>();
+        epgController_ = std::make_unique<EpgController>(
+            *epgQueryService_,
+            *epgSearchService_,
+            *epgSearchResultJsonSerializer_);
+
+        std::cout << "EPG controller runtime initialized" << std::endl;
+    }
+    else {
+        std::cout << "EPG controller runtime skipped: no VDR backend configured" << std::endl;
+    }
+
+    std::cout << "VDR controller runtime initialized" << std::endl;
+
+    searchTimerService_ = std::make_unique<SearchTimerService>();
+    searchTimerResultJsonSerializer_ = std::make_unique<SearchTimerResultJsonSerializer>();
+
+    if (!backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->searchTimerAdapter) {
+        // The legacy Browser controller has a single RESTfulAPI client:
+        // bind CREATE to its real backend rather than accepting another ID.
+        searchTimerCreateService_ =
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
+        searchTimerCreateResultJsonSerializer_ =
+            std::make_unique<SearchTimerCreateResultJsonSerializer>();
+        searchTimerCreateRequestParser_ =
+            std::make_unique<SearchTimerCreateRequestParser>();
+        searchTimerUpdateService_ =
+            std::make_unique<SearchTimerUpdateService>();
+        searchTimerUpdateResultJsonSerializer_ =
+            std::make_unique<SearchTimerUpdateResultJsonSerializer>();
+        searchTimerUpdateRequestParser_ =
+            std::make_unique<SearchTimerUpdateRequestParser>();
+        searchTimerDeleteService_ =
+            std::make_unique<SearchTimerDeleteService>();
+        searchTimerDeleteResultJsonSerializer_ =
+            std::make_unique<SearchTimerDeleteResultJsonSerializer>();
+        searchTimerDeleteRequestParser_ =
+            std::make_unique<SearchTimerDeleteRequestParser>();
+
+        searchTimerCommandExecutor_ =
+            std::make_unique<RestfulApiSearchTimerCommandExecutor>(
+                *backendRuntimeContexts_.front()->httpClient);
+        searchTimerRuntimeMutationPolicyExecutor_ =
+            std::make_unique<SearchTimerRuntimeMutationPolicyExecutor>(
+                *searchTimerCommandExecutor_, false,
+                "searchtimer runtime mutation policy gate is closed");
+
+        searchTimerController_ = std::make_unique<SearchTimerController>(
+            *searchTimerService_,
+            *searchTimerResultJsonSerializer_,
+            *backendRuntimeContexts_.front()->searchTimerAdapter,
+            *searchTimerCreateService_,
+            *searchTimerCreateResultJsonSerializer_,
+            *searchTimerCreateRequestParser_,
+            searchTimerUpdateService_.get(),
+            searchTimerUpdateResultJsonSerializer_.get(),
+            searchTimerUpdateRequestParser_.get(),
+            searchTimerDeleteService_.get(),
+            searchTimerDeleteResultJsonSerializer_.get(),
+            searchTimerDeleteRequestParser_.get());
+
+        std::cout << "SearchTimer controller runtime initialized" << std::endl;
+        std::cout << "SearchTimer command executor runtime initialized" << std::endl;
+        std::cout << "SearchTimer legacy CREATE/UPDATE/DELETE disabled; use Public API v1" << std::endl;
+    }
+    else {
+        std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
+    }
+
+    if (!backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->httpClient) {
+        searchTimerDiscoveryProvider_ =
+            std::make_unique<RestfulApiSearchTimerDiscoveryProvider>(
+                backendRuntimeContexts_.front()->backendId,
+                *backendRuntimeContexts_.front()->httpClient,
+                "");
+        std::cout << "SearchTimer discovery provider runtime initialized: restfulapi" << std::endl;
+    }
+    else {
+        searchTimerDiscoveryProvider_ =
+            std::make_unique<SearchTimerDiscoveryStaticProvider>();
+        std::cout << "SearchTimer discovery provider runtime initialized: static fallback" << std::endl;
+    }
+
+    searchTimerDiscoveryService_ =
+        std::make_unique<SearchTimerDiscoveryService>(
+            *searchTimerDiscoveryProvider_);
+    searchTimerDiscoveryJsonSerializer_ =
+        std::make_unique<SearchTimerDiscoveryJsonSerializer>();
+    searchTimerDiscoveryController_ =
+        std::make_unique<SearchTimerDiscoveryController>(
+            *searchTimerDiscoveryService_,
+            *searchTimerDiscoveryJsonSerializer_);
+
+    std::cout << "SearchTimer discovery controller runtime initialized" << std::endl;
+
+    searchTimerAutomationReadOnlyService_ =
+        std::make_unique<SearchTimerAutomationReadOnlyService>();
+    searchTimerAutomationDryRunResultJsonSerializer_ =
+        std::make_unique<SearchTimerAutomationDryRunResultJsonSerializer>();
+    searchTimerAutomationPreviewController_ =
+        std::make_unique<SearchTimerAutomationPreviewController>(
+            *searchTimerAutomationReadOnlyService_,
+            *searchTimerAutomationDryRunResultJsonSerializer_);
+
+    std::cout << "SearchTimer automation preview controller runtime initialized" << std::endl;
+
+    searchTimerPreviewEpgCacheRefreshController_ =
+        std::make_unique<SearchTimerPreviewEpgCacheRefreshController>(
+            *searchTimerPreviewEpgCacheRefreshServiceRegistry_);
+
+    std::cout << "SearchTimer preview EPG cache refresh controller runtime initialized" << std::endl;
+
+    epgCacheController_ = std::make_unique<EpgCacheController>(
+        *epgCacheServiceRegistry_,
+        *epgArtworkRepository_,
+        *epgArtworkPublicJsonSerializer_);
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext &&
+            backendRuntimeContext->epgScraperMetadataResolver) {
+            epgCacheController_->registerScraperMetadataResolver(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->epgScraperMetadataResolver);
+        }
+    }
+
+    std::cout << "EPG cache controller runtime initialized" << std::endl;
+
+    personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
+    personSearchService_ = std::make_unique<PersonSearchService>();
+    personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
+    personController_ = std::make_unique<PersonController>(
+        *personResolutionJsonSerializer_,
+        *personSearchService_,
+        *personQueryResultJsonSerializer_);
+
+    std::cout << "person controller runtime initialized" << std::endl;
+
+    recordingPersonSearchService_ =
+        std::make_unique<RecordingPersonSearchService>();
+
+    recordingPersonSearchResultJsonSerializer_ =
+        std::make_unique<
+            RecordingPersonSearchResultJsonSerializer>();
+
+    std::vector<std::pair<
+        std::string,
+        VdrRecordingNativeMetadataRepository*>>
+        recordingPersonMetadataRepositories;
+
+    for (const auto& backendRuntimeContext :
+         backendRuntimeContexts_)
+    {
+        if (!backendRuntimeContext ||
+            !backendRuntimeContext
+                 ->recordingMetadataRepository)
+        {
+            continue;
+        }
+
+        recordingPersonMetadataRepositories.emplace_back(
+            backendRuntimeContext->backendId,
+            backendRuntimeContext
+                ->recordingMetadataRepository
+                .get());
+    }
+
+    RecordingPersonSearchController::PersistentSearch
+        persistentRecordingPersonSearch;
+
+    if (!recordingPersonMetadataRepositories.empty())
+    {
+        VdrRecordingCacheRepository*
+            recordingCacheRepository =
+                vdrRecordingCacheRepository_.get();
+
+        persistentRecordingPersonSearch =
+            [
+                recordingPersonMetadataRepositories =
+                    std::move(
+                        recordingPersonMetadataRepositories),
+                recordingCacheRepository
+            ](
+                const std::string& backendId,
+                const PersonQuery& query,
+                int limit,
+                int offset)
+            {
+                const std::string normalizedBackendId =
+                    backendId.empty()
+                        ? "default"
+                        : backendId;
+
+                for (const auto& repositoryEntry :
+                     recordingPersonMetadataRepositories)
+                {
+                    if (repositoryEntry.first !=
+                        normalizedBackendId)
+                    {
+                        continue;
+                    }
+
+                    VdrRecordingNativePersonSearchService
+                        nativeSearchService(
+                            *repositoryEntry.second,
+                            *recordingCacheRepository);
+                    return nativeSearchService.search(
+                        normalizedBackendId,
+                        query,
+                        limit,
+                        offset);
+                }
+
+                return RecordingPersonSearchResult::empty(
+                    limit,
+                    offset);
+            };
+    }
+
+    const bool usesPersistentRecordingPersonSearch =
+        static_cast<bool>(
+            persistentRecordingPersonSearch);
+
+    recordingPersonSearchController_ =
+        std::make_unique<
+            RecordingPersonSearchController>(
+                *recordingPersonSearchService_,
+                *recordingPersonSearchResultJsonSerializer_,
+                std::move(
+                    persistentRecordingPersonSearch));
+
+    std::cout
+        << "recording person search controller runtime initialized: "
+        << "source="
+        << (
+            usesPersistentRecordingPersonSearch
+                ? "native-persistent-index"
+                : "snapshot-fallback"
+        )
+        << std::endl;
+
+    recordingActionValidationService_ = std::make_unique<RecordingActionValidationService>();
+
+    RecordingActionValidationService::RequestGuard
+        recordingActionRuntimeGuard =
+            [this](const RecordingActionRequest& request) -> std::string {
+                if (request.type != RecordingActionType::Delete ||
+                    !vdrRecordingCacheRepository_)
+                {
+                    return std::string();
+                }
+
+                return daemonRecordingCutDeleteBlockReason(
+                    *vdrRecordingCacheRepository_,
+                    backendRuntimeContexts_,
+                    request.backendId,
+                    request.recordingId);
+            };
+
+    recordingActionValidationService_->setRequestGuard(
+        recordingActionRuntimeGuard);
+
+    recordingActionValidationResultJsonSerializer_ = std::make_unique<RecordingActionValidationResultJsonSerializer>();
+    recordingActionValidationRequestParser_ = std::make_unique<RecordingActionValidationRequestParser>();
+    recordingActionValidationController_ = std::make_unique<RecordingActionValidationController>(
+        *recordingActionValidationService_,
+        *recordingActionValidationResultJsonSerializer_,
+        *recordingActionValidationRequestParser_);
+
+    recordingActionExecutionService_ = std::make_unique<RecordingActionExecutionService>();
+    recordingActionExecutionService_->setValidationRequestGuard(
+        recordingActionRuntimeGuard);
+    recordingActionExecutionResultJsonSerializer_ = std::make_unique<RecordingActionExecutionResultJsonSerializer>();
+    recordingActionBackendExecutorAdapterRegistry_ = std::make_unique<RecordingActionBackendExecutorAdapterRegistry>();
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        RestfulApiRecordingActionBackendConfig recordingActionConfig;
+        recordingActionConfig.backendId = backendRuntimeContext->backendId;
+        recordingActionConfig.basePath = "";
+        // A configured or VDR-discovered root is preferred. On existing
+        // RESTfulAPI backends without VPATH, safe recording actions derive
+        // the native video root from the provider's absolute file_name and
+        // relative_file_name for the selected recording. No distro path and
+        // no additional configuration are required.
+        const auto& recordingRoots = config_.recordingVideoRoots();
+        const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
+        const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
+        const bool configuredRootAvailable = rootIt != recordingRoots.end();
+        // VDR owns the authoritative root. Query only the local SuiteBridge
+        // associated with this backend; never reuse its path for another host.
+        // Explicit operator policy always takes precedence and needs no probe.
+        vdrsuite::agent::SuiteBridgeVideoDirectoryDiscoveryResult nativeRoot;
+        const auto& bridge = config_.suiteBridge();
+        if (!explicitlyConfigured && bridge.enabled &&
+            backendRuntimeContext->backendId == bridge.backendId)
+        {
+            vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
+            transportConfig.host = bridge.host;
+            transportConfig.port = bridge.port;
+            transportConfig.connectTimeout =
+                std::chrono::milliseconds(bridge.connectTimeoutMs);
+            transportConfig.ioTimeout =
+                std::chrono::milliseconds(bridge.ioTimeoutMs);
+            transportConfig.operationTimeout =
+                std::chrono::milliseconds(bridge.operationTimeoutMs);
+            vdrsuite::agent::SuiteBridgeSvdrpTransport transport(transportConfig);
+            nativeRoot =
+                vdrsuite::agent::SuiteBridgeVideoDirectoryDiscovery::discover(transport);
+        }
+
+        const bool nativeRootAvailable = !nativeRoot.videoDirectory.empty();
+        // A malformed success response is not a signal to fall back to an
+        // unrelated disk. An older plugin's unsupported VPATH remains legacy.
+        const bool invalidNativeRoot =
+            nativeRoot.authoritativeReply && !nativeRootAvailable;
+        const bool rootAvailable = configuredRootAvailable || nativeRootAvailable;
+        recordingActionConfig.videoDirectory = configuredRootAvailable
+            ? rootIt->second
+            : (nativeRootAvailable ? nativeRoot.videoDirectory
+                                   : std::string());
+        recordingActionConfig.videoDirectoryExplicit = rootAvailable;
+        recordingActionConfig.apiMode =
+            RestfulApiRecordingActionApiMode::SafeMutation;
+        recordingActionConfig.allowExecution =
+            (!explicitlyConfigured || configuredRootAvailable) &&
+            !invalidNativeRoot;
+        recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
+        backendRuntimeContext->nativeRecordingInfoRoot =
+            recordingActionConfig.readOnly
+                ? std::string{} : recordingActionConfig.videoDirectory;
+        // Local startup evidence for read-only acceptance: the operator can
+        // confirm which root won without invoking any recording mutation.
+        const char* rootSource = configuredRootAvailable ? "configured"
+            : nativeRootAvailable ? "suitebridge-vpath"
+            : invalidNativeRoot ? "invalid-vpath"
+            : explicitlyConfigured ? "invalid-config" : "unavailable";
+        std::cout << "recording-root backend="
+                  << backendRuntimeContext->backendId
+                  << " source=" << rootSource
+                  << " path=" << (recordingActionConfig.videoDirectory.empty()
+                        ? "(none)" : recordingActionConfig.videoDirectory)
+                  << " writes=" << (recordingActionConfig.readOnly
+                        ? "blocked" : "policy-eligible") << std::endl;
+
+        recordingActionBackendExecutorAdapterRegistry_->registerAdapter(
+            std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(
+                recordingActionConfig,
+                *backendRuntimeContext->httpClient));
+    }
+
+    recordingActionExecutionController_ = std::make_unique<RecordingActionExecutionController>(
+        *recordingActionExecutionService_,
+        *recordingActionExecutionResultJsonSerializer_,
+        *recordingActionBackendExecutorAdapterRegistry_,
+        backendRegistry_,
+        *recordingActionValidationRequestParser_,
+        *vdrSnapshotReadService_);
+    recordingActionExecutionController_->setAfterSuccessfulExecutionCallback(
+        [this](const RecordingActionRequest& request) -> bool {
+            const std::string backendId =
+                request.backendId.empty()
+                    ? "default"
+                    : request.backendId;
+
+            // This branch applies only to Public-v1 writes. Legacy route
+            // behavior remains unchanged. A provider 2xx is not sufficient:
+            // verify effect with an independent provider inventory before
+            // retiring/rebinding the only persistent rec_ identity authority.
+            if (request.parameters.count("publicV1Action") != 0U) {
+                if (!publicRecordingIdentities_ ||
+                    !vdrRecordingCacheRepository_ ||
+                    !snapshotCacheService_)
+                    return false;
+
+                const auto native = request.parameters.find("backendNativeId");
+                VdrRecording before;
+                if (native == request.parameters.end() ||
+                    !vdrRecordingCacheRepository_->findByBackendNativeId(
+                        backendId, native->second, before))
+                    return false;
+
+                for (const auto& context : backendRuntimeContexts_) {
+                    if (!context || context->backendId != backendId ||
+                        !context->httpClient)
+                        continue;
+                    HttpRequest read;
+                    read.method = "GET";
+                    read.url = "/recordings.json";
+                    read.headers["Accept"] = "application/json";
+                    const HttpResponse upstream =
+                        context->httpClient->execute(read);
+                    if (upstream.statusCode != 200 ||
+                        upstream.body.size() > 8U * 1024U * 1024U)
+                        return false;
+
+                    const auto first =
+                        upstream.body.find_first_not_of(" \t\r\n");
+                    const auto field =
+                        upstream.body.find("\"recordings\"");
+                    // A malformed/unreachable backend must never make the
+                    // final recording look deleted due to an empty vector.
+                    if (first == std::string::npos ||
+                        !(upstream.body[first] == '[' ||
+                          (upstream.body[first] == '{' &&
+                           field != std::string::npos &&
+                           upstream.body.find('[', field) !=
+                               std::string::npos)))
+                        return false;
+
+                    std::vector<VdrRecording> fresh =
+                        RestfulApiRecordingMapper::parseRecordings(upstream.body);
+                    for (VdrRecording& item : fresh) {
+                        item.backendId = backendId;
+                        if (item.backendNativeId.empty())
+                            return false;
+                    }
+
+                    if (request.type == RecordingActionType::Delete) {
+                        if (!PublicRecordingActionReadback::deletedNativeId(
+                                before, fresh) ||
+                            !publicRecordingIdentities_->removeAfterVerifiedDeletion(
+                                backendId, before.backendNativeId))
+                            return false;
+                    } else {
+                        const auto relocated =
+                            PublicRecordingActionReadback::relocatedNativeId(
+                                before, fresh);
+                        if (!relocated ||
+                            !publicRecordingIdentities_->rebindAfterVerifiedMove(
+                                backendId, before.backendNativeId, *relocated))
+                            return false;
+                    }
+
+                    if (!vdrRecordingCacheRepository_->
+                            replaceRecordingsForBackend(backendId, fresh))
+                        return false;
+                    vdrRecordingCacheRepository_->markRefreshFinished(
+                        backendId, static_cast<int>(fresh.size()));
+                    snapshotCacheService_->updateRecordingsForBackend(
+                        backendId, fresh);
+                    recordingPresentationChangeQueue_.request(backendId);
+                    recordingCacheRefreshQueue_.request(backendId);
+                    return true;
+                }
+                return false;
+            }
+
+            // A successful DELETE already has authoritative mutation evidence.
+            // Project that one Recording out of the Suite caches immediately,
+            // publish one backend-scoped presentation invalidation, and let one
+            // asynchronous provider read reconcile the authoritative inventory.
+            // Never turn one mutation (or its dry-run preview) into a burst of
+            // complete Recording inventory rebuilds.
+            if (request.type == RecordingActionType::Delete) {
+                const auto nativeId =
+                    request.parameters.find("backendNativeId");
+                const std::string backendNativeId =
+                    nativeId == request.parameters.end()
+                        ? std::string()
+                        : nativeId->second;
+
+                if (!backendNativeId.empty() &&
+                    vdrRecordingCacheRepository_) {
+                    vdrRecordingCacheRepository_->removeByBackendNativeId(
+                        backendId,
+                        backendNativeId);
+                }
+
+                if (!backendNativeId.empty() && snapshotCacheService_) {
+                    snapshotCacheService_->removeRecordingForBackend(
+                        backendId,
+                        backendNativeId);
+                }
+
+                // Retire the opaque public ID only after a successful real
+                // DELETE. A later recording at the same native path must get
+                // a fresh public ID instead of inheriting the deleted one.
+                if (!backendNativeId.empty() && publicRecordingIdentities_) {
+                    publicRecordingIdentities_->removeAfterVerifiedDeletion(
+                        backendId,
+                        backendNativeId);
+                }
+
+                // The mutation is authoritative even if a local cache row was
+                // already absent. Home still needs one immediate invalidation.
+                recordingPresentationChangeQueue_.request(backendId);
+                recordingCacheRefreshQueue_.request(backendId);
+                return false;
+            }
+
+            VdrRecording previous;
+            bool hasPrevious = false;
+            const auto oldNative = request.parameters.find("backendNativeId");
+            if (oldNative != request.parameters.end() &&
+                vdrRecordingCacheRepository_ && publicRecordingIdentities_) {
+                hasPrevious = vdrRecordingCacheRepository_->findByBackendNativeId(
+                    backendId, oldNative->second, previous);
+            }
+
+            // Rename and move change backend-native identity. Keep their
+            // single synchronous refresh so an immediate follow-up action resolves
+            // the new path rather than a stale pre-mutation snapshot.
+            for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                if (!backendRuntimeContext ||
+                    backendRuntimeContext->backendId != backendId ||
+                    !backendRuntimeContext->snapshotBuilder) {
+                    continue;
+                }
+
+                const std::vector<VdrRecording> recordings =
+                    backendRuntimeContext->snapshotBuilder->buildRecordings();
+
+                // Preserve existing public identity across a legacy rename
+                // or move only when the new provider inventory proves a
+                // unique equivalent source and no old native path remains.
+                if (hasPrevious && publicRecordingIdentities_ &&
+                    (request.type == RecordingActionType::Rename ||
+                     request.type == RecordingActionType::Move)) {
+                    const auto next =
+                        PublicRecordingActionReadback::relocatedNativeId(
+                            previous, recordings);
+                    if (next)
+                        (void) publicRecordingIdentities_->
+                            rebindAfterVerifiedMove(backendId,
+                                previous.backendNativeId, *next);
+                }
+
+                snapshotCacheService_->updateRecordingsForBackend(
+                    backendRuntimeContext->backendId,
+                    recordings);
+
+                if (vdrRecordingCacheRepository_) {
+                    vdrRecordingCacheRepository_->replaceRecordingsForBackend(
+                        backendRuntimeContext->backendId,
+                        recordings);
+                    vdrRecordingCacheRepository_->markRefreshFinished(
+                        backendRuntimeContext->backendId,
+                        static_cast<int>(recordings.size()));
+                }
+
+                recordingPresentationChangeQueue_.request(backendId);
+                return true;
+            }
+
+            return false;
+        });
+
+    recordingActionRequestPreviewService_ =
+        std::make_unique<RecordingActionRequestPreviewService>();
+    recordingActionRequestPreviewResultJsonSerializer_ =
+        std::make_unique<RecordingActionRequestPreviewResultJsonSerializer>();
+    recordingActionPreviewController_ =
+        std::make_unique<RecordingActionPreviewController>(
+            *recordingActionRequestPreviewService_,
+            *recordingActionRequestPreviewResultJsonSerializer_,
+            *recordingActionValidationRequestParser_);
+
+    vdrTimerActionService_ = std::make_unique<VdrTimerActionService>();
+    vdrTimerActionExecutionService_ = std::make_unique<VdrTimerActionExecutionService>();
+    vdrTimerActionResultJsonSerializer_ = std::make_unique<VdrTimerActionResultJsonSerializer>();
+    vdrTimerActionRequestParser_ = std::make_unique<VdrTimerActionRequestParser>();
+    vdrTimerActionController_ = std::make_unique<VdrTimerActionController>(
+        *vdrTimerActionExecutionService_,
+        *vdrTimerActionResultJsonSerializer_,
+        *vdrTimerActionRequestParser_,
+        *backendRegistryService_,
+        *backendAccessPolicy_);
+
+    vdrChannelMoveExecutionService_ =
+        std::make_unique<VdrChannelMoveExecutionService>();
+    vdrChannelMoveResultJsonSerializer_ =
+        std::make_unique<VdrChannelMoveResultJsonSerializer>();
+    vdrChannelMoveRequestParser_ =
+        std::make_unique<VdrChannelMoveRequestParser>();
+    vdrChannelMoveExecutorAdapterRegistry_ =
+        std::make_unique<VdrChannelMoveExecutorAdapterRegistry>();
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext &&
+            backendRuntimeContext->backendId == "default") {
+            vdrChannelMoveExecutorAdapterRegistry_->registerAdapter(
+                std::make_shared<VdrChannelMoveExecutorAdapter>(
+                    backendRuntimeContext->backendId,
+                    std::make_shared<SvdrpChannelMoveExecutor>()));
+        }
+    }
+
+    vdrChannelMoveController_ =
+        std::make_unique<VdrChannelMoveController>(
+            *vdrChannelMoveExecutionService_,
+            *vdrChannelMoveResultJsonSerializer_,
+            *vdrChannelMoveRequestParser_,
+            *vdrChannelMoveExecutorAdapterRegistry_,
+            *backendRegistryService_,
+            *backendAccessPolicy_);
+
+    vdrChannelMoveController_->setAfterSuccessfulMoveCallback(
+        [this](const std::string& backendId) {
+            for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                if (backendRuntimeContext &&
+                    backendRuntimeContext->backendId == backendId &&
+                    backendRuntimeContext->snapshotBuilder) {
+                    snapshotCacheService_->updateChannelsForBackend(
+                        backendId,
+                        backendRuntimeContext->snapshotBuilder->buildChannels());
+                    externalVdrChangeHint_.store(true);
+                    break;
+                }
+            }
+        });
+
+    std::cout << "recording action controller runtime initialized" << std::endl;
+    std::cout << "VDR timer action controller runtime initialized" << std::endl;
+
+    epgSearchNativeFuzzyStaleProbeAdministrationService_ =
+        std::make_unique<EpgSearchNativeFuzzyStaleProbeAdministrationService>(
+            *epgSearchNativeFuzzyCapabilityRepository_,
+            *epgSearchNativeFuzzyCapabilityFreshnessPolicy_);
+    epgSearchNativeFuzzyStaleProbeAdministrationController_ =
+        std::make_unique<EpgSearchNativeFuzzyStaleProbeAdministrationController>(
+            *epgSearchNativeFuzzyStaleProbeAdministrationService_);
+
+    if (searchTimerCommandExecutor_ != nullptr
+        && !backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->searchTimerAdapter)
+    {
+        epgSearchNativeFuzzyOperatorRefreshService_ =
+            std::make_unique<EpgSearchNativeFuzzyOperatorRefreshService>(
+                *searchTimerCommandExecutor_,
+                *backendRuntimeContexts_.front()->searchTimerAdapter,
+                *epgSearchNativeFuzzyCapabilityRepository_,
+                *epgSearchNativeFuzzyCapabilityDetector_,
+                *backendRegistryService_);
+        epgSearchNativeFuzzyOperatorRefreshController_ =
+            std::make_unique<EpgSearchNativeFuzzyOperatorRefreshController>(
+                *epgSearchNativeFuzzyOperatorRefreshService_);
+        std::cout << "EPGSearch native fuzzy operator refresh API runtime initialized" << std::endl;
+    }
+    else
+    {
+        std::cout << "EPGSearch native fuzzy operator refresh API runtime skipped: SearchTimer backend unavailable" << std::endl;
+    }
+
+    runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
+    runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
+    snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
+
+    deviceLiveEventHub_ = std::make_shared<DeviceLiveEventHub>();
+    liveTransport_ = std::make_unique<SseLiveTransport>();
+    liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
+    liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
+    liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
+    if (mediaImportOperationFence_) {
+        mediaImportOperationFence_->setOperationChanged(
+            [this](const std::string& /* backendId */,
+                   const std::string& operationId) {
+                if (deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(operationId);
+            });
+    }
+
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerRecordingPresentationChangedCallback(
+            [this](const std::string& backendId,
+                   const std::string& recordingNativeId)
+            {
+                recordingPresentationChangeQueue_.request(
+                    backendId, recordingNativeId);
+            });
+
+    // After the existing authenticated assignment, resolve its native
+    // Recording identity in the existing backend cache. Do not accept a path
+    // from the browser, request another TMDb search or submit another import.
+    metadataController_->setNativeInfoUpdate(
+        [this](const ManualRecordingMetadataSelection& selected,
+               const ManualRecordingMetadataAssignment& assigned) {
+            if (!vdrRecordingCacheRepository_ || !assigned.found ||
+                selected.providerId != "tmdb" ||
+                (selected.mediaType != "movie" &&
+                 selected.mediaType != "episode") ||
+                (selected.mediaType == "episode" &&
+                 selected.seriesTitle.empty()))
+                return false;
+            std::string videoRoot;
+            for (const auto& backend : backendRuntimeContexts_) {
+                if (backend && backend->backendId == assigned.backendId) {
+                    videoRoot = backend->nativeRecordingInfoRoot;
+                    break;
+                }
+            }
+            if (videoRoot.empty()) return false;
+            const auto recordings =
+                vdrRecordingCacheRepository_->findAllForBackend(
+                    assigned.backendId);
+            const VdrRecording* match = nullptr;
+            for (const auto& recording : recordings) {
+                if (recording.backendId != assigned.backendId ||
+                    recording.backendNativeId != selected.resourceKey ||
+                    recording.backendNativeId.empty() ||
+                    recording.id.empty()) continue;
+                if (match) return false;
+                match = &recording;
+            }
+            if (!match || !metadataRepository_) return false;
+            // The assignment repository stores the canonical cache_key,
+            // while the browser submitted backendNativeId. Re-resolve via
+            // the existing canonical metadata lookup and verify this EXACT
+            // committed assignment before touching native bytes.
+            const auto bound =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    assigned.backendId, match->backendNativeId);
+            if (!bound.found ||
+                bound.metadataAssignmentId != assigned.metadataAssignmentId)
+                return false;
+            vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
+            confirmed.mediaType = assigned.mediaType;
+            confirmed.title = assigned.title;
+            confirmed.seriesTitle = selected.seriesTitle;
+            confirmed.overview = assigned.overview;
+            confirmed.seasonNumber = assigned.seasonNumber;
+            confirmed.episodeNumber = assigned.episodeNumber;
+            try {
+                const bool changed =
+                    vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                        videoRoot, match->backendNativeId, confirmed);
+                if (changed)
+                    recordingCacheRefreshQueue_.request(
+                        assigned.backendId, 2);
+                return true; // unchanged info is also a verified result
+            } catch (const std::exception& error) {
+                std::cerr << "Media Import native info correction pending: "
+                          << error.what() << std::endl;
+                return false;
+            }
+        });
+
+
+    std::cout << "runtime diagnostics controller initialized" << std::endl;
+    std::cout << "snapshot change feed controller initialized" << std::endl;
+    std::cout << "live transport service initialized" << std::endl;
+    std::cout << "live transport controller initialized" << std::endl;
+
+    PublicApiRuntime::instance().registerOperationLookup(
+        [this](
+            const std::string& operationId,
+            const std::string& actorRef)
+        {
+            PublicOperationLookupResult result;
+            const auto found =
+                mutationOperationReadService_->findForActor(
+                    operationId,
+                    actorRef);
+
+            switch (found.status)
+            {
+                case vdrsuite::operations::MutationOperationReadStatus::ok:
+                    result.status = PublicOperationLookupStatus::ok;
+                    result.operation.operationId =
+                        found.operation.operationId;
+                    result.operation.state =
+                        vdrsuite::operations::mutationOperationStateName(
+                            found.operation.state);
+                    result.operation.backendId =
+                        found.operation.backendId;
+                    result.operation.resourceRevision =
+                        found.operation.operationRevision;
+                    // A failure reason is derived only from the durable result
+                    // of this actor's original Media Import operation.
+                    // Do not expose arbitrary worker output or guess whether a
+                    // host shutdown, power failure or Agent crash occurred.
+                    if (found.operation.actionFamily == "media.import" &&
+                        backendAgentCommandRepository_ &&
+                        (found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::outcomeUnknown ||
+                         found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::failedBeforeDispatch))
+                    {
+                        const auto original =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportCommandType);
+                        if (original &&
+                            original->backendGeneration ==
+                                found.operation.backendGeneration) {
+                            const auto receipt =
+                                backendAgentCommandRepository_->resultForCommand(
+                                    original->commandId);
+                            if (receipt &&
+                                receipt->commandId == original->commandId &&
+                                receipt->backendId == original->backendId &&
+                                receipt->agentId == original->agentId &&
+                                receipt->agentInstanceId ==
+                                    original->agentInstanceId &&
+                                receipt->backendGeneration ==
+                                    original->backendGeneration &&
+                                receipt->requestFingerprint ==
+                                    original->requestFingerprint)
+                            {
+                                const auto& message = receipt->boundedDiagnostics;
+                                const std::string prefix = "media_import_failure:";
+                                if (message == "Media import recovered after start; reconcile recording")
+                                    result.operation.failureCode = "execution_interrupted";
+                                else if (message == "Media import deadline expired")
+                                    result.operation.failureCode = "expired_before_start";
+                                else if (message.compare(0, prefix.size(), prefix) == 0)
+                                {
+                                    const auto code = message.substr(prefix.size());
+                                    for (const char* allowed : {
+                                        "worker_launch_failed", "worker_signaled",
+                                        "worker_failed", "worker_interrupted",
+                                        "worker_time_limit", "ffmpeg_timeout",
+                                        "ffmpeg_failed", "vdr_index_failed"})
+                                        if (code == allowed)
+                                            result.operation.failureCode = code;
+                                }
+                                if (!result.operation.failureCode.empty())
+                                    result.operation.resourceRevision +=
+                                        ":media-failure:" + result.operation.failureCode;
+                            }
+                        }
+                    }
+                    // Only the authenticated actor's own confirmed import
+                    // operation may project read-only Agent cleanup evidence.
+                    // The canonical VDR success remains unchanged when cleanup
+                    // fails or the Agent is offline.
+                    if (found.operation.actionFamily == "media.import" &&
+                        found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::succeeded &&
+                        backendAgentCommandRepository_)
+                    {
+                        const auto notice =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportReadbackCommandType);
+                        if (notice && notice->backendGeneration ==
+                                found.operation.backendGeneration)
+                        {
+                            std::string sourceId, originalCommand, recordingProof;
+                            std::string sourceProof;
+                            if (vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                                    notice->payload, sourceId, originalCommand,
+                                    recordingProof, sourceProof) &&
+                                (notice->payloadVersion == (sourceProof.empty() ? 1U : 2U)))
+                            {
+                                if (sourceProof.empty())
+                                    result.operation.sourceCleanup = "not_performed";
+                                else
+                                {
+                                    result.operation.sourceCleanup = "pending";
+                                    const auto cleanupResult =
+                                        backendAgentCommandRepository_->resultForCommand(
+                                            notice->commandId);
+                                    if (cleanupResult &&
+                                        cleanupResult->commandId == notice->commandId &&
+                                        cleanupResult->backendId == notice->backendId &&
+                                        cleanupResult->agentId == notice->agentId &&
+                                        cleanupResult->agentInstanceId ==
+                                            notice->agentInstanceId &&
+                                        cleanupResult->backendGeneration ==
+                                            notice->backendGeneration &&
+                                        cleanupResult->requestFingerprint ==
+                                            notice->requestFingerprint)
+                                    {
+                                        const auto& evidence =
+                                            cleanupResult->resultEvidence;
+                                        if (cleanupResult->resultCategory == "succeeded" &&
+                                            cleanupResult->verificationState == "verified" &&
+                                            evidence == "media-tools-cleanup:removed")
+                                            result.operation.sourceCleanup = "removed";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 cleanupResult->verificationState == "verified" &&
+                                                 evidence == "media-tools-cleanup:already-absent")
+                                            result.operation.sourceCleanup = "already_absent";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 evidence == "media-tools-cleanup:not-performed")
+                                            result.operation.sourceCleanup = "not_performed";
+                                        else if (cleanupResult->resultCategory == "rejected" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "failed";
+                                        else if (cleanupResult->resultCategory == "outcome_unknown" &&
+                                                 cleanupResult->verificationState == "outcome_unknown" &&
+                                                 cleanupResult->retryClassification == "reconcile_only" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "outcome_unknown";
+                                    }
+                                }
+                                // A cleanup ACK can arrive after the Operation
+                                // is succeeded: include its state in the ETag.
+                                result.operation.resourceRevision +=
+                                    ":media-cleanup:" + result.operation.sourceCleanup;
+                            }
+                        }
+                    }
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::invalid:
+                    result.status =
+                        PublicOperationLookupStatus::invalid;
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::notFound:
+                    result.status =
+                        PublicOperationLookupStatus::notFound;
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::storageError:
+                    result.status =
+                        PublicOperationLookupStatus::unavailable;
+                    return result;
+            }
+
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerTimerAssignmentLookup(
+        [this](
+            const std::string& timerAssignmentId,
+            const std::string& backendId)
+        {
+            PublicTimerAssignmentLookupResult result;
+            const auto found =
+                timerAssignmentReadService_->findForBackend(
+                    timerAssignmentId,
+                    backendId);
+
+            switch (found.status)
+            {
+                case vdrsuite::timers::TimerAssignmentReadStatus::ok:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::ok;
+                    result.assignment.timerAssignmentId =
+                        found.assignment.timerAssignmentId;
+                    result.assignment.backendId =
+                        found.assignment.backendId;
+                    result.assignment.resourceRevision =
+                        found.assignment.assignmentRevision;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::invalid:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::notFound:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::notFound;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::storageError:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::unavailable;
+                    return result;
+            }
+
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerTimerAssignmentCollectionLookup(
+        [this](
+            const PublicTimerAssignmentCollectionRequest& request)
+        {
+            PublicTimerAssignmentCollectionResult result;
+            const auto page =
+                timerAssignmentReadService_->listForBackend(
+                    request.backendId,
+                    request.afterTimerAssignmentId,
+                    request.limit);
+
+            switch (page.status)
+            {
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::ok:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::ok;
+                    result.hasMore = page.hasMore;
+                    for (const auto& assignment : page.assignments)
+                    {
+                        PublicTimerAssignmentCollectionItem item;
+                        item.timerAssignmentId =
+                            assignment.timerAssignmentId;
+                        item.backendId = assignment.backendId;
+                        // Only project the persisted, valid Suite-owned
+                        // desired specification; no native timer observation,
+                        // provider channel ID, recording path, or binding ID.
+                        if (assignment.desiredNativeTimerSpecificationPresent &&
+                            vdrsuite::timers::nativeTimerSpecificationValid(
+                                assignment.desiredNativeTimerSpecification))
+                        {
+                            const auto& desired =
+                                assignment.desiredNativeTimerSpecification;
+                            item.plannedPresent = true;
+                            item.plannedTitle = desired.title;
+                            item.plannedDay = desired.day;
+                            item.plannedWeekdays = desired.weekdays;
+                            item.plannedStartTime = desired.startTime;
+                            item.plannedEndTime = desired.endTime;
+                        }
+                        result.assignments.push_back(
+                            std::move(item));
+                    }
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::invalid:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::storageError:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::unavailable;
+                    return result;
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerNativeVersionLookup(
+        [this](const PublicSearchTimerNativeVersionRequest& request)
+        {
+            PublicSearchTimerNativeVersionResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
+            if (!publicSearchTimerIdentities_ || !backendRegistryService_) return result;
+            const auto backend = backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online) return result;
+            for (const auto& runtime : backendRuntimeContexts_)
+            {
+                if (!runtime || runtime->backendId != request.backendId) continue;
+                const auto observed = observeStockSearchTimer(
+                    *runtime, *publicSearchTimerIdentities_, request.publicSearchTimerId);
+                if (observed.status == StockSearchTimerObservationStatus::notFound)
+                    result.status = PublicSearchTimerNativeVersionStatus::notFound;
+                else if (observed.status == StockSearchTimerObservationStatus::ok)
+                {
+                    result.status = PublicSearchTimerNativeVersionStatus::ok;
+                    result.revision = observed.revision;
+                    result.query = observed.rule->query();
+                    result.state = observed.rule->active() ? "active" : "inactive";
+                    result.activeMode = observed.rule->activeMode();
+                    result.repeatCompareSubtitleMode = observed.rule->repeatCompareSubtitleMode();
+                    result.repeatCompareTimeMode = observed.rule->repeatCompareTimeMode();
+                    result.repeatCompareCategoriesMask = observed.rule->repeatCompareCategoriesMask();
+                }
+                break;
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerNativeMutation(
+        [this](const PublicSearchTimerNativeMutationRequest& request)
+        {
+            using namespace vdrsuite::operations;
+            PublicSearchTimerNativeMutationResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
+            if (request.actorRef.empty() || request.backendId.empty() ||
+                request.publicSearchTimerId.empty() || !request.confirmed ||
+                request.ifMatch.size() != 35U ||
+                request.ifMatch.compare(0U, 3U, "sr_") != 0 ||
+                !mutationOperationRepository_ || !publicSearchTimerIdentities_ ||
+                !backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_) return result;
+
+            const auto backend = backendRegistryService_->getBackend(request.backendId);
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed || !backend || !backend->enabled || !backend->online)
+                return result;
+            std::string action;
+            switch (request.action)
+            {
+                case PublicSearchTimerNativeAction::update: action = "update"; break;
+                case PublicSearchTimerNativeAction::activate: action = "activate"; break;
+                case PublicSearchTimerNativeAction::deactivate: action = "deactivate"; break;
+                case PublicSearchTimerNativeAction::remove: action = "delete"; break;
+            }
+            if (action.empty()) return result;
+            const std::string family = "searchtimer.stock." + action;
+            const auto canonical = stockSearchTimerRequestPayload(request, action);
+            const auto digest = stockSearchTimerDigest(canonical);
+            if (digest.empty()) return result;
+            const std::string fingerprint = "sha256:" + digest;
+
+            const auto publish = [&result](const MutationOperation& op,
+                PublicSearchTimerNativeMutationStatus status)
+            {
+                result.status = status;
+                result.operation.operationId = op.operationId;
+                result.operation.backendId = op.backendId;
+                result.operation.state = mutationOperationStateName(op.state);
+                result.operation.resourceRevision = op.operationRevision;
+                return result;
+            };
+
+            // Preserve old native-CAS idempotency scopes. A replay after
+            // migration must never turn into a fresh stock-provider write.
+            for (const auto& scope : {family, "searchtimer.native-cas." + action})
+            {
+                const auto existing = mutationOperationRepository_->findByIdempotencyScope(
+                    request.actorRef, request.backendId, "SearchTimer",
+                    request.publicSearchTimerId, scope, request.idempotencyKey);
+                if (existing.status == MutationOperationRepositoryStatus::notFound)
+                    continue;
+                if (!existing.ok()) return result;
+                const auto stored = mutationOperationRepository_->findPayloadByOperationId(
+                    existing.operation.operationId);
+                const bool identical = stored.ok() &&
+                    stored.payload.payloadVersion == 1U &&
+                    existing.operation.expectedRevision == request.ifMatch &&
+                    stored.payload.payloadFingerprint == existing.operation.requestFingerprint &&
+                    (scope == family
+                        ? stored.payload.payloadType == "searchtimer.stock" &&
+                          stored.payload.payload == canonical &&
+                          existing.operation.requestFingerprint == fingerprint
+                        : request.settings.empty() &&
+                          stored.payload.payloadType == "searchtimer.native-cas" &&
+                          searchCasReplayMatches(stored.payload.payload, action,
+                              request.backendId, request.publicSearchTimerId,
+                              request.ifMatch, request.query));
+                if (!identical)
+                {
+                    result.status = PublicSearchTimerNativeMutationStatus::conflict;
+                    return result;
+                }
+                return publish(existing.operation, PublicSearchTimerNativeMutationStatus::replayed);
+            }
+
+            SearchTimerCurrentBackendGeneration generations(*backendAgentRepository_);
+            const auto generation = generations.currentGeneration(request.backendId);
+            if (!generation) return result;
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& candidate : backendRuntimeContexts_)
+                if (candidate && candidate->backendId == request.backendId &&
+                    candidate->searchTimerAdapter && candidate->suiteBridgeTransport)
+                {
+                    runtime = candidate.get();
+                    break;
+                }
+            if (!runtime) return result;
+
+            const auto observed = observeStockSearchTimer(
+                *runtime, *publicSearchTimerIdentities_, request.publicSearchTimerId);
+            if (observed.status == StockSearchTimerObservationStatus::notFound)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::notFound;
+                return result;
+            }
+            if (observed.status != StockSearchTimerObservationStatus::ok ||
+                !observed.rule) return result;
+            if (observed.revision != request.ifMatch)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::conflict;
+                return result;
+            }
+
+            const auto original = observed.rule->text();
+            auto desired = observed.rule;
+            if (request.action == PublicSearchTimerNativeAction::update)
+            {
+                // EDIS edits the original native record, not a lossy projection.
+                // Preserve the active state and every setting omitted by the caller.
+                if (!request.query.empty()) desired = observed.rule->withQuery(request.query);
+                if (desired && !request.settings.empty())
+                    desired = desired->withSettings(request.settings);
+                if (!desired || desired->text().size() > 8192U)
+                {
+                    result.status = PublicSearchTimerNativeMutationStatus::invalid;
+                    return result;
+                }
+            }
+            else if (request.action == PublicSearchTimerNativeAction::activate &&
+                !observed.rule->active())
+                desired = observed.rule->withActive(true);
+            else if (request.action == PublicSearchTimerNativeAction::deactivate)
+                desired = observed.rule->withActive(false);
+
+            MutationOperation op;
+            op.operationId = generateMutationOperationId();
+            op.actorId = request.actorRef;
+            op.backendId = request.backendId;
+            op.backendGeneration = *generation;
+            op.resourceType = "SearchTimer";
+            op.resourceId = request.publicSearchTimerId;
+            op.expectedRevision = request.ifMatch;
+            op.expectedResourceFingerprint = observed.revision;
+            op.actionFamily = family;
+            op.requestFingerprint = fingerprint;
+            op.idempotencyKey = request.idempotencyKey;
+            op.requestedAt = op.updatedAt = stockSearchTimerNow();
+            op.verificationPolicy = MutationOperationVerificationPolicy::readbackRequired;
+            MutationOperationPayload stored;
+            stored.operationId = op.operationId;
+            stored.payloadType = "searchtimer.stock";
+            stored.payloadVersion = 1U;
+            stored.payload = canonical;
+            stored.payloadFingerprint = fingerprint;
+            const auto reserved = mutationOperationRepository_->reserveWithPayload(op, stored);
+            if (reserved.status == MutationOperationRepositoryStatus::idempotentReplay)
+                return publish(reserved.operation, PublicSearchTimerNativeMutationStatus::replayed);
+            if (reserved.status == MutationOperationRepositoryStatus::idempotencyConflict ||
+                reserved.status == MutationOperationRepositoryStatus::operationConflict)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::conflict;
+                return result;
+            }
+            if (!reserved.ok()) return result;
+            op = reserved.operation;
+
+            // Re-read immediately before the one-shot claim/write. This is
+            // optimistic concurrency, not epgsearch-native atomic CAS.
+            const auto still = runtime->suiteBridgeTransport->readStockSearchTimer(observed.nativeId);
+            const auto currentGeneration = generations.currentGeneration(request.backendId);
+            if (!currentGeneration || *currentGeneration != *generation ||
+                !still.transportSucceeded() || still.replyCode != 900 ||
+                still.payload != original)
+            {
+                const auto stopped = mutationOperationRepository_->transition(
+                    op.operationId, op.operationRevision, MutationOperationState::accepted,
+                    MutationOperationState::failedBeforeDispatch, "", stockSearchTimerNow());
+                return publish(stopped.ok() ? stopped.operation : op,
+                    PublicSearchTimerNativeMutationStatus::accepted);
+            }
+            const auto claim = mutationOperationRepository_->transition(
+                op.operationId, op.operationRevision, MutationOperationState::accepted,
+                MutationOperationState::dispatching, "", stockSearchTimerNow());
+            if (!claim.ok()) return publish(op, PublicSearchTimerNativeMutationStatus::accepted);
+            op = claim.operation;
+            const auto advance = [this, &op](MutationOperationState next)
+            {
+                const auto changed = mutationOperationRepository_->transition(
+                    op.operationId, op.operationRevision, op.state, next, "",
+                    stockSearchTimerNow());
+                if (changed.ok()) op = changed.operation;
+                return changed.ok();
+            };
+
+            const bool deletion = request.action == PublicSearchTimerNativeAction::remove;
+            bool verified = false;
+            try
+            {
+                vdrsuite::agent::SuiteBridgeCommandReply reply;
+                const bool noChange = !deletion && desired && desired->text() == original;
+                if (!noChange)
+                {
+                    switch (request.action)
+                    {
+                        case PublicSearchTimerNativeAction::update:
+                            reply = runtime->suiteBridgeTransport->editStockSearchTimer(
+                                observed.nativeId, desired->text());
+                            break;
+                        case PublicSearchTimerNativeAction::activate:
+                        case PublicSearchTimerNativeAction::deactivate:
+                            reply = runtime->suiteBridgeTransport->toggleStockSearchTimer(
+                                observed.nativeId, request.action == PublicSearchTimerNativeAction::activate);
+                            break;
+                        case PublicSearchTimerNativeAction::remove:
+                            reply = runtime->suiteBridgeTransport->deleteStockSearchTimer(observed.nativeId);
+                            break;
+                    }
+                }
+                // Never repeat after an ambiguous command reply. Only an
+                // acknowledged command (or no-op) and exact independent
+                // stock readback prove the requested observable state.
+                if (noChange || (reply.transportSucceeded() && reply.replyCode == 900))
+                {
+                    const auto after = runtime->suiteBridgeTransport->readStockSearchTimer(observed.nativeId);
+                    const auto afterGeneration = generations.currentGeneration(request.backendId);
+                    verified = afterGeneration && *afterGeneration == *generation &&
+                        (deletion ? stockSearchTimerMissing(after, observed.nativeId)
+                            : after.transportSucceeded() && after.replyCode == 900 &&
+                              desired && after.payload == desired->text());
+                }
+            }
+            catch (...) { verified = false; }
+
+            if (verified)
+            {
+                if (advance(MutationOperationState::executedUnverified))
+                    advance(MutationOperationState::succeeded);
+            }
+            else
+                advance(MutationOperationState::outcomeUnknown);
+            return publish(op, PublicSearchTimerNativeMutationStatus::accepted);
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCreate(
+        [this](const PublicSearchTimerCreateRequest& request)
+        {
+            PublicSearchTimerCreateResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
+            if (!mutationOperationRepository_ || !backendRegistryService_ ||
+                !backendAccessPolicy_ || !backendAgentRepository_)
+                return result;
+            const BackendAccessDecision access =
+                backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, request.backendId);
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!access.allowed || !backend || !backend->online)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            const std::int64_t now =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U ||
+                agent->leaseExpiresAt <= now)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& candidate : backendRuntimeContexts_)
+            {
+                if (candidate && candidate->backendId == request.backendId &&
+                    candidate->searchTimerAdapter && candidate->httpClient &&
+                    candidate->suiteBridgeTransport)
+                {
+                    runtime = candidate.get();
+                    break;
+                }
+            }
+            if (!runtime)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+
+            SearchTimerCreateAdmissionService admission(
+                *mutationOperationRepository_);
+            SearchTimerCreateAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.backendGeneration = agent->backendGeneration;
+            input.idempotencyKey = request.idempotencyKey;
+            input.requestedAt = now;
+            input.payload.name = request.name;
+            input.payload.query = request.query;
+            input.payload.active = request.active;
+            input.payload.matchMode = request.mode;
+            input.payload.matchTolerance = request.tolerance;
+            input.payload.compareTitle = request.compareTitle;
+            input.payload.compareSubtitle = request.compareSubtitle;
+            input.payload.compareSummary = request.compareSummary;
+            input.payload.repeatCompareTitle = request.repeatCompareTitle;
+            input.payload.repeatCompareSubtitle = request.repeatCompareSubtitle;
+            input.payload.repeatCompareSummary = request.repeatCompareSummary;
+            input.payload.directory = request.directory;
+            input.payload.priority = request.priority;
+            input.payload.lifetime = request.lifetime;
+            input.payload.useVps = request.useVps;
+            input.payload.useChannel = request.useChannel;
+            input.payload.channels = request.channels;
+            input.payload.channelMin = request.channelMin;
+            input.payload.channelMax = request.channelMax;
+            input.payload.useTime = request.useTime;
+            input.payload.startTime = request.startTime;
+            input.payload.stopTime = request.stopTime;
+            input.payload.useDuration = request.useDuration;
+            input.payload.durationMinMinutes = request.durationMinMinutes;
+            input.payload.durationMaxMinutes = request.durationMaxMinutes;
+            input.payload.useDayOfWeek = request.useDayOfWeek;
+            input.payload.dayOfWeek = request.dayOfWeek;
+            input.payload.avoidRepeats = request.avoidRepeats;
+            input.payload.allowedRepeats = request.allowedRepeats;
+            input.payload.repeatsWithinDays = request.repeatsWithinDays;
+            input.payload.compareCategories = request.compareCategories;
+            input.payload.compareTime = request.compareTime;
+            input.payload.useSeriesRecording = request.useSeriesRecording;
+            input.payload.keepRecordings = request.keepRecordings;
+            input.payload.deleteMode = request.deleteMode;
+            input.payload.searchTimerAction = request.searchTimerAction;
+            input.payload.blacklistMode = request.blacklistMode;
+            input.payload.blacklistIds = request.blacklistIds;
+            input.payload.matchCase = request.matchCase;
+            input.payload.summaryMatch = request.summaryMatch;
+            input.payload.useExtendedEpgInfo = request.useExtendedEpgInfo;
+            input.payload.extendedEpgInfo = request.extendedEpgInfo;
+            input.payload.ignoreMissingEpgCategories = request.ignoreMissingEpgCategories;
+            input.payload.contentDescriptors = request.contentDescriptors;
+            input.payload.useInFavorites = request.useInFavorites;
+            input.payload.activeFrom = request.activeFrom;
+            input.payload.activeUntil = request.activeUntil;
+            input.payload.pauseOnRecordings = request.pauseOnRecordings;
+            input.payload.switchMinutesBefore = request.switchMinutesBefore;
+            input.payload.unmuteSoundOnSwitch = request.unmuteSoundOnSwitch;
+            input.payload.deleteRecordingsAfterDays = request.deleteRecordingsAfterDays;
+            input.payload.deleteAfterCountRecordings = request.deleteAfterCountRecordings;
+            input.payload.deleteAfterDaysOfFirstRecording = request.deleteAfterDaysOfFirstRecording;
+            // epgsearch has independent defaults, so persist the live VDR
+            // margins on the inactive rule before it can be activated.
+            vdrsuite::agent::SuiteBridgeNativeTimerMarginsProjection margins;
+            std::string marginReason;
+            if (!backendAgentCommandRepository_)
+            {
+                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            const auto provider = backendAgentCommandRepository_->selectLocalProvider(
+                request.backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration,
+                vdrsuite::agent::kBackendAgentNativeTimerCreateAuthorityDomain,
+                vdrsuite::agent::kBackendAgentNativeTimerCreateCapability, marginReason);
+            if (!provider ||
+                !vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
+                    *provider, margins, marginReason))
+            {
+                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            input.payload.marginStartMinutes = request.hasMarginStartMinutes
+                ? request.marginStartMinutes : margins.startMinutes;
+            input.payload.marginStopMinutes = request.hasMarginStopMinutes
+                ? request.marginStopMinutes : margins.stopMinutes;
+            const auto admitted = admission.admit(input);
+            if (admitted.status == SearchTimerCreateAdmissionStatus::invalid)
+            {
+                result.status = PublicSearchTimerCreateStatus::invalid;
+                return result;
+            }
+            if (admitted.status ==
+                    SearchTimerCreateAdmissionStatus::idempotencyConflict ||
+                admitted.status ==
+                    SearchTimerCreateAdmissionStatus::operationConflict)
+            {
+                result.status = PublicSearchTimerCreateStatus::conflict;
+                return result;
+            }
+            if (admitted.status != SearchTimerCreateAdmissionStatus::prepared &&
+                admitted.status != SearchTimerCreateAdmissionStatus::replayed)
+                return result;
+
+            auto operation = admitted.operation;
+            // CAS protects the only provider write. A retry of a dispatched
+            // or unknown result never calls the executor again.
+            if (operation.state ==
+                    vdrsuite::operations::MutationOperationState::accepted &&
+                operation.backendGeneration == agent->backendGeneration)
+            {
+                SearchTimerCurrentBackendGeneration generations(
+                *backendAgentRepository_);
+                SearchTimerCreateDispatchService dispatch(
+                    *mutationOperationRepository_, generations);
+                SearchTimerCreateDispatchRequest command;
+                command.operationId = operation.operationId;
+                command.actorId = request.actorRef;
+                command.backendId = request.backendId;
+                command.backendGeneration = operation.backendGeneration;
+                command.now = now;
+                command.operatorConfirmed = true;
+                command.backendWriteAllowed = access.allowed;
+                command.executorOptIn = true;
+                RestfulApiSearchTimerCommandExecutor executor(
+                    *runtime->httpClient);
+                const auto outcome = dispatch.dispatchOnce(
+                    command, executor, *runtime->searchTimerAdapter);
+                if (!outcome.operation.operationId.empty())
+                    operation = outcome.operation;
+            }
+            result.status = admitted.status ==
+                SearchTimerCreateAdmissionStatus::prepared
+                ? PublicSearchTimerCreateStatus::accepted
+                : PublicSearchTimerCreateStatus::replayed;
+            result.operation.operationId = operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    operation.state);
+            result.operation.backendId = operation.backendId;
+            result.operation.resourceRevision = operation.operationRevision;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCollectionLookup(
+        [this](const PublicSearchTimerCollectionRequest& request)
+        {
+            PublicSearchTimerCollectionResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+            {
+                result.status = PublicSearchTimerCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Select exactly one authorized backend. Legacy Web's default
+            // backend cannot be used to satisfy an arbitrary Device scope.
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+            {
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            }
+            if (!adapter) return result;
+
+            // RESTfulAPI returns the catalogue in one read; no retry or
+            // cross-backend fanout. Only bounded safe projections leave v1.
+            const SearchTimerResult source = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!source.available() ||
+                source.totalCount() != source.returnedCount()) return result;
+            // The provider catalogue is complete and validated before this
+            // atomic identity reconciliation. A real empty snapshot retires
+            // stale mappings; an outage or malformed catalogue never does.
+            const auto publicIds = publicSearchTimerIdentities_
+                ->reconcileAuthoritativeSnapshot(request.backendId,
+                    source.items());
+            if (!publicIds || publicIds->size() != source.items().size())
+                return result;
+
+            std::vector<PublicSearchTimerCollectionItem> candidates;
+            std::size_t identityIndex = 0U;
+            for (const SearchTimer& timer : source.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                PublicSearchTimerCollectionItem item;
+                item.searchTimerId = (*publicIds)[identityIndex++];
+                item.backendId = request.backendId;
+                item.name = timer.name();
+                item.query = timer.query();
+                item.state = timer.state() == SearchTimerState::Active
+                    ? "active"
+                    : (timer.state() == SearchTimerState::Inactive
+                        ? "inactive" : "unknown");
+                if (request.includeSettings)
+                    item.settingsJson = SearchTimerResultJsonSerializer{}
+                        .serializePublicSettings(timer);
+                candidates.push_back(std::move(item));
+            }
+            std::sort(candidates.begin(), candidates.end(),
+                [](const PublicSearchTimerCollectionItem& left,
+                   const PublicSearchTimerCollectionItem& right)
+                {
+                    return left.searchTimerId < right.searchTimerId;
+                });
+            for (std::size_t i = 1U; i < candidates.size(); ++i)
+                if (candidates[i - 1U].searchTimerId ==
+                    candidates[i].searchTimerId)
+                    return result;
+            // Reuse this one authoritative, identity-reconciled snapshot
+            // for a single saved SearchTimer lookup. A missing ID is not an
+            // empty catalogue error, but must never resolve another rule.
+            if (!request.searchTimerId.empty())
+            {
+                if (!request.afterSearchTimerId.empty() ||
+                    request.limit != 1U)
+                {
+                    result.status = PublicSearchTimerCollectionStatus::invalid;
+                    return result;
+                }
+                const auto match = std::lower_bound(
+                    candidates.begin(), candidates.end(),
+                    request.searchTimerId,
+                    [](const PublicSearchTimerCollectionItem& item,
+                       const std::string& id)
+                    {
+                        return item.searchTimerId < id;
+                    });
+                if (match != candidates.end() &&
+                    match->searchTimerId == request.searchTimerId)
+                    result.items.push_back(*match);
+                result.status = PublicSearchTimerCollectionStatus::ok;
+                return result;
+            }
+            const auto begin = std::upper_bound(
+                candidates.begin(), candidates.end(),
+                request.afterSearchTimerId,
+                [](const std::string& id,
+                   const PublicSearchTimerCollectionItem& item)
+                {
+                    return id < item.searchTimerId;
+                });
+            const std::size_t remaining =
+                static_cast<std::size_t>(candidates.end() - begin);
+            result.hasMore = remaining > request.limit;
+            const std::size_t count = std::min(remaining, request.limit);
+            for (std::size_t index = 0; index < count; ++index)
+                result.items.push_back(*(begin + index));
+            result.status = PublicSearchTimerCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerPreviewLookup(
+        [this](const PublicSearchTimerPreviewRequest& request)
+        {
+            PublicSearchTimerPreviewResult result;
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                !searchTimerPreviewEpgCache_ || request.limit == 0U ||
+                request.limit > 30U)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Same engine and ready backend-scoped EPG cache as the Web
+            // preview; do not substitute raw EPG text search.
+            const auto events =
+                searchTimerPreviewEpgCache_->sharedEventsForBackend(request.backendId);
+            if (!events) return result;
+
+            if (request.draft)
+            {
+                // A non-persisted SearchTimer goes through the exact same
+                // domain preview engine as Web/saved rules. The dummy native
+                // identity is internal only, never included in public output.
+                SearchTimer timer = SearchTimer::create(
+                    SearchTimerId::fromBackendNativeId(
+                        request.backendId, "draft-preview"),
+                    request.query, request.query, SearchTimerState::Active);
+                timer.comparisonOptions().setCompareTitle(request.compareTitle);
+                timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
+                timer.comparisonOptions().setCompareSummary(request.compareSummary);
+                timer.matchOptions().setMode(request.mode);
+                timer.matchOptions().setTolerance(request.tolerance);
+                SearchTimerPreviewService service;
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0);
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            if (!adapter) return result;
+            const auto catalogue = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!catalogue.available() ||
+                catalogue.totalCount() != catalogue.returnedCount())
+                return result;
+            const auto publicIds = publicSearchTimerIdentities_
+                ->reconcileAuthoritativeSnapshot(request.backendId,
+                    catalogue.items());
+            if (!publicIds || publicIds->size() != catalogue.items().size())
+                return result;
+
+            std::size_t identityIndex = 0U;
+            for (const auto& timer : catalogue.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                const std::string& publicId = (*publicIds)[identityIndex++];
+                if (publicId != request.searchTimerId) continue;
+
+                SearchTimerPreviewService service;
+                const std::vector<VdrChannel> channels =
+                    vdrSnapshotReadService_
+                        ? vdrSnapshotReadService_->getChannelsForBackend(request.backendId)
+                        : std::vector<VdrChannel>{};
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0, channels);
+                result.searchTimerId = publicId;
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+            result.status = PublicSearchTimerPreviewStatus::notFound;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountLookup(
+        [this](const std::string& accountId)
+        {
+            PublicAccountLookupResult result;
+            if (!humanAccountReadService_)
+            {
+                result.status =
+                    PublicAccountLookupStatus::unavailable;
+                return result;
+            }
+
+            const HumanAccountLookupResult found =
+                humanAccountReadService_->find(accountId);
+
+            switch (found.status)
+            {
+                case HumanAccountRepositoryStatus::ok:
+                    result.account.accountId =
+                        found.account.accountId;
+                    result.account.actorId =
+                        found.account.actorId;
+                    result.account.displayName =
+                        found.account.displayName;
+                    result.account.active =
+                        found.account.active;
+                    result.account.resourceRevision =
+                        "account:" +
+                        std::to_string(found.account.revision);
+                    result.status =
+                        PublicAccountLookupStatus::ok;
+                    return result;
+
+                case HumanAccountRepositoryStatus::invalid:
+                    result.status =
+                        PublicAccountLookupStatus::invalid;
+                    return result;
+
+                case HumanAccountRepositoryStatus::notFound:
+                    result.status =
+                        PublicAccountLookupStatus::notFound;
+                    return result;
+
+                case HumanAccountRepositoryStatus::revisionConflict:
+                case HumanAccountRepositoryStatus::storageError:
+                    result.status =
+                        PublicAccountLookupStatus::unavailable;
+                    return result;
+            }
+
+            result.status =
+                PublicAccountLookupStatus::unavailable;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountCollectionLookup(
+        [this](const PublicAccountCollectionRequest& request)
+        {
+            PublicAccountCollectionResult result;
+            if (!humanAccountReadService_ ||
+                request.limit == 0U ||
+                request.limit > 100U)
+            {
+                result.status =
+                    PublicAccountCollectionStatus::unavailable;
+                return result;
+            }
+
+            const HumanAccountListResult listed =
+                humanAccountReadService_->list();
+            if (listed.status != HumanAccountRepositoryStatus::ok)
+            {
+                result.status =
+                    PublicAccountCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<PublicAccountCollectionItem> eligible;
+            for (const HumanAccountRecord& account : listed.accounts)
+            {
+                if (!request.afterAccountId.empty() &&
+                    account.accountId <= request.afterAccountId)
+                {
+                    continue;
+                }
+
+                PublicAccountCollectionItem item;
+                item.accountId = account.accountId;
+                item.actorId = account.actorId;
+                item.displayName = account.displayName;
+                item.active = account.active;
+                eligible.push_back(std::move(item));
+            }
+
+            result.hasMore = eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.accounts = std::move(eligible);
+            result.status = PublicAccountCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerBackendCollectionLookup(
+        [this](const PublicBackendCollectionRequest& request)
+        {
+            PublicBackendCollectionResult result;
+            if (!backendRegistryService_ ||
+                request.limit == 0U ||
+                request.limit > 100U)
+            {
+                result.status =
+                    PublicBackendCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<BackendNode> registered =
+                backendRegistryService_->listBackends();
+            std::sort(
+                registered.begin(),
+                registered.end(),
+                [](const BackendNode& lhs, const BackendNode& rhs)
+                {
+                    return lhs.backendId < rhs.backendId;
+                });
+
+            const bool wildcard =
+                std::find(
+                    request.authorizedBackendIds.begin(),
+                    request.authorizedBackendIds.end(),
+                    std::string("*")) !=
+                request.authorizedBackendIds.end();
+
+            std::vector<PublicBackendCollectionItem> eligible;
+            for (const BackendNode& backend : registered)
+            {
+                const bool authorized =
+                    wildcard ||
+                    std::binary_search(
+                        request.authorizedBackendIds.begin(),
+                        request.authorizedBackendIds.end(),
+                        backend.backendId);
+                const bool afterCursor =
+                    request.afterBackendId.empty() ||
+                    backend.backendId > request.afterBackendId;
+                if (!authorized || !afterCursor)
+                    continue;
+
+                PublicBackendCollectionItem item;
+                item.backendId = backend.backendId;
+                item.name = backend.backendName;
+                item.enabled = backend.enabled;
+                item.online = backend.online;
+                eligible.push_back(std::move(item));
+            }
+
+            result.hasMore =
+                eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.backends = std::move(eligible);
+            result.status =
+                PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
+    // Public-v1 is an authorized projection of the exact Web search result,
+    // not another search or a blanket-fail per-result consistency gate.
+    PublicApiRuntime::instance().registerSearchLookup(
+        [this](const PublicSearchRequest& request)
+        {
+            PublicSearchResult unavailable;
+            if (!backendRegistryService_ || !publicRecordingIdentities_ ||
+                !vdrSnapshotReadService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+            {
+                std::cerr << "Public-v1 search unavailable: runtime dependency"
+                          << std::endl;
+                return unavailable;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+            {
+                std::cerr << "Public-v1 search unavailable: backend offline"
+                          << std::endl;
+                return unavailable;
+            }
+            // Recording identities require a current VDR snapshot to prevent
+            // obsolete index entries from exposing deleted recordings.
+            // EPG search reads the shared search index, not the snapshot.
+            if (!request.epg &&
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                std::cerr << "Public-v1 search unavailable: snapshot missing"
+                          << std::endl;
+                return unavailable;
+            }
+
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto searched = GlobalSearchApiRuntime::instance().searchPublic(
+                request.backendId, request.query,
+                now - 6 * 3600, now + 14 * 24 * 3600,
+                static_cast<int>(request.limit),
+                static_cast<int>(request.offset));
+            if (!searched || searched->status != "ready")
+            {
+                std::cerr << "Public-v1 search unavailable: shared search"
+                          << std::endl;
+                return unavailable;
+            }
+
+            const std::vector<VdrRecording> snapshot = request.epg
+                ? std::vector<VdrRecording>{}
+                : vdrSnapshotReadService_->getRecordingsForBackend(
+                    request.backendId);
+            PublicSearchResult response = PublicSearchProjection::project(
+                request, *searched, snapshot,
+                [this](const std::string& backendId,
+                       const std::string& nativeId)
+                {
+                    return publicRecordingIdentities_->resolveOrCreate(
+                        backendId, nativeId);
+                });
+
+            const std::size_t original = request.epg
+                ? searched->epg.size() : searched->recordings.size();
+            if (response.status != PublicSearchStatus::ok)
+                std::cerr << "Public-v1 search unavailable: projection contract"
+                          << std::endl;
+            else if (response.items.size() != original)
+                std::cerr << "Public-v1 search: filtered "
+                          << (original - response.items.size())
+                          << " stale or invalid entries" << std::endl;
+            return response;
+        });
+
+    PublicApiRuntime::instance().registerRecordingCollectionLookup(
+        [this](const PublicRecordingCollectionRequest& request)
+        {
+            PublicRecordingCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ ||
+                (request.browseFolders && !vdrRecordingCacheRepository_) ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 100U)
+            {
+                result.status = PublicRecordingCollectionStatus::invalid;
+                return result;
+            }
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+            {
+                std::cerr << "Public-v1 Recording browse unavailable: "
+                             "backend/snapshot precondition failed" << std::endl;
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            if (request.browseFolders)
+            {
+                // Reuse the Home cache hierarchy; only opaque folder IDs,
+                // safe labels and Public-v1 recording identities leave here.
+                VdrRecordingFolderPage initial;
+                if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                        request.backendId, request.folderId, 1, 0, initial))
+                {
+                    result.status = PublicRecordingCollectionStatus::invalid;
+                    return result;
+                }
+                const std::size_t folderCount = initial.folders.size();
+                const std::size_t recordingCount =
+                    static_cast<std::size_t>(std::max(0, initial.recordingCount));
+                result.totalEntries = folderCount + recordingCount;
+                const std::size_t begin =
+                    std::min(request.offset, folderCount);
+                const std::size_t end =
+                    std::min(folderCount, request.offset + request.limit);
+                for (std::size_t index = begin; index < end; ++index)
+                {
+                    const auto& child = initial.folders[index];
+                    PublicRecordingFolderItem entry;
+                    entry.folderId =
+                        VdrRecordingCacheRepository::publicFolderId(
+                            request.backendId, child.path);
+                    entry.name = child.name;
+                    entry.recordingCount = child.recordingCount;
+                    if (child.singleRecordingLeaf)
+                    {
+                        // A VDR title directory with exactly one recording is
+                        // presented as a recording, not as another TV folder.
+                        PublicRecordingCollectionProjection projector(
+                            *publicRecordingIdentities_);
+                        const auto visible = projector.project(
+                            request.backendId, {child.singleRecording});
+                        if (!visible.valid || visible.items.size() != 1U)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "single-recording leaf projection failed"
+                                      << std::endl;
+                            result.status =
+                                PublicRecordingCollectionStatus::unavailable;
+                            return result;
+                        }
+                        const auto& item = visible.items.front();
+                        entry.singleRecordingLeaf = true;
+                        entry.singleRecording.recordingId = item.recordingId;
+                        entry.singleRecording.backendId = item.backendId;
+                        entry.singleRecording.title = item.title;
+                        entry.singleRecording.recordedAt = item.recordedAt;
+                        entry.singleRecording.durationSeconds =
+                            item.durationSeconds;
+                        entry.singleRecording.durationKnown =
+                            item.durationKnown;
+                        entry.singleRecording.edited = item.edited;
+                        entry.singleRecording.description = item.description;
+                        entry.singleRecording.sizeMb = item.sizeMb;
+                    }
+                    result.folders.push_back(std::move(entry));
+                }
+                const std::size_t used = result.folders.size();
+                if (used < request.limit &&
+                    request.offset + used >= folderCount &&
+                    request.offset + used < result.totalEntries)
+                {
+                    const std::size_t recordingOffset =
+                        request.offset + used - folderCount;
+                    VdrRecordingFolderPage direct;
+                    if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                            request.backendId, request.folderId,
+                            static_cast<int>(request.limit - used),
+                            static_cast<int>(recordingOffset), direct))
+                    {
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    PublicRecordingCollectionProjection projector(
+                        *publicRecordingIdentities_);
+                    const auto visible = projector.project(
+                        request.backendId, direct.recordings);
+                    if (!visible.valid)
+                    {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "direct-recording projection failed"
+                                  << std::endl;
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    for (const auto& item : visible.items)
+                    {
+                        PublicRecordingCollectionItem entry;
+                        entry.recordingId = item.recordingId;
+                        entry.backendId = item.backendId;
+                        entry.title = item.title;
+                        entry.recordedAt = item.recordedAt;
+                        entry.durationSeconds = item.durationSeconds;
+                        entry.durationKnown = item.durationKnown;
+                        entry.edited = item.edited;
+                        entry.description = item.description;
+                        entry.sizeMb = item.sizeMb;
+                        result.recordings.push_back(std::move(entry));
+                    }
+                }
+                result.hasMore = request.offset +
+                    result.folders.size() + result.recordings.size() <
+                        result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
+                return result;
+            }
+
+            // ADR-0035 intentionally skips recordings in the startup snapshot.
+            // Use the same warmed backend cache as Web/Home folder browsing.
+            if (!vdrRecordingCacheRepository_)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+            const auto cacheStatus =
+                vdrRecordingCacheRepository_->statusForBackend(request.backendId);
+            if (cacheStatus.state != "ready")
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+            const auto cached =
+                vdrRecordingCacheRepository_->findAllForBackend(request.backendId);
+            if (cached.empty() && cacheStatus.totalCount > 0)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+            PublicRecordingCollectionProjection projection(
+                *publicRecordingIdentities_);
+            const auto page = projection.project(request.backendId, cached);
+            if (!page.valid)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<PublicRecordingReadItem> records = page.items;
+            std::sort(records.begin(), records.end(),
+                [](const PublicRecordingReadItem& lhs,
+                   const PublicRecordingReadItem& rhs) {
+                    return lhs.recordingId < rhs.recordingId;
+                });
+            for (const auto& item : records)
+            {
+                if (!request.afterRecordingId.empty() &&
+                    item.recordingId <= request.afterRecordingId)
+                    continue;
+
+                if (result.recordings.size() >= request.limit)
+                {
+                    result.hasMore = true;
+                    break;
+                }
+
+                PublicRecordingCollectionItem view;
+                view.recordingId = item.recordingId;
+                view.backendId = item.backendId;
+                view.title = item.title;
+                view.recordedAt = item.recordedAt;
+                view.durationSeconds = item.durationSeconds;
+                view.durationKnown = item.durationKnown;
+                view.edited = item.edited;
+                view.description = item.description;
+                view.sizeMb = item.sizeMb;
+                result.recordings.push_back(std::move(view));
+            }
+            result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+
+    // M1: the same warmed backend cache + persistent rec_ mapping as the
+    // Public-v1 Recording collection. Never select by a user-supplied VDR
+    // filename or route through a private metadata endpoint.
+    PublicApiRuntime::instance().registerRecordingDetailLookup(
+        [this](const PublicRecordingDetailRequest& request)
+        {
+            PublicRecordingDetailResult result;
+            if (request.backendId.empty() || request.backendId == "*" ||
+                request.recordingId.size() != 36U)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !vdrRecordingCacheRepository_ || !publicRecordingIdentities_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId) ||
+                vdrRecordingCacheRepository_->statusForBackend(
+                    request.backendId).state != "ready")
+                return result;
+
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_,
+                *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(
+                request.backendId, request.recordingId);
+            if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+
+            // Reuse the existing Recording presentation, including path-
+            // derived display name, edited flag and capped synopsis.
+            PublicRecordingCollectionProjection projector(
+                *publicRecordingIdentities_);
+            const auto displayed = projector.project(
+                request.backendId, {found.recording});
+            if (!displayed.valid || displayed.items.size() != 1U ||
+                displayed.items.front().recordingId != request.recordingId)
+                return result;
+
+            auto detail = PublicRecordingMetadataDetailProjection::project(
+                request.backendId, request.recordingId,
+                found.recording, displayed.items.front());
+            if (!detail || !metadataRepository_)
+                return result;
+
+            // Reuse the Web manual assignment and canonical cache-key
+            // resolution. This lookup performs no metadata schema creation,
+            // scraper fetch, mutation or portrait materialization.
+            const auto manual =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+                    request.backendId, manual, *detail))
+                return result;
+
+            // The Web's canonical, separately assigned Genre belongs to the
+            // same backend-native Recording, whether or not manual metadata
+            // is selected. Read without creating/reconciling the Genre index.
+            const auto manualGenreId =
+                metadataRepository_->getManualRecordingGenreReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (manualGenreId.size() > 128U ||
+                std::any_of(manualGenreId.begin(), manualGenreId.end(),
+                    [](unsigned char c) {
+                        return c < 0x20U || c == 0x7fU;
+                    }))
+                return result;
+
+            // Identity can be retired/rebound during multiple readonly DB
+            // lookups; never expose stale manual metadata across rebinding.
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+
+            const auto& source = *detail;
+            auto& out = result.item;
+            out.recording.recordingId = source.recording.recordingId;
+            out.recording.backendId = source.recording.backendId;
+            out.recording.title = source.recording.title;
+            out.recording.recordedAt = source.recording.recordedAt;
+            out.recording.durationSeconds = source.recording.durationSeconds;
+            out.recording.durationKnown = source.recording.durationKnown;
+            out.recording.edited = source.recording.edited;
+            out.recording.description = source.recording.description;
+            out.recording.sizeMb = source.recording.sizeMb;
+            out.metadataState = source.metadataState;
+            out.metadataSource = source.metadataSource;
+            out.contentKind = source.contentKind;
+            out.epgTitle = source.epgTitle;
+            out.subtitle = source.subtitle;
+            out.epgDescription = source.epgDescription;
+            out.providerTitle = source.providerTitle;
+            out.overview = source.overview;
+            out.originalTitle = source.originalTitle;
+            out.tagline = source.tagline;
+            out.seriesTitle = source.seriesTitle;
+            out.episodeTitle = source.episodeTitle;
+            out.genreText = source.genreText;
+            out.manualGenreId = manualGenreId;
+            out.releaseDate = source.releaseDate;
+            out.seasonNumber = source.seasonNumber;
+            out.episodeNumber = source.episodeNumber;
+            out.providerRuntimeMinutes = source.providerRuntimeMinutes;
+            out.manualAssignmentId = source.manualAssignmentId;
+            out.metadataEntityId = source.metadataEntityId;
+            out.manualRevision = source.manualRevision;
+            result.status = PublicRecordingDetailStatus::ok;
+            return result;
+        });
+
+    // Same Suite Genre index as the Web frontend; Public-v1 only projects
+    // authorized, paginated and opaque-ID read models.
+    PublicApiRuntime::instance().registerGenreCollectionLookup(
+        [this](const PublicGenreCollectionRequest& request)
+        {
+            PublicGenreCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicGenreCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+                return result;
+
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.recordings)
+            {
+                GenreRecordingPage page;
+                if (!genres.recordingPage(request.backendId,
+                    request.genreId, static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.recordings.size() > request.limit)
+                    return result;
+
+                // The fast startup snapshot deliberately omits recordings.
+                // Genre membership is indexed from the persisted VDR recording
+                // cache, so resolve each member against that same backend-
+                // scoped, current inventory instead of the empty snapshot.
+                if (!vdrRecordingCacheRepository_)
+                    return result;
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != request.backendId ||
+                        item.backendNativeId.empty())
+                        return PublicGenreCollectionResult{};
+                    VdrRecording found;
+                    if (!vdrRecordingCacheRepository_->findByBackendNativeId(
+                            request.backendId, item.backendNativeId, found) ||
+                        found.backendId != request.backendId ||
+                        found.backendNativeId != item.backendNativeId ||
+                        found.title.empty() ||
+                        found.durationSeconds < 0)
+                        return PublicGenreCollectionResult{};
+                    const auto publicId =
+                        publicRecordingIdentities_->resolveOrCreate(
+                            request.backendId, found.backendNativeId);
+                    if (!publicId.has_value())
+                        return PublicGenreCollectionResult{};
+
+                    PublicGenreRecordingItem view;
+                    view.recordingId = *publicId;
+                    view.backendId = request.backendId;
+                    const auto display = PublicRecordingDisplayName::project(found);
+                    view.title = display.title;
+                    view.edited = display.edited;
+                    view.recordedAt = found.startTime;
+                    view.durationSeconds = found.durationSeconds;
+                    view.durationKnown = found.recordingDurationKnown;
+                    result.recordings.push_back(std::move(view));
+                }
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+            }
+            else
+            {
+                GenreOverview overview;
+                if (!genres.recordingOverview(
+                    request.backendId, request.locale, overview))
+                    return result;
+                std::sort(overview.genres.begin(), overview.genres.end(),
+                    [](const GenreOverviewEntry& a,
+                       const GenreOverviewEntry& b) {
+                        return a.genreId < b.genreId;
+                    });
+                result.totalCount = overview.genres.size();
+                const std::size_t end =
+                    std::min(result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                {
+                    const auto& item = overview.genres[index];
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.itemCount < 0)
+                        return PublicGenreCollectionResult{};
+                    PublicGenreItem view;
+                    view.genreId = item.genreId;
+                    view.label = item.label;
+                    view.labelDe = item.labelDe;
+                    view.labelEn = item.labelEn;
+                    view.count = static_cast<std::size_t>(item.itemCount);
+                    result.genres.push_back(std::move(view));
+                }
+            }
+            result.status = PublicGenreCollectionStatus::ok;
+            return result;
+        });
+
+    // Project exactly the established Web EPG Browse genre taxonomy.
+    // Default window matches the Web GenreBrowserController (48 hours).
+    PublicApiRuntime::instance().registerEpgGenreLookup(
+        [this](const PublicEpgGenreRequest& request)
+        {
+            PublicEpgGenreResult result;
+            if (!backendRegistryService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicEpgGenreStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const std::int64_t from = now;
+            const std::int64_t until = now + 48 * 60 * 60;
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.events)
+            {
+                GenreEpgPage page;
+                if (!genres.epgPage(request.backendId, request.contentClass,
+                    request.genreId, from, until,
+                    static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.events.size() > request.limit)
+                    return result;
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+                for (const auto& event : page.events)
+                {
+                    if (event.backendId != request.backendId ||
+                        event.channelId.empty() || event.eventId.empty() ||
+                        event.title.empty() || event.endTime <= event.startTime)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreEvent item;
+                    item.backendId = request.backendId;
+                    item.channelId = event.channelId;
+                    item.eventId = event.eventId;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.startTime = std::to_string(event.startTime);
+                    item.endTime = std::to_string(event.endTime);
+                    result.events.push_back(std::move(item));
+                }
+            }
+            else
+            {
+                GenreEpgBrowseOverview overview;
+                if (!genres.epgOverview(
+                    request.backendId, request.locale, from, until, overview))
+                    return result;
+                std::vector<PublicEpgGenreItem> flat;
+                for (const auto& category : overview.categories)
+                {
+                    if (category.id.empty() || category.label.empty() ||
+                        category.itemCount < 0)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreItem parent;
+                    parent.genreId = category.id;
+                    parent.contentClass = category.id;
+                    parent.label = category.label;
+                    parent.labelDe = category.labelDe;
+                    parent.labelEn = category.labelEn;
+                    parent.count = static_cast<std::size_t>(category.itemCount);
+                    flat.push_back(std::move(parent));
+                    for (const auto& child : category.children)
+                    {
+                        if (child.id.empty() || child.label.empty() ||
+                            child.itemCount < 0)
+                            return PublicEpgGenreResult{};
+                        PublicEpgGenreItem item;
+                        item.genreId = child.id;
+                        item.contentClass = category.id;
+                        item.label = category.label + " › " + child.label;
+                        item.labelDe = category.labelDe + " › " + child.labelDe;
+                        item.labelEn = category.labelEn + " › " + child.labelEn;
+                        item.count = static_cast<std::size_t>(child.itemCount);
+                        flat.push_back(std::move(item));
+                    }
+                }
+                result.totalCount = flat.size();
+                const std::size_t end = std::min(
+                    result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                    result.genres.push_back(std::move(flat[index]));
+            }
+            result.status = PublicEpgGenreStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgNowNextLookup(
+        [this](const PublicEpgNowNextRequest& request)
+        {
+            PublicEpgNowNextResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_ ||
+                request.backendId.empty() ||
+                request.channelId.empty() ||
+                request.limit == 0U || request.limit > 2U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+            {
+                return result;
+            }
+            const auto channels =
+                vdrSnapshotReadService_
+                    ->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(
+                channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            EpgCacheService* service =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (service == nullptr) return result;
+            const auto events = service->findNowNextPerChannelForBackend(
+                request.backendId,
+                request.channelId,
+                request.fromTime,
+                static_cast<int>(request.limit));
+            if (events.size() > request.limit) return result;
+            for (const VdrEvent& event : events)
+            {
+                if (event.channelId != request.channelId ||
+                    event.title.empty() ||
+                    event.startTime.empty() ||
+                    event.endTime.empty() ||
+                    event.durationSeconds < 0)
+                    return PublicEpgNowNextResult{};
+                PublicEpgNowNextItem item;
+                item.channelId = event.channelId;
+                item.title = event.title;
+                item.subtitle = event.subtitle;
+                item.startTime = event.startTime;
+                item.endTime = event.endTime;
+                item.durationSeconds = event.durationSeconds;
+                result.events.push_back(std::move(item));
+            }
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerNativeTimersLookup(
+        [this](const PublicNativeTimersRequest& request)
+        {
+            PublicNativeTimersResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                request.backendId.empty() || request.limit == 0U ||
+                request.limit > 30U || request.offset > 100000U)
+            {
+                result.status = PublicNativeTimersStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+                return result;
+
+            auto timers = vdrSnapshotReadService_->getTimersForBackend(
+                request.backendId);
+            std::sort(timers.begin(), timers.end(),
+                [](const VdrTimer& first, const VdrTimer& second) {
+                    return first.id < second.id;
+                });
+            const std::size_t count = timers.size();
+            const std::size_t begin = std::min(count, request.offset);
+            const std::size_t end =
+                std::min(count, begin + request.limit);
+            result.hasMore = end < count;
+            for (std::size_t index = begin; index < end; ++index)
+            {
+                const auto& timer = timers[index];
+                if (timer.id.empty() || timer.id.size() > 512U)
+                    return PublicNativeTimersResult{};
+                PublicNativeTimerItem item;
+                item.id = timer.id;
+                item.channelId = timer.channelId;
+                item.channelName = timer.channelName;
+                item.title = timer.title;
+                item.day = timer.day;
+                item.weekdays = timer.weekdays;
+                item.startTime = timer.startTime;
+                item.endTime = timer.endTime;
+                item.enabled = timer.enabled;
+                item.recording = timer.recording;
+                item.pending = timer.pending;
+                result.timers.push_back(std::move(item));
+            }
+            result.status = PublicNativeTimersStatus::ok;
+            return result;
+        });
+
+    // Public Device DELETE admission only reserves a durable ADR-0042
+    // operation. Native side effects remain in the agent/productive runner.
+    PublicApiRuntime::instance().registerNativeTimerModifyAdmission(
+        [this](const PublicNativeTimerModifyRequest& request)
+        {
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::operations;
+            using S = PublicNativeTimerModifyStatus;
+            PublicNativeTimerModifyResult response;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !nativeTimerBindingRepository_ ||
+                !timerAssignmentRepository_ || !timerIntentRepository_ ||
+                !mutationOperationRepository_ || !vdrSnapshotReadService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.timerId.empty())
+                return response;
+
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed)
+            {
+                response.status = S::backendUnavailable;
+                return response;
+            }
+            const auto found = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            if (found.status == NativeTimerBindingRepositoryStatus::notFound)
+            {
+                response.status = S::notFound;
+                return response;
+            }
+            if (!found.ok()) return response;
+            const auto& binding = found.binding;
+
+            const std::string expectedRevision =
+                "native-timer-binding/1:" + binding.nativeTimerBindingId +
+                ":" + std::to_string(binding.backendGeneration) +
+                ":" + binding.bindingRevision;
+            if (request.expectedResourceRevision != expectedRevision)
+            {
+                response.status = S::revisionConflict;
+                return response;
+            }
+            if (binding.ownership == NativeTimerBindingOwnership::external)
+            {
+                response.status = S::adoptionRequired;
+                return response;
+            }
+            if (binding.ownership != NativeTimerBindingOwnership::managed &&
+                binding.ownership != NativeTimerBindingOwnership::adopted)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            const auto assigned = timerAssignmentRepository_
+                ->findById(binding.timerAssignmentId);
+            if (!assigned.ok() ||
+                assigned.assignment.nativeTimerBindingId != binding.nativeTimerBindingId ||
+                assigned.assignment.backendId != request.backendId ||
+                assigned.assignment.backendGeneration != binding.backendGeneration ||
+                assigned.assignment.state != TimerAssignmentState::bound)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const auto intent = timerIntentRepository_
+                ->findById(assigned.assignment.timerIntentId);
+            if (!intent.ok())
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            NativeTimerSpecification specification;
+            specification.channelId = request.specification.channelId;
+            specification.title = request.specification.title;
+            specification.directory = request.specification.directory;
+            specification.day = request.specification.day;
+            specification.weekdays = request.specification.weekdays;
+            specification.startTime = request.specification.startTime;
+            specification.endTime = request.specification.endTime;
+            specification.priority = request.specification.priority;
+            specification.lifetime = request.specification.lifetime;
+            specification.enabled = request.specification.enabled;
+            specification.vps = request.specification.vps;
+            if (request.kind == PublicNativeTimerChangeKind::toggle)
+            {
+                const auto& current = binding.observedState;
+                specification.channelId = current.channelId;
+                specification.title = current.title;
+                specification.directory = current.directory;
+                specification.day = current.day;
+                specification.weekdays = current.weekdays;
+                specification.startTime = current.startTime;
+                specification.endTime = current.endTime;
+                specification.priority = current.priority;
+                specification.lifetime = current.lifetime;
+                specification.vps = current.vps;
+            }
+            if (!nativeTimerSpecificationValid(specification))
+            {
+                response.status = S::invalid;
+                return response;
+            }
+            if (nativeTimerObservationMatchesSpecification(
+                specification, binding.observedState))
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const std::string specFingerprint =
+                nativeTimerSpecificationFingerprint(specification);
+            const std::string specDigest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    specFingerprint);
+            if (specFingerprint.empty() || specDigest.empty())
+                return response;
+            const std::string action = request.kind == PublicNativeTimerChangeKind::toggle
+                ? "timer.toggle" : "timer.update";
+            const std::string requestFingerprint =
+                "native-modify/1:" + binding.nativeTimerBindingId + ":" +
+                binding.bindingRevision + ":" + action + ":" + specDigest;
+            if (requestFingerprint.size() > 512U)
+            {
+                response.status = S::invalid;
+                return response;
+            }
+
+            // Replays never generate another native operation. A key can be
+            // re-used only with the exact actor/resource/revision/body.
+            const auto existing = mutationOperationRepository_
+                ->findByIdempotencyScope(
+                    request.actorRef, request.backendId,
+                    "NativeTimerBinding", binding.nativeTimerBindingId,
+                    action, request.idempotencyKey);
+            if (existing.ok())
+            {
+                const auto& operation = existing.operation;
+                if (operation.actorId != request.actorRef ||
+                    operation.backendId != request.backendId ||
+                    operation.backendGeneration != binding.backendGeneration ||
+                    operation.expectedRevision != binding.bindingRevision ||
+                    operation.expectedResourceFingerprint != binding.observedFingerprint ||
+                    operation.requestFingerprint != requestFingerprint)
+                {
+                    response.status = S::idempotencyConflict;
+                    return response;
+                }
+                response.operation = {
+                    operation.operationId,
+                    mutationOperationStateName(operation.state),
+                    operation.backendId, operation.operationRevision};
+                response.status = S::replayed;
+                return response;
+            }
+            if (existing.status != MutationOperationRepositoryStatus::notFound)
+                return response;
+
+            const auto agent = backendAgentRepository_
+                ->findAgentForBackend(request.backendId);
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration != binding.backendGeneration ||
+                agent->leaseExpiresAt < now ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                response.status = S::backendUnavailable;
+                return response;
+            }
+            const auto timers = vdrSnapshotReadService_
+                ->getTimersForBackend(request.backendId);
+            const auto same = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto current = std::find_if(timers.begin(), timers.end(), same);
+            if (current == timers.end() ||
+                std::count_if(timers.begin(), timers.end(), same) != 1)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const auto verification = nativeTimerPublicDetailRevision(
+                request.backendId, agent->backendGeneration,
+                *current, &binding);
+            if ((verification.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedManaged &&
+                 verification.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedAdopted) ||
+                verification.resourceRevision != expectedRevision ||
+                binding.lastObservedAt < now - 300 ||
+                binding.observedState.recording ||
+                binding.observedState.pending)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            NativeTimerModifyOperationPreparationRequest candidate;
+            candidate.operationId = generateMutationOperationId();
+            candidate.idempotencyKey = request.idempotencyKey;
+            candidate.actorId = request.actorRef;
+            candidate.requestFingerprint = requestFingerprint;
+            candidate.kind =
+                request.kind == PublicNativeTimerChangeKind::toggle
+                    ? NativeTimerModifyKind::toggle
+                    : NativeTimerModifyKind::update;
+            candidate.timerAssignmentId = assigned.assignment.timerAssignmentId;
+            candidate.expectedAssignmentRevision =
+                assigned.assignment.assignmentRevision;
+            candidate.expectedIntentRevision = intent.intent.intentRevision;
+            candidate.expectedAssignmentEpoch =
+                assigned.assignment.assignmentEpoch;
+            candidate.nativeTimerBindingId = binding.nativeTimerBindingId;
+            candidate.expectedBindingRevision = binding.bindingRevision;
+            candidate.expectedBackendId = request.backendId;
+            candidate.expectedBackendGeneration = binding.backendGeneration;
+            candidate.backendNativeTimerId = binding.backendNativeTimerId;
+            candidate.expectedCurrentFingerprint = binding.observedFingerprint;
+            candidate.expectedSpecification = specification;
+            candidate.requestedAt = now;
+            candidate.deadline = now + 3600;
+
+            NativeTimerModifyOperationPreparationService preparation(
+                *timerIntentRepository_, *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_, *mutationOperationRepository_);
+            const auto stored = preparation.prepare(candidate);
+            switch (stored.status)
+            {
+                case NativeTimerModifyOperationPreparationStatus::prepared:
+                case NativeTimerModifyOperationPreparationStatus::alreadyPrepared:
+                    response.operation = {
+                        stored.operation.operationId,
+                        mutationOperationStateName(stored.operation.state),
+                        stored.operation.backendId,
+                        stored.operation.operationRevision};
+                    response.status = S::accepted;
+                    return response;
+                case NativeTimerModifyOperationPreparationStatus::intentNotFound:
+                case NativeTimerModifyOperationPreparationStatus::assignmentNotFound:
+                case NativeTimerModifyOperationPreparationStatus::bindingNotFound:
+                    response.status = S::notFound; return response;
+                case NativeTimerModifyOperationPreparationStatus::bindingRevisionConflict:
+                case NativeTimerModifyOperationPreparationStatus::intentRevisionConflict:
+                case NativeTimerModifyOperationPreparationStatus::assignmentRevisionConflict:
+                    response.status = S::revisionConflict; return response;
+                case NativeTimerModifyOperationPreparationStatus::ownershipConflict:
+                    response.status = S::adoptionRequired; return response;
+                case NativeTimerModifyOperationPreparationStatus::idempotencyConflict:
+                    response.status = S::idempotencyConflict; return response;
+                case NativeTimerModifyOperationPreparationStatus::invalid:
+                    response.status = S::invalid; return response;
+                case NativeTimerModifyOperationPreparationStatus::repositoryError:
+                    return response;
+                default:
+                    response.status = S::stateConflict; return response;
+            }
+        });
+
+    PublicApiRuntime::instance().registerNativeTimerDeleteAdmission(
+        [this](const PublicNativeTimerDeleteRequest& request)
+        {
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::operations;
+            using S = PublicNativeTimerDeleteStatus;
+            PublicNativeTimerDeleteResult result;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !nativeTimerBindingRepository_ ||
+                !timerAssignmentRepository_ || !mutationOperationRepository_ ||
+                !vdrSnapshotReadService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.timerId.empty())
+                return result;
+
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed)
+            {
+                result.status = S::backendUnavailable;
+                return result;
+            }
+
+            const auto binding = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            if (binding.status == NativeTimerBindingRepositoryStatus::notFound)
+            {
+                result.status = S::notFound;
+                return result;
+            }
+            if (!binding.ok())
+                return result;
+            const auto& durable = binding.binding;
+
+            // The resource ETag must come from this durable binding and
+            // generation, not from a mutable VDR list index.
+            const std::string revision =
+                "native-timer-binding/1:" + durable.nativeTimerBindingId +
+                ":" + std::to_string(durable.backendGeneration) +
+                ":" + durable.bindingRevision;
+            if (request.expectedResourceRevision != revision)
+            {
+                result.status = S::revisionConflict;
+                return result;
+            }
+
+            // Idempotent replay does not issue another delete even after a
+            // verified absence or a process restart. Never reuse a key with
+            // mismatched native resource, actor, revision or generation.
+            const auto existing = mutationOperationRepository_
+                ->findByIdempotencyScope(
+                    request.actorRef, request.backendId,
+                    "NativeTimerBinding", durable.nativeTimerBindingId,
+                    "timer.delete", request.idempotencyKey);
+            if (existing.status == MutationOperationRepositoryStatus::ok)
+            {
+                const auto& op = existing.operation;
+                if (op.actorId != request.actorRef ||
+                    op.backendId != request.backendId ||
+                    op.backendGeneration != durable.backendGeneration ||
+                    op.expectedRevision != durable.bindingRevision ||
+                    op.resourceId != durable.nativeTimerBindingId ||
+                    op.expectedResourceFingerprint != durable.observedFingerprint)
+                {
+                    result.status = S::idempotencyConflict;
+                    return result;
+                }
+                result.operation = {
+                    op.operationId, mutationOperationStateName(op.state),
+                    op.backendId, op.operationRevision};
+                result.status = S::replayed;
+                return result;
+            }
+            if (existing.status != MutationOperationRepositoryStatus::notFound)
+                return result;
+
+            if (durable.ownership == NativeTimerBindingOwnership::external)
+            {
+                result.status = S::adoptionRequired;
+                return result;
+            }
+            if (durable.ownership != NativeTimerBindingOwnership::managed &&
+                durable.ownership != NativeTimerBindingOwnership::adopted)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            const auto ownership = timerAssignmentRepository_
+                ->findById(durable.timerAssignmentId);
+            if (!ownership.ok() ||
+                ownership.assignment.timerAssignmentId != durable.timerAssignmentId ||
+                ownership.assignment.nativeTimerBindingId != durable.nativeTimerBindingId ||
+                ownership.assignment.backendId != request.backendId ||
+                ownership.assignment.backendGeneration != durable.backendGeneration ||
+                ownership.assignment.state != TimerAssignmentState::bound)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+            const auto agent = backendAgentRepository_
+                ->findAgentForBackend(request.backendId);
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration != durable.backendGeneration ||
+                agent->leaseExpiresAt < now ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                result.status = S::backendUnavailable;
+                return result;
+            }
+
+            const auto timers =
+                vdrSnapshotReadService_->getTimersForBackend(request.backendId);
+            const auto same = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto timer = std::find_if(timers.begin(), timers.end(), same);
+            if (timer == timers.end() ||
+                std::count_if(timers.begin(), timers.end(), same) != 1)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+            const auto verified = nativeTimerPublicDetailRevision(
+                request.backendId, agent->backendGeneration, *timer, &durable);
+            if ((verified.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedManaged &&
+                 verified.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedAdopted) ||
+                verified.resourceRevision != request.expectedResourceRevision)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            PublicNativeTimerDeletePreflightRequest preflight;
+            preflight.nativeTimerBindingId = durable.nativeTimerBindingId;
+            preflight.backendId = request.backendId;
+            preflight.expectedBackendGeneration = durable.backendGeneration;
+            preflight.backendNativeTimerId = request.timerId;
+            preflight.expectedBindingRevision = durable.bindingRevision;
+            preflight.expectedObservedFingerprint = durable.observedFingerprint;
+            preflight.observedNotBefore = std::max<std::int64_t>(1, now - 300);
+            if (publicNativeTimerDeletePreflight(preflight, durable) !=
+                PublicNativeTimerDeletePreflightStatus::eligible)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            const std::string nativeDigest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    durable.observedFingerprint);
+            if (nativeDigest.empty())
+                return result;
+
+            NativeTimerDeleteOperationPreparationRequest candidate;
+            candidate.operationId = generateMutationOperationId();
+            candidate.idempotencyKey = request.idempotencyKey;
+            candidate.actorId = request.actorRef;
+            candidate.requestFingerprint =
+                "native-delete/1:" + durable.nativeTimerBindingId +
+                ":" + durable.bindingRevision + ":" + nativeDigest;
+            candidate.nativeTimerBindingId = durable.nativeTimerBindingId;
+            candidate.expectedBindingRevision = durable.bindingRevision;
+            candidate.expectedBackendGeneration = durable.backendGeneration;
+            candidate.requestedAt = now;
+            candidate.deadline = now + 3600;
+
+            NativeTimerDeleteOperationPreparationService prepare(
+                *mutationOperationRepository_, *nativeTimerBindingRepository_);
+            const auto stored = prepare.prepare(candidate);
+            switch (stored.status)
+            {
+                case NativeTimerDeleteOperationPreparationStatus::prepared:
+                case NativeTimerDeleteOperationPreparationStatus::alreadyPrepared:
+                    result.operation = {
+                        stored.operation.operationId,
+                        mutationOperationStateName(stored.operation.state),
+                        stored.operation.backendId,
+                        stored.operation.operationRevision};
+                    result.status = S::accepted;
+                    return result;
+                case NativeTimerDeleteOperationPreparationStatus::idempotencyConflict:
+                {
+                    const auto raced = mutationOperationRepository_
+                        ->findByIdempotencyScope(
+                            request.actorRef, request.backendId,
+                            "NativeTimerBinding", durable.nativeTimerBindingId,
+                            "timer.delete", request.idempotencyKey);
+                    if (raced.ok() &&
+                        raced.operation.expectedRevision == durable.bindingRevision &&
+                        raced.operation.expectedResourceFingerprint == durable.observedFingerprint &&
+                        raced.operation.backendGeneration == durable.backendGeneration &&
+                        raced.operation.actorId == request.actorRef)
+                    {
+                        result.operation = {
+                            raced.operation.operationId,
+                            mutationOperationStateName(raced.operation.state),
+                            raced.operation.backendId,
+                            raced.operation.operationRevision};
+                        result.status = S::replayed;
+                    }
+                    else
+                        result.status = S::idempotencyConflict;
+                    return result;
+                }
+                case NativeTimerDeleteOperationPreparationStatus::bindingNotFound:
+                    result.status = S::notFound; return result;
+                case NativeTimerDeleteOperationPreparationStatus::bindingRevisionConflict:
+                    result.status = S::revisionConflict; return result;
+                case NativeTimerDeleteOperationPreparationStatus::ownershipConflict:
+                    result.status = S::adoptionRequired; return result;
+                case NativeTimerDeleteOperationPreparationStatus::bindingMissing:
+                case NativeTimerDeleteOperationPreparationStatus::driftConflict:
+                case NativeTimerDeleteOperationPreparationStatus::generationConflict:
+                case NativeTimerDeleteOperationPreparationStatus::operationConflict:
+                case NativeTimerDeleteOperationPreparationStatus::operationStateConflict:
+                    result.status = S::stateConflict; return result;
+                case NativeTimerDeleteOperationPreparationStatus::invalid:
+                    result.status = S::invalid; return result;
+                case NativeTimerDeleteOperationPreparationStatus::operationRepositoryError:
+                case NativeTimerDeleteOperationPreparationStatus::bindingRepositoryError:
+                    return result;
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerNativeTimerDetailLookup(
+        [this](const PublicNativeTimerDetailRequest& request)
+        {
+            using S = PublicNativeTimerDetailStatus;
+            using P = vdrsuite::timers::NativeTimerPublicDetailRevisionStatus;
+            PublicNativeTimerDetailResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !nativeTimerBindingRepository_ || !backendAgentRepository_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+
+            const auto timers =
+                vdrSnapshotReadService_->getTimersForBackend(request.backendId);
+            const auto sameId = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto timer = std::find_if(timers.begin(), timers.end(), sameId);
+            if (timer == timers.end())
+            {
+                result.status = S::notFound;
+                return result;
+            }
+            // A duplicated native index is not unique mutation identity.
+            if (std::count_if(timers.begin(), timers.end(), sameId) != 1)
+                return result;
+
+            const auto binding = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            const vdrsuite::timers::NativeTimerBinding* current = nullptr;
+            if (binding.status ==
+                vdrsuite::timers::NativeTimerBindingRepositoryStatus::ok)
+                current = &binding.binding;
+            else if (binding.status !=
+                vdrsuite::timers::NativeTimerBindingRepositoryStatus::notFound)
+                return result;
+
+            const auto revision =
+                vdrsuite::timers::nativeTimerPublicDetailRevision(
+                    request.backendId, agent->backendGeneration, *timer, current);
+            if (revision.status == P::unsafeEvidence)
+                return result;
+
+            result.backendId = request.backendId;
+            result.timer.id = timer->id;
+            result.timer.channelId = timer->channelId;
+            result.timer.channelName = timer->channelName;
+            result.timer.title = timer->title;
+            result.timer.day = timer->day;
+            result.timer.weekdays = timer->weekdays;
+            result.timer.startTime = timer->startTime;
+            result.timer.endTime = timer->endTime;
+            result.timer.enabled = timer->enabled;
+            result.timer.recording = timer->recording;
+            result.timer.pending = timer->pending;
+            result.resourceRevision = revision.resourceRevision;
+
+            switch (revision.status)
+            {
+                case P::verifiedManaged:
+                    result.ownership = "managed";
+                    result.bindingState = "verified";
+                    break;
+                case P::verifiedAdopted:
+                    result.ownership = "adopted";
+                    result.bindingState = "verified";
+                    break;
+                case P::adoptionRequired:
+                    result.ownership = "external";
+                    result.bindingState = "adoption_required";
+                    break;
+                case P::unboundReadOnly:
+                    result.ownership = "unbound";
+                    result.bindingState = "binding_required";
+                    break;
+                case P::unsafeEvidence:
+                    return PublicNativeTimerDetailResult{};
+            }
+            result.status = S::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgEventDetailLookup(
+        [this](const PublicEpgEventDetailRequest& request)
+        {
+            PublicEpgEventDetailResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !backendAgentRepository_ || !epgCacheServiceRegistry_)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            const EpgCacheService* cache =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (!cache || !cache->getStatusForBackend(request.backendId).ready)
+                return result;
+            const auto event = cache->findSourceEventForBackend(
+                request.backendId, request.channelId, request.eventId);
+            if (!event)
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            if (event->id != request.eventId ||
+                event->channelId != request.channelId ||
+                event->title.empty() || event->title.size() > 512U ||
+                event->subtitle.size() > 512U ||
+                event->description.size() > 1536U ||
+                event->startTime.empty() || event->endTime.empty() ||
+                event->startTime.size() > 20U || event->endTime.size() > 20U ||
+                event->durationSeconds < 0)
+                return result;
+            // SHA-256 digest is opaque. Every changing event field and the
+            // backend generation are bound as length-delimited inputs.
+            std::string fingerprint;
+            const auto append = [&fingerprint](const std::string& item) {
+                fingerprint += std::to_string(item.size()) + ":" + item;
+            };
+            append("public-epg-event/1");
+            append(request.backendId);
+            append(request.channelId);
+            append(request.eventId);
+            append(std::to_string(agent->backendGeneration));
+            append(event->title);
+            append(event->subtitle);
+            append(event->description);
+            append(event->startTime);
+            append(event->endTime);
+            append(std::to_string(event->durationSeconds));
+            const std::string digest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    fingerprint);
+            if (digest.empty()) return result;
+            result.resourceRevision = "epg1:" + digest;
+            result.backendId = request.backendId;
+            result.channelId = request.channelId;
+            result.eventId = request.eventId;
+            result.title = event->title;
+            result.subtitle = event->subtitle;
+            result.description = event->description;
+            result.startTime = event->startTime;
+            result.endTime = event->endTime;
+            result.durationSeconds = event->durationSeconds;
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
+    // Replay is a read-only actor/backend/idempotency lookup and must remain
+    // available after the original EPG airing expires or a Backend goes down.
+    // It never invents a new Timer and never bypasses Device authorization.
+    vdrsuite::public_epg_timer::EpgTimerIntentAdmissionRepository
+        epgTimerAdmissionRepository(database_);
+    if (!epgTimerAdmissionRepository.ensureSchema())
+    {
+        std::cerr << "failed to initialize EPG TimerIntent replay schema"
+                  << std::endl;
+        return false;
+    }
+    PublicApiRuntime::instance().registerEpgTimerIntentReplayLookup(
+        [this](const PublicEpgTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!mutationOperationReadService_)
+                return result;
+            vdrsuite::public_epg_timer::EpgTimerIntentAdmissionRepository
+                repository(database_);
+            const auto record = repository.lookup(
+                request.actorRef, request.selection);
+            using R = vdrsuite::public_epg_timer::AdmissionReplayStatus;
+            if (record.status == R::absent)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            }
+            if (record.status == R::conflict)
+            {
+                result.status =
+                    PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+                return result;
+            }
+            if (record.status != R::same)
+                return result;
+            const auto found = mutationOperationReadService_->findForActor(
+                record.operationId, request.actorRef);
+            if (!found.ok() ||
+                found.operation.backendId != request.selection.backendId ||
+                found.operation.actionFamily != "timer.create")
+                return result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+            result.operation.operationId = found.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    found.operation.state);
+            result.operation.backendId = found.operation.backendId;
+            result.operation.resourceRevision =
+                found.operation.operationRevision;
+            return result;
+        });
+
+    // Slice 2a: server-owned current EPG identity resolution. This can
+    // prepare a native one-shot TimerIntent, but does not persist or dispatch
+    // anything: a separate durable submit callback is intentionally absent
+    // until atomic TimerIntent -> Assignment -> Operation admission is ready.
+    PublicApiRuntime::instance().registerEpgTimerIntentObservationLookup(
+        [this](const PublicEpgTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentObservationResult result;
+            if (!backendRegistryService_ || !backendAgentRepository_ ||
+                !backendAccessPolicy_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_)
+                return result;
+
+            const auto& selection = request.selection;
+            // The established public EPG detail owner checks online backend,
+            // live agent, source-cache readiness, native channel and event ID.
+            const auto detail = PublicApiRuntime::instance().lookupEpgEventDetail(
+                {selection.backendId, selection.channelId, selection.eventId});
+            if (detail.status == PublicEpgNowNextStatus::notFound)
+            {
+                result.status = PublicEpgTimerIntentObservationStatus::notFound;
+                return result;
+            }
+            if (detail.status != PublicEpgNowNextStatus::ok ||
+                detail.backendId != selection.backendId ||
+                detail.channelId != selection.channelId ||
+                detail.eventId != selection.eventId ||
+                detail.resourceRevision.empty())
+                return result;
+
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                selection.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+
+            // Public read wire times are Unix seconds; conversion must never
+            // overflow or fall back to the client's asserted schedule.
+            const auto seconds = [](const std::string& raw,
+                std::int64_t& value) {
+                if (raw.empty() || raw.size() > 12U) return false;
+                value = 0;
+                for (unsigned char c : raw)
+                {
+                    if (c < '0' || c > '9') return false;
+                    value = value * 10 + (c - '0');
+                }
+                return value > 0;
+            };
+            std::int64_t begin = 0, end = 0;
+            if (!seconds(detail.startTime, begin) ||
+                !seconds(detail.endTime, end) || end <= begin)
+                return result;
+
+            const auto& backendId = selection.backendId;
+            const auto backend = backendRegistryService_->getBackend(backendId);
+            if (!backend || !backend->enabled || !backend->online)
+                return result;
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, backendId);
+
+            auto& observation = result.observation;
+            observation.backendId = backendId;
+            observation.channelId = selection.channelId;
+            observation.nativeEventId = selection.eventId;
+            // The native EPG cache is scoped by exactly one Backend. Never
+            // promote that source-qualified airing to a canonical programme.
+            observation.sourceId = backendId;
+            observation.resourceEtag = vdrsuite::http::publicStrongEntityTag(
+                detail.resourceRevision);
+            observation.startTime = begin;
+            observation.endTime = end;
+            observation.backendGeneration = agent->backendGeneration;
+            observation.exactNativeIdentity = true;
+            observation.observationCurrent = true;
+            result.backendAllowsMutation = access.allowed;
+            result.status = PublicEpgTimerIntentObservationStatus::ok;
+            return result;
+        });
+
+
+    // Public Device-v1 EPG CREATE reuses the Phase-69 TimerIntent, assignment,
+    // native CREATE Operation, Agent dispatcher and authoritative readback.
+    // Nothing below performs native CREATE: CLOCK and NTPREVIEW are strictly
+    // read-only. If any live backend evidence is absent, admit nothing.
+    PublicApiRuntime::instance().registerEpgTimerIntentSubmit(
+        [this](const PublicEpgTimerIntentAdmissionRequest& request,
+            const vdrsuite::public_epg_timer::AuthoritativeObservation& observed)
+        {
+            using namespace vdrsuite::public_epg_timer;
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::agent;
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                !vdrSnapshotReadService_ || !timerIntentRepository_ ||
+                !timerAssignmentRepository_ || !nativeTimerBindingRepository_ ||
+                !nativeTimerCreateAdmissionService_ ||
+                observed.backendId != request.selection.backendId ||
+                observed.channelId != request.selection.channelId ||
+                observed.nativeEventId != request.selection.eventId ||
+                observed.resourceEtag != request.selection.ifMatch ||
+                !observed.exactNativeIdentity || !observed.observationCurrent)
+                return result;
+
+            const auto& selection = request.selection;
+            const auto backend =
+                backendRegistryService_->getBackend(selection.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, selection.backendId).allowed ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    selection.backendId))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            }
+
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == selection.backendId &&
+                    context->suiteBridgeTransport && context->httpClient &&
+                    context->service)
+                {
+                    runtime = context.get();
+                    break;
+                }
+            // Never fall back to localhost or another Backend's SuiteBridge.
+            if (!runtime)
+                return result;
+
+            const auto detail = PublicApiRuntime::instance().lookupEpgEventDetail(
+                {selection.backendId, selection.channelId, selection.eventId});
+            if (detail.status != PublicEpgNowNextStatus::ok ||
+                detail.backendId != observed.backendId ||
+                detail.channelId != observed.channelId ||
+                detail.eventId != observed.nativeEventId ||
+                vdrsuite::http::publicStrongEntityTag(detail.resourceRevision)
+                    != observed.resourceEtag ||
+                detail.title.empty() || detail.title.size() > 512U ||
+                detail.startTime != std::to_string(observed.startTime) ||
+                detail.endTime != std::to_string(observed.endTime))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::revisionConflict;
+                return result;
+            }
+
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                selection.backendId);
+            if (!agent || agent->backendGeneration != observed.backendGeneration)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::generationConflict;
+                return result;
+            }
+
+            std::string reason;
+            const auto provider = backendAgentCommandRepository_->selectLocalProvider(
+                selection.backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration,
+                kBackendAgentNativeTimerCreateAuthorityDomain,
+                kBackendAgentNativeTimerCreateCapability, reason);
+            if (!provider)
+                return result;
+
+            const auto nowSeconds = []() -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            };
+
+            TimerAssignmentPlanningBackendCandidate candidate;
+            candidate.backendId = selection.backendId;
+            candidate.currentBackendGeneration = observed.backendGeneration;
+            candidate.executionAuthorityFence =
+                nativeTimerCreatePlanningAuthorityFence(*provider);
+            candidate.executionAuthorityCurrent =
+                !candidate.executionAuthorityFence.empty();
+            candidate.state = TimerAssignmentPlanningBackendState::online;
+            candidate.writeAllowed = true;
+
+            const std::int64_t clockReceivedAt = nowSeconds();
+            if (!currentNativeTimerCreateExecutionAuthority(
+                    *agent, *provider, candidate, clockReceivedAt) ||
+                observed.startTime <= clockReceivedAt ||
+                observed.endTime <= observed.startTime ||
+                observed.endTime - observed.startTime >= 24 * 3600)
+                return result;
+
+            ServerOwnedRecordingDefaults defaults;
+            // EPG occurrence timestamps are canonical Unix seconds. The
+            // owning VDR supplies *both* actual local date/HHMM projections;
+            // never convert on the Daemon host or assume its timezone.
+            defaults.timezone = "UTC";
+            defaults.channelSourceType = "vdr";
+            // Backend-local VDR setup is authoritative, including changes
+            // made through VDR's recording setup UI. No fixed distro margins.
+            if (!runtime->suiteBridgeTransport) return result;
+            SuiteBridgeNativeTimerMarginsProjection margins;
+            if (!SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
+                    *provider, margins, reason)) return result;
+            defaults.startMarginSeconds = margins.startMinutes * 60;
+            defaults.stopMarginSeconds = margins.stopMinutes * 60;
+            if (observed.startTime <= defaults.startMarginSeconds ||
+                observed.endTime > std::numeric_limits<std::int64_t>::max() -
+                    defaults.stopMarginSeconds) return result;
+            const auto effectiveStart =
+                observed.startTime - defaults.startMarginSeconds;
+            const auto effectiveStop =
+                observed.endTime + defaults.stopMarginSeconds;
+
+            ServerOwnedNativeClockEvidence nativeClock;
+            const auto clockReply =
+                runtime->suiteBridgeTransport->inspectNativeTimerClockContract(
+                    effectiveStart, effectiveStop);
+            const auto clockAttestedAt = nowSeconds();
+            if (!attestBackendNativeTimerClockReply(
+                    clockReply, *agent, *provider, candidate,
+                    effectiveStart, effectiveStop, clockAttestedAt,
+                    nativeClock, reason))
+                return result;
+
+            NativeTimerSpecification native;
+            native.channelId = observed.channelId;
+            native.title = detail.title;
+            native.priority = defaults.priority;
+            native.lifetime = defaults.lifetimeDays;
+            native.vps = defaults.vpsPreferred;
+            native.enabled = true;
+            if (!projectEpgBoundaryToNative(
+                    effectiveStart, nativeClock.startUtcOffsetSeconds,
+                    false, native.day, native.startTime))
+                return result;
+            std::string endDay;
+            if (!projectEpgBoundaryToNative(
+                    effectiveStop, nativeClock.stopUtcOffsetSeconds,
+                    true, endDay, native.endTime) ||
+                !nativeOneShotMatchesEpg(
+                    observed, defaults, nativeClock, native) ||
+                !nativeTimerSpecificationValid(native))
+                return result;
+            candidate.desiredNativeTimerSpecification = native;
+            candidate.desiredNativeTimerSpecificationPresent = true;
+
+            // Channel mapping is the exact VDR-native channel observed by
+            // the authoritative EPG owner, not a guessed canonical mapping.
+            candidate.channel.backendGeneration = observed.backendGeneration;
+            candidate.channel.mappingSource = "vdr-native-epg";
+            candidate.channel.mappingRevision = detail.resourceRevision;
+            candidate.channel.sourceType = defaults.channelSourceType;
+            candidate.channel.sourceId = observed.sourceId;
+            candidate.channel.sourceChannelId = observed.channelId;
+            candidate.channel.backendChannelId = observed.channelId;
+            candidate.channel.current = true;
+
+            // Native capability is sourced from the current Agent/provider
+            // lease; readback uses the already-configured VDR REST inventory.
+            candidate.capability.backendGeneration = observed.backendGeneration;
+            candidate.capability.revision =
+                "suitebridge:" + std::to_string(provider->capabilityRevision);
+            candidate.capability.timerCreate = true;
+            candidate.capability.timerReadback = true;
+            candidate.capability.current = true;
+
+            // These health facts require BOTH a live Agent lease and an
+            // online, writable Backend with a scoped native transport.
+            candidate.health.backendGeneration = observed.backendGeneration;
+            candidate.health.revision =
+                "agent:" + std::to_string(agent->heartbeatSequence);
+            candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+            candidate.health.timerWritesAvailable = true;
+            candidate.health.current = true;
+
+            BackendAgentNativeTimerCreateSpecification agentSpecification;
+            agentSpecification.channelId = native.channelId;
+            agentSpecification.title = native.title;
+            agentSpecification.directory = native.directory;
+            agentSpecification.day = native.day;
+            agentSpecification.weekdays = native.weekdays;
+            agentSpecification.startTime = native.startTime;
+            agentSpecification.endTime = native.endTime;
+            agentSpecification.priority = native.priority;
+            agentSpecification.lifetime = native.lifetime;
+            agentSpecification.enabled = native.enabled;
+            agentSpecification.vps = native.vps;
+
+            const auto previewReply =
+                runtime->suiteBridgeTransport->inspectNativeTimerPreviewContract(
+                    agentSpecification, provider->providerInstanceEpoch,
+                    effectiveStart, effectiveStop);
+            const std::int64_t previewReceivedAt = nowSeconds();
+            SuiteBridgeNativeTimerPreviewProjection verifiedPreview;
+            if (!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+                    previewReply, agentSpecification,
+                    effectiveStart, effectiveStop,
+                    *provider, previewReceivedAt, verifiedPreview, reason))
+                return result;
+            ProspectiveNativeTimerConflictProof conflictProof;
+            if (!attestBackendNativeTimerPreview(
+                    verifiedPreview, *agent, *provider, candidate,
+                    previewReceivedAt, conflictProof))
+                return result;
+
+            AtomicAdmissionRequest admission;
+            admission.selection = selection;
+            admission.observation = observed;
+            admission.defaults = defaults;
+            admission.authenticatedActorId = request.actorRef;
+            admission.authoritativeTitle = detail.title;
+            admission.nativeClock = nativeClock;
+            admission.conflictProof = conflictProof;
+            admission.authoritativeAgent = *agent;
+            admission.nativeCreateProvider = *provider;
+            admission.candidate = candidate;
+            admission.requestedAt = nowSeconds();
+            // The Service will independently reject stale CLOCK, preview,
+            // provider epochs or a backend generation mismatch.
+            admission.revalidateSourceAndNativeSpecification =
+                [this, selection, observed, original = detail,
+                    agent = *agent, provider = *provider, candidate]() {
+                    if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                        !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                        !backendAccessPolicy_->canWriteToBackend(
+                            *backendRegistryService_, selection.backendId).allowed)
+                        return false;
+                    const auto backendNow =
+                        backendRegistryService_->getBackend(selection.backendId);
+                    if (!backendNow || !backendNow->enabled || !backendNow->online)
+                        return false;
+                    const auto current =
+                        PublicApiRuntime::instance().lookupEpgEventDetail(
+                            {selection.backendId, selection.channelId,
+                             selection.eventId});
+                    if (current.status != PublicEpgNowNextStatus::ok ||
+                        current.resourceRevision != original.resourceRevision ||
+                        current.title != original.title ||
+                        current.startTime != original.startTime ||
+                        current.endTime != original.endTime ||
+                        vdrsuite::http::publicStrongEntityTag(
+                            current.resourceRevision) != observed.resourceEtag)
+                        return false;
+                    const auto liveAgent =
+                        backendAgentRepository_->findAgentForBackend(
+                            selection.backendId);
+                    if (!liveAgent || liveAgent->agentId != agent.agentId ||
+                        liveAgent->agentInstanceId != agent.agentInstanceId ||
+                        liveAgent->backendGeneration !=
+                            observed.backendGeneration)
+                        return false;
+                    std::string why;
+                    const auto liveProvider =
+                        backendAgentCommandRepository_->selectLocalProvider(
+                            selection.backendId, liveAgent->agentId,
+                            liveAgent->agentInstanceId,
+                            liveAgent->backendGeneration,
+                            kBackendAgentNativeTimerCreateAuthorityDomain,
+                            kBackendAgentNativeTimerCreateCapability, why);
+                    if (!liveProvider ||
+                        !backendAgentLocalProviderSameFence(*liveProvider, provider))
+                        return false;
+                    // Recheck the CURRENT Agent and provider, not only the
+                    // pre-preview copy. A revoke, expired lease, stale
+                    // heartbeat or capability loss during CLOCK/preview must
+                    // not be admitted as a fresh TimerIntent/Assignment.
+                    const auto validatedAt =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+                    return currentNativeTimerCreateExecutionAuthority(
+                        *liveAgent, *liveProvider, candidate, validatedAt);
+                };
+
+            TimerIntentApplicationService application(
+                *timerIntentRepository_, *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_);
+            EpgTimerIntentAtomicAdmissionService coordinator(
+                database_, *timerIntentRepository_, *timerAssignmentRepository_,
+                application, *nativeTimerCreateAdmissionService_);
+            const auto saved = coordinator.admit(admission);
+            switch (saved.status)
+            {
+            case AtomicAdmissionStatus::prepared:
+                result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
+                break;
+            case AtomicAdmissionStatus::replayed:
+                result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+                break;
+            case AtomicAdmissionStatus::invalid:
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            case AtomicAdmissionStatus::revisionConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::revisionConflict;
+                return result;
+            case AtomicAdmissionStatus::generationConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::generationConflict;
+                return result;
+            case AtomicAdmissionStatus::duplicateIntent:
+            case AtomicAdmissionStatus::stateConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::stateConflict;
+                return result;
+            case AtomicAdmissionStatus::idempotencyConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+                return result;
+            case AtomicAdmissionStatus::backendUnavailable:
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            case AtomicAdmissionStatus::storageError:
+                return result;
+            }
+            result.operation.operationId = saved.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    saved.operation.state);
+            result.operation.backendId = saved.operation.backendId;
+            result.operation.resourceRevision = saved.operation.operationRevision;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgWindowLookup(
+        [this](const PublicEpgWindowRequest& request)
+        {
+            PublicEpgWindowResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_ ||
+                request.backendId.empty() || request.channelId.empty() ||
+                request.limit == 0U || request.limit > 192U ||
+                (request.afterStartTime.empty() !=
+                 request.afterCacheEventId.empty()))
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_
+                    ->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(
+                channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            EpgCacheService* service =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (service == nullptr ||
+                !service->getStatusForBackend(request.backendId).ready)
+                return result;
+            if (!request.afterStartTime.empty() &&
+                !service->hasWindowCursorAnchorForBackend(
+                    request.backendId, request.channelId,
+                    request.fromTime, request.untilTime,
+                    request.afterStartTime, request.afterCacheEventId))
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto events = service->findWindowForBackend(
+                request.backendId, request.channelId, request.fromTime,
+                request.untilTime, static_cast<int>(request.limit + 1U),
+                request.afterStartTime, request.afterCacheEventId);
+            result.hasMore = events.size() > request.limit;
+            if (result.hasMore)
+            {
+                result.nextStartTime = events[request.limit - 1U].startTime;
+                result.nextCacheEventId = events[request.limit - 1U].id;
+            }
+            for (std::size_t i = 0U;
+                 i < events.size() && i < request.limit; ++i)
+            {
+                const VdrEvent& event = events[i];
+                if (event.channelId != request.channelId ||
+                    event.title.empty() || event.startTime.empty() ||
+                    event.endTime.empty() || event.durationSeconds < 0)
+                    return PublicEpgWindowResult{};
+                PublicEpgNowNextItem item;
+                item.channelId = event.channelId;
+                // Source-ID evidence must survive the EPG cache boundary.
+                // Legacy rows and generated title/time cache keys stay
+                // usable for the grid but cannot be recorded as native IDs.
+                if (!event.id.empty() && event.id.size() <= 160U &&
+                    service->hasSourceEventIdForBackend(
+                        request.backendId, request.channelId, event.id))
+                    item.eventId = event.id;
+                item.title = event.title;
+                item.subtitle = event.subtitle;
+                item.startTime = event.startTime;
+                item.endTime = event.endTime;
+                item.durationSeconds = event.durationSeconds;
+                result.events.push_back(std::move(item));
+            }
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerChannelCollectionLookup(
+        [this](const PublicChannelCollectionRequest& request)
+        {
+            PublicChannelCollectionResult result;
+            if (!backendRegistryService_ ||
+                !vdrSnapshotReadService_ ||
+                request.backendIds.empty() ||
+                request.backendIds.size() > 16U ||
+                request.limit == 0U ||
+                request.limit > 100U ||
+                (request.afterBackendId.empty() !=
+                 request.afterChannelId.empty()) ||
+                request.afterChannelNumber < 0 ||
+                (request.afterBackendId.empty() &&
+                 request.afterChannelNumber != 0) ||
+                (request.nativeChannelOrder &&
+                 !request.relativeToChannelId.empty()) ||
+                (!request.relativeToChannelId.empty() &&
+                 (request.backendIds.size() != 1U ||
+                  request.limit != 1U ||
+                  !request.afterBackendId.empty() ||
+                  (request.direction != "up" &&
+                   request.direction != "down"))) ||
+                (request.relativeToChannelId.empty() &&
+                 !request.direction.empty()))
+            {
+                result.status =
+                    PublicChannelCollectionStatus::invalid;
+                return result;
+            }
+
+            std::size_t successfulSources = 0U;
+            for (const std::string& backendId : request.backendIds)
+            {
+                PublicChannelCollectionSource source;
+                source.backendId = backendId;
+
+                const auto backend =
+                    backendRegistryService_->getBackend(backendId);
+                const bool readable =
+                    backend.has_value() &&
+                    backend->enabled &&
+                    backend->online &&
+                    vdrSnapshotReadService_
+                        ->hasSnapshotForBackend(backendId);
+
+                if (!readable)
+                {
+                    source.state = "unavailable";
+                    source.code = "backend_unavailable";
+                    result.sources.push_back(std::move(source));
+                    continue;
+                }
+
+                std::vector<PublicChannelCollectionItem> sourceChannels;
+                bool sourceValid = true;
+                for (const VdrChannel& channel :
+                     vdrSnapshotReadService_
+                         ->getChannelsForBackend(backendId))
+                {
+                    if (channel.id.empty() ||
+                        channel.id.size() > 256U)
+                    {
+                        sourceValid = false;
+                        break;
+                    }
+
+                    PublicChannelCollectionItem item;
+                    item.backendId = backendId;
+                    item.channelId = channel.id;
+                    item.channelNumber = channel.number;
+                    item.name = channel.name;
+                    item.provider = channel.provider;
+                    item.groupName = channel.group;
+                    item.radio = channel.radio;
+                    item.encrypted = channel.encrypted;
+                    item.enabled = channel.enabled;
+                    sourceChannels.push_back(std::move(item));
+                }
+
+                std::sort(
+                    sourceChannels.begin(),
+                    sourceChannels.end(),
+                    [](const PublicChannelCollectionItem& lhs,
+                       const PublicChannelCollectionItem& rhs)
+                    {
+                        return lhs.channelId < rhs.channelId;
+                    });
+
+                for (std::size_t index = 1U;
+                     sourceValid && index < sourceChannels.size();
+                     ++index)
+                {
+                    if (sourceChannels[index - 1U].channelId ==
+                        sourceChannels[index].channelId)
+                    {
+                        sourceValid = false;
+                    }
+                }
+
+                if (!sourceValid)
+                {
+                    source.state = "unavailable";
+                    source.code = "backend_unavailable";
+                    result.sources.push_back(std::move(source));
+                    continue;
+                }
+
+                // Uses the full, authorized VDR snapshot (never the first
+                // 30 ID-sorted Public-v1 rows). The same pure projection is
+                // directly exercised by the C++ regression test.
+                if (!request.relativeToChannelId.empty())
+                {
+                    const auto neighbor = findPublicVdrChannelNeighbor(
+                        sourceChannels,
+                        request.relativeToChannelId,
+                        request.direction);
+                    if (!neighbor)
+                    {
+                        result.status = PublicChannelCollectionStatus::notFound;
+                        return result;
+                    }
+                    result.channels.push_back(*neighbor);
+                    source.state = "ok";
+                    result.sources.push_back(std::move(source));
+                    result.status = PublicChannelCollectionStatus::ok;
+                    result.hasMore = false;
+                    return result;
+                }
+
+                ++successfulSources;
+                source.state = "ok";
+                result.sources.push_back(std::move(source));
+                result.channels.insert(
+                    result.channels.end(),
+                    std::make_move_iterator(sourceChannels.begin()),
+                    std::make_move_iterator(sourceChannels.end()));
+            }
+
+            if (successfulSources == 0U)
+            {
+                result.status =
+                    PublicChannelCollectionStatus::
+                        allSourcesUnavailable;
+                result.channels.clear();
+                return result;
+            }
+
+            std::sort(
+                result.channels.begin(),
+                result.channels.end(),
+                [&request](const PublicChannelCollectionItem& lhs,
+                           const PublicChannelCollectionItem& rhs)
+                {
+                    if (request.nativeChannelOrder)
+                        return publicVdrChannelNumberLess(lhs, rhs);
+                    if (lhs.backendId != rhs.backendId)
+                        return lhs.backendId < rhs.backendId;
+                    return lhs.channelId < rhs.channelId;
+                });
+
+            std::vector<PublicChannelCollectionItem> eligible;
+            eligible.reserve(result.channels.size());
+            for (PublicChannelCollectionItem& channel : result.channels)
+            {
+                const bool afterCursor =
+                    request.afterBackendId.empty() ||
+                    channel.backendId > request.afterBackendId ||
+                    (channel.backendId == request.afterBackendId &&
+                     (request.nativeChannelOrder ?
+                        (channel.channelNumber > request.afterChannelNumber ||
+                         (channel.channelNumber == request.afterChannelNumber &&
+                          channel.channelId > request.afterChannelId)) :
+                        channel.channelId > request.afterChannelId));
+                if (afterCursor)
+                    eligible.push_back(std::move(channel));
+            }
+
+            result.hasMore = eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.channels = std::move(eligible);
+            result.status = PublicChannelCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerTimerCreateAdmission(
+        [this](
+            const PublicTimerCreateAdmissionRequest& request)
+        {
+            PublicTimerCreateAdmissionResult result;
+
+            if (!backendRegistryService_ ||
+                !backendAccessPolicy_ ||
+                !nativeTimerCreateAdmissionService_)
+            {
+                result.status =
+                    PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                return result;
+            }
+
+            const BackendAccessDecision access =
+                backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_,
+                    request.backendId);
+
+            if (!access.allowed)
+            {
+                result.status = access.readOnly
+                    ? PublicTimerCreateAdmissionStatus::readOnlyBackend
+                    : PublicTimerCreateAdmissionStatus::backendUnavailable;
+                return result;
+            }
+
+            const std::int64_t requestedAt =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now()
+                        .time_since_epoch()).count();
+            if (requestedAt <= 0)
+            {
+                result.status =
+                    PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                return result;
+            }
+
+            vdrsuite::timers::NativeTimerCreateAdmissionRequest
+                admissionRequest;
+            admissionRequest.actorId = request.actorRef;
+            admissionRequest.idempotencyKey =
+                request.idempotencyKey;
+            admissionRequest.timerAssignmentId =
+                request.timerAssignmentId;
+            admissionRequest.expectedAssignmentRevision =
+                request.expectedAssignmentRevision;
+            admissionRequest.expectedBackendId =
+                request.backendId;
+            admissionRequest.requestedAt = requestedAt;
+
+            const auto admitted =
+                nativeTimerCreateAdmissionService_->admit(
+                    admissionRequest);
+
+            switch (admitted.status)
+            {
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::prepared:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::accepted;
+                    break;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::replayed:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::replayed;
+                    break;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentNotFound:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::notFound;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentRevisionConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::revisionConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::generationConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::generationConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::idempotencyConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::idempotencyConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::operationConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::operationConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentStateConflict:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::backendConflict:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::specificationUnavailable:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::intentRevisionConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::stateConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::invalid:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::identityGenerationFailed:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::repositoryError:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                    return result;
+            }
+
+            result.operation.operationId =
+                admitted.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    admitted.operation.state);
+            result.operation.backendId =
+                admitted.operation.backendId;
+            result.operation.resourceRevision =
+                admitted.operation.operationRevision;
+            return result;
+        });
+
+ 
+    apiRouter_ = std::make_unique<ApiRouter>(
+        *dashboardController_,
+        *jobsController_,
+        *recordingsController_,
+        *metadataController_,
+        *vdrController_,
+        *vdrRecordingQueryController_,
+        *vdrSnapshotReadService_,
+        epgController_.get(),
+        personController_.get(),
+        recordingPersonSearchController_.get(),
+        *backendRegistryController_,
+        *capabilityController_,
+        *recordingActionValidationController_,
+        *recordingActionExecutionController_,
+        *recordingActionPreviewController_,
+        *vdrTimerActionController_,
+        *vdrTimerActionExecutorAdapterRegistry_,
+        *runtimeDiagnosticsController_,
+        *snapshotChangeFeedController_,
+        searchTimerController_.get(),
+        *liveTransportController_,
+        searchTimerRuntimeMutationPolicyExecutor_.get(),
+        epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
+        epgSearchNativeFuzzyOperatorRefreshController_.get(),
+        searchTimerDiscoveryController_.get(),
+        searchTimerAutomationPreviewController_.get(),
+        searchTimerPreviewEpgCacheRefreshController_.get(),
+        epgCacheController_.get(),
+        vdrChannelMoveController_.get(),
+        vdrRecordingFolderController_.get());
+
+    apiRouter_->setSearchTimerPreviewEpgCache(
+        searchTimerPreviewEpgCache_.get());
+    // MLD.F2.4: optional install-owned, read-only local Backend status.
+    // Never advertise "ready" solely from BackendRegistry::online: the
+    // registered Agent and both observations must match the current lease.
+    // This is opt-in for the package-managed local Agent topology only;
+    // existing Ubuntu/yaVDR installations keep their previous health JSON.
+    const char* localSetup = std::getenv("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED");
+    if (localSetup && std::string(localSetup) == "true")
+    {
+        apiRouter_->setLocalBackendSetupStatusLookup([this]() -> std::string
+        {
+            if (!backendAgentRepository_) return "unavailable";
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend("default");
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U || agent->agentId.empty())
+                return "unregistered";
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (agent->agentInstanceId.empty() ||
+                agent->leaseExpiresAt <= now ||
+                agent->lastHeartbeatAt < now - 150 ||
+                agent->heartbeatSequence == 0U)
+                return "agent_offline";
+            const auto currentCursor = [&](const char* domain) {
+                const auto cursor =
+                    backendAgentRepository_->observationCursorForBackend(
+                        "default", domain);
+                return cursor.present && cursor.agentId == agent->agentId &&
+                    cursor.agentInstanceId == agent->agentInstanceId &&
+                    cursor.backendGeneration == agent->backendGeneration &&
+                    cursor.snapshotGeneration > 0U &&
+                    cursor.producerSequence > 0U &&
+                    !cursor.resourceRevision.empty() &&
+                    cursor.acceptedAt >= now - 150 &&
+                    cursor.acceptedAt <= now + 5;
+            };
+            if (!currentCursor("backend-health")) return "health_pending";
+            if (!currentCursor("channels") ||
+                backendAgentRepository_->channelFactsForBackend("default").empty())
+                return "channels_pending";
+            return "ready";
+        });
+    }
+
+    // Public-v1 MOVE destinations are looked up through the one existing
+    // backend-scoped public fld1_ browse index; never accept native paths.
+    apiRouter_->setPublicRecordingFolderResolver(
+        [this](const std::string& backendId,
+               const std::string& publicFolderId,
+               std::string& logicalFolder) -> bool {
+            if (!vdrRecordingCacheRepository_)
+                return false;
+            VdrRecordingFolderPage page;
+            if (!vdrRecordingCacheRepository_->
+                    folderPageForBackendByPublicId(
+                        backendId, publicFolderId, 1, 0, page) ||
+                !page.cacheReady || page.backendId != backendId)
+                return false;
+            logicalFolder = page.path;
+            return true;
+        });
+
+    // Reuse the existing public-ID / cache binding without trusting a
+    // backend-native path or service recording ID from the client.
+    apiRouter_->setPublicRecordingActionResolver(
+        [this](const std::string& backendId,
+               const std::string& publicId,
+               VdrRecording& recording) -> bool {
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
+                return false;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolve(backendId, publicId);
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+                return false;
+            recording = found.recording;
+            return true;
+        });
+
+    std::cout << "API router runtime initialized" << std::endl;
+    std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
+
+    // One artwork loader shared with the existing Web artwork wrapper.
+    recordingArtworkService_ = std::make_shared<VdrRecordingArtworkService>(
+        *vdrRecordingCacheRepository_, config_.recordingArtworkRoots());
+    PublicApiRuntime::instance().registerRecordingArtworkLookup(
+        [this](const PublicRecordingArtworkRequest& request)
+        {
+            PublicRecordingArtworkResult result;
+            if (request.backendId.empty() || request.backendId == "*" ||
+                request.recordingId.size() != 36U)
+            {
+                result.status = PublicRecordingArtworkStatus::invalid;
+                return result;
+            }
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ || !vdrRecordingCacheRepository_ ||
+                !recordingArtworkService_)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId) ||
+                vdrRecordingCacheRepository_->statusForBackend(
+                    request.backendId).state != "ready")
+                return result;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(
+                request.backendId, request.recordingId);
+            if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+            {
+                result.status = PublicRecordingArtworkStatus::invalid;
+                return result;
+            }
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
+            // Public-v1 Device/TV clients use the same selected poster as
+            // the Web: the existing backend-scoped manual metadata binding
+            // and the existing authenticated image delivery owner. Never
+            // return the private cache path or replace it with an older
+            // TVScraper poster after an explicit metadata assignment.
+            const auto selected = metadataRepository_
+                ? metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId)
+                : ManualRecordingMetadataAssignment{};
+            if (selected.found && selected.relationshipLocked &&
+                selected.backendId == request.backendId)
+            {
+                const std::string prefix =
+                    "/var/cache/vdr-suite/recording-metadata/posters/";
+                const bool hasPoster =
+                    selected.posterReference.compare(0, prefix.size(),
+                        prefix) == 0 &&
+                    std::filesystem::is_regular_file(
+                        selected.posterReference);
+                if (hasPoster)
+                {
+                    VdrRecordingArtworkRef poster;
+                    poster.kind = VdrRecordingArtworkKind::Poster;
+                    poster.source =
+                        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+                    poster.reference = selected.posterReference;
+                    poster.temporary = false;
+                    const std::string id =
+                        VdrRecordingArtworkIdentity::assetId(
+                            found.recording, poster);
+                    if (!id.empty() &&
+                        (request.artworkId.empty() || request.artworkId == id))
+                    {
+                        PublicRecordingArtworkItem item;
+                        item.artworkId = id;
+                        item.kind = "poster";
+                        result.items.push_back(std::move(item));
+                        if (!request.artworkId.empty())
+                        {
+                            // Reuse the Web's canonical validated cached
+                            // image reader. It already enforces allowed
+                            // roots, MIME and size and returns actual bytes.
+                            const auto image =
+                                vdrRecordingFolderController_->getMetadataImage(
+                                    request.backendId,
+                                    found.recording.backendNativeId,
+                                    "poster", 0);
+                            if (image.statusCode != 200)
+                            {
+                                result.items.clear();
+                                result.status =
+                                    PublicRecordingArtworkStatus::notFound;
+                                return result;
+                            }
+                            result.contentType = image.contentType;
+                            result.content = image.body;
+                        }
+                    }
+                }
+                result.status = request.artworkId.empty() ||
+                    !result.items.empty()
+                    ? PublicRecordingArtworkStatus::ok
+                    : PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
+            for (const VdrRecordingArtworkRef& artwork :
+                 found.recording.metadata.artwork)
+            {
+                if (!artwork.isValid())
+                    continue;
+                const auto id = VdrRecordingArtworkIdentity::assetId(
+                    found.recording, artwork);
+                if (id.empty())
+                    continue;
+                if (!request.artworkId.empty() && request.artworkId != id)
+                    continue;
+                PublicRecordingArtworkItem item;
+                item.artworkId = id;
+                switch (artwork.kind)
+                {
+                    case VdrRecordingArtworkKind::Poster: item.kind = "poster"; break;
+                    case VdrRecordingArtworkKind::Fanart: item.kind = "fanart"; break;
+                    case VdrRecordingArtworkKind::Banner: item.kind = "banner"; break;
+                    case VdrRecordingArtworkKind::Still: item.kind = "still"; break;
+                }
+                item.width = artwork.width;
+                item.height = artwork.height;
+                result.items.push_back(std::move(item));
+                if (!request.artworkId.empty())
+                    break;
+            }
+            if (!request.artworkId.empty())
+            {
+                if (result.items.empty())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                const auto selected = std::find_if(
+                    found.recording.metadata.artwork.begin(),
+                    found.recording.metadata.artwork.end(),
+                    [&request, &found](const VdrRecordingArtworkRef& artwork) {
+                        return artwork.isValid() &&
+                            VdrRecordingArtworkIdentity::assetId(
+                                found.recording, artwork) == request.artworkId;
+                    });
+                if (selected == found.recording.metadata.artwork.end())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                const auto image = recordingArtworkService_->loadPath(
+                    VdrRecordingArtworkIdentity::publicUrl(
+                        found.recording, *selected));
+                if (!image.found())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                result.contentType = image.contentType;
+                result.content = image.content;
+            }
+            result.status = PublicRecordingArtworkStatus::ok;
+            return result;
+        });
+    // ADR-0035: the authoritative Public-v1 Recording collection is the
+    // current per-backend Recording cache, not the recording-free snapshot.
+    // Resolve its opaque identity through the existing playback read model,
+    // then map the trusted provider native ID to the configured local root.
+    // Media Check and HEVC Shrink use exactly this same resolver.
+    const auto resolveMediaRecording =
+        [this](const std::string& backend, const std::string& publicId)
+            -> std::optional<std::filesystem::path>
+        {
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
+                return std::nullopt;
+            const auto root = config_.mediaCheckVideoRoots().find(backend);
+            if (root == config_.mediaCheckVideoRoots().end())
+                return std::nullopt;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(backend, publicId);
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+                return std::nullopt;
+            return vdrsuite::mediatools::resolveConfiguredRecordingPath(
+                root->second, found.recording);
+        };
+
+    // M2.2: local-only Media Check. Explicit backend root required.
+    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
+        [this](const std::string& backend)
+        {
+            if (!backendRegistryService_ || !vdrSnapshotReadService_)
+                return false;
+            const auto selected = backendRegistryService_->getBackend(backend);
+            return selected && selected->enabled && selected->online &&
+                vdrSnapshotReadService_->hasSnapshotForBackend(backend);
+        },
+        database_);
+    if (!mediaCheckRuntime_->ensurePersistence()) {
+        std::cerr << "failed to initialize Media Check report persistence"
+                  << std::endl;
+        return false;
+    }
+    MediaCheckApiRuntime::instance().registerHandlers(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recording, const std::string& mode)
+        {
+            return mediaCheckRuntime_->start(actor, backend, recording, mode);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& checkId)
+        {
+            return mediaCheckRuntime_->status(actor, backend, checkId);
+        },
+        [this](const std::string& backend)
+        {
+            return mediaCheckRuntime_->capability(backend);
+        });
+
+    // HEVC plan uses the same current cache/identity and configured root.
+    // Stage/Publish admission, fencing and source readback remain unchanged.
+    mediaShrinkPlanRuntime_ = std::make_unique<DaemonMediaShrinkPlanRuntime>(
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
+        [this](const std::string& backend)
+        {
+            if (!backendRegistryService_ || !vdrSnapshotReadService_)
+                return false;
+            const auto selected = backendRegistryService_->getBackend(backend);
+            return selected && selected->enabled && selected->online &&
+                vdrSnapshotReadService_->hasSnapshotForBackend(backend);
+        },
+        mediaShrinkReviewRepository_.get());
+    MediaShrinkPlanApiRuntime::instance().registerHandlers(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recording)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
+            return mediaShrinkPlanRuntime_->plan(
+                actor, backend, recording, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
+            return mediaShrinkPlanRuntime_->capability(backend, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& review)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool enabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, generation, reason);
+            return mediaShrinkPlanRuntime_->reviewStatus(
+                actor, backend, review, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& operationId)
+        {
+            if (!mutationOperationReadService_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            auto found = mutationOperationReadService_->findForActor(
+                operationId, actor);
+            if (found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::invalid ||
+                found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::notFound)
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            // This is an actor-owned, read-only HTTP status GET. Do not
+            // synchronously inspect large MPEG-TS files here: ffprobe may
+            // take minutes and previously blocked navigation/SSE reconnect.
+            // The autonomous Core recovery worker verifies the ORIGINAL
+            // private Stage exactly once per attempt, publishes a confirmed
+            // transition over SSE, and never repeats FFmpeg encoding.
+            if (found.operation.backendId == backend &&
+                found.operation.actionFamily == "media.shrink.publish" &&
+                found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown)
+                recordingCacheRefreshQueue_.request(backend);
+            const auto& op = found.operation;
+            // If Core crashed between a verified Publish transition and
+            // the Review update, finish that same review without re-publishing.
+            if (op.backendId == backend &&
+                op.actionFamily == "media.shrink.publish" &&
+                op.state ==
+                    vdrsuite::operations::MutationOperationState::succeeded &&
+                mediaShrinkReviewRepository_) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resourceId);
+                if (review.ok() && review.review.state == "publishing" &&
+                    review.review.revision == 2 &&
+                    review.review.publishOperationId == op.operationId)
+                    (void)mediaShrinkReviewRepository_->completePublication(
+                        actor, backend, op.resourceId, 2);
+            }
+            const bool stage = op.actionFamily == "media.shrink.stage" &&
+                op.resourceType == "Recording" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "rec_");
+            const bool publish = op.actionFamily == "media.shrink.publish" &&
+                op.resourceType == "MediaShrinkReview" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "shk_");
+            if (op.backendId != backend || (!stage && !publish))
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            std::string body = "{\"operationId\":\"" + op.operationId +
+                "\",\"backendId\":\"" + backend +
+                "\",\"action\":\"" + (stage ? "stage" : "publish") +
+                "\",\"state\":\"" +
+                vdrsuite::operations::mutationOperationStateName(op.state) +
+                "\",\"resultReconciled\":" +
+                (op.state == vdrsuite::operations::MutationOperationState::succeeded
+                    ? "true" : "false");
+            if (op.state == vdrsuite::operations::MutationOperationState::succeeded) {
+                const char* prefix = stage ? "shk_" : "rec_";
+                if (!vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, prefix))
+                    return MediaShrinkPlanApiRuntime::problem(
+                        503, "HEVC reconciliation evidence invalid.");
+                body += stage ? ",\"reviewId\":\"" : ",\"publishedRecordingId\":\"";
+                body += op.resultReference + "\"";
+            }
+            // The actor may inspect their own durable Agent outcome, but
+            // never an arbitrary worker diagnostic, command payload or path.
+            // Only the exact operation-bound, fixed-vocabulary code is safe.
+            if ((op.state ==
+                    vdrsuite::operations::MutationOperationState::failedVerified ||
+                 op.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown) &&
+                backendAgentCommandRepository_) {
+                const auto assignment =
+                    backendAgentCommandRepository_->findAssignmentForOperation(
+                        backend, op.operationId,
+                        stage ? vdrsuite::mediatools::kMediaShrinkStageCommandType
+                              : vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+                if (assignment &&
+                    op.resultReference ==
+                        "agent.media.shrink:" + assignment->commandId) {
+                    const auto result =
+                        backendAgentCommandRepository_->resultForCommand(
+                            assignment->commandId);
+                    constexpr const char* prefix = "media_shrink_failure:";
+                    if (result && result->boundedDiagnostics.rfind(prefix, 0) == 0) {
+                        const std::string code = result->boundedDiagnostics.substr(
+                            std::char_traits<char>::length(prefix));
+                        const bool known =
+                            code == "ffmpeg_failed" ||
+                            code == "ffmpeg_timeout" ||
+                            code == "no_size_savings" ||
+                            code == "size_limit" ||
+                            code == "codec_verification_failed" ||
+                            code == "hevc_profile_invalid" ||
+                            code == "duration_mismatch" ||
+                            code == "vdr_index_or_external_failed" ||
+                            code == "media_probe_failed" ||
+                            code == "source_changed" ||
+                            code == "staging_io_failed" ||
+                            code == "stage_claim_conflict" ||
+                            code == "publish_claim_conflict" ||
+                            code == "unclassified_failure" ||
+                            code == "unexpected_exception";
+                        if (known) body += ",\"failureCode\":\"" + code + "\"";
+                    }
+                }
+            }
+            return MediaShrinkPlanApiRuntime::json(200, body + "}");
+        });
+
+    // A reopened recording must discover its EXISTING candidate in SQLite,
+    // even on a different browser where sessionStorage has no operation ID.
+    // This is only an actor-owned, backend-scoped read of the existing journal.
+    MediaShrinkPlanApiRuntime::instance().registerRecordingStatusHandler(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recordingId) -> ApiResponse
+        {
+            using namespace vdrsuite::operations;
+            if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const auto found =
+                mutationOperationRepository_->listRecentForActorBackendActionFamily(
+                    actor, backend, "media.shrink.stage", 128U);
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const MutationOperation* unfinished = nullptr;
+            for (const auto& op : found.operations) {
+                if (op.resourceType != "Recording" ||
+                    op.resourceId != recordingId ||
+                    op.backendId != backend || op.actorId != actor)
+                    continue;
+                if (!unfinished) unfinished = &op;
+                if (op.state != MutationOperationState::succeeded ||
+                    !vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, "shk_"))
+                    continue;
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resultReference);
+                if (!review.ok() || review.review.recordingId != recordingId ||
+                    review.review.stageOperationId != op.operationId)
+                    continue;
+                const std::string state =
+                    review.review.state == "staged" ? "ready" :
+                    review.review.state == "publishing" ? "publishing" :
+                    review.review.state == "published" ? "published" : "";
+                if (state.empty()) continue;
+                const auto stagePayload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        op.operationId);
+                vdrsuite::mediatools::MediaShrinkAgentSelection stageSelection;
+                const bool automatic = stagePayload.ok() &&
+                    stagePayload.payload.payloadType ==
+                        vdrsuite::mediatools::kMediaShrinkStageCommandType &&
+                    vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                        stagePayload.payload.payloadType,
+                        stagePayload.payload.payload, stageSelection) &&
+                    stageSelection.autoPublish;
+                std::string body = "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"" + state +
+                    "\",\"operationId\":\"" + op.operationId +
+                    "\",\"reviewId\":\"" + op.resultReference + "\"";
+                if (automatic) body += ",\"autoPublish\":true";
+                if (state == "publishing" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishOperationId, "op_"))
+                    body += ",\"publishOperationId\":\"" +
+                        review.review.publishOperationId + "\"";
+                if (state == "published" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishedRecordingId, "rec_"))
+                    body += ",\"publishedRecordingId\":\"" +
+                        review.review.publishedRecordingId + "\"";
+                return MediaShrinkPlanApiRuntime::json(200, body + "}");
+            }
+            if (unfinished)
+                return MediaShrinkPlanApiRuntime::json(200,
+                    "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"processing\",\"operationId\":\"" +
+                    unfinished->operationId + "\"}");
+            return MediaShrinkPlanApiRuntime::json(200,
+                "{\"recordingId\":\"" + recordingId +
+                "\",\"state\":\"none\"}");
+        });
+
+    // Core-owned HEVC mutation entrypoint. No caller-controlled path,
+    // subprocess or direct write is admitted through public API parsing.
+    // Absent reviewed grants, activation or Agent capability, this is 403/503
+    // and nothing is reserved or dispatched.
+    auto submitMediaShrink = [this](
+        const std::string& actor, const std::string& backend,
+        const std::string& resourceId, const std::string& encoder,
+        unsigned maxHeight, bool nightMode, bool autoPublish,
+        std::uint64_t revision, const std::string& key,
+        bool publish) -> ApiResponse
+    {
+        using namespace vdrsuite::addons;
+        if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+            !mediaShrinkOperationFence_ || !mediaShrinkPlanRuntime_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC mutation authority unavailable.");
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        DaemonMediaShrinkAdmissionAuthority authority(
+            *mediaShrinkPlanRuntime_, *mediaShrinkOperationFence_,
+            *mediaShrinkReviewRepository_);
+        MediaShrinkOperationAdmissionService service(
+            *mutationOperationRepository_, *mediaShrinkReviewRepository_,
+            authority);
+        MediaShrinkAdmissionResult outcome;
+        if (publish) {
+            MediaShrinkPublishAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.reviewId = resourceId;
+            request.expectedRevision = revision;
+            request.idempotencyKey = key;
+            request.now = now;
+            outcome = service.publish(request);
+        } else {
+            const auto fingerprint =
+                mediaShrinkPlanRuntime_->trustedSourceFingerprint(
+                    backend, resourceId);
+            if (!fingerprint)
+                return MediaShrinkPlanApiRuntime::problem(
+                    409, "Recording source is unavailable or changed.");
+            MediaShrinkStageAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.recordingId = resourceId;
+            request.sourceFingerprint = *fingerprint;
+            request.idempotencyKey = key;
+            request.encoder = encoder;
+            request.maxHeight = maxHeight;
+            request.nightMode = nightMode;
+            request.autoPublish = autoPublish;
+            request.now = now;
+            outcome = service.stage(request);
+        }
+        switch (outcome.status) {
+        case MediaShrinkAdmissionStatus::invalid:
+            return MediaShrinkPlanApiRuntime::problem(
+                422, "Invalid HEVC mutation request.");
+        case MediaShrinkAdmissionStatus::forbidden:
+            return MediaShrinkPlanApiRuntime::problem(
+                403, "HEVC mutation permission denied.");
+        case MediaShrinkAdmissionStatus::idempotencyConflict:
+        case MediaShrinkAdmissionStatus::reviewConflict:
+            return MediaShrinkPlanApiRuntime::problem(
+                409, "HEVC operation or review revision conflict.");
+        case MediaShrinkAdmissionStatus::unavailable:
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC operation repository unavailable.");
+        case MediaShrinkAdmissionStatus::accepted:
+        case MediaShrinkAdmissionStatus::replayed:
+            break;
+        }
+        auto durable = outcome.operation;
+        using State = vdrsuite::operations::MutationOperationState;
+        if (durable.state == State::accepted ||
+            durable.state == State::dispatching)
+        {
+            RequestSecurityContext system;
+            system.authenticationState = AuthenticationState::Authenticated;
+            system.actor = {"media_shrink_admission", ActorType::System,
+                            "HEVC admission", true};
+            vdrsuite::agent::BackendAgentMediaShrinkAssignmentService assigner(
+                *mutationOperationRepository_, *backendAgentCommandRepository_,
+                *backendAgentRepository_, *mediaShrinkOperationFence_);
+            const auto dispatched = assigner.assign(
+                system, durable.operationId, now);
+            if (!dispatched.accepted)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC Agent dispatch unavailable.");
+            const auto current =
+                mutationOperationRepository_->findById(durable.operationId);
+            if (!current.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            durable = current.operation;
+        }
+        return MediaShrinkPlanApiRuntime::json(202,
+            "{\"operationId\":\"" + durable.operationId +
+            "\",\"backendId\":\"" + durable.backendId +
+            "\",\"state\":\"" +
+            vdrsuite::operations::mutationOperationStateName(durable.state) +
+            "\",\"replayed\":" +
+            (outcome.status == MediaShrinkAdmissionStatus::replayed
+                ? "true" : "false") +
+            ",\"originalPreserved\":true}");
+    };
+    MediaShrinkPlanApiRuntime::instance().registerMutationHandlers(
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& recording, const std::string& encoder,
+            unsigned height, bool nightMode, bool autoPublish,
+            const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, recording, encoder,
+                                     height, nightMode, autoPublish, 0, key, false);
+        },
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& review, std::uint64_t revision,
+            const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, review, "",
+                                     0, false, false, revision, key, true);
+        });
+
+    // Grant eligibility uses live Agent capabilities but does not require
+    // the actor grant being created. The execution fence checks that grant.
+    auto addonGrantEligibility = [this](
+        const std::string& permission, const std::string& backendId) -> bool
+    {
+        if ((permission != "addons.media.import" &&
+             permission != "addons.media.shrink") ||
+            backendId.empty() || backendId == "*" ||
+            !backendRegistryService_ || !backendAccessPolicy_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return false;
+        const auto access = backendAccessPolicy_->canWriteToBackend(
+            *backendRegistryService_, backendId);
+        if (!access.backendFound || !access.allowed || access.readOnly)
+            return false;
+        const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!agent || agent->backendId != backendId || agent->revoked ||
+            agent->incompatible || agent->agentId.empty() ||
+            agent->agentInstanceId.empty() || agent->backendGeneration == 0 ||
+            agent->leaseExpiresAt < now)
+            return false;
+        const auto has = [&](const std::string& type) {
+            return backendAgentCommandRepository_->hasCapability(
+                backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration, type);
+        };
+        if (permission == "addons.media.import")
+            return has("addon.media.import");
+        return has(vdrsuite::mediatools::kMediaShrinkStageCommandType) &&
+               has(vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+    };
+    // The ONLY writable activation path: authenticated browser administrator
+    // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
+    // No user-supplied RuntimeEvidence and no automatic installation/exec.
+    auto addonActivationMutation = [this](
+        const RequestSecurityContext& actor, const std::string& body)
+        -> ApiResponse
+    {
+        const auto problem = [](int status, const char* code) {
+            ApiResponse response;
+            response.statusCode = status;
+            response.contentType = "application/json";
+            response.body = std::string("{\"error\":\"") + code + "\"}";
+            return response;
+        };
+        using namespace vdrsuite::addons;
+        ActivationHttpMutation parsed;
+        if (!parseActivationHttpMutation(body, parsed))
+            return problem(422, "invalid_activation_request");
+        if (!mediaImportActivationIntents_ ||
+            !backendAgentAccountabilityRepository_ ||
+            !backendAgentRepository_ ||
+            !backendAgentCommandRepository_ ||
+            !backendRegistryService_ || !backendAccessPolicy_)
+            return problem(503, "activation_unavailable");
+        // Only an authenticated administrator may save desired state.
+        // A transient Agent lease, capability or catalog observation must not
+        // block the administrator's enable/disable preference. Executing an
+        // actual import still requires independent live-provider validation.
+        AddonAdministrationService service(
+            *mediaImportActivationIntents_, *backendAgentAccountabilityRepository_,
+            [this](const std::string& moduleId, const std::string& backendId)
+              -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
+            {
+                if (moduleId != "rectools") return std::nullopt;
+                const auto access = backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, backendId);
+                if (!access.backendFound || !access.allowed || access.readOnly)
+                    return std::nullopt;
+                RuntimeEvidence evidence;
+                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                const auto agent = backendAgentRepository_->findAgentForBackend(
+                    backendId);
+                // When proof is actually current, retain the reviewed handler
+                // pin. Otherwise save a non-executable administrator intent.
+                // Never synthesize installed/healthy facts for an offline Agent.
+                if (agent && !agent->revoked && !agent->incompatible &&
+                    agent->leaseExpiresAt >= now &&
+                    backendAgentCommandRepository_->hasCapability(
+                        backendId, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, "addon.media.import")) {
+                    const std::string trustedSha =
+                        trustedMediaToolsHandlerDigest(backendId, now);
+                    if (!trustedSha.empty()) {
+                        evidence.moduleId = moduleId;
+                        evidence.packageName = "vdr-suite-addon-media-tools";
+                        evidence.backendId = backendId;
+                        evidence.agentId = agent->agentId;
+                        evidence.agentInstanceId = agent->agentInstanceId;
+                        evidence.backendGeneration = agent->backendGeneration;
+                        evidence.approvedHandlerSha256 = trustedSha;
+                        evidence.installed = true;
+                        evidence.manifestValid = true;
+                        evidence.packageTrusted = true;
+                        evidence.versionCompatible = true;
+                        evidence.handlerRegistered = true;
+                        evidence.handlerHealthy = true;
+                    }
+                }
+                return AddonAdministrationService::TrustedActivationSnapshot{
+                    access, evidence};
+            });
+        std::array<unsigned char, 16> entropy{};
+        if (RAND_bytes(entropy.data(), static_cast<int>(entropy.size())) != 1)
+            return problem(503, "audit_id_unavailable");
+        std::ostringstream auditId;
+        auditId << "addon-intent-";
+        for (const unsigned char b : entropy)
+            auditId << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<unsigned>(b);
+        const std::time_t clockNow = std::time(nullptr);
+        std::tm utc{};
+        if (clockNow <= 0 || !gmtime_r(&clockNow, &utc))
+            return problem(503, "audit_clock_unavailable");
+        char stamp[32]{};
+        if (std::strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", &utc) != 20)
+            return problem(503, "audit_clock_unavailable");
+        const auto result = service.setDesiredState(
+            actor, {"rectools", parsed.backendId, parsed.enabled,
+                    parsed.expectedRevision}, {}, {},
+            {auditId.str(), stamp});
+        int code = 503;
+        switch (result.status) {
+            case IntentStatus::ok: code = 200; break;
+            case IntentStatus::invalid: code = 422; break;
+            case IntentStatus::forbidden: code = 403; break;
+            case IntentStatus::ineligible: code = 409; break;
+            case IntentStatus::revisionConflict: code = 409; break;
+            case IntentStatus::unavailable: code = 503; break;
+        }
+        if (code != 200) return problem(code,
+            result.status == IntentStatus::revisionConflict
+                ? "revision_conflict" : (result.status == IntentStatus::ineligible
+                    ? "provider_not_eligible" : "activation_denied"));
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            parsed.backendId + "\",\"desiredEnabled\":" +
+            (result.intent.desiredEnabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(result.intent.revision) + "}";
+        return response;
+    };
+    auto addonActivationLookup = [this](
+        const RequestSecurityContext& actor, const std::string& requestPath)
+        -> ApiResponse
+    {
+        ApiResponse response;
+        response.contentType = "application/json";
+        std::string backendId;
+        if (!vdrsuite::addons::parseActivationHttpBackendQuery(
+                requestPath, backendId))
+        {
+            response.statusCode = 422;
+            response.body = "{\"error\":\"invalid_backend_id\"}";
+            return response;
+        }
+        if (!mediaImportActivationIntents_)
+        {
+            response.statusCode = 503;
+            response.body = "{\"error\":\"activation_unavailable\"}";
+            return response;
+        }
+        const auto current = mediaImportActivationIntents_->read(
+            actor, "rectools", backendId);
+        if (current.status != vdrsuite::addons::IntentStatus::ok)
+        {
+            response.statusCode =
+                current.status == vdrsuite::addons::IntentStatus::forbidden
+                    ? 403 : 503;
+            response.body = "{\"error\":\"activation_read_unavailable\"}";
+            return response;
+        }
+        response.statusCode = 200;
+        // Explicit administrative installation plus independent Core approval
+        // and current verified Agent/handler enable revision zero by default.
+        // A later explicit disable wins; no local file alone permits use.
+        bool installedByAdministrator = false;
+        bool providerVerified = false;
+        bool agentReady = false;
+        bool activationBoundToProvider = false;
+        if (backendAgentRepository_ && backendAgentCommandRepository_ &&
+            backendAccessPolicy_ && backendRegistryService_)
+        {
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // This is verified runtime-provider evidence, NOT dpkg ownership.
+            // Absence of that evidence must never be called "not installed".
+            const std::string handlerSha =
+                trustedMediaToolsHandlerDigest(backendId, now);
+            providerVerified = !handlerSha.empty();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                backendId);
+            const auto backend = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, backendId);
+            agentReady = agent && !agent->revoked && !agent->incompatible &&
+                agent->leaseExpiresAt >= now && backend.backendFound &&
+                backend.allowed && !backend.readOnly &&
+                backendAgentCommandRepository_->hasCapability(
+                    backendId, agent->agentId, agent->agentInstanceId,
+                    agent->backendGeneration, "addon.media.import");
+            if (agentReady && providerVerified)
+            {
+                // Desired-enable can outlive its pinned Agent/handler.
+                activationBoundToProvider =
+                    vdrsuite::addons::mediaToolsActivationPermits(
+                        current.intent, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, handlerSha);
+                installedByAdministrator = current.intent.revision == 0 &&
+                    activationBoundToProvider;
+            }
+        }
+        const bool enabled = current.intent.desiredEnabled ||
+            installedByAdministrator;
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            backendId + "\",\"desiredEnabled\":" +
+            (enabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(current.intent.revision) +
+            ",\"activatedByInstall\":" +
+            (installedByAdministrator ? "true" : "false") +
+            ",\"providerVerified\":" +
+            (providerVerified ? "true" : "false") +
+            ",\"agentReady\":" + (agentReady ? "true" : "false") +
+            ",\"activationBoundToProvider\":" +
+            (activationBoundToProvider ? "true" : "false") + "}";
+        return response;
+    };
+    // Local admin source configuration uses the same authenticated
+    // Browser-Session role.admin/CSRF gate as addon activation. The existing
+    // Agent periodically rereads its root-owned inventory; no restart.
+    auto addonSourceMutation = [](
+        const RequestSecurityContext&, const std::string& body) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::save(body);
+    };
+    auto addonSourceLookup = [](
+        const RequestSecurityContext&, const std::string& uri) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::read(uri);
+    };
+    auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
+        std::make_unique<TestHttpServer>(
+            *apiRouter_, deviceLiveEventHub_,
+            std::move(addonGrantEligibility),
+            std::move(addonActivationMutation),
+            std::move(addonActivationLookup),
+            std::move(addonSourceMutation),
+            std::move(addonSourceLookup)),
+        recordingArtworkService_);
+    auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(
+        std::move(clientHttpServer),
+        *backendAgentLifecycleService_,
+        *backendAgentCommandDeliveryService_,
+        *backendAgentAuthReadRepository_,
+        *backendAgentAuthReadVerifierRepository_,
+        *backendAgentAuthReadIdentityRepository_,
+        mediaImportCatalog_.get());
+    agentHttpServer->setMediaShrinkAuthorityLookup(
+        [this](const RequestSecurityContext& context,
+               const BackendAgentCommandReceipt& receipt) -> std::string
+        {
+            using namespace vdrsuite::mediatools;
+            using State = vdrsuite::operations::MutationOperationState;
+            if (context.actor.type != ActorType::Agent ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_ || !mutationOperationRepository_ ||
+                !mediaShrinkOperationFence_ ||
+                !mediaShrinkReviewRepository_ || !mediaShrinkPlanRuntime_)
+                return {};
+            const auto assignment =
+                backendAgentCommandRepository_->findAssignment(
+                    receipt.commandId);
+            if (!assignment ||
+                (assignment->commandType != kMediaShrinkStageCommandType &&
+                 assignment->commandType != kMediaShrinkPublishCommandType) ||
+                receipt.backendId != assignment->backendId ||
+                receipt.agentId != assignment->agentId ||
+                receipt.agentInstanceId != assignment->agentInstanceId ||
+                receipt.backendGeneration != assignment->backendGeneration)
+                return {};
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                assignment->backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->actorId != context.actor.actorId ||
+                agent->agentId != assignment->agentId ||
+                agent->agentInstanceId != assignment->agentInstanceId ||
+                agent->backendGeneration != assignment->backendGeneration ||
+                agent->leaseExpiresAt < now)
+                return {};
+            std::string reason;
+            if (!mediaShrinkOperationFence_->check(
+                    *assignment, receipt, now, reason))
+                return {};
+            const auto selected = mutationOperationRepository_->findById(
+                assignment->operationId);
+            if (!selected.ok() ||
+                selected.operation.state != State::dispatching ||
+                selected.operation.backendId != assignment->backendId ||
+                selected.operation.backendGeneration !=
+                    assignment->backendGeneration)
+                return {};
+            const auto& op = selected.operation;
+            const bool stage = assignment->commandType ==
+                kMediaShrinkStageCommandType;
+            std::string recordingId = op.resourceId;
+            if (!stage) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    op.actorId, op.backendId, op.resourceId);
+                if (!review.ok() ||
+                    review.review.state != "publishing" ||
+                    review.review.publishOperationId != op.operationId ||
+                    review.review.backendGeneration >
+                        op.backendGeneration ||
+                    review.review.sourceFingerprint !=
+                        op.expectedResourceFingerprint)
+                    return {};
+                recordingId = review.review.recordingId;
+            }
+            const auto paths = mediaShrinkPlanRuntime_->trustedSourcePaths(
+                op.backendId, recordingId,
+                op.expectedResourceFingerprint);
+            if (!paths) return {};
+            LocalMediaShrinkAuthority authority;
+            authority.actorId = op.actorId;
+            authority.backendId = op.backendId;
+            authority.operationId = op.operationId;
+            authority.recordingId = recordingId;
+            authority.sourceFingerprint = op.expectedResourceFingerprint;
+            authority.backendGeneration = op.backendGeneration;
+            authority.videoRoot = paths->videoRoot;
+            authority.relativeRecording = paths->relativeRecording;
+            return authoritywire::serialize(authority);
+        });
+    httpServer_ = std::move(agentHttpServer);
+
+    auto lastVdrPoll = std::chrono::steady_clock::now();
+
+    httpListener_ = std::make_unique<SimpleHttpListener>(
+        config_.httpListenHost(),
+        config_.httpListenPort(),
+        *httpServer_,
+        []() {
+            return shutdownRequested_.load();
+        },
+        [this, lastVdrPoll]() mutable {
+            const auto now = std::chrono::steady_clock::now();
+            const bool externalHint = externalVdrChangeHint_.exchange(false);
+
+            if (!externalHint &&
+                std::chrono::duration_cast<std::chrono::seconds>(now - lastVdrPoll).count() < 5) {
+                return;
+            }
+
+            lastVdrPoll = now;
+            pollVdrAndUpdateChangeFeed();
+        });
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (!backendRuntimeContext) {
+            continue;
+        }
+
+        if (backendRuntimeContext->suiteBridgeAgentRuntime) {
+            backendRuntimeContext->suiteBridgeAgentRuntime->start();
+            const std::int64_t lifecycleNow =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!embeddedBackendLifecycleService_ ||
+                !embeddedBackendLifecycleService_->startBackend(
+                    backendRuntimeContext->backendId,
+                    lifecycleNow)) {
+                std::cerr
+                    << "embedded backend lifecycle unavailable: backend="
+                    << backendRuntimeContext->backendId
+                    << std::endl;
+            }
+            std::cout
+                << "Suite Bridge embedded Agent runtime started: backend="
+                << backendRuntimeContext->backendId
+                << std::endl;
+        }
+
+        if (backendRuntimeContext->eventStreamClient) {
+            backendRuntimeContext->eventStreamClient->start();
+        }
+
+        if (backendRuntimeContext->hbbtvLocalControlTransport) {
+            hbbtvPresentationChangedBackendId_ =
+                backendRuntimeContext->backendId;
+            backendRuntimeContext->hbbtvLocalControlTransport
+                ->startHbbtvPresentationEvents(
+                    [this](const std::string&, std::uint64_t) {
+                        hbbtvPresentationChangedHint_.store(true);
+                    });
+        }
+    }
+
+    startEpgCacheWarmupWorker();
+    startRecordingCacheWarmupWorker();
+
+    std::cout << "HTTP listener runtime initialized" << std::endl;
+    std::cout << "dashboard runtime initialized" << std::endl;
+
+    std::signal(SIGINT, DaemonRuntime::handleSignal);
+    std::signal(SIGTERM, DaemonRuntime::handleSignal);
+
+    shutdownRequested_ = false;
+    initialized_ = true;
+
+    return true;
+}
+
+PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
+    const PublicMediaImportAdmissionRequest& request)
+{
+            PublicMediaImportAdmissionResult result;
+            if (!mediaImportOperationFence_ ||
+                !mutationOperationRepository_ ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            vdrsuite::addons::MediaImportOperationAdmissionService service(
+                *mutationOperationRepository_, *backendAgentRepository_,
+                *mediaImportOperationFence_);
+            vdrsuite::addons::MediaImportOperationAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.sourceId = request.sourceId;
+            input.idempotencyKey = request.idempotencyKey;
+            input.approveVideoReencode = request.approveVideoReencode;
+            input.videoDecision = request.videoDecision;
+            input.metadata = request.metadata;
+            input.now = now;
+            if (!request.batchSources.empty()) {
+                vdrsuite::addons::MediaImportBatchAdmissionRequest batch;
+                batch.actorId = request.actorRef;
+                batch.backendId = request.backendId;
+                batch.batchId = request.idempotencyKey;
+                batch.now = now;
+                for (const auto& source : request.batchSources)
+                    batch.sources.push_back({source.sourceId, source.metadata});
+                const auto admitted = service.admitBatch(batch);
+                using S = vdrsuite::addons::MediaImportOperationAdmissionStatus;
+                switch (admitted.status) {
+                    case S::accepted: case S::replayed: break;
+                    case S::invalid:
+                        result.status = PublicMediaImportAdmissionStatus::invalid;
+                        return result;
+                    case S::forbidden:
+                        result.status = PublicMediaImportAdmissionStatus::forbidden;
+                        return result;
+                    case S::idempotencyConflict:
+                        result.status =
+                            PublicMediaImportAdmissionStatus::idempotencyConflict;
+                        return result;
+                    case S::conflict:
+                        result.status = PublicMediaImportAdmissionStatus::conflict;
+                        return result;
+                    case S::unavailable: return result;
+                }
+                // Commit of ALL source operations precedes any assignment.
+                // If this daemon is interrupted here, the existing runtime
+                // tick dispatches the earliest accepted operation after restart.
+                progressDurableMediaImportBatches();
+                result.batchId = batch.batchId;
+                for (std::size_t index = 0;
+                     index < admitted.operations.size(); ++index) {
+                    const auto& original = admitted.operations[index];
+                    const auto observed = mutationOperationRepository_->findById(
+                        original.operationId);
+                    if (!observed.ok()) return {};
+                    PublicOperationResource resource;
+                    resource.operationId = observed.operation.operationId;
+                    resource.backendId = observed.operation.backendId;
+                    resource.state =
+                        vdrsuite::operations::mutationOperationStateName(
+                            observed.operation.state);
+                    resource.resourceRevision =
+                        observed.operation.operationRevision;
+                    result.batchOperations.push_back(resource);
+                    result.batchSourceIds.push_back(batch.sources[index].sourceId);
+                }
+                result.operation = result.batchOperations.front();
+                result.status = admitted.status == S::accepted
+                    ? PublicMediaImportAdmissionStatus::accepted
+                    : PublicMediaImportAdmissionStatus::replayed;
+                return result;
+            }
+            const auto accepted = service.admit(input);
+            using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
+            switch (accepted.status)
+            {
+                case Status::accepted:
+                case Status::replayed: break;
+                case Status::invalid:
+                    result.status = PublicMediaImportAdmissionStatus::invalid;
+                    return result;
+                case Status::forbidden:
+                    result.status = PublicMediaImportAdmissionStatus::forbidden;
+                    return result;
+                case Status::idempotencyConflict:
+                    result.status = PublicMediaImportAdmissionStatus::idempotencyConflict;
+                    return result;
+                case Status::conflict:
+                    result.status = PublicMediaImportAdmissionStatus::conflict;
+                    return result;
+                case Status::unavailable: return result;
+            }
+            auto durable = accepted.operation;
+            using State = vdrsuite::operations::MutationOperationState;
+            // The first caller and a replay both drive the SAME operation
+            // through the existing Agent command table. A prior terminal
+            // result must never be submitted again.
+            if (durable.state == State::accepted ||
+                durable.state == State::dispatching)
+            {
+                RequestSecurityContext system;
+                system.authenticationState = AuthenticationState::Authenticated;
+                system.actor = {"media_import_admission", ActorType::System,
+                                "Media Import admission", true};
+                vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+                    *mutationOperationRepository_, *backendAgentCommandRepository_,
+                    *backendAgentRepository_, *mediaImportOperationFence_);
+                const auto assigned = assigner.assign(
+                    system, durable.operationId, now);
+                if (!assigned.accepted) return result;
+                const auto current =
+                    mutationOperationRepository_->findById(durable.operationId);
+                if (!current.ok()) return result;
+                durable = current.operation;
+            }
+            result.status = accepted.status == Status::accepted
+                ? PublicMediaImportAdmissionStatus::accepted
+                : PublicMediaImportAdmissionStatus::replayed;
+            result.operation.operationId = durable.operationId;
+            result.operation.backendId = durable.backendId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(durable.state);
+            result.operation.resourceRevision = durable.operationRevision;
+            return result;
+}

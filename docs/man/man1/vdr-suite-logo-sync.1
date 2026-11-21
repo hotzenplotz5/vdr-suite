@@ -1,0 +1,61 @@
+.TH VDR-SUITE-LOGO-SYNC 1 "October 2026" "VDR-Suite" "User Commands"
+.SH NAME
+vdr-suite-logo-sync \- synchronize channel logo files into the VDR-Suite cache
+.SH SYNOPSIS
+.B vdr-suite-logo-sync
+.RI [ --source-dir " DIR" " | " --source-url " ZIP-URL" ]
+.RI [ --target-dir " DIR" ]
+.RI [ --dry-run ]
+.br
+.B vdr-suite-logo-sync
+.B --self-test
+.SH DESCRIPTION
+Copy supported channel logo images from a local directory or download a ZIP
+archive and synchronize its images into the VDR-Suite channel logo cache.
+PNG and SVG inputs are accepted; other extensions are ignored.  File names
+are normalized for local lookup.  This command does not configure VDR,
+install a VDR plugin, or start a VDR-Suite service.
+.PP
+Without
+.BR --source-dir ,
+the command fetches an external ZIP archive.  An operator must assess the
+source's trust and the logos' licensing/redistribution terms separately.
+The daemon can serve files found in its configured channel logo cache.
+.SH OPTIONS
+.TP
+.BI --source-dir " DIR"
+Read a directory tree instead of downloading a ZIP archive.
+.TP
+.BI --source-url " ZIP-URL"
+Archive to fetch if no local source directory was specified.
+The default is the 3PO/Senderlogos master ZIP hosted on GitHub.
+.TP
+.BI --target-dir " DIR"
+Cache destination, default
+.IR /var/cache/vdr-suite/channel-logos .
+.TP
+.B --dry-run
+Print files that would be copied without creating target files.  If an
+archive source is used, the archive is still downloaded for inspection.
+.TP
+.B --self-test
+Execute a local temporary-directory test, then exit without updating the
+configured channel-logo cache.
+.SH ENVIRONMENT
+.TP
+.B VDR_SUITE_CHANNEL_LOGO_SYNC_URL
+Default source URL when
+.B --source-url
+is not provided.
+.TP
+.B VDR_SUITE_CHANNEL_LOGO_CACHE
+Default target directory when
+.B --target-dir
+is not provided.
+.SH SECURITY
+Treat external logo archives as untrusted input and review imported content
+and applicable usage rights.  The default target may require administrative
+filesystem permissions.  Do not run this helper with elevated privileges
+against an untrusted archive without an approved maintenance procedure.
+.SH SEE ALSO
+.BR vdr-suite-daemon (8)

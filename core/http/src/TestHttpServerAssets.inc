@@ -1,0 +1,296 @@
+HttpServerResponse makeStaticNotFoundResponse()
+{
+    HttpServerResponse response;
+
+    response.statusCode = 404;
+    response.headers["Content-Type"] = "application/json";
+    response.body = "{\"error\":\"frontend asset not found\"}";
+
+    return response;
+}
+
+bool readFile(
+    const std::string& path,
+    std::string& content)
+{
+    std::ifstream file(path, std::ios::binary);
+
+    if (!file)
+    {
+        return false;
+    }
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    content = buffer.str();
+
+    return true;
+}
+
+std::vector<std::string> frontendRoots()
+{
+    const char* configuredRoot =
+        std::getenv("VDR_SUITE_FRONTEND_ROOT");
+
+    std::vector<std::string> roots;
+
+    if (configuredRoot != nullptr && configuredRoot[0] != '\0')
+    {
+        roots.emplace_back(configuredRoot);
+    }
+
+    roots.emplace_back("web/frontend");
+    roots.emplace_back("/usr/share/vdr-suite/web/frontend");
+    roots.emplace_back("/usr/local/share/vdr-suite/web/frontend");
+
+    return roots;
+}
+
+std::vector<std::string> channelLogoRoots()
+{
+    const char* configuredRoot =
+        std::getenv("VDR_SUITE_CHANNEL_LOGO_ROOT");
+    const char* configuredCache =
+        std::getenv("VDR_SUITE_CHANNEL_LOGO_CACHE");
+
+    std::vector<std::string> roots;
+
+    if (configuredRoot != nullptr && configuredRoot[0] != '\0')
+    {
+        roots.emplace_back(configuredRoot);
+    }
+
+    if (configuredCache != nullptr && configuredCache[0] != '\0')
+    {
+        roots.emplace_back(configuredCache);
+    }
+
+    roots.emplace_back("/var/cache/vdr-suite/channel-logos");
+    // Distribution packages place read-only bundled brand assets under /usr/share.
+    // Keep runtime logo caches and explicit operator roots ahead of that fallback.
+    roots.emplace_back("/usr/share/vdr-suite/channel-logos");
+    roots.emplace_back(
+        "/usr/share/vdr/plugins/skindesigner/skins/estuary4vdr/logos");
+    roots.emplace_back(
+        "/usr/share/vdr/plugins/skindesigner/logos");
+    // Optional MLD channellogos package. Keep all existing roots ahead.
+    roots.emplace_back("/usr/share/vdr/channellogos");
+
+    return roots;
+}
+
+bool readFrontendAsset(
+    const std::string& relativePath,
+    std::string& content)
+{
+    for (const std::string& root : frontendRoots())
+    {
+        const std::string path =
+            root + "/" + relativePath;
+
+        if (readFile(path, content))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool readChannelLogoAsset(
+    const std::string& relativePath,
+    std::string& content)
+{
+    for (const std::string& root : channelLogoRoots())
+    {
+        const std::string path =
+            root + "/" + relativePath;
+
+        if (root == "/usr/share/vdr/channellogos")
+        {
+            // Packaged links may point inside this tree, not outside it.
+            std::error_code error;
+            const auto canonicalRoot =
+                std::filesystem::canonical(root, error);
+            if (error) continue;
+            const auto canonicalFile =
+                std::filesystem::canonical(path, error);
+            if (error) continue;
+            const auto relative =
+                canonicalFile.lexically_relative(canonicalRoot);
+            if (relative.empty() || *relative.begin() == "..") continue;
+        }
+
+        if (readFile(path, content))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// The HTML shell is revalidated on every ordinary navigation. Bind the
+// SearchTimer script URL to the exact currently served script bytes so a
+// frontend-only update cannot reuse an old browser cache entry after F5.
+// Only a fixed, trusted src attribute is rewritten; no user input enters HTML.
+void versionSearchTimerBootstrapScript(std::string& html)
+{
+    const std::string marker = "src=\"../frontend/modules/searchtimers.js\"";
+    const auto position = html.find(marker);
+    if (position == std::string::npos)
+        return;
+
+    std::string script;
+    if (!readFrontendAsset("modules/searchtimers.js", script))
+        return;
+
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    if (SHA256(reinterpret_cast<const unsigned char*>(script.data()),
+            script.size(), digest) == nullptr)
+        return;
+
+    constexpr char hex[] = "0123456789abcdef";
+    std::string version;
+    version.reserve(16U);
+    for (std::size_t i = 0U; i < 8U; ++i)
+    {
+        version.push_back(hex[digest[i] >> 4U]);
+        version.push_back(hex[digest[i] & 0x0FU]);
+    }
+
+    html.insert(position + marker.size() - 1U, "?v=" + version);
+}
+
+HttpServerResponse makeFrontendAssetResponse(
+    const std::string& relativePath,
+    const std::string& contentType)
+{
+    std::string content;
+
+    if (!readFrontendAsset(relativePath, content))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    if (relativePath == "index.html")
+        versionSearchTimerBootstrapScript(content);
+
+    HttpServerResponse response;
+
+    response.statusCode = 200;
+    response.headers["Content-Type"] = contentType;
+    response.headers["Cache-Control"] = "no-cache";
+    response.body = content;
+
+    return response;
+}
+
+HttpServerResponse makeFrontendScriptBundleResponse(
+    const std::string& primaryRelativePath,
+    const std::string& addonRelativePath)
+{
+    std::string content;
+
+    if (!readFrontendAsset(primaryRelativePath, content))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    std::string addon;
+
+    if (readFrontendAsset(addonRelativePath, addon))
+    {
+        content += "\n\n";
+        content += addon;
+    }
+
+    HttpServerResponse response;
+
+    response.statusCode = 200;
+    response.headers["Content-Type"] =
+        "application/javascript; charset=utf-8";
+    response.headers["Cache-Control"] = "no-cache";
+    response.body = content;
+
+    return response;
+}
+
+// Validate the exact served bytes (including any bundled addon). A weak
+// validator is valid for both the identity and proxy-gzipped representation.
+// Never retain client-specific API or HTML responses in this static policy.
+HttpServerResponse revalidateFrontendAsset(
+    HttpServerResponse response,
+    const std::string& ifNoneMatch)
+{
+    const auto type = response.headers.find("Content-Type");
+    if (response.statusCode != 200 || type == response.headers.end() ||
+        (type->second != "application/javascript; charset=utf-8" &&
+         type->second != "text/css; charset=utf-8"))
+    {
+        return response;
+    }
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    if (SHA256(reinterpret_cast<const unsigned char*>(response.body.data()),
+            response.body.size(), digest) == nullptr)
+    {
+        return response;
+    }
+    const std::string tag = "W/" + vdrsuite::http::publicStrongEntityTag(
+        std::string(reinterpret_cast<const char*>(digest), sizeof(digest)));
+    response.headers["ETag"] = tag;
+    response.headers["Vary"] = "Accept-Encoding";
+    if (vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag) ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        response.statusCode = 304;
+        response.body.clear();
+    }
+    return response;
+}
+
+HttpServerResponse makeMissingChannelLogoResponse(
+    const std::string& relativePath)
+{
+    HttpServerResponse response;
+
+    response.statusCode = 204;
+    response.headers["Content-Type"] = logoContentType(relativePath);
+    // A missing public logo is a normal lookup result, not a permanent error.
+    response.headers["Cache-Control"] = "public, max-age=300";
+    response.body = "";
+
+    return response;
+}
+
+HttpServerResponse makeChannelLogoResponse(
+    const std::string& path)
+{
+    const std::string prefix = "/channel-logos/";
+    const std::string relativePath =
+        percentDecodePath(path.substr(prefix.size()));
+
+    if (!isSafeRelativePath(relativePath) ||
+        !isSupportedLogoPath(relativePath))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    std::string content;
+
+    if (!readChannelLogoAsset(relativePath, content))
+    {
+        return makeMissingChannelLogoResponse(relativePath);
+    }
+
+    HttpServerResponse response;
+
+    response.statusCode = 200;
+    response.headers["Content-Type"] = logoContentType(relativePath);
+    // This route is already anonymous and installation-scoped. Keep mutable
+    // logo files fresh within a bounded window, including bundled brand art.
+    response.headers["Cache-Control"] = "public, max-age=3600";
+    response.body = content;
+
+    return response;
+}

@@ -1,0 +1,1620 @@
+#include "BackendAgentClient.h"
+#include "BackendAgentCurlProxyCompatibility.h"
+#include "BackendAgentBasicAuthorization.h"
+#include "BackendAgentCommandJson.h"
+#include "BackendAgentCommandClient.h"
+#include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAgentExecutor.h"
+#include "MediaToolsAgentExecutor.h"
+#include "BackendAgentChannelObservation.h"
+#include "BackendAgentChannelObservationJson.h"
+#include "BackendAgentLifecycle.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cassert>
+#include <cstdio>
+#include <deque>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <thread>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
+
+namespace
+{
+const std::string Secret =
+    "agent-client-test-secret-material-00000000000000000000000001";
+
+class FlakyLegacyOsdTransport final
+    : public vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport
+{
+public:
+    int discoveryCalls = 0;
+
+    bool legacyOsdInputAvailable() override
+    {
+        ++discoveryCalls;
+        return discoveryCalls == 1;
+    }
+
+    vdrsuite::agent::SuiteBridgeCommandReply executeLegacyOsdInput(
+        const LegacyOsdInputCommand&,
+        const std::string&) override
+    {
+        return {};
+    }
+};
+
+class FakeTransport : public IBackendAgentControlPlaneTransport
+{
+public:
+    int commandPollDelayMilliseconds = 0;
+    std::deque<BackendAgentTransportResponse> responses;
+    std::vector<std::string> paths;
+    std::vector<std::string> bodies;
+    std::vector<std::string> logins;
+    std::vector<std::string> credentialSecrets;
+
+    BackendAgentTransportResponse postEnrollment(
+        const std::string& enrollmentId,
+        const std::string& enrollmentToken,
+        const std::string& path,
+        const std::string& body) override
+    {
+        assert(enrollmentId == "enr_client");
+        assert(enrollmentToken == "enrollment-client-token-material-00000000000000000001");
+        paths.push_back(path);
+        bodies.push_back(body);
+        return pop();
+    }
+
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string& agentId,
+        const std::string& credentialSecret,
+        const std::string& path,
+        const std::string& body) override
+    {
+        assert(agentId == "agt_client");
+        assert(credentialSecret.size() >= 32);
+        if (path == "/api/agent/v1/commands/poll" &&
+            commandPollDelayMilliseconds > 0)
+        {
+            const int delay = commandPollDelayMilliseconds;
+            commandPollDelayMilliseconds = 0;
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+        }
+        paths.push_back(path);
+        bodies.push_back(body);
+        logins.push_back(agentId);
+        credentialSecrets.push_back(credentialSecret);
+        return pop();
+    }
+
+private:
+    BackendAgentTransportResponse pop()
+    {
+        assert(!responses.empty());
+        BackendAgentTransportResponse response = responses.front();
+        responses.pop_front();
+        return response;
+    }
+};
+
+BackendAgentTransportResponse success(int status, const std::string& body)
+{
+    return BackendAgentTransportResponse{true, status, body, {}};
+}
+
+BackendAgentTransportResponse observationSuccess(
+    std::uint64_t snapshotGeneration,
+    std::uint64_t producerSequence,
+    const std::string& outcome = "accepted")
+{
+    return success(
+        200,
+        "{\"outcome\":\"" + outcome +
+        "\",\"reasonCode\":\"backend_health_observation_test\"," +
+        "\"snapshotGeneration\":" + std::to_string(snapshotGeneration) +
+        ",\"producerSequence\":" + std::to_string(producerSequence) +
+        ",\"lastAcceptedSequence\":" + std::to_string(producerSequence) + "}");
+}
+
+BackendAgentClientConfig configFor(const std::string& root)
+{
+    BackendAgentClientConfig config;
+    config.controlPlaneUrl = "https://control-plane.example.test";
+    config.backendId = "default";
+    config.identityPath = root + "/identity";
+    config.enrollmentPath = root + "/enrollment";
+    // Isolate every synthetic command from the production Agent state.
+    // A live Agent's durable command.state otherwise suppresses the OSD
+    // discovery/poll expected in the low-latency test.
+    config.commandStatePath = root + "/command.state";
+    config.adapters = {};
+    config.observationDomains = {"backend-health"};
+    config.heartbeatIntervalSeconds = 10;
+    config.reconnectInitialSeconds = 1;
+    config.reconnectMaximumSeconds = 8;
+    return config;
+}
+
+void removeTree(const std::string& root)
+{
+    std::remove((root + "/identity").c_str());
+    std::remove((root + "/identity-link").c_str());
+    std::remove((root + "/identity.channels.pending.json").c_str());
+    std::remove((root + "/channels.conf").c_str());
+    std::remove((root + "/enrollment").c_str());
+    std::remove((root + "/config").c_str());
+    std::remove((root + "/command.state").c_str());
+    rmdir(root.c_str());
+}
+
+void test_curl_proxy_disable_option_without_proxy_support()
+{
+    // MLD libcurl 8.19 reports code 48 on CURLOPT_PROXY="".
+    // A proxy-disabled library cannot use an environment proxy; reject
+    // other failures without weakening TLS, URL or protocol checks.
+    using vdrsuite::agent::proxyDisableOptionAccepted;
+    assert(proxyDisableOptionAccepted(CURLE_OK));
+    assert(proxyDisableOptionAccepted(CURLE_UNKNOWN_OPTION));
+    assert(proxyDisableOptionAccepted(CURLE_NOT_BUILT_IN));
+    assert(!proxyDisableOptionAccepted(CURLE_FAILED_INIT));
+    assert(!proxyDisableOptionAccepted(CURLE_BAD_FUNCTION_ARGUMENT));
+}
+
+void test_mld_basic_authorization_without_curl_httpauth()
+{
+    using vdrsuite::agent::backendAgentBasicAuthorizationValue;
+    // Known RFC 7617 Basic encoding. MLD HTTP libcurl must not need to
+    // implement authentication to send an explicit Authorization header.
+    assert(backendAgentBasicAuthorizationValue("agent", "secret") ==
+           "Basic YWdlbnQ6c2VjcmV0");
+    assert(backendAgentBasicAuthorizationValue("agt_123", "test-secret") ==
+           "Basic YWd0XzEyMzp0ZXN0LXNlY3JldA==");
+    assert(backendAgentBasicAuthorizationValue("a", "b") ==
+           "Basic YTpi");
+    assert(backendAgentBasicAuthorizationValue("ab", "c") ==
+           "Basic YWI6Yw==");
+}
+
+void test_protected_url_and_configuration()
+{
+    assert(CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "https://control-plane.example.test"));
+    assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "http://control-plane.example.test"));
+    // The only accepted plaintext endpoint is the packaged same-host daemon.
+    assert(CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "http://127.0.0.1:18080"));
+    for (const auto& invalid : {
+        "http://127.0.0.1:18081", "http://127.0.0.2:18080",
+        "http://localhost:18080", "http://[::1]:18080",
+        "http://127.0.0.1:18080/", "http://127.0.0.1:18080@evil.example",
+        "http://127.0.0.1:18080/api/agent/v1/enroll",
+        "http://192.168.1.10:18080"
+    })
+    {
+        assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(invalid));
+    }
+    assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "https://user@control-plane.example.test"));
+
+    const std::string root = "/tmp/vdr-suite-agent-client-config";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const std::string path = root + "/config";
+    std::ofstream output(path);
+    output << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+           << "BACKEND_ID=default\n"
+           << "IDENTITY_PATH=" << root << "/identity\n"
+           << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+           << "ADAPTERS=\n"
+           << "OBSERVATION_DOMAINS=backend-health\n"
+           << "SUITEBRIDGE_HOST=127.0.0.1\n"
+           << "SUITEBRIDGE_PORT=6419\n"
+           << "SUITEBRIDGE_CONTROL_SOCKET_PATH=/run/mld/vdr-suite-control.sock\n"
+           << "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete\n"
+           << "HEARTBEAT_INTERVAL_SECONDS=30\n";
+    output.close();
+    BackendAgentClientConfig config;
+    std::string reason;
+    assert(BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "configuration_loaded");
+    assert(config.backendId == "default");
+    assert(config.observationDomains.size() == 1);
+    assert(config.suiteBridgeHost == "127.0.0.1");
+    assert(config.suiteBridgePort == 6419);
+    assert(config.suiteBridgeControlSocketPath ==
+           "/run/mld/vdr-suite-control.sock");
+    assert(config.commandTypes == std::vector<std::string>({
+        "vdr.timer.create", "vdr.timer.update",
+        "vdr.timer.toggle", "vdr.timer.delete"}));
+    assert(config.nativeTimerCreateTransport == nullptr);
+    assert(config.mediaFfmpegPath == "/usr/bin/ffmpeg");
+    assert(config.mediaFfprobePath == "/usr/bin/ffprobe");
+    assert(config.mediaVdrPath == "/usr/bin/vdr");
+    assert(config.mediaEncoding.importH264Crf == 23);
+    assert(config.mediaEncoding.importH264Preset == "medium");
+    assert(config.mediaEncoding.shrinkH265Crf == 27);
+    assert(config.mediaEncoding.shrinkH265Preset == "medium");
+    assert(config.mediaEncoding.vaapiRenderDevice.empty());
+
+    // Optional tool paths live in the same root-owned backend config.
+    // Invalid/relative paths are rejected before any worker is constructed.
+    {
+        std::ofstream alternative(path);
+        alternative << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                    << "BACKEND_ID=default\n"
+                    << "IDENTITY_PATH=" << root << "/identity\n"
+                    << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                    << "MEDIA_FFMPEG_PATH=/opt/media/bin/ffmpeg\n"
+                    << "MEDIA_FFPROBE_PATH=/opt/media/bin/ffprobe\n"
+                    << "MEDIA_VDR_PATH=/usr/local/bin/vdr\n";
+        alternative.close();
+        assert(BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(config.mediaFfmpegPath == "/opt/media/bin/ffmpeg");
+        assert(config.mediaFfprobePath == "/opt/media/bin/ffprobe");
+        assert(config.mediaVdrPath == "/usr/local/bin/vdr");
+    }
+    {
+        std::ofstream configured(path);
+        configured << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                   << "BACKEND_ID=default\n"
+                   << "IDENTITY_PATH=" << root << "/identity\n"
+                   << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                   << "MEDIA_IMPORT_H264_CRF=19\n"
+                   << "MEDIA_IMPORT_H264_PRESET=veryfast\n"
+                   << "MEDIA_SHRINK_H265_CRF=24\n"
+                   << "MEDIA_SHRINK_H265_PRESET=slow\n"
+                   << "MEDIA_VAAPI_RENDER_DEVICE=/dev/dri/renderD137\n";
+        configured.close();
+        assert(BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(config.mediaEncoding.importH264Crf == 19);
+        assert(config.mediaEncoding.importH264Preset == "veryfast");
+        assert(config.mediaEncoding.shrinkH265Crf == 24);
+        assert(config.mediaEncoding.shrinkH265Preset == "slow");
+        assert(config.mediaEncoding.vaapiRenderDevice == "/dev/dri/renderD137");
+    }
+    const auto rejectEncoderKey = [&](const char* setting, const char* expected) {
+        std::ofstream malformed(path);
+        malformed << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                  << "BACKEND_ID=default\n"
+                  << "IDENTITY_PATH=" << root << "/identity\n"
+                  << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                  << setting << "\n";
+        malformed.close();
+        assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(reason == expected);
+    };
+    rejectEncoderKey("MEDIA_IMPORT_H264_CRF=60",
+                     "invalid_media_import_h264_crf");
+    rejectEncoderKey("MEDIA_SHRINK_H265_CRF=-1",
+                     "invalid_media_shrink_h265_crf");
+    rejectEncoderKey("MEDIA_IMPORT_H264_PRESET=unsafe",
+                     "invalid_media_import_h264_preset");
+    rejectEncoderKey("MEDIA_SHRINK_H265_PRESET=unsafe",
+                     "invalid_media_shrink_h265_preset");
+    rejectEncoderKey("MEDIA_VAAPI_RENDER_DEVICE=renderD128",
+                     "invalid_media_vaapi_render_device");
+    {
+        std::ofstream malformed(path);
+        malformed << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                  << "BACKEND_ID=default\n"
+                  << "IDENTITY_PATH=" << root << "/identity\n"
+                  << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                  << "MEDIA_FFMPEG_PATH=ffmpeg\n";
+        malformed.close();
+        assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(reason == "invalid_media_tool_executable_path");
+    }
+
+    assert(config.nativeTimerDeleteTransport == nullptr);
+
+    std::ofstream invalid(path);
+    invalid << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+            << "BACKEND_ID=default\n"
+            << "IDENTITY_PATH=" << root << "/identity\n"
+            << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+            << "ADAPTERS=channels-conf\n"
+            << "OBSERVATION_DOMAINS=backend-health\n";
+    invalid.close();
+    assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "invalid_channel_source_configuration");
+
+    std::ofstream remoteSuiteBridge(path);
+    remoteSuiteBridge
+        << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+        << "BACKEND_ID=default\n"
+        << "IDENTITY_PATH=" << root << "/identity\n"
+        << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+        << "ADAPTERS=\n"
+        << "OBSERVATION_DOMAINS=backend-health\n"
+        << "SUITEBRIDGE_HOST=192.0.2.1\n"
+        << "SUITEBRIDGE_PORT=6419\n";
+    remoteSuiteBridge.close();
+    assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "invalid_suitebridge_configuration");
+
+    std::ofstream invalidSocket(path);
+    invalidSocket
+        << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+        << "BACKEND_ID=default\n"
+        << "IDENTITY_PATH=" << root << "/identity\n"
+        << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+        << "ADAPTERS=\n"
+        << "OBSERVATION_DOMAINS=backend-health\n"
+        << "SUITEBRIDGE_CONTROL_SOCKET_PATH=/tmp/unsafe.sock\n";
+    invalidSocket.close();
+    assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "invalid_suitebridge_control_socket_path");
+    removeTree(root);
+}
+
+void test_enrollment_connect_capability_heartbeat_and_restart()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentEnrollmentPackage package;
+    package.enrollmentId = "enr_client";
+    package.backendId = "default";
+    package.enrollmentToken =
+        "enrollment-client-token-material-00000000000000000001";
+    std::string reason;
+    assert(writeBackendAgentEnrollmentPackageAtomically(
+        config.enrollmentPath, package, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"credentialId\":\"agc_client\",\"credentialGeneration\":1}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    assert(reason == "agent_online");
+    assert(runtime.state().backendGeneration == 1);
+    assert(runtime.state().heartbeatSequence == 1);
+    assert(runtime.state().capabilityRevision == 1);
+    assert(access(config.enrollmentPath.c_str(), F_OK) != 0);
+    struct stat identityStatus{};
+    assert(stat(config.identityPath.c_str(), &identityStatus) == 0);
+    assert((identityStatus.st_mode & (S_IRWXG | S_IRWXO)) == 0);
+    assert(transport.paths == std::vector<std::string>({
+        "/api/agent/v1/enroll", "/api/agent/v1/connect",
+        "/api/agent/v1/capabilities", "/api/agent/v1/heartbeat",
+        "/api/agent/v1/observations/backend-health"}));
+    for (const std::string& body : transport.bodies)
+    {
+        assert(body.find(package.enrollmentToken) == std::string::npos);
+    }
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    assert(runtime.heartbeat(reason));
+    assert(runtime.state().heartbeatSequence == 2);
+
+    BackendAgentClientState persisted;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, persisted, reason));
+    assert(persisted.agentId == "agt_client");
+    assert(persisted.heartbeatSequence == 2);
+    assert(persisted.credentialSecret.size() >= 32);
+
+    FakeTransport restartedTransport;
+    restartedTransport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":2,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    restartedTransport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    restartedTransport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":200,"
+             "\"duplicate\":false}"));
+    restartedTransport.responses.push_back(observationSuccess(2, 1));
+    BackendAgentClientRuntime restarted(config, restartedTransport);
+    assert(restarted.synchronize(reason));
+    assert(restarted.state().backendGeneration == 2);
+    assert(restarted.state().heartbeatSequence == 1);
+    assert(restarted.state().capabilityRevision == 1);
+    assert(restarted.agentInstanceId() != runtime.agentInstanceId());
+
+    removeTree(root);
+}
+
+void test_credential_rotation_and_lost_response_recovery()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-rotation";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState initial;
+    initial.agentId = "agt_client";
+    initial.backendId = "default";
+    initial.credentialId = "agc_client";
+    initial.credentialSecret = Secret;
+    initial.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, initial, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    const std::string oldSecret = runtime.state().credentialSecret;
+
+    transport.responses.push_back(success(
+        200, "{\"credentialGeneration\":2,\"idempotent\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":2,"
+        "\"heartbeatSequence\":1,\"capabilityRevision\":1,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    assert(runtime.rotateCredential(reason));
+    assert(reason == "credential_rotated");
+    assert(runtime.state().credentialGeneration == 2);
+    assert(runtime.state().credentialSecret != oldSecret);
+    assert(runtime.state().pendingRotationId.empty());
+    const auto rotationPath = std::find(
+        transport.paths.begin(), transport.paths.end(),
+        "/api/agent/v1/credentials/rotate");
+    assert(rotationPath != transport.paths.end());
+    assert(std::find(
+        transport.credentialSecrets.begin(), transport.credentialSecrets.end(),
+        oldSecret) != transport.credentialSecrets.end());
+    assert(std::find(
+        transport.credentialSecrets.begin(), transport.credentialSecrets.end(),
+        runtime.state().credentialSecret) != transport.credentialSecrets.end());
+
+    BackendAgentClientState persisted;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, persisted, reason));
+    assert(persisted.credentialGeneration == 2);
+    assert(persisted.pendingRotationId.empty());
+
+    FakeTransport ambiguousTransport;
+    ambiguousTransport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":2,\"credentialGeneration\":2,"
+        "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    ambiguousTransport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    ambiguousTransport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":200,"
+             "\"duplicate\":false}"));
+    ambiguousTransport.responses.push_back(observationSuccess(2, 1));
+    BackendAgentClientRuntime ambiguous(config, ambiguousTransport);
+    assert(ambiguous.synchronize(reason));
+    ambiguousTransport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    assert(!ambiguous.rotateCredential(reason));
+    assert(reason == "protected_transport_failed");
+    assert(!ambiguous.state().pendingRotationId.empty());
+    const std::string pendingSecret = ambiguous.state().pendingCredentialSecret;
+    const std::uint64_t pendingGeneration =
+        ambiguous.state().pendingCredentialGeneration;
+
+    BackendAgentClientState pendingPersisted;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, pendingPersisted, reason));
+    assert(pendingPersisted.pendingCredentialSecret == pendingSecret);
+    assert(pendingPersisted.pendingCredentialGeneration == pendingGeneration);
+
+    FakeTransport recoveryTransport;
+    recoveryTransport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":2,\"credentialGeneration\":3,"
+        "\"heartbeatSequence\":1,\"capabilityRevision\":1,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    recoveryTransport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":2,\"credentialGeneration\":3,"
+        "\"heartbeatSequence\":1,\"capabilityRevision\":1,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    recoveryTransport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":230,"
+             "\"duplicate\":false}"));
+    recoveryTransport.responses.push_back(observationSuccess(2, 2));
+    BackendAgentClientRuntime recovered(config, recoveryTransport);
+    assert(recovered.synchronize(reason));
+    assert(recovered.state().credentialGeneration == 3);
+    assert(recovered.state().credentialSecret == pendingSecret);
+    assert(recovered.state().pendingRotationId.empty());
+    assert(recoveryTransport.credentialSecrets[0] == pendingSecret);
+    assert(recoveryTransport.credentialSecrets[1] == pendingSecret);
+
+    removeTree(root);
+}
+
+
+
+void test_backend_health_observation_lost_response_and_resync_recovery()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-observation";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().observationSnapshotGeneration == 1);
+    assert(runtime.state().observationProducerSequence == 1);
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    assert(!runtime.heartbeat(reason));
+    assert(reason == "protected_transport_failed");
+    assert(runtime.state().heartbeatSequence == 2);
+    assert(runtime.state().observationProducerSequence == 1);
+    assert(runtime.state().pendingObservationProducerSequence == 2);
+
+    BackendAgentClientState pending;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, pending, reason));
+    assert(pending.pendingObservationProducerSequence == 2);
+    assert(pending.pendingObservationHeartbeatSequence == 2);
+
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":2,\"capabilityRevision\":1,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    transport.responses.push_back(observationSuccess(1, 2, "replayed"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":3,\"leaseExpiresAt\":183,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 3));
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().pendingObservationKind.empty());
+    assert(runtime.state().observationProducerSequence == 3);
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":4,\"leaseExpiresAt\":213,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        409,
+        "{\"error\":{\"code\":\"observation_resync_required\","
+        "\"message\":\"Agent protocol request rejected\"}}"));
+    transport.responses.push_back(observationSuccess(2, 1));
+    assert(runtime.heartbeat(reason));
+    assert(runtime.state().observationSnapshotGeneration == 2);
+    assert(runtime.state().observationProducerSequence == 1);
+    assert(runtime.state().pendingObservationKind.empty());
+
+    removeTree(root);
+}
+
+void test_legacy_identity_migrates_without_observation_cursor()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-legacy-identity";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    {
+        std::ofstream output(config.identityPath);
+        output << "version=1\n"
+               << "agent_id=agt_client\n"
+               << "backend_id=default\n"
+               << "credential_id=agc_client\n"
+               << "credential_generation=1\n"
+               << "credential_secret=" << Secret << "\n"
+               << "backend_generation=7\n"
+               << "heartbeat_sequence=11\n"
+               << "capability_revision=3\n";
+    }
+    assert(chmod(config.identityPath.c_str(), 0600) == 0);
+
+    BackendAgentClientState loaded;
+    std::string reason;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, loaded, reason));
+    assert(reason == "identity_loaded");
+    assert(loaded.backendGeneration == 7);
+    assert(loaded.heartbeatSequence == 11);
+    assert(loaded.capabilityRevision == 3);
+    assert(loaded.observationBackendGeneration == 0);
+    assert(loaded.observationSnapshotGeneration == 0);
+    assert(loaded.observationProducerSequence == 0);
+    assert(loaded.pendingObservationKind.empty());
+
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, loaded, reason));
+    std::ifstream migrated(config.identityPath);
+    const std::string contents(
+        (std::istreambuf_iterator<char>(migrated)),
+        std::istreambuf_iterator<char>());
+    assert(contents.find("version=3\n") == 0);
+    assert(contents.find("observation_backend_generation=0\n") !=
+           std::string::npos);
+    assert(contents.find("channel_observation_backend_generation=0\n") !=
+           std::string::npos);
+    removeTree(root);
+}
+
+void writeChannelsFixture(const std::string& path, bool renamed)
+{
+    std::ofstream output(path);
+    output << ":News\n"
+           << (renamed ? "RTL Zwei,RTL2;RTL World" : "RTL Television,RTL;RTL World")
+           << ":12187:hC34M2O0S0:S19.2E:27500:163=2:104=deu;106=deu:105:0:12003:1:1089:0\n"
+           << ":@201 Radio\n"
+           << "Radio One;Provider:11000:V:S19.2E:22000:0:100=deu:0:1702:42:0:0:0\n";
+    output.close();
+}
+
+void test_channel_source_and_strict_json_contract()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-channel-source";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const std::string path = root + "/channels.conf";
+    writeChannelsFixture(path, false);
+
+    BackendAgentChannelSnapshot snapshot;
+    std::string reason;
+    assert(readBackendAgentChannelsConfSnapshot(path, snapshot, reason));
+    assert(reason == "channels_conf_snapshot_loaded");
+    assert(snapshot.channels.size() == 2);
+    assert(snapshot.channels[0].channelId == "S19.2E-1-1089-12003");
+    assert(snapshot.channels[0].channelNumber == 1);
+    assert(snapshot.channels[0].name == "RTL Television");
+    assert(snapshot.channels[0].provider == "RTL World");
+    assert(snapshot.channels[0].groupName == "News");
+    assert(!snapshot.channels[0].radio);
+    assert(!snapshot.channels[0].encrypted);
+    assert(snapshot.channels[1].channelId == "S19.2E-0-211000-42");
+    assert(snapshot.channels[1].channelNumber == 201);
+    assert(snapshot.channels[1].radio);
+    assert(snapshot.channels[1].encrypted);
+    assert(!snapshot.resourceRevision.empty());
+
+    // MLD-style channels.conf selection: VDR is configured through an
+    // administrator-maintained symlink to a regular channels list.
+    const std::string selectedLink = root + "/selected-channels.conf";
+    assert(symlink("channels.conf", selectedLink.c_str()) == 0);
+    BackendAgentChannelSnapshot linkedSnapshot;
+    assert(readBackendAgentChannelsConfSnapshot(
+        selectedLink, linkedSnapshot, reason));
+    assert(linkedSnapshot.resourceRevision == snapshot.resourceRevision);
+    assert(linkedSnapshot.channels.size() == snapshot.channels.size());
+    assert(unlink(selectedLink.c_str()) == 0);
+
+    // A dangling symlink is not a valid channels.conf source.
+    assert(symlink("missing-channels.conf", selectedLink.c_str()) == 0);
+    assert(!readBackendAgentChannelsConfSnapshot(
+        selectedLink, linkedSnapshot, reason));
+    assert(reason == "channels_conf_unavailable");
+    assert(unlink(selectedLink.c_str()) == 0);
+
+    BackendAgentObservationRequest request;
+    request.protocolVersion = "vdr-suite-agent/1";
+    request.backendId = "default";
+    request.agentInstanceId = "agi_channel_test";
+    request.backendGeneration = 1;
+    request.observationDomain = "channels";
+    request.snapshotGeneration = 1;
+    request.producerSequence = 1;
+    request.kind = "completeSnapshot";
+    request.capturedAt = 100;
+    request.resourceRevision = snapshot.resourceRevision;
+    request.observedHeartbeatSequence = 1;
+    request.channels = snapshot.channels;
+    const std::string body = serializeBackendAgentChannelObservationJson(request);
+    assert(!body.empty());
+    BackendAgentObservationRequest parsed;
+    assert(parseBackendAgentChannelObservationJson(body, parsed, reason));
+    assert(parsed.channels.size() == 2);
+    assert(parsed.channels[1].channelId == snapshot.channels[1].channelId);
+
+    const std::string unknown = body.substr(0, body.size() - 1) + ",\"unknown\":true}";
+    assert(!parseBackendAgentChannelObservationJson(unknown, parsed, reason));
+    assert(reason == "invalid_channel_observation_json");
+    removeTree(root);
+}
+
+void test_channel_observation_publication_change_and_pending_retry()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-channel-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    BackendAgentClientConfig config = configFor(root);
+    config.adapters = {"channels-conf"};
+    config.observationDomains = {"channels"};
+    config.channelsConfPath = root + "/channels.conf";
+    writeChannelsFixture(config.channelsConfPath, false);
+
+    BackendAgentEnrollmentPackage package;
+    package.enrollmentId = "enr_client";
+    package.backendId = "default";
+    package.enrollmentToken =
+        "enrollment-client-token-material-00000000000000000001";
+    std::string reason;
+    assert(writeBackendAgentEnrollmentPackageAtomically(
+        config.enrollmentPath, package, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"credentialId\":\"agc_client\",\"credentialGeneration\":1}"));
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":1,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().channelObservationSnapshotGeneration == 1);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    assert(!runtime.state().channelObservationResourceRevision.empty());
+    assert(transport.paths.back() == "/api/agent/v1/observations/channels");
+    const std::string firstBody = transport.bodies.back();
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    const std::size_t pathsBeforeUnchanged = transport.paths.size();
+    assert(runtime.heartbeat(reason));
+    assert(transport.paths.size() == pathsBeforeUnchanged + 1);
+
+    writeChannelsFixture(config.channelsConfPath, true);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":3,\"leaseExpiresAt\":183,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(2, 1));
+    assert(runtime.heartbeat(reason));
+    assert(runtime.state().channelObservationSnapshotGeneration == 2);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    assert(transport.bodies.back() != firstBody);
+
+    writeChannelsFixture(config.channelsConfPath, false);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":4,\"leaseExpiresAt\":213,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    assert(!runtime.heartbeat(reason));
+    assert(reason == "protected_transport_failed");
+    const std::string pendingPath = config.identityPath + ".channels.pending.json";
+    assert(access(pendingPath.c_str(), F_OK) == 0);
+    std::ifstream pendingInput(pendingPath);
+    const std::string pendingBody(
+        (std::istreambuf_iterator<char>(pendingInput)),
+        std::istreambuf_iterator<char>());
+
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":1,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":4,\"capabilityRevision\":1,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    transport.responses.push_back(observationSuccess(3, 1, "replayed"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":5,\"leaseExpiresAt\":243,"
+             "\"duplicate\":false}"));
+    assert(runtime.synchronize(reason));
+    assert(access(pendingPath.c_str(), F_OK) != 0);
+    assert(runtime.state().channelObservationSnapshotGeneration == 3);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    const auto retried = std::find(
+        transport.bodies.begin(), transport.bodies.end(), pendingBody);
+    assert(retried != transport.bodies.end());
+    removeTree(root);
+}
+
+void test_malformed_control_plane_numbers_fail_closed()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-malformed";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport malformed;
+    malformed.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1x,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    BackendAgentClientRuntime malformedRuntime(config, malformed);
+    assert(!malformedRuntime.synchronize(reason));
+    assert(reason == "invalid_connect_response");
+
+    FakeTransport overflow;
+    overflow.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":9223372036854775808,"
+        "\"credentialGeneration\":1,\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    BackendAgentClientRuntime overflowRuntime(config, overflow);
+    assert(!overflowRuntime.synchronize(reason));
+    assert(reason == "invalid_connect_response");
+    removeTree(root);
+}
+
+void test_permissions_and_bounded_backoff()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-backoff";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+    assert(chmod(config.identityPath.c_str(), 0644) == 0);
+    BackendAgentClientState rejected;
+    assert(!BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, rejected, reason));
+    assert(reason == "local_file_permissions_too_open");
+    assert(chmod(config.identityPath.c_str(), 0600) == 0);
+
+    {
+        std::ofstream appended(config.identityPath, std::ios::app);
+        appended << "unknown_identity_key=value\n";
+    }
+    assert(!BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, rejected, reason));
+    assert(reason == "unknown_identity_key");
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+    const std::string linkPath = root + "/identity-link";
+    assert(symlink(config.identityPath.c_str(), linkPath.c_str()) == 0);
+    assert(!BackendAgentClientRuntime::loadIdentity(
+        linkPath, rejected, reason));
+    assert(reason == "local_file_not_regular");
+
+    FakeTransport transport;
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    std::vector<int> sleeps;
+    bool stopRequested = false;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int seconds) {
+            assert(seconds == 1);
+            sleeps.push_back(seconds);
+            if (sleeps.size() == 7) stopRequested = true;
+        },
+        [](const std::string&) {});
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(sleeps == std::vector<int>(7, 1));
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+void test_low_latency_command_poll_between_heartbeats()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-low-latency-command-poll";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    FlakyLegacyOsdTransport osdTransport;
+    config.commandTypes = {"vdr.legacy-osd.input"};
+    config.legacyOsdInputTransport = &osdTransport;
+    config.commandPollIntervalMilliseconds = 250;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\","
+        "\"backendId\":\"default\","
+        "\"backendGeneration\":1,"
+        "\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"heartbeatSequence\":1,"
+        "\"leaseExpiresAt\":123,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200,
+        "{\"hasAssignment\":false,"
+        "\"reasonCode\":\"no_command_available\"}"));
+
+    bool stopRequested = false;
+    std::vector<int> millisecondSleeps;
+    std::vector<std::string> logs;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int) {
+            assert(false);
+        },
+        [&](const std::string& message) {
+            logs.push_back(message);
+        },
+        [&](int milliseconds) {
+            assert(milliseconds == 250);
+            millisecondSleeps.push_back(milliseconds);
+            if (millisecondSleeps.size() == 3)
+                stopRequested = true;
+        });
+
+    assert(runtime.synchronize(reason));
+    assert(osdTransport.discoveryCalls == 1);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"refreshCapabilities\":true") !=
+        std::string::npos);
+    const std::size_t requestsBeforeRun = transport.paths.size();
+    const std::uint64_t heartbeatBeforeRun =
+        runtime.state().heartbeatSequence;
+
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    // A failed command poll renews the live lease before retrying commands.
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,\"reasonCode\":\"no_command_available\"}"));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,\"reasonCode\":\"no_command_available\"}"));
+
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(millisecondSleeps == std::vector<int>({250, 250, 250}));
+    assert(transport.paths.size() == requestsBeforeRun + 5);
+    assert(transport.paths[requestsBeforeRun] ==
+        "/api/agent/v1/commands/poll");
+    assert(transport.paths[requestsBeforeRun + 1] ==
+        "/api/agent/v1/heartbeat");
+    assert(transport.paths[requestsBeforeRun + 2] ==
+        "/api/agent/v1/observations/backend-health");
+    assert(transport.paths[requestsBeforeRun + 3] ==
+        "/api/agent/v1/commands/poll");
+    assert(transport.paths[requestsBeforeRun + 4] ==
+        "/api/agent/v1/commands/poll");
+    assert(
+        transport.bodies.back().find("\"refreshCapabilities\":false") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"supportedCommandTypes\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"localProviders\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") ==
+        std::string::npos);
+    assert(osdTransport.discoveryCalls == 2);
+    assert(runtime.state().heartbeatSequence == heartbeatBeforeRun + 1);
+    assert(
+        std::count(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent command poll failed: protected_transport_failed") ==
+        1);
+    assert(
+        std::find(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent synchronized") == logs.end());
+    assert(transport.responses.empty());
+
+    removeTree(root);
+}
+
+
+void test_slow_command_poll_does_not_starve_heartbeat()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-slow-command-poll-heartbeat";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    FlakyLegacyOsdTransport osdTransport;
+    config.commandTypes = {"vdr.legacy-osd.input"};
+    config.legacyOsdInputTransport = &osdTransport;
+    config.commandPollIntervalMilliseconds = 10;
+    config.heartbeatIntervalSeconds = 1;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\","
+             "\"backendId\":\"default\","
+             "\"backendGeneration\":1,"
+             "\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,"
+             "\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,"
+             "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+
+    BackendAgentClientRuntime runtime(
+        config, transport, [](int) { assert(false); },
+        [](const std::string&) {}, [](int milliseconds) {
+            assert(milliseconds > 0 && milliseconds <= 10);
+        });
+    assert(runtime.synchronize(reason));
+
+    // A stalled poll must not postpone the one-second heartbeat.
+    // The old loop counts just the 10 ms planned sleep and would poll
+    // again instead of renewing the lease.
+    transport.commandPollDelayMilliseconds = 1200;
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+
+    const std::size_t before = transport.paths.size();
+    assert(runtime.run([&] {
+        return runtime.state().heartbeatSequence >= 2;
+    }) == 0);
+    assert(runtime.state().heartbeatSequence == 2);
+    assert(transport.paths.size() == before + 4);
+    assert(transport.paths[before] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[before + 1] == "/api/agent/v1/heartbeat");
+    assert(transport.paths[before + 2] ==
+           "/api/agent/v1/observations/backend-health");
+    assert(transport.paths[before + 3] == "/api/agent/v1/commands/poll");
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+class SyntheticMediaExecutor final
+    : public vdrsuite::mediatools::IMediaImportAgentExecutor
+{
+public:
+    int executions = 0;
+    int authorizations = 0;
+    int listings = 0;
+    int observations = 0;
+    bool available() override { return true; }
+    bool verifiedInstallation(
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override
+    { out = {"manual", "0.1.0", std::string(64, 'a')}; return true; }
+    bool listTrustedSourceIds(std::vector<std::string>& ids) override
+    {
+        ++listings;
+        ids = {"source_00000000001"};
+        return true;
+    }
+    bool listTrustedSourceObservation(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview) override
+    {
+        ++observations;
+        return vdrsuite::mediatools::IMediaImportAgentExecutor::listTrustedSourceObservation(
+            ids, labels, partial, selectedSourceId, preview);
+    }
+    bool authorize(const BackendAgentCommandAssignment& value,
+                   const std::string& backend,
+                   std::uint64_t generation) override
+    {
+        ++authorizations;
+        std::string source;
+        return backend == "default" && generation == 9 &&
+            value.backendId == backend &&
+            value.backendGeneration == generation &&
+            value.claimEpoch == 3 &&
+            value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(
+                value.payload, source) &&
+            source == "local_token";
+    }
+    vdrsuite::mediatools::MediaImportAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override
+    {
+        ++executions;
+        // No real import, no filesystem paths or media writes in this test.
+        return vdrsuite::mediatools::MediaImportAgentOutcome::submitted;
+    }
+};
+
+void test_media_import_actual_agent_runtime_no_double_dispatch()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-media-import-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    config.commandStatePath = root + "/command.state";
+    config.commandTypes = {"addon.media.import"};
+    SyntheticMediaExecutor executor;
+    config.mediaImportExecutor = &executor;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    BackendAgentClientRuntime runtime(config, transport);
+    BackendAgentCommandAssignment command;
+    command.present = true;
+    command.requestId = "req_import";
+    command.correlationId = "corr_import";
+    command.operationId = "op_import";
+    command.jobId = "job_import";
+    command.attemptId = "att_import";
+    command.claimEpoch = 3;
+    command.commandId = "cmd_import";
+    command.backendId = "default";
+    command.agentId = "agt_client";
+    command.agentInstanceId = runtime.agentInstanceId();
+    command.backendGeneration = 9;
+    command.commandType = "addon.media.import";
+    command.payloadVersion = 1;
+    command.payload = "{\"sourceId\":\"local_token\"}";
+    command.verificationPolicy = "reconciliation_required";
+    command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    command.deadline = command.assignedAt + 50;
+    command.requestFingerprint = backendAgentCommandFingerprint(command);
+    assert(backendAgentCommandValidAssignment(command));
+
+    BackendAgentCommandPollResult assigned;
+    assigned.accepted = true;
+    assigned.reasonCode = "command_assigned";
+    assigned.assignment = command;
+
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":9,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
+    transport.responses.push_back(success(
+        200, serializeBackendAgentCommandPollResponseJson(assigned)));
+    transport.responses.push_back(success(200, "{}")); // receipt ack
+    transport.responses.push_back(success(200, "{}")); // result ack
+
+    if (!runtime.synchronize(reason))
+    {
+        std::cerr << "A6_RUNTIME_SYNCHRONIZE_FAILURE=" << reason << "\n";
+        assert(false);
+    }
+    assert(executor.authorizations == 1 && executor.executions == 1);
+    assert(transport.paths.size() == 8);
+    assert(transport.paths[4] ==
+        "/api/agent/v1/observations/media-import-sources");
+    assert(transport.bodies[4].find("\"source_00000000001\"") !=
+        std::string::npos);
+    assert(transport.bodies[4].find("/media/input") == std::string::npos);
+    assert(transport.bodies[4].find("\"handlerVersion\":\"0.1.0\"") !=
+        std::string::npos);
+    assert(transport.paths[5] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[6] == "/api/agent/v1/commands/receipt");
+    assert(transport.paths[7] == "/api/agent/v1/commands/result");
+    assert(transport.bodies[5].find("addon.media.import") !=
+        std::string::npos);
+    assert(transport.bodies[7].find("reconcile_only") != std::string::npos);
+    assert(executor.listings == 1 && executor.observations == 1);
+
+    // Heartbeat reconciles the persisted result, but must not execute twice.
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+    assert(runtime.heartbeat(reason));
+    assert(executor.executions == 1 && executor.authorizations == 1);
+    assert(executor.listings == 2);
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+void test_heartbeat_wait_is_interruptible()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-interruptible-wait";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\","
+        "\"backendId\":\"default\","
+        "\"backendGeneration\":1,"
+        "\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"capabilityRevision\":1,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"heartbeatSequence\":1,"
+        "\"leaseExpiresAt\":123,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+
+    bool stopRequested = false;
+    std::vector<int> sleeps;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int seconds) {
+            assert(seconds == 1);
+            sleeps.push_back(seconds);
+            stopRequested = true;
+        },
+        [](const std::string&) {});
+
+    assert(runtime.synchronize(reason));
+    const std::size_t requestsBeforeWait = transport.paths.size();
+
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(sleeps == std::vector<int>({1}));
+    assert(transport.paths.size() == requestsBeforeWait);
+    assert(transport.responses.empty());
+
+    removeTree(root);
+}
+class SyntheticShrinkExecutor final
+    : public vdrsuite::mediatools::IMediaShrinkAgentExecutor
+{
+public:
+    int executions = 0;
+    int authorizations = 0;
+    bool cleanFailure = false;
+    bool available(const std::string& type) override {
+        return type == vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    }
+    bool authorize(const BackendAgentCommandAssignment& assignment,
+                   const std::string& backend,
+                   std::uint64_t generation) override {
+        ++authorizations;
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        return backend == "default" && generation == 9 &&
+            assignment.backendId == backend &&
+            assignment.backendGeneration == generation &&
+            assignment.claimEpoch == 3 &&
+            vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                assignment.commandType, assignment.payload, selection) &&
+            selection.action ==
+                vdrsuite::mediatools::ShrinkRequestAction::stage;
+    }
+    vdrsuite::mediatools::MediaShrinkAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override {
+        ++executions;
+        // Synthetic stage only: no FFmpeg or media write occurs.
+        return cleanFailure ? vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected
+                            : vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted;
+    }
+    std::string takeReviewId() override {
+        return cleanFailure ? "" : "shk_0123456789abcdef0123456789abcdef";
+    }
+    std::string takeFailureCode() override {
+        return cleanFailure ? "ffmpeg_failed" : "";
+    }
+};
+
+void test_shrink_actual_agent_runtime_no_double_dispatch(bool cleanFailure = false)
+{
+    const std::string root = cleanFailure
+        ? "/tmp/vdr-suite-agent-shrink-runtime-failed"
+        : "/tmp/vdr-suite-agent-shrink-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    BackendAgentClientConfig config = configFor(root);
+    config.commandStatePath = root + "/command.state";
+    config.commandTypes = {
+        vdrsuite::mediatools::kMediaShrinkStageCommandType,
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType
+    };
+    SyntheticShrinkExecutor executor;
+    executor.cleanFailure = cleanFailure;
+    config.mediaShrinkExecutor = &executor;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    BackendAgentClientRuntime runtime(config, transport);
+    BackendAgentCommandAssignment command;
+    command.present = true;
+    command.requestId = "req_shrink";
+    command.correlationId = "corr_shrink";
+    command.operationId = "op_shrink";
+    command.jobId = "job_shrink";
+    command.attemptId = "att_shrink";
+    command.claimEpoch = 3;
+    command.commandId = "cmd_shrink";
+    command.backendId = "default";
+    command.agentId = "agt_client";
+    command.agentInstanceId = runtime.agentInstanceId();
+    command.backendGeneration = 9;
+    command.commandType =
+        vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    command.payloadVersion = 1;
+    command.payload =
+        "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"encoder\":\"software\",\"maxHeight\":720,\"nightMode\":false}";
+    command.verificationPolicy = "readback_required";
+    command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    command.deadline = command.assignedAt + 50;
+    command.requestFingerprint = backendAgentCommandFingerprint(command);
+    assert(backendAgentCommandValidAssignment(command));
+
+    BackendAgentCommandPollResult assigned;
+    assigned.accepted = true;
+    assigned.reasonCode = "command_assigned";
+    assigned.assignment = command;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":9,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200, serializeBackendAgentCommandPollResponseJson(assigned)));
+    transport.responses.push_back(success(200, "{}")); // receipt
+    transport.responses.push_back(success(200, "{}")); // result
+
+    if (!runtime.synchronize(reason)) {
+        std::cerr << "SHRINK_AGENT_SYNCHRONIZE_FAILURE=" << reason << "\n";
+        assert(false);
+    }
+    assert(executor.authorizations == 1 && executor.executions == 1);
+    bool foundResult = false;
+    bool foundStageAdvertisement = false;
+    for (std::size_t i = 0; i < transport.paths.size(); ++i) {
+        if (transport.paths[i] == "/api/agent/v1/commands/result") {
+            foundResult = true;
+            if (cleanFailure) {
+                assert(transport.bodies[i].find(
+                    "media_shrink_failure:ffmpeg_failed") != std::string::npos);
+                assert(transport.bodies[i].find(
+                    "shk_0123456789abcdef0123456789abcdef") == std::string::npos);
+                assert(transport.bodies[i].find("rejected") != std::string::npos);
+            } else {
+                assert(transport.bodies[i].find(
+                    "shk_0123456789abcdef0123456789abcdef") != std::string::npos);
+                assert(transport.bodies[i].find("reconcile_only") != std::string::npos);
+            }
+            assert(transport.bodies[i].find("/tmp/") == std::string::npos);
+        }
+        if (transport.paths[i] == "/api/agent/v1/commands/poll") {
+            foundStageAdvertisement = true;
+            assert(transport.bodies[i].find("addon.media.shrink.stage") !=
+                   std::string::npos);
+            assert(transport.bodies[i].find("addon.media.shrink.publish") ==
+                   std::string::npos);
+        }
+    }
+    assert(foundResult && foundStageAdvertisement);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+    assert(runtime.heartbeat(reason));
+    assert(executor.executions == 1);
+    assert(executor.authorizations == 1);
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+void test_shrink_requires_explicit_trusted_executor()
+{
+    BackendAgentCommandClientConfig config;
+    config.commandTypes = {
+        vdrsuite::mediatools::kMediaShrinkStageCommandType,
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType
+    };
+    const auto availability =
+        discoverBackendAgentCommandAvailability(config);
+    // Manifest/config alone cannot advertise an uninstalled or unreviewed
+    // media mutation, even though the wire parser understands its shape.
+    assert(availability.commandTypes.empty());
+}
+
+}
+
+int main()
+{
+    test_curl_proxy_disable_option_without_proxy_support();
+    test_mld_basic_authorization_without_curl_httpauth();
+    test_protected_url_and_configuration();
+    test_enrollment_connect_capability_heartbeat_and_restart();
+    test_credential_rotation_and_lost_response_recovery();
+    test_backend_health_observation_lost_response_and_resync_recovery();
+    test_legacy_identity_migrates_without_observation_cursor();
+    test_channel_source_and_strict_json_contract();
+    test_channel_observation_publication_change_and_pending_retry();
+    test_malformed_control_plane_numbers_fail_closed();
+    test_permissions_and_bounded_backoff();
+    test_low_latency_command_poll_between_heartbeats();
+    test_slow_command_poll_does_not_starve_heartbeat();
+    test_media_import_actual_agent_runtime_no_double_dispatch();
+    test_shrink_requires_explicit_trusted_executor();
+    test_shrink_actual_agent_runtime_no_double_dispatch();
+    test_shrink_actual_agent_runtime_no_double_dispatch(true);
+    test_heartbeat_wait_is_interruptible();
+    std::cout << "test_backend_agent_client passed" << std::endl;
+    return 0;
+}

@@ -1,0 +1,322 @@
+#pragma once
+
+#include "SecurityIdentity.h"
+
+#include <string>
+
+struct AuthorizationRequest
+{
+    std::string permission;
+    std::string backendId;
+    std::string action;
+};
+
+struct AuthorizationDecision
+{
+    bool allowed = false;
+    std::string reasonCode;
+    std::string permission;
+    std::string backendId;
+    std::string action;
+};
+
+class AuthorizationService
+{
+public:
+    AuthorizationDecision authorize(
+        const RequestSecurityContext& context,
+        const AuthorizationRequest& request) const
+    {
+        AuthorizationDecision decision;
+        decision.permission = request.permission;
+        decision.backendId = request.backendId;
+        decision.action = request.action;
+
+        if (context.authenticationState == AuthenticationState::Anonymous)
+        {
+            decision.reasonCode = "authentication_required";
+            return decision;
+        }
+        if (context.authenticationState == AuthenticationState::Invalid)
+        {
+            decision.reasonCode = "invalid_credentials";
+            return decision;
+        }
+        if (!context.actor.active || context.actor.actorId.empty())
+        {
+            decision.reasonCode = "actor_revoked";
+            return decision;
+        }
+        if (context.device.has_value() && !context.device->active)
+        {
+            decision.reasonCode = "device_revoked";
+            return decision;
+        }
+        if (context.credential.has_value())
+        {
+            if (context.credential->revoked || !context.credential->active)
+            {
+                decision.reasonCode = "credential_revoked";
+                return decision;
+            }
+            if (context.credential->expired)
+            {
+                decision.reasonCode = "credential_expired";
+                return decision;
+            }
+        }
+        if (context.session.has_value())
+        {
+            if (context.session->revoked || !context.session->active)
+            {
+                decision.reasonCode = "session_revoked";
+                return decision;
+            }
+            if (context.session->expired)
+            {
+                decision.reasonCode = "session_expired";
+                return decision;
+            }
+        }
+        if (context.authenticationState == AuthenticationState::Expired)
+        {
+            decision.reasonCode = "session_expired";
+            return decision;
+        }
+        if (context.authenticationState == AuthenticationState::Revoked)
+        {
+            decision.reasonCode = "session_revoked";
+            return decision;
+        }
+        if (context.permissionGrantResolution ==
+            PermissionGrantResolutionState::Unavailable)
+        {
+            decision.reasonCode = "permission_grants_unavailable";
+            return decision;
+        }
+        if (request.permission.empty())
+        {
+            decision.reasonCode = "invalid_permission";
+            return decision;
+        }
+        if (request.backendId.empty())
+        {
+            decision.reasonCode = "invalid_backend_scope";
+            return decision;
+        }
+        if (isReadOnlyMutation(context, request))
+        {
+            decision.reasonCode = "role_read_only";
+            return decision;
+        }
+
+        // The first Human Account receives role.admin@*. This is a global
+        // administrator for the supported human-facing permission catalogue,
+        // not a per-backend role assignment. Read-only policy, authentication,
+        // backend writability, CSRF and capability checks remain independent.
+        // Never expand a Service/Device actor's admin grant across backends.
+        const bool nativeTimerAdminAction =
+            (request.permission == "timers.view" &&
+             request.action == "native_timers.view") ||
+            (request.permission == "timers.create" &&
+             request.action == "native_timers.create") ||
+            (request.permission == "timers.modify" &&
+             request.action == "native_timers.modify") ||
+            (request.permission == "timers.delete" &&
+             request.action == "native_timers.delete");
+        // Add-on mutations are never implied by generic wildcard grants.
+        // A global, authenticated user administrator may operate the add-on
+        // installed by root without acquiring a second user grant.
+        // Other users still need an exact backend-scoped grant.
+        if (request.permission.rfind("addons.", 0) == 0)
+        {
+            // Grant vocabulary is strictly Core-owned. Future features
+            // remain disabled even if arbitrary grants are persisted.
+            if (request.permission != "addons.media.import" &&
+                request.permission != "addons.media.shrink")
+            {
+                decision.reasonCode = "permission_denied";
+                return decision;
+            }
+            if (request.backendId != "*" &&
+                context.actor.type == ActorType::User)
+            {
+                for (const PermissionGrant& grant : context.grants)
+                {
+                    if (grant.permission == "role.admin" &&
+                        grant.backendId == "*")
+                    {
+                        decision.allowed = true;
+                        decision.reasonCode = "role_permission_granted";
+                        return decision;
+                    }
+                }
+            }
+            for (const PermissionGrant& grant : context.grants)
+            {
+                if (grant.permission == request.permission &&
+                    grant.backendId == request.backendId &&
+                    request.backendId != "*")
+                {
+                    decision.allowed = true;
+                    decision.reasonCode = "permission_granted";
+                    return decision;
+                }
+            }
+            decision.reasonCode = "permission_denied";
+            return decision;
+        }
+
+        bool permissionPresent = false;
+        for (const PermissionGrant& grant : context.grants)
+        {
+            if (grant.permission != "role.admin" ||
+                (!adminRoleGrants(request.permission) &&
+                 !nativeTimerAdminAction))
+            {
+                continue;
+            }
+            permissionPresent = true;
+            if (grant.backendId == request.backendId ||
+                (grant.backendId == "*" &&
+                 (nativeTimerAdminAction ||
+                  context.actor.type == ActorType::User)))
+            {
+                decision.allowed = true;
+                decision.reasonCode = "role_permission_granted";
+                return decision;
+            }
+        }
+
+        for (const PermissionGrant& grant : context.grants)
+        {
+            const bool permissionMatches =
+                grant.permission == "*" ||
+                grant.permission == request.permission;
+            if (!permissionMatches) continue;
+            permissionPresent = true;
+            const bool backendMatches =
+                grant.backendId.empty() ||
+                grant.backendId == "*" ||
+                grant.backendId == request.backendId;
+            if (backendMatches)
+            {
+                decision.allowed = true;
+                decision.reasonCode = "permission_granted";
+                return decision;
+            }
+        }
+
+        decision.reasonCode = permissionPresent
+            ? "backend_scope_denied"
+            : "permission_denied";
+        return decision;
+    }
+
+private:
+    static bool protectedMutationPermission(
+        const std::string& permission)
+    {
+        return permission == "addons.media.import" ||
+            permission == "addons.media.shrink" ||
+            permission == "remote.control" ||
+            permission == "timers.create" ||
+            permission == "timers.modify" ||
+            permission == "timers.delete" ||
+            permission == "channels.move" ||
+            permission == "recordings.rename" ||
+            permission == "recordings.move" ||
+            permission == "recordings.delete" ||
+            permission == "recordings.cut" ||
+            permission == "recordings.marks.modify" ||
+            permission == "metadata.recording.assign" ||
+            permission == "searchtimers.create" ||
+            permission == "searchtimers.modify" ||
+            permission == "searchtimers.delete" ||
+            permission == "searchtimers.execute" ||
+            permission == "searchtimers.preview-cache.refresh" ||
+            permission == "epg.cache.refresh" ||
+            permission == "epgsearch.native-fuzzy.refresh" ||
+            permission == "epgsearch.native-fuzzy.stale-probes.delete" ||
+            permission == "backend.settings.series-artwork.modify" ||
+            permission == "backend.settings.media-transcode.modify" ||
+            permission == "accounts.create" ||
+            permission == "accounts.modify" ||
+            permission == "accounts.activate" ||
+            permission == "accounts.deactivate" ||
+            permission == "accounts.grants.modify" ||
+            permission == "devices.grants.modify" ||
+            permission == "devices.revoke" ||
+            permission == "devices.credentials.revoke" ||
+            permission == "devices.credentials.rotate" ||
+            permission == "accounts.credentials.revoke" ||
+            permission == "accounts.sessions.revoke" ||
+            permission == "device.pairing.decide" ||
+            permission == "backend.agent.enroll" ||
+            permission == "backend.agent.revoke" ||
+            permission == "backend.agent.credential.rotate" ||
+            permission == "broadcast.hbbtv.launch" ||
+            permission == "broadcast.hbbtv.input" ||
+            permission == "broadcast.session.manage_own" ||
+            permission == "broadcast.session.manage_all";
+    }
+
+    static bool mediaPermission(const std::string& permission)
+    {
+        return permission == "media.recording.play" ||
+            permission == "media.live.play";
+    }
+
+    static bool adminReadPermission(const std::string& permission)
+    {
+        return permission == "backend.settings.media-transcode.read" ||
+            permission == "accounts.view" ||
+            permission == "accounts.grants.view" ||
+            permission == "devices.grants.view" ||
+            permission == "devices.lifecycle.view" ||
+            permission == "accounts.credentials.view" ||
+            permission == "accounts.sessions.view" ||
+            permission == "device.pairing.view" ||
+            permission == "broadcast.teletext.view" ||
+            permission == "broadcast.hbbtv.view";
+    }
+
+    static bool adminRoleGrants(const std::string& permission)
+    {
+        // Only reviewed Human Account capabilities; never infer an unknown
+        // future permission or bypass the add-on's independent grant policy.
+        return protectedMutationPermission(permission) ||
+            mediaPermission(permission) ||
+            adminReadPermission(permission) ||
+            permission == "channels.view" ||
+            permission == "recordings.view" ||
+            permission == "recordings.execute" ||
+            permission == "epg.view" ||
+            permission == "timers.view" ||
+            permission == "searchtimers.view" ||
+            permission == "osd.view" ||
+            permission == "osd.control";
+    }
+
+    static bool mutatingPermission(const std::string& permission)
+    {
+        return protectedMutationPermission(permission) ||
+            permission == "osd.control";
+    }
+
+    static bool isReadOnlyMutation(
+        const RequestSecurityContext& context,
+        const AuthorizationRequest& request)
+    {
+        if (!mutatingPermission(request.permission)) return false;
+        for (const PermissionGrant& grant : context.grants)
+        {
+            if (grant.permission == "role.read-only" &&
+                grant.backendId == request.backendId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+};

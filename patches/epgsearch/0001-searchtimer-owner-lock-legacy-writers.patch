@@ -1,0 +1,109 @@
+From: VDR-Suite S1 native SearchTimer preparation
+Subject: [PATCH] epgsearch: serialize legacy search-rule writes under SearchExts owner lock
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+
+The existing GetSearchFromID() returns a raw pointer after dropping its
+inner lock. The service and SVDRP writers must hold the list owner's
+outer mutex while selecting and mutating a rule. Likewise ID assignment
+and insertion must be in the same critical section. The OSD on/off
+assignment and Save() must remain atomic as one operation.
+
+This patch is an isolated native prerequisite. It does NOT add a stable
+per-rule generation, revision, native compare-and-swap, persistence/rollback,
+or any Public API v1 write capability. Other OSD edit/delete and automatic
+mutation pathways need the same end-to-end audit before native CAS ships.
+It MUST NOT be used to authorize unsafe SearchTimer API mutations.
+
+diff --git a/services.c b/services.c
+--- a/services.c
++++ b/services.c
+@@ -54,9 +54,9 @@
+ {
+     cSearchExt* search = new cSearchExt;
+     if (search->Parse(settings.c_str())) {
++        cMutexLock SearchExtsLock(&SearchExts);
+         search->ID = SearchExts.GetNewID();
+         LogFile.Log(1, "added search '%s' (%d) via service interface", search->search, search->ID);
+-        cMutexLock SearchExtsLock(&SearchExts);
+         SearchExts.Add(search);
+         SearchExts.Save();
+         if (search->useAsSearchTimer && !EPGSearchConfig.useSearchTimers) // enable search timer thread if necessary
+@@ -73,6 +73,7 @@
+ {
+     cSearchExt Search;
+     if (Search.Parse(settings.c_str())) {
++        cMutexLock SearchExtsLock(&SearchExts);
+         cSearchExt *searchTemp = SearchExts.GetSearchFromID(Search.ID);
+         if (searchTemp) {
+             searchTemp->Parse(settings.c_str());
+@@ -90,10 +91,10 @@
+ 
+ bool cEpgsearchServiceHandler::DelSearchTimer(int ID)
+ {
++    cMutexLock SearchExtsLock(&SearchExts);
+     cSearchExt *search = SearchExts.GetSearchFromID(ID);
+     if (search) {
+         LogFile.Log(1, "search '%s' deleted via service interface", search->search);
+-        cMutexLock SearchExtsLock(&SearchExts);
+         SearchExts.Del(search);
+         SearchExts.Save();
+         RecsDone.RemoveSearchID(ID);
+diff --git a/epgsearchsvdrp.c b/epgsearchsvdrp.c
+--- a/epgsearchsvdrp.c
++++ b/epgsearchsvdrp.c
+@@ -208,10 +208,10 @@
+             }
+             if (isnumber(sOption.c_str())) {
+                 long SID = atol(sOption.c_str());
++                cMutexLock SearchExtsLock(&SearchExts);
+                 cSearchExt *search = SearchExts.GetSearchFromID(SID);
+                 if (search) {
+                     LogFile.Log(1, "search '%s' deleted via SVDRP", search->search);
+-                    cMutexLock SearchExtsLock(&SearchExts);
+                     if (delTimers)
+                         search->DeleteAllTimers();
+                     SearchExts.Del(search);
+@@ -234,9 +234,9 @@
+         if (*Option) {
+             cSearchExt* search = new cSearchExt;
+             if (search->Parse(Option)) {
++                cMutexLock SearchExtsLock(&SearchExts);
+                 search->ID = SearchExts.GetNewID();
+                 LogFile.Log(1, "added search '%s' (%d) via SVDRP", search->search, search->ID);
+-                cMutexLock SearchExtsLock(&SearchExts);
+                 SearchExts.Add(search);
+                 SearchExts.Save();
+                 if (search->useAsSearchTimer && !EPGSearchConfig.useSearchTimers) // enable search timer thread if necessary
+@@ -255,6 +255,7 @@
+         if (*Option) {
+             cSearchExt* search = new cSearchExt;
+             if (search->Parse(Option)) {
++                cMutexLock SearchExtsLock(&SearchExts);
+                 cSearchExt *searchTemp = SearchExts.GetSearchFromID(search->ID);
+                 if (searchTemp) {
+                     if (searchTemp->Parse(Option)) {
+@@ -289,6 +290,7 @@
+                 ReplyCode = 901;
+                 return cString::sprintf("missing parameter ON|OFF");
+             }
++            cMutexLock SearchExtsLock(&SearchExts);
+             cSearchExt *searchTemp = SearchExts.GetSearchFromID(ID);
+             if (searchTemp) {
+                 searchTemp->useAsSearchTimer = (strcasecmp(tail, "ON") == 0) ? 1 : 0;
+diff --git a/menu_searchactions.c b/menu_searchactions.c
+--- a/menu_searchactions.c
++++ b/menu_searchactions.c
+@@ -84,8 +84,11 @@
+ eOSState cMenuSearchActions::OnOffSearchtimer(void)
+ {
+     if (search) {
+-        search->useAsSearchTimer = search->useAsSearchTimer ? 0 : 1;
+-        SearchExts.Save();
++        {
++            cMutexLock SearchExtsLock(&SearchExts);
++            search->useAsSearchTimer = search->useAsSearchTimer ? 0 : 1;
++            SearchExts.Save();
++        }
+         if (!search->useAsSearchTimer && Interface->Confirm(tr("Disable associated timers too?")))
+             search->OnOffTimers(false);
+         if (search->useAsSearchTimer && Interface->Confirm(tr("Activate associated timers too?"))) {

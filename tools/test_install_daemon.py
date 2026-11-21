@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""Isolated installer contract tests: never touch systemd, live binaries or DB."""
+
+import contextlib
+import argparse
+import importlib.util
+import io
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+SCRIPT = Path(__file__).with_name("install_daemon.py")
+spec = importlib.util.spec_from_file_location("install_daemon_under_test", SCRIPT)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+
+def git(root, *args):
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True,
+                            check=True)
+    return result.stdout.strip()
+
+
+def commit(root, name, contents):
+    file = root / name
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(contents)
+    git(root, "add", name)
+    git(root, "commit", "-qm", "fixture")
+    return git(root, "rev-parse", "HEAD")
+
+
+class InstallerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="daemon-install-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        self.root.mkdir()
+        git(self.root, "init", "-q")
+        git(self.root, "config", "user.name", "Fixture")
+        git(self.root, "config", "user.email", "fixture@example.invalid")
+        (self.root / "tools").mkdir()
+        shutil.copyfile(SCRIPT, self.root / "tools" / "install_daemon.py")
+        (self.root / "mk").mkdir()
+        (self.root / "mk" / "runtime-api-tests.mk").write_text("daemon:\n\t@true\n")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-qm", "bootstrap")
+        self.old = git(self.root, "rev-parse", "HEAD")
+        self.live = Path(self.tmp.name) / "old-daemon"
+        self.live.write_bytes(b"ELF-fixture-git-" + self.old[:12].encode() + b"\n")
+
+    def test_check_is_read_only_and_no_backup_for_unrelated_cpp(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// audio and subtitles\n")
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", new, "--live", str(self.live)]), 0)
+        self.assertIn("DB_BACKUP_DECISION=NOT_REQUIRED", stream.getvalue())
+        self.assertIn("CHECK=PASS_NO_CHANGES", stream.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+    def test_ddl_change_requires_review_and_never_auto_backup(self):
+        new = commit(self.root, "core/vdr/src/FooRepository.cpp",
+                     'void ensureSchema(){ execute("CREATE TABLE important (id INT)"); }\n')
+        risk, flagged = mod.database_risk(self.root, self.old, new)
+        self.assertEqual(risk, "REVIEW_REQUIRED")
+        self.assertEqual(flagged, ["core/vdr/src/FooRepository.cpp"])
+
+    def test_changed_sqlite_source_requires_review(self):
+        new = commit(self.root, "core/sqlite/src/Database.cpp", "// changed database layer\n")
+        risk, paths = mod.database_risk(self.root, self.old, new)
+        self.assertEqual(risk, "REVIEW_REQUIRED")
+        self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
+
+    def test_divergent_daemon_history_is_not_an_install_blocker(self):
+        # Old binary can come from another branch. Only target build identity
+        # and actual source-to-source DB changes matter.
+        git(self.root, "switch", "-c", "previous-running")
+        previous = commit(self.root, "core/daemon/src/Running.cpp",
+                          "// previous deployed implementation\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "new-candidate", self.old)
+        target = commit(self.root, "core/daemon/src/Candidate.cpp",
+                        "// new replaceable implementation\\n")
+        risk, changed = mod.database_risk(self.root, previous, target)
+        self.assertEqual(risk, "NOT_REQUIRED")
+        self.assertEqual(changed, [])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", target, "--live", str(self.live)]), 0)
+        self.assertIn("DB_BACKUP_DECISION=NOT_REQUIRED", output.getvalue())
+        self.assertIn("CHECK=PASS_NO_CHANGES", output.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+    def test_divergent_previous_commit_reuses_sealed_target_without_compiling(self):
+        # KISS regression: replacement binaries do not need Git ancestry.
+        # A matching sealed target must win over any attempted recompilation.
+        git(self.root, "switch", "-c", "old-deployed-branch")
+        previous = commit(self.root, "core/daemon/src/Old.cpp",
+                          "// older running daemon\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "replacement-branch", self.old)
+        target = commit(self.root, "core/daemon/src/New.cpp",
+                        "// new static binary; ordinary code replacement\\n")
+        binary = self._sealed_binary(target)
+        log = io.StringIO()
+        with contextlib.redirect_stdout(log):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", target, "--live", str(self.live)]), 0)
+        self.assertIn("BUILD=REUSABLE", log.getvalue())
+        self.assertIn("DB_BACKUP_DECISION=NOT_REQUIRED", log.getvalue())
+        with (mock.patch.object(mod.os, "geteuid", return_value=1000),
+              mock.patch.object(mod.subprocess, "run",
+                                side_effect=AssertionError("must not compile"))):
+            mod.build(self.root, target)
+        self.assertEqual(mod.verified_candidate(self.root, target), binary)
+
+    def test_divergent_schema_change_still_demands_db_review(self):
+        git(self.root, "switch", "-c", "previous-running")
+        previous = commit(self.root, "core/sqlite/src/Database.cpp",
+                          "// previous database version\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "new-candidate", self.old)
+        target = commit(self.root, "core/daemon/src/Candidate.cpp",
+                        "// plain binary update\\n")
+        risk, paths = mod.database_risk(self.root, previous, target)
+        self.assertEqual(risk, "REVIEW_REQUIRED")
+        self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
+
+    def test_reuses_sealed_source_pin_only_across_installer_changes(self):
+        pinned = commit(self.root, "core/daemon/src/Pinned.cpp", "// pinned\\n")
+        commit(self.root, "tools/test_install_daemon.py", "// installer regression\\n")
+        mod.verify_source(self.root, pinned)
+        commit(self.root, "core/daemon/src/Pinned.cpp", "// changed daemon\\n")
+        with self.assertRaisesRegex(mod.Rejected, "SOURCE_CANDIDATE_CODE_CHANGED"):
+            mod.verify_source(self.root, pinned)
+
+    def test_unversioned_legacy_requires_exact_hash_and_reports_backup(self):
+        import hashlib
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        old_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        args = ["check", "--source", str(self.root), "--sha", new,
+                "--live", str(self.live), "--legacy-live-sha256", old_hash]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(mod.main(args), 0)
+        self.assertIn("INSTALLED_SOURCE_SHA=legacy-unversioned", output.getvalue())
+        self.assertIn("DB_BACKUP_DECISION=REVIEW_REQUIRED", output.getvalue())
+        self.assertIn("DATABASE_BACKUP_REQUIRED=YES", output.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-1] + ["0" * 64]), 1)
+        self.assertIn("LEGACY_LIVE_HASH_MISMATCH", stderr.getvalue())
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-2]), 1)
+        self.assertIn("INSTALLED_SOURCE_ID_UNKNOWN", stderr.getvalue())
+
+        self.live.write_bytes(b"versioned git-" + self.old[:12].encode())
+        versioned_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-1] + [versioned_hash]), 1)
+        self.assertIn("LEGACY_FLAG_REFUSES_VERSIONED_BINARY", stderr.getvalue())
+
+    def test_unversioned_legacy_apply_refuses_no_backup_before_service_actions(self):
+        import hashlib
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        old_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+            service="vdr-suite-daemon.service", legacy_live_sha256=old_hash,
+            db_review="no-backup", db_review_reason="never skip a required legacy backup",
+            database=None)
+        with (mock.patch.object(mod.os, "geteuid", return_value=0),
+              mock.patch.object(mod, "LIVE_PATH", self.live.resolve())):
+            with mock.patch.object(mod, "verified_candidate", return_value=self.live):
+                with mock.patch.object(mod, "service_bin_identity",
+                                       side_effect=AssertionError("service must not be accessed")):
+                    with self.assertRaisesRegex(mod.Rejected, "LEGACY_DATABASE_BACKUP_REQUIRED"):
+                        mod.apply(self.root, new, args, mod.LEGACY_SOURCE, "REVIEW_REQUIRED")
+
+    def test_legacy_apply_backs_up_database_and_explicit_rollback_restores_binary(self):
+        import hashlib
+        import sqlite3
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        binary = self._sealed_binary(new)
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        before = self.live.read_bytes()
+        old_hash = hashlib.sha256(before).hexdigest()
+        database = Path(self.tmp.name) / "state.db"
+        with sqlite3.connect(database) as db:
+            db.execute("CREATE TABLE keep_me (value TEXT)")
+            db.execute("INSERT INTO keep_me VALUES ('preserved')")
+
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+            service="vdr-suite-daemon.service", legacy_live_sha256=old_hash,
+            db_review="backup",
+            db_review_reason="The original unversioned build has unknown database provenance",
+            database=database)
+        with (mock.patch.object(mod.os, "geteuid", return_value=0),
+              mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run", return_value=""),
+              mock.patch.object(mod.time, "sleep")):
+            mod.apply(self.root, new, args, mod.LEGACY_SOURCE, "REVIEW_REQUIRED")
+            self.assertEqual(mod.digest(self.live), mod.digest(binary))
+            directory, _, _ = mod.candidate(self.root, new)
+            self.assertEqual((directory / "previous-daemon").read_bytes(), before)
+            with sqlite3.connect(directory / "database-before.sqlite") as db:
+                self.assertEqual(db.execute(
+                    "SELECT value FROM keep_me").fetchone(), ("preserved",))
+            rollback_args = argparse.Namespace(confirm_rollback=True,
+                live=self.live, service="vdr-suite-daemon.service",
+                db_review="no-backup",
+                db_review_reason="Explicitly return to the previous daemon binary, do not restore SQLite")
+            mod.rollback(self.root, new, rollback_args, new, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), before)
+
+    def test_unknown_binary_provenance_fails_closed_without_backup(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        self.live.write_bytes(b"no embedded git version")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", new, "--live", str(self.live)]), 1)
+        self.assertIn("INSTALLED_SOURCE_ID_UNKNOWN", stderr.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+    def test_build_seal_reuse_and_apply_without_seal_rejected(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        with self.assertRaisesRegex(mod.Rejected, "NO_SEALED_BUILD"):
+            mod.verified_candidate(self.root, new)
+        counter = Path(self.tmp.name) / "counts"
+        fakebin = Path(self.tmp.name) / "bin"
+        fakebin.mkdir()
+        faker = fakebin / "make"
+        faker.write_text("#!/bin/sh\n"
+                         "for arg in \"$@\"; do case \"$arg\" in BUILD_DIR=*) out=${arg#BUILD_DIR=};; VDR_SUITE_SERVER_VERSION=*) version=${arg#VDR_SUITE_SERVER_VERSION=};; esac; done\n"
+                         f"[ \"$version\" = \"git-{new[:12]}\" ] || exit 17\n"
+                         "mkdir -p \"$out\"\n"
+                         f"echo built >> '{counter}'\n"
+                         f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles trickplay_request_invalid trickplay_worker_busy trickplay_source_not_ready /trickplay\\n' > \"$out/vdr-suite-daemon\"\n"
+                         "chmod 755 \"$out/vdr-suite-daemon\"\n")
+        faker.chmod(0o755)
+        with mock.patch.object(mod.shutil, "disk_usage",
+                               side_effect=AssertionError("unrequested disk preflight")):
+            with mock.patch.dict(os.environ, {"PATH": str(fakebin) + ":" + os.environ["PATH"]}):
+                mod.build(self.root, new)
+                mod.build(self.root, new)
+        self.assertEqual(counter.read_text().count("built"), 1)
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
+        self.assertTrue(seal.is_file())
+        binary.write_bytes(binary.read_bytes() + b"tamper")
+        with self.assertRaisesRegex(mod.Rejected, "BUILD_SEAL_MISMATCH"):
+            mod.verified_candidate(self.root, new)
+
+    def test_wrong_provenance_is_preserved_not_silently_sealed(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// candidate\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        directory.mkdir(parents=True)
+        incorrect = b"\x7fELFversion-0.14.1 " + b" ".join(mod.FEATURES)
+        binary.write_bytes(incorrect)
+        binary.chmod(0o755)
+        with mock.patch.object(mod.subprocess, "run",
+                               side_effect=AssertionError("must not rebuild")):
+            with self.assertRaisesRegex(mod.Rejected, "BUILD_PROVENANCE_MISMATCH"):
+                mod.build(self.root, new)
+        self.assertEqual(binary.read_bytes(), incorrect)
+        self.assertFalse(seal.exists())
+
+
+    def test_interrupted_build_can_be_recovered_without_recompile(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        directory.mkdir(parents=True)
+        binary.write_bytes(b"\x7fELFgit-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
+        binary.chmod(0o755)
+        with mock.patch.object(mod.subprocess, "run", side_effect=AssertionError("make must not run")):
+            mod.build(self.root, new)
+        self.assertTrue(seal.is_file())
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
+
+    def _sealed_binary(self, new):
+        directory, binary, seal = mod.candidate(self.root, new)
+        directory.mkdir(parents=True)
+        binary.write_bytes(b"\x7fELFgit-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
+        binary.chmod(0o755)
+        seal.write_text(__import__("json").dumps({"schema": 1, "source": new,
+                                                     "binary_sha256": mod.digest(binary)}))
+        return binary
+
+    def test_apply_no_schema_change_never_backs_up_database(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        binary = self._sealed_binary(new)
+        old_bytes = self.live.read_bytes()
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+                                  service="vdr-suite-daemon.service", db_review=None,
+                                  db_review_reason=None, database=None)
+        original_run = mod.run
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "backup_database_offline", side_effect=AssertionError("DB backup forbidden")),
+              mock.patch.object(mod, "run", side_effect=lambda *a, **k: "" if a[0] == "systemctl" else original_run(*a, **k)),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+        self.assertEqual(self.live.read_bytes(), binary.read_bytes())
+        self.assertEqual((binary.parent / "previous-daemon").read_bytes(), old_bytes)
+        self.assertTrue(binary.is_file())
+
+    def test_apply_failed_start_restores_old_daemon_without_db_backup(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        binary = self._sealed_binary(new)
+        old_bytes = self.live.read_bytes()
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+                                  service="vdr-suite-daemon.service", db_review=None,
+                                  db_review_reason=None, database=None)
+        counts = {"start": 0}
+        original_run = mod.run
+        def fake_run(*cmd, **_kwargs):
+            if cmd[:2] == ("systemctl", "start"):
+                counts["start"] += 1
+                if counts["start"] == 1:
+                    raise mod.Rejected("INJECTED_START_FAILURE")
+            return "" if cmd[0] == "systemctl" else original_run(*cmd, **_kwargs)
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "backup_database_offline", side_effect=AssertionError("DB backup forbidden")),
+              mock.patch.object(mod, "run", side_effect=fake_run),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            with self.assertRaisesRegex(mod.Rejected, "INJECTED_START_FAILURE"):
+                mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+        self.assertEqual(self.live.read_bytes(), old_bytes)
+        self.assertTrue(binary.is_file())
+        self.assertEqual(counts["start"], 2)
+
+    def test_untrusted_source_changes_rejected(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
+        (self.root / "core/daemon/src/DeviceTrack.cpp").write_text("dirty")
+        with self.assertRaisesRegex(mod.Rejected, "SOURCE_TRACKED_DIRTY"):
+            mod.verify_source(self.root, new)
+
+
+    def test_build_as_root_compiles_once_and_reuses_candidate(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// candidate\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        calls = []
+
+        def fake_make(command, **_kwargs):
+            calls.append(command)
+            self.assertEqual(command[:3], ["make", "-C", str(self.root)])
+            self.assertIn(f"BUILD_DIR={directory}", command)
+            self.assertIn(f"VDR_SUITE_SERVER_VERSION=git-{new[:12]}", command)
+            binary.write_bytes(b"\x7fELFgit-" + new[:12].encode()
+                               + b" " + b" ".join(mod.FEATURES))
+            binary.chmod(0o755)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(mod.os, "geteuid", return_value=0):
+            with mock.patch.object(mod.shutil, "disk_usage",
+                                   side_effect=AssertionError("unrequested disk preflight")):
+                with mock.patch.object(mod.subprocess, "run", side_effect=fake_make):
+                    mod.build(self.root, new)
+                    mod.build(self.root, new)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(seal.is_file())
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
+
+    def test_service_binary_identity_requires_vdr_suite_execstart(self):
+        live = self.live
+        def fake_run(*cmd, **_kwargs):
+            if cmd[:2] == ("systemctl", "is-active"):
+                return "active"
+            if "--property=ExecStart" in cmd:
+                return "{ path=/usr/sbin/vdr-suite-daemon ; argv[]=/usr/sbin/vdr-suite-daemon ; }"
+            if "-p" in cmd and "MainPID" in cmd:
+                return "12345"
+            raise AssertionError("unexpected command:" + repr(cmd))
+        with (mock.patch.object(mod, "run", side_effect=fake_run),
+              mock.patch.object(mod, "digest", return_value="a"*64)):
+            mod.service_bin_identity("vdr-suite-daemon.service", live)
+        with mock.patch.object(mod, "run", return_value=
+                               "{ path=/bin/bash ; argv[]=/bin/bash ; }"):
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "SERVICE_EXECSTART_UNEXPECTED"):
+                mod.service_bin_identity("vdr-suite-daemon.service", live)
+
+    def test_trickplay_marker_required_in_linked_candidate(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// safe codec preview\n")
+        binary = self._sealed_binary(new)
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
+        original = binary.read_bytes()
+        for marker in (b"trickplay_request_invalid", b"trickplay_worker_busy",
+                       b"trickplay_source_not_ready", b"/trickplay"):
+            binary.write_bytes(original.replace(marker, b"omitted", 1))
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "BUILD_DEVICE_FEATURE_MISSING"):
+                mod.verify_binary(binary, new)
+        binary.write_bytes(original)
+
+    def test_manual_rollback_is_explicit_and_restores_running_binary(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// harmless candidate\n")
+        binary = self._sealed_binary(new)
+        before = self.live.read_bytes()
+        args = argparse.Namespace(confirm_apply=True, confirm_rollback=False,
+                                  live=self.live,
+                                  service="vdr-suite-daemon.service",
+                                  db_review=None, db_review_reason=None,
+                                  database=None)
+        original_run = mod.run
+        def fake_run(*command, **options):
+            return "" if command[0] == "systemctl" else original_run(
+                *command, **options)
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK",
+                                Path(self.tmp.name) / "installer-lock"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run", side_effect=fake_run),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), binary.read_bytes())
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "EXPLICIT_ROLLBACK_CONFIRMATION_REQUIRED"):
+                mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+            args.confirm_rollback = True
+            mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+        self.assertEqual(self.live.read_bytes(), before)
+        self.assertTrue(binary.is_file())
+        self.assertTrue((binary.parent / "previous-daemon.json").is_file())
+
+    def test_manual_rollback_rejects_changed_receipt(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// harmless candidate\n")
+        binary = self._sealed_binary(new)
+        args = argparse.Namespace(confirm_apply=True, confirm_rollback=True,
+                                  live=self.live,
+                                  service="vdr-suite-daemon.service",
+                                  db_review=None, db_review_reason=None,
+                                  database=None)
+        original_run = mod.run
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK",
+                                Path(self.tmp.name) / "installer-lock"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run",
+                                side_effect=lambda *cmd, **kw:
+                                "" if cmd[0] == "systemctl" else
+                                original_run(*cmd, **kw)),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+            receipt = binary.parent / "previous-daemon.json"
+            payload = __import__("json").loads(receipt.read_text())
+            payload["previous_sha256"] = "0" * 64
+            receipt.write_text(__import__("json").dumps(payload))
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "ROLLBACK_RECEIPT_MISMATCH"):
+                mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), binary.read_bytes())
+
+
+if __name__ == "__main__":
+    unittest.main()

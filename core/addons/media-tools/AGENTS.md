@@ -1,0 +1,3 @@
+# Media Tools Core integration rules
+
+Inherit root `AGENTS.md`, `core/addons/AGENTS.md`, `addons/media-tools/AGENTS.md` and `modules/rectools/AGENTS.md`. This subtree owns Suite Core's Media Tools-specific admission, durable operation fences, review and maintenance adapters, **not** the executable media processors. Preserve canonical actor/backend grants, exact handler trust, generation and revision fencing, idempotency, durable audit and fail-closed recovery. Never introduce legacy repair/smart_repair or Suite-owned cut/marks/rename/move. A source-only move does not authorize activation. Validate focused C++ tests plus daemon/Agent linkage before runtime enablement. Do not modify installed VDR services or recording files automatically.

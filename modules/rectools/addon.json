@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "rectools",
+  "version": "0.1.0",
+  "package": "vdr-suite-addon-media-tools",
+  "state": "scaffold",
+  "displayName": "Media Tools (Rectools)",
+  "description": "Future import, read-only check and gated shrink integration; no runnable handlers yet",
+  "entrypoints": [],
+  "capabilities": [],
+  "permissions": [],
+  "dependencies": []
+}

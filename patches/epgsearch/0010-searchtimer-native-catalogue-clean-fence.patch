@@ -1,0 +1,47 @@
+From: VDR-Suite S1 native CAS catalogue isolation
+Subject: [PATCH 10/10] epgsearch: refuse native CAS when another rule is dirty
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0009 in filename order
+
+Save() writes ALL rules to epgsearch.conf, not just the guarded target.
+An unrelated legacy writer may have unsaved in-memory changes. The native
+owner lock serializes the supported paths, but would not prevent committing
+such staged changes as a side effect of UPDATE/TOGGLE/DELETE. Require an
+entirely durable, text-clean catalogue inside the CAS critical section before
+any rule mutation. Non-durable or dirty rules yield the existing safe
+unpersisted-change status with no write attested. The same check also prevents
+CAS Save() from opportunistically minting new identities for old rules.
+
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -225,2 +225,17 @@
++// epgsearch saves the *whole* rule catalogue. A guarded write must never
++// accidentally commit staged, unlocked changes to a different legacy rule.
++// Caller MUST hold the native SearchExts owner mutex.
++static bool NativeCasCatalogueClean()
++{
++    for (cSearchExt *entry = SearchExts.First(); entry;
++         entry = SearchExts.Next(entry)) {
++        if (!entry->nativeGenerationDurable ||
++            !entry->nativeRevisionDurable ||
++            entry->lastPersistedText != entry->ToText())
++            return false;
++    }
++    return true;
++}
++
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
+@@ -257,2 +257,2 @@
+-            } else if (rule->lastPersistedText != rule->ToText()) {
++            } else if (!NativeCasCatalogueClean()) {
+                 out->status = endcsUnpersistedChange;
+@@ -331,2 +331,2 @@
+-            } else if (rule->lastPersistedText != rule->ToText()) {
++            } else if (!NativeCasCatalogueClean()) {
+                 out->status = enucsUnpersistedChange;
+@@ -405,2 +405,2 @@
+-            } else if (rule->lastPersistedText != rule->ToText()) {
++            } else if (!NativeCasCatalogueClean()) {
+                 // Another legacy writer has already staged changes in RAM.

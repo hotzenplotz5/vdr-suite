@@ -1,0 +1,290 @@
+diff --git a/api/rest/include/EpgCacheController.h b/api/rest/include/EpgCacheController.h
+index 7f55452..b7c4c0a 100644
+--- a/api/rest/include/EpgCacheController.h
++++ b/api/rest/include/EpgCacheController.h
+@@ -7,8 +7,10 @@
+ #include <string>
+ 
++class EpgArtworkPublicJsonSerializer;
++class EpgArtworkRepository;
+ class EpgCacheService;
+ class EpgCacheServiceRegistry;
+ 
+ class IEpgCacheController
+@@ -41,6 +43,14 @@ class EpgCacheController : public IEpgCacheController
+ public:
+     explicit EpgCacheController(EpgCacheService& service);
+     explicit EpgCacheController(EpgCacheServiceRegistry& registry);
++    EpgCacheController(
++        EpgCacheService& service,
++        EpgArtworkRepository& artworkRepository,
++        EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
++    EpgCacheController(
++        EpgCacheServiceRegistry& registry,
++        EpgArtworkRepository& artworkRepository,
++        EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
+ 
+     ApiResponse refreshBackendWindow(
+         const std::string& backendId,
+@@ -65,6 +75,8 @@ public:
+ private:
+     EpgCacheService* directService_;
+     EpgCacheServiceRegistry* registry_;
++    EpgArtworkRepository* artworkRepository_;
++    EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
+ 
+     EpgCacheService* findService(
+         const std::string& backendId) const;
+diff --git a/api/rest/src/EpgCacheController.cpp b/api/rest/src/EpgCacheController.cpp
+index 9a9205d..31a31ad 100644
+--- a/api/rest/src/EpgCacheController.cpp
++++ b/api/rest/src/EpgCacheController.cpp
+@@ -2,6 +2,9 @@
+ 
++#include "EpgArtworkPublicJsonSerializer.h"
++#include "EpgArtworkReference.h"
++#include "EpgArtworkRepository.h"
+ #include "EpgCacheService.h"
+ #include "EpgCacheServiceRegistry.h"
+ #include "VdrEvent.h"
+@@ -74,7 +77,30 @@ const char* boolJson(bool value)
+     return value ? "true" : "false";
+ }
+ 
+-std::string serializeEvent(const VdrEvent& event)
++std::string serializeArtwork(
++    const std::string& backendId,
++    const VdrEvent& event,
++    EpgArtworkRepository* artworkRepository,
++    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
++{
++    if (artworkRepository == nullptr || artworkJsonSerializer == nullptr)
++    {
++        return "{\"available\":false}";
++    }
++
++    const EpgArtworkReference artwork = artworkRepository->find(
++        backendId,
++        event.channelId,
++        event.id);
++
++    return artworkJsonSerializer->serialize(artwork);
++}
++
++std::string serializeEvent(
++    const std::string& backendId,
++    const VdrEvent& event,
++    EpgArtworkRepository* artworkRepository,
++    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
+ {
+     std::ostringstream json;
+ 
+@@ -88,7 +114,12 @@ std::string serializeEvent(const VdrEvent& event)
+         << "\"startTime\":\"" << escapeJsonString(event.startTime) << "\","
+         << "\"endTime\":\"" << escapeJsonString(event.endTime) << "\","
+         << "\"durationSeconds\":" << event.durationSeconds << ","
+-        << "\"parentalRating\":" << event.parentalRating
++        << "\"parentalRating\":" << event.parentalRating << ","
++        << "\"artwork\":"
++        << serializeArtwork(
++            backendId,
++            event,
++            artworkRepository,
++            artworkJsonSerializer)
+         << "}";
+ 
+     return json.str();
+@@ -96,7 +127,9 @@ std::string serializeEvent(const VdrEvent& event)
+ 
+ std::string serializeEvents(
+     const std::string& backendId,
+-    const std::vector<VdrEvent>& events)
++    const std::vector<VdrEvent>& events,
++    EpgArtworkRepository* artworkRepository,
++    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
+ {
+     std::ostringstream json;
+ 
+@@ -113,7 +146,12 @@ std::string serializeEvents(
+             json << ",";
+         }
+ 
+-        json << serializeEvent(events.at(index));
++        json << serializeEvent(
++            backendId,
++            events.at(index),
++            artworkRepository,
++            artworkJsonSerializer);
+     }
+ 
+     json << "]}";
+@@ -192,13 +230,37 @@ ApiResponse jsonResponse(int statusCode, const std::string& body)
+ 
+ EpgCacheController::EpgCacheController(EpgCacheService& service)
+     : directService_(&service),
+-      registry_(nullptr)
++      registry_(nullptr),
++      artworkRepository_(nullptr),
++      artworkJsonSerializer_(nullptr)
+ {
+ }
+ 
+ EpgCacheController::EpgCacheController(EpgCacheServiceRegistry& registry)
+     : directService_(nullptr),
+-      registry_(&registry)
++      registry_(&registry),
++      artworkRepository_(nullptr),
++      artworkJsonSerializer_(nullptr)
++{
++}
++
++EpgCacheController::EpgCacheController(
++    EpgCacheService& service,
++    EpgArtworkRepository& artworkRepository,
++    EpgArtworkPublicJsonSerializer& artworkJsonSerializer)
++    : directService_(&service),
++      registry_(nullptr),
++      artworkRepository_(&artworkRepository),
++      artworkJsonSerializer_(&artworkJsonSerializer)
++{
++}
++
++EpgCacheController::EpgCacheController(
++    EpgCacheServiceRegistry& registry,
++    EpgArtworkRepository& artworkRepository,
++    EpgArtworkPublicJsonSerializer& artworkJsonSerializer)
++    : directService_(nullptr),
++      registry_(&registry),
++      artworkRepository_(&artworkRepository),
++      artworkJsonSerializer_(&artworkJsonSerializer)
+ {
+ }
+@@ -287,11 +349,14 @@ ApiResponse EpgCacheController::getNowNext(
+         200,
+         serializeEvents(
+             normalizedBackendId,
+             service->findNowNextForBackend(
+                 normalizedBackendId,
+                 channelId,
+                 fromTime,
+-                eventLimit)));
++                eventLimit),
++            artworkRepository_,
++            artworkJsonSerializer_));
+ }
+@@ -315,10 +380,13 @@ ApiResponse EpgCacheController::getWindow(
+         200,
+         serializeEvents(
+             normalizedBackendId,
+             service->findWindowForBackend(
+                 normalizedBackendId,
+                 channelId,
+                 fromTime,
+                 untilTime,
+-                eventLimit)));
++                eventLimit),
++            artworkRepository_,
++            artworkJsonSerializer_));
+ }
+diff --git a/api/rest/tests/test_epg_cache_controller.cpp b/api/rest/tests/test_epg_cache_controller.cpp
+index 6f08e8d..ff85c13 100644
+--- a/api/rest/tests/test_epg_cache_controller.cpp
++++ b/api/rest/tests/test_epg_cache_controller.cpp
+@@ -1,4 +1,7 @@
+ #include "Database.h"
++#include "EpgArtworkPublicJsonSerializer.h"
++#include "EpgArtworkReference.h"
++#include "EpgArtworkRepository.h"
+ #include "EpgCacheController.h"
+ #include "EpgCacheService.h"
+ #include "IVdrAdapter.h"
+@@ -317,6 +320,71 @@ static void test_window_read_filters_multiple_channel_ids()
+     assert(adapter.boundedEventCalls == 1);
+ }
+ 
++static void test_event_json_contains_public_artwork_contract()
++{
++    const char* databasePath =
++        "/tmp/vdr-suite-epg-cache-controller-artwork-test.db";
++    std::remove(databasePath);
++
++    Database database;
++    assert(database.open(databasePath));
++
++    EpgEventRepository eventRepository(database);
++    EpgArtworkRepository artworkRepository(database);
++    assert(artworkRepository.ensureSchema());
++
++    MockEventAdapter adapter;
++    VdrService vdrService(adapter);
++    EpgCacheService service(eventRepository, vdrService);
++    EpgArtworkPublicJsonSerializer artworkJsonSerializer;
++    EpgCacheController controller(
++        service,
++        artworkRepository,
++        artworkJsonSerializer);
++
++    VdrEventQuery query;
++    query.limit = 2;
++
++    adapter.events = {
++        make_event("event-1", "channel one/HD", "With Artwork", "0900", "1000"),
++        make_event("event-2", "channel-2", "Without Artwork", "1000", "1100")};
++
++    const ApiResponse refresh =
++        controller.refreshBackendWindow("home vdr", query);
++    assert(refresh.statusCode == 200);
++
++    EpgArtworkReference artwork;
++    artwork.backendId = "home vdr";
++    artwork.channelId = "channel one/HD";
++    artwork.eventId = "event-1";
++    artwork.provider = "tvscraper";
++    artwork.path = "/var/cache/vdr/tvscraper/private-event-1.jpg";
++    artwork.width = 1280;
++    artwork.height = 720;
++    artwork.resolvedAt = 123456;
++    assert(artworkRepository.upsert(artwork));
++
++    const ApiResponse window = controller.getWindow(
++        "home vdr",
++        "channel one/HD,channel-2",
++        "0900",
++        "1200",
++        0);
++
++    assert(window.statusCode == 200);
++    assert(contains(window.body, "\"artwork\":{\"available\":true"));
++    assert(contains(window.body, "\"provider\":\"tvscraper\""));
++    assert(contains(window.body, "\"width\":1280"));
++    assert(contains(window.body, "\"height\":720"));
++    assert(contains(window.body, "backend=home%20vdr"));
++    assert(contains(window.body, "channelId=channel%20one%2FHD"));
++    assert(contains(window.body, "eventId=event-1"));
++    assert(contains(window.body, "\"artwork\":{\"available\":false}"));
++    assert(!contains(window.body, artwork.path));
++    assert(!contains(window.body, "/var/cache"));
++}
++
+ 
+ int main()
+ {
+@@ -324,6 +392,7 @@ int main()
+     test_status_reports_count_and_last_refresh_metadata();
+     test_window_read_defaults_empty_backend_to_default();
+     test_window_read_filters_multiple_channel_ids();
++    test_event_json_contains_public_artwork_contract();
+ 
+     return 0;
+ }
+diff --git a/mk/common.mk b/mk/common.mk
+index d6ba230..e70a019 100644
+--- a/mk/common.mk
++++ b/mk/common.mk
+@@ -56,6 +56,7 @@ test-epg-cache-controller:
+ 		core/vdr/src/EpgEventRepository.cpp \
+ 		core/vdr/src/EpgArtworkRepository.cpp \
++		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
+ 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
+ 		core/vdr/src/EpgCacheService.cpp \
+ 		core/vdr/src/VdrService.cpp \

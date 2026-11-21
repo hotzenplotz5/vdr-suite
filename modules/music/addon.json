@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "music",
+  "version": "0.1.0",
+  "package": "vdr-suite-addon-music",
+  "state": "scaffold",
+  "displayName": "Music",
+  "description": "Future audio catalog and playlists; no runnable handlers yet",
+  "entrypoints": [],
+  "capabilities": [],
+  "permissions": [],
+  "dependencies": []
+}

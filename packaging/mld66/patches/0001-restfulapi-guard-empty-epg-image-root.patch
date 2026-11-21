@@ -1,0 +1,48 @@
+From: VDR-Suite MLD integration
+Subject: [PATCH] restfulapi: guard absent EPG artwork root in recording output
+
+If the configured/default EPG image directory does not exist, Settings
+leaves its path empty. A JSON recording with TVScraper media then calls
+cleanImagePath(), which passes the empty prefix to StringExtension::replace.
+Because replacing an empty substring with an empty string never advances the
+search position, the RESTfulAPI HTTP request never completes.
+
+Return no relative image path when no EPG root is configured and make the
+shared replace utility safe for all empty-needle callers.
+
+This patch is a SOURCE-LEVEL CANDIDATE for the RESTfulAPI SRCREV
+79f9bd26370a08d6c5186c19cefa300c569045ea. It has not been applied to
+the MLD BitBake recipe or validated on Pit's host.
+
+---
+ scraper2vdr.cpp | 4 ++++
+ tools.cpp       | 3 +++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/scraper2vdr.cpp b/scraper2vdr.cpp
+--- a/scraper2vdr.cpp
++++ b/scraper2vdr.cpp
+@@ -184,6 +184,10 @@
+ string Scraper2VdrService::cleanImagePath(string path) {
+
++  // An absent EPG image directory must not trigger empty-string replacement.
++  if (epgImagesDir.empty())
++    return "";
++
+   path = StringExtension::replace(path, epgImagesDir, "");
+   path.erase(0, path.find_first_not_of("/"));
+   return path;
+ };
+diff --git a/tools.cpp b/tools.cpp
+--- a/tools.cpp
++++ b/tools.cpp
+@@ -1375,6 +1375,9 @@
+ string StringExtension::replace(string const& text, string const& substring, string const& replacement)
+ {
++  if (substring.empty())
++    return text;
++
+   std::string result = text;
+   std::string::size_type pos = 0;
+   while ( ( pos = result.find( substring, pos ) ) != std::string::npos ) {
+     result.replace( pos, substring.length(), replacement );

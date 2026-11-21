@@ -1,0 +1,28 @@
+.TH VDR-SUITE-DAEMON 8 "Phase 56" "vdr-suite" "System Administration"
+.SH NAME
+vdr-suite-daemon \- runtime daemon for vdr-suite
+.SH SYNOPSIS
+.B vdr-suite-daemon
+.SH DESCRIPTION
+.B vdr-suite-daemon
+is the runtime service process for vdr-suite.
+
+It exposes the vdr-suite runtime API and coordinates configured VDR backends through the internal service and adapter architecture.
+.SH CONFIGURATION
+The default configuration file is planned as:
+.PP
+.I /etc/vdr-suite/vdr-suite.conf
+.PP
+The exact configuration keys are defined by the runtime configuration contract and may evolve before Debian packaging is introduced.
+.SH FILES
+.TP
+.I /etc/vdr-suite/vdr-suite.conf
+Runtime configuration file.
+.TP
+.I /usr/sbin/vdr-suite-daemon
+Daemon binary.
+.SH SEE ALSO
+.BR vdr-suite.conf (5),
+.BR vdr-suite-dashboard (1)
+.SH STATUS
+This manual page is an initial Phase 56 skeleton for packaging-readiness work.

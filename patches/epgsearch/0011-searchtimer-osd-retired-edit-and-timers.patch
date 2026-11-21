@@ -1,0 +1,46 @@
+From: VDR-Suite S1 legacy OSD lifetime safety
+Subject: [PATCH 11/11] epgsearch: fence retired edits and delete-all-timers OSD action
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0010 in filename order
+
+The edit menu keeps a cSearchExt pointer while operators change fields.
+Native CAS DELETE retires that pointer but does not free it until shutdown.
+Refuse to apply an edit to a detached rule; new-rule menus are unaffected.
+
+The actions menu offered DeleteAllTimers for a cached pointer without a
+post-confirmation membership check. Since VDR timers carry the reusable
+numeric search ID, an intervening deletion/recreation could delete native
+timers belonging to another search. Validate membership under the same
+SearchExts lock held across DeleteAllTimers; do not touch timers on stale
+pointers. This patch does not extend any public mutation capability.
+
+diff --git a/menu_searchedit.c b/menu_searchedit.c
+--- a/menu_searchedit.c
++++ b/menu_searchedit.c
+@@ -591,5 +591,10 @@
+             if (searchExt) {
+                 // Cover the OSD edit, rule ID assignment and Save() as
+                 // a single epgsearch-owned mutation critical section.
+                 cMutexLock SearchExtsLock(&SearchExts);
++                // An OSD editor can remain open across native CAS DELETE.
++                // An old pointer must not rewrite a retired rule or restart
++                // search-timer processing after its native identity was removed.
++                if (!addIfConfirmed && !SearchExts.Exists(searchExt))
++                    return osBack;
+                 *searchExt = data;
+diff --git a/menu_searchactions.c b/menu_searchactions.c
+--- a/menu_searchactions.c
++++ b/menu_searchactions.c
+@@ -151,6 +151,11 @@
+         if (current == 9) {
+             if (!Interface->Confirm(tr("Delete all timers created from this search?")))
+                 return osBack;
+-            search->DeleteAllTimers();
++            // A deleted rule's numeric ID may now belong to another rule.
++            // Revalidate after the confirmation, with the owner lock held
++            // across the timer action so the ID cannot be concurrently reused.
++            cMutexLock SearchExtsLock(&SearchExts);
++            if (search && SearchExts.Exists(search))
++                search->DeleteAllTimers();
+             return osBack;
+         }

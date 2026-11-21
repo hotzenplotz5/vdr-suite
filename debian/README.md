@@ -1,0 +1,268 @@
+# Experimental Debian source packaging
+
+**PPA status (17 October 2026):** The Debian/Ubuntu packaging is in
+[merged PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494) on `main`
+(SHA `2a81dea07455ad2801ac959d9a8fcf759dbc4994`). The existing
+Launchpad recipe `vdr-suite-packaging-experimental` now tracks `main`
+and targets Noble and Resolute.
+
+For **Noble 24.04**, the three VDR-Suite binaries were published as
+`0.14.1-1~exp2~ppa2+202610170549~ubuntu24.04.1`, with real isolated
+APT/daemon/HTTP/plugin-loader acceptance in
+[run #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095).
+For **Resolute 26.04**, all three binaries were published as
+`0.14.1-1~exp2~ppa2+202610171542~ubuntu26.04.1`, and the actual
+APT installation, VDR ABI, daemon/HTTP and restart passed in
+[run #39070097283](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283)
+on `main`. Both series also have the separately packaged patched
+`vdr-plugin-web`.
+
+Old statements below such as “no Launchpad upload”, “Resolute pending” or
+“main integration in progress” describe **historical checkpoints only**.
+The PPA remains **experimental**; neither CI nor successful isolated
+runtime checks authorize existing yaVDR migration, hardware playback or
+automatic Daily publication. Launchpad's *Built daily* option has no
+built-in dependency on GitHub CI success; retain manual builds pending an
+explicit publishing policy. [Current PPA acceptance](../packaging/README.md).
+
+This root `debian/` directory is the canonical source-package location for `dpkg-buildpackage`. The historical `packaging/debian/` directory is documentation, not an alternative `debian/` source tree.
+
+## MT.I4.1: optionales viertes Binärpaket (Quellintegration, 15.11.2026)
+
+Der reguläre Build ohne `plugin-only` erzeugt jetzt auch `vdr-suite-addon-media-tools` als **inaktives** Paket. Die drei Worker werden im normalen Build gezielt mitgebaut, aber nicht ein zweites Mal für das Paket kompiliert. `debian/rules` übernimmt über `tools/addons/debian_media_tools.py` die bestehende versiegelte Suite-/Media-Tools-Stage und `stage_package_paths()` als einzige Liste der acht Add-on-Artefakte. Die von Debian zusätzlich vorgeschriebenen Lizenz-/Changelogdateien gehören nicht zu diesen acht Stage-Dateien.
+
+Die Add-on-Dateien werden nach `dh_install` getrennt in den vierten Paketbaum übernommen, damit das bestehende rekursive Daemon-Manifest `usr/share/vdr-suite/` keine Media-Tools-Dateien mitbeansprucht. `dh_strip` und `dh_dwz` bearbeiten nur die bisherigen Pakete; vor `dh_installdeb` werden Add-on-Hashes und Modi nochmals mit dem Stage-Inventar abgeglichen. Der vorhandene Kollisions-`preinst` wird wiederverwendet. Weder ein automatischer Dienststart noch eine Rechtefreigabe oder Migration sind Teil der Paketierung. Das Profil `plugin-only` schließt dieses Paket aus.
+
+**MT.I4.2 (isolierte Regressionen):** `tools/addons/test_debian_media_tools_lifecycle.py` nutzt reale `dpkg`-Aufrufe mit `--instdir`, separater `--admindir` und lokalem Log in einem wegwerfbaren Root, sowie denselben Kollisionsguard mit dessen schon vorhandenem `test_root`-Parameter. Vorhandene Test-Konfiguration, SQLite, Approvals und eine synthetische VDR-Aufnahme werden vor/nach Kollision, Erstinstallation, Upgrade, Remove und Purge auf Bytegleichheit geprüft. Das Testpaket verwendet nur synthetische Daten und keine echte Dependency-Auflösung. **MT.I4.2: zwei echte dpkg-Fixture-Tests in Run 43684833173 PASS; Ubuntu-APT-Abnahme und REAL-yaVDR NOT_VERIFIED.**
+
+Für den SHA-Provenienznachweis im bestehenden `git archive`-Quellpaketweg wird `.vdr-suite-source-commit` per `export-subst` auf die echte Commit-SHA erweitert. **Aktueller Nachweis:** Python-Syntaxprüfung, Make-Dry-Runs und die gezielte Offline-Paketierungs-CI ([Run 43684833173](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43684833173), 56 vorhandene + 4 MT.I4.1 + 2 MT.I4.2 Tests PASS). Ein vollständiger normaler Vier-Binärpaketbau, abhängige reale Ubuntu-APT-Installation und produktiver yaVDR-Readback bleiben **NOT_VERIFIED**, bis sie tatsächlich ausgeführt und protokolliert wurden. Keine PPA-Veröffentlichung ausgelöst.
+
+**MT.I4.1/MT.I4.2 Abnahme-Nachtrag (15.11.2026):** `dh_fixperms` hatte im echten Noble-Quellpaketbuild die nicht ausführbare `usr/libexec/vdr-suite/addons/rectools/addon.json` irrtümlich ausführbar gemacht. Commit `33debf5` stellt für diese eine Metadatendatei nach dem gewöhnlichen Debhelper-Schritt den Stage-Modus 0644 wieder her. Der neue APT-Test `tools/addons/check_debian_media_tools_apt_lifecycle.sh` erhält aus demselben Vier-Paket-Build ein separates Media-Tools-Artefakt (alte drei Binärpakete für P7/P8 unverändert) und prüft in *wegwerfbaren* Noble-/Resolute-Containern Kollision, synthetische `~exp1`-Vorversion auf gleichem realem Payload, Upgrade auf das echte `~exp2`-Paket, Reinstall, Remove, Purge, dpkg-Dateibesitz, Stage-Byte-/Modusgleichheit und Erhalt fremder Testkonfiguration, Test-Approval, Test-DB sowie Testaufnahme. **CI: Run 43686578952 läuft zum Dokumentationszeitpunkt; noch kein PASS.** Der synthetische Vorversionswechsel ist kein Nachweis einer historisch veröffentlichten Version. Keine PPA-Veröffentlichung oder Live-yaVDR-Installation.
+
+**Bestätigte Paketbau-Abnahme vs. noch offener APT-Test (Run 43686642950):** Vollständiger Vier-Binärpaket-Build und Paketbaum-Inventar unter Ubuntu Noble/Resolute **PASS**; bestehende P7/P8- und Profil-Regressionen **PASS**. Nur die zwei neuen APT-Jobs scheiterten vor der ersten Paketinstallation an Git `dubious ownership` im disposable Checkout. Die auf exakt `$PWD` begrenzte prozesslokale Git-Option in `check_debian_media_tools_apt_lifecycle.sh` korrigiert ausschließlich den Testcontainer-Readback. **Echter APT-/Migrationstest bleibt bis zur neuen CI-Quelle NOT_VERIFIED.**
+
+**MT.I4.2 echte APT-Tests (Run 43690165234, 15.11.2026):** Noble und Resolute bestanden reale Ablehnung manueller Kollision, synthetische Vorversion, Upgrade auf den echten Vier-Paket-Build, SHA256-/Modus-/Besitz-Prüfung der acht installierten Artefakte, Reinstall und Remove mit unveränderten Testdaten. Der abschließende Test scheiterte ausschließlich, weil `apt-get purge` das bereits entfernte lokale Paket ohne Repositoryindex nicht findet. Nach Remove wird deshalb dasselbe Test-`.deb` wieder installiert und das installierte Paket separat per APT gepurgt. **Purge-Ergebnis weiterhin NOT_VERIFIED bis CI-Readback.**
+
+**MT.I4.1/MT.I4.2 Abschluss (15.11.2026):** [CI Run 43691443834](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43691443834) auf Quell-SHA `ef48e77a16410e93e8ce33314607215341dd1302` hat alle **21 Jobs PASS**, einschließlich vollständigem Vier-Binärpaketbau, `plugin-only` und realem, isoliertem APT-Lifecycle unter Noble/Resolute: manuelle Kollision, synthetische Vorversion, Upgrade, Reinstall, Remove, Purge, alle acht Stage-Dateien mit Hash/Mode/dpkg-Owner und SHA-Erhalt fremder Test-Konfiguration/-Freigabe/-DB/-Aufnahme. Keine REAL-yaVDR-Abnahme.
+
+**MT.I4.3 vorbereitete PPA-Abnahme (15.11.2026):** Die vorhandenen manuell auslösbaren Workflows `ppa-noble-install-smoke.yml` und `ppa-resolute-install-smoke.yml` akzeptieren optional `verify_media_tools=true` (Default **false**). Bei `true` installieren sie erst **nach tatsächlicher Veröffentlichung** das vierte Paket aus dem offiziellen experimentellen PPA und prüfen PPA-Paketursprung, Quellversionsidentität aller vier Suite-Binärpakete, target-`vdr`, Paket-Abhängigkeiten und das installierte Stage-Inventar (acht Dateien, Byte-/Mode-/dpkg-Owner-Abgleich) sowie Worker-ELF-/ldd-Abhängigkeiten. Die identische Prüfung ist im gemeinsamen `tools/addons/check_published_media_tools_ppa.sh` implementiert. **Kein Workflow wurde ausgelöst, keine PPA-Publikation beauftragt, kein produktives System verändert.** Wenn der vierte Kandidat im PPA noch fehlt, meldet nur ein explizit gewählter Media-Tools-Test `MT_I43_PUBLISHED_ADDON=NOT_AVAILABLE`; die bisherigen Drei-Paket-Smokes bleiben unberührt.
+
+**MT.I4.3 Verifikation vor Veröffentlichung (15.11.2026):** `tools/addons/check_installed_media_tools_payload.py` ist die gemeinsame schreibgeschützte Prüfung der acht installierten Media-Tools-Dateien: Inventar-Hash/Modus/Länge, dpkg-Dateibesitz, drei ELF-Worker, inaktive Add-on-Metadaten. Der vorhandene Noble-/Resolute-APT-Lifecycle ruft diesen Prüfer bei einer tatsächlich installierten CI-Binärpaketversion auf. Der PPA-Smoke nutzt **denselben** Prüfer erst nach dem ausdrücklich gewählten `verify_media_tools` und dem echten APT-Bezug des veröffentlichten Pakets. Vier neue `test_published_media_tools_ppa.py`-Mocktests decken gültigen Kandidaten, fehlenden Kandidaten, falsche PPA-Quelle und Versionskonflikt ab; sie sind keine PPA-Publikationsbehauptung. **Neue CI-Ergebnisse ausstehend; Live-yaVDR und PPA unverändert.**
+
+**MT.I4.3 – vier Pakete gemeinsam per APT (15.11.2026):** Der bestehende experimentelle Packaging-Workflow enthält jetzt eine zusätzliche Wegwerf-Container-Matrix für Noble/Resolute, in der die **vier im gleichen Commit gebauten lokalen `.deb`-Dateien** gemeinsam via `apt-get -s install` und `apt-get install` installiert werden. Nach erfolgreicher Auflösung wird der installierte VDR samt ABI, Paketversion/Architektur, deaktivierte Services und das unveränderte Media-Tools-Inventar mit acht Dateien/dpkg-Besitz geprüft. Die bereits vorhandenen getrennten Drei-Paket-Regressionen und MT.I4.2-Lebenszyklustests laufen unverändert. Bis zum CI-Readback ist die neue Vier-Paket-Koinstallation **NOT_VERIFIED**; dies ist auch bei PASS keine PPA-Veröffentlichung oder REAL-yaVDR-Abnahme.
+
+**MT.I4.3 – erster Vier-Paket-CI-Befund und Korrektur (15.11.2026):** Die ursprüngliche Noble-/Resolute-Matrix auf Commit `234790cd604108bbf4bdd0778c7bca64b63e460b` scheiterte vor APT an fehlendem `git` im Ubuntu-Basiscontainer. Der bestehende Test erhält deshalb einen ausdrücklich auf den Wegwerf-Container begrenzten Git-Bootstrap vor dem `GITHUB_SHA`-Readback. Dies ändert weder Produktpakete noch Produktionsinstallation, und ist noch **kein** erfolgreiches vierfaches APT-Installationsresultat.
+
+**MT.I4.3 – CI-Artefakte nach Checkout laden (15.11.2026):** Die gemeinsame Vier-Paket-Prüfung scheiterte zuletzt vor der eigentlichen Installation, weil Checkout auf einem frischen Container die vorher heruntergeladenen Artefakte löscht (`Deleting the contents of ...`). Die Reihenfolge im bestehenden Workflow wurde korrigiert: Git-Bootstrap, Checkout, drei-Basis-Paket-ZIP und viertes Media-Tools-Paket-ZIP downloaden, anschließend lokale Paketidentität und gemeinsame APT-Koinstallation prüfen. Die vier heruntergeladenen Dateien werden vor dem Test explizit geloggt. **Ergebnis bis zum neuen CI-Readback NOT_VERIFIED**, ohne PPA-Publikation oder yaVDR-Eingriff.
+
+**MT.I4.3 – P8-Kollision bei Vier-Paket-APT (15.11.2026):** [CI 43752441846](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43752441846) scheiterte bei Noble und Resolute in der gemeinsamen APT-Installation erst beim Daemon-Preinst: `P8_PREUNPACK=BLOCKED ... FOREIGN_OR_AMBIGUOUS_OWNER path=/usr/share/vdr-suite`. Die Media-Tools-Dateien wurden bereits vom Add-on entpackt und dessen Paketbesitz am künftig gemeinsam genutzten Verzeichnis erkannt. Die bestehende P8-Prüfung lässt nun **ausschließlich beim Daemon und ausschließlich für diesen Pfad** die exakt bekannten Besitzer `vdr-suite-daemon`/`vdr-suite-addon-media-tools` zu. Sie prüft zuvor sämtliche Kinder rekursiv auf ausschließlichen Besitz durch diese Pakete und verweigert manuelle, fremde, verlinkte und spezielle Einträge. Andere P8-Schutzpfade, vorhandene Installationen und der Add-on-Preinst bleiben unverändert. Die zusätzlichen Regressionen prüfen Erstinstallation, Upgrade und negative Kollisionsfälle. **Folge-APT-Test noch NICHT VERIFIZIERT**; keine PPA-/yaVDR-Installation.
+
+**MT.I4.3 Quellpaket-/APT-Abnahme (15.11.2026):** [CI 43755920343](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43755920343) auf `7654036458231a473f89ca98b5735b8344a7308e` ist **23/23 grün**. Unter `ubuntu:24.04` (Noble) und `ubuntu:26.04` (Resolute) wurden dieselben vier `amd64`-Debian-Binärpakete `0.14.1-1~exp2` mit echtem APT gemeinsam installiert. Beide Jobs protokollieren `MT_I43_FOUR_BINARY_IDENTITY=PASS`, `MT_I43_INSTALLED_STAGE_INTEGRITY=PASS files=8 workers=3 inactive=true` sowie `MT_I43_FOUR_PACKAGE_COINSTALL=PASS`. Der zuvor gefundene P8-Verzeichnisbesitzkonflikt ist für diesen überprüften Installationspfad behoben; die negativen Kollisions-/Bestandstests und die getrennten MT.I4.2-/P7-/P8-/Profiltests sind ebenfalls erfolgreich. Diese Abnahme gilt **nur für Quellpakete und isolierte Ubuntu-APT-Container**. Ein veröffentlichtes viertes PPA-Paket wurde damit weder produziert noch aus experimentellem oder Daily-PPA installiert; dafür bleiben die vorhandenen expliziten PPA-Readbacks und eine separate Veröffentlichungsfreigabe erforderlich. Kein produktives yaVDR-Deployment und keine MT.I4.4-Bestandsmigration.
+
+**MT.I4.3 – getrennte Daily-PPA-Prüfung (15.11.2026):** Zusätzlich kann der vorhandene `.github/workflows/ppa-daily-install-smoke.yml` bei einer späteren veröffentlichten Daily-Version mit `workflow_dispatch.verify_media_tools=true` dieselbe schreibgeschützte Inventar-/Paketbesitzprüfung ausführen. Die Prüfung erwartet die vier Suite-Pakete mit derselben installierten Daily-Quellpaketversion aus `ppa:hotzenplotz5/vdr-suite-daily`. Das Hilfsskript akzeptiert ausschließlich die zwei bekannten PPA-Archivnamen, standardmäßig das bisherige experimentelle PPA. `verify_media_tools=false` bleibt die Vorgabe; die bestehenden Drei-Paket-/HbbTV-/plugin-only-Verläufe ändern sich nicht. Dieser Prüfpfad veröffentlicht **nichts** und aktiviert **keine** Daily-Rezepte. Seine eigenen CI- und echten Daily-APT-Ergebnisse sind bis zur Ausführung **NOT_VERIFIED**; MT.I4.4, Launchpad-Upload und produktiver yaVDR bleiben getrennt.
+
+**Launchpad-Recipe-Fehler und Release-Quellarchiv (16.11.2026):** Beim echten Recipe-Binary-Build scheiterte die Media-Tools-Stufe nach erfolgreichem Runtime-Seal an `git` (nicht im sbuild vorhanden); die export-subst-Datei enthält außerhalb eines echten Git-Archivs keine garantierte Commit-SHA. **Keine** erfundene 40-Hex-Provenienz und keine alleinige `Build-Depends: git`-Scheinreparatur. Der bereits vorhandene isolierte `git archive`-Quellpaket-Builder wurde gezielt auf `main` und optional **explizit signierte** experimentelle Noble-/Resolute-PPA-Quellkandidaten (`--experimental-ppa-revision N`, N>=3) erweitert. Der Source-Commit wird beim Archivieren und nach dem `dpkg-source`-Roundtrip abgeglichen. Der Builder lädt **nichts** hoch; PPA-Version/Build/Source-Format und Rechtelage werden vor `dput` getrennt geprüft. [PPA-Anleitung](../docs/planning/packaging-launchpad-ppa.md). Die produktive yaVDR-Installation bleibt auf manuellem `main`-Betrieb.
+
+**MT.I4.4c erste isolierte Datenbank-Rückfallprobe (15.11.2026):** `tools/test_packaging_p7_historical_schema.py` testet auf einer neuen ausschließlich temporären historischen SQL-Fixture den WAL-bewussten SQLite-`backup()` bei gleichzeitig offenem Writer: committed WAL-Row enthalten, uncommitted Row nicht enthalten; anschließender fehlgeschlagener und erfolgreicher Schema-Durchlauf sowie Restore in ein unabhängiges Testziel. Die historischen P7-Provenienz-/Schemahelfer und der bestehende Offline-CI-Job werden wiederverwendet. Kein neues DB-Backupprogramm, keine Live-Bestandsübernahme und keine behauptete Kompatibilität mit dem tatsächlichen, manuell installierten yaVDR-Schema. **Neuer Code-CI-PASS erst nach Logreadback.**
+
+**MT.I4.4a/b Testabnahme (15.11.2026):** [CI 43765022205](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43765022205) bestätigt für den finalen Testcode-Commit `46e77f6bc2e692ad0e9030953f800518798dc3b5` den grünen Offline-P8-/Manifest-Job, einschließlich der vierteiligen **synthetischen** Übernahme/Rückfallprobe und der erhaltenen unabhängigen Status-Sentinels. Diese Fixtures nutzen kanonische P8-/Add-on-`preinst`-Prüfungen und eine temporäre dpkg-Datenbank, nicht die veröffentlichten `~exp2`-Buildartefakte. Offene MT.I4.4c-Nachweise: Quellidentität des laufenden realen Daemons, tatsächliche DB-Schema-/Writer-Kompatibilität, konsistente WAL-inklusive Sicherung und vollständige Dienst-/Konfigurations-Wiederherstellung; historische P7-Fixtures sind vorhanden und sollen wiederverwendet werden. Keine PPA-Freigabe oder Live-Umstellung.
+
+**MT.I4.4b (15.11.2026):** Die vorhandenen P8-/Add-on-`preinst`-Generatoren werden jetzt zusätzlich im isolierten realen dpkg-Test `tools/test_packaging_i44_four_package_adoption.py` mit vier **synthetischen** (nicht aus der Release-CI) Binärpaketen verwendet: Verweigerung aller vier manuellen Paket-Dateikollisionen, simulierte Eigentums-Übernahme im isolierten Root, Add-on-vor-Daemon-Shared-Directory-Koinstallation, Prüfung aller vier dpkg-Besitze, Rückfall zur vorherigen manuellen Fixture-Payload, Schutz unabhängiger Config-/State-Sentinels. **Ein `PASS` beweist keine produktive DB-/Dienstmigration und keine Paket-Release-Kompatibilität; neue CI noch ausstehend.** Keine Änderung des Live-Installers oder am yaVDR.
+
+**MT.I4.4a (15.11.2026):** [Host- und Migrationsgrenzen](../docs/planning/packaging-mt-i44-manual-adoption.md) werden erstmals am neu gelieferten Resolute-yaVDR-Inventar festgehalten: vier manuell installierte Suite-Komponenten ohne dpkg-Besitz oder apt-Kandidaten; manuelle Media-Tools-Stage 7/7 hash-/modustreu, separate Inventardatei, unverändert laufende Dienste, vorhandene SQLite-WAL und bewahrte Konfiguration/Freigaben. Die existierenden dpkg-Testfixtures prüfen zusätzlich, dass direkter Add-on-Overwrite **verweigert** und nur ein bewusst synthetisch simulierter manueller Acht-Dateien-Übergang auf Paketbesitz und zurück möglich ist, während unabhängige Zustands-Sentinels unverändert bleiben. Der Test arbeitet ausschließlich in TemporaryDirectory + separater dpkg-Datenbank und installiert **nichts** auf dem Host. **CI-/synthetischer PASS ist bis zum Job-Readback ausstehend.** Ein allumfassender vierteiliger Migrationstest, echte DB-Schema-/WAL-Abnahme, PPA-Veröffentlichung und REAL-yaVDR-Übernahme bleiben offen.
+
+## Independent VDR plugin build
+
+SuiteBridge can be built **without building the daemon or Backend Agent**:
+
+```sh
+make -C vdr-plugin-suite-bridge
+```
+
+For an experimental Debian/Ubuntu plugin-only binary package, from a clean test checkout with `vdr-dev` and other build prerequisites installed:
+
+```sh
+dpkg-buildpackage -B -Pplugin-only -us -uc
+```
+
+The `plugin-only` profile removes both server binary packages from `debian/control` and bypasses the server and agent build/install rules. It does **not** require or install the VDR-Suite daemon binary package. The SuiteBridge source still references shared internal headers in the same repository, so the entire source checkout is needed.
+
+Without the profile, the source package attempts to build daemon, Backend Agent and SuiteBridge as separate **installable binary packages**. The plugin must carry the ABI-specific `${vdr:Depends}`, populated by the VDR debhelper sequence. The exact VDR `vdr.pc`, `libdir` and ABI must match each target Debian/Ubuntu series.
+
+## Backend Agent package: roles and deployment
+
+The default build produces `vdr-suite-daemon`, `vdr-suite-backend-agent` and `vdr-plugin-suitebridge` as **separate** `.deb` files. The Agent is a backend-side machine component, **not** another Web UI, not a replacement for the main daemon, and not a separate database server. The current `debian/control` does not declare the Backend Agent as an explicit hard dependency of `vdr-suite-daemon`. Building all three packages is not a requirement to *enable* all three services.
+
+| Deployment mode | Agent choice |
+| --- | --- |
+| One VDR with the central daemon on the same host | Do not assume that a separately running agent service is mandatory. An embedded/local backend path and an explicitly enrolled Agent are different configurations; validate the selected topology before release or installation. |
+| Additional VDR backend (same network) | Install/configure an agent *on the backend host* when that backend is managed through the authenticated Agent Protocol; the central daemon stays at the Control Plane. |
+| Remote site | Agent initiates outbound HTTPS to the central server. Do not expose local VDR plugin ports or a database to the Internet. |
+
+The daemon package also includes the `/usr/bin/vdr-suite-logo-sync` and
+`/usr/bin/vdr-suite-media-calibrate` utilities, with dedicated section-1
+manual pages. Logo synchronization may download third-party artwork, which
+remains subject to its own provenance and usage rights. Media calibration
+benchmarks FFmpeg workloads and writes a persistent performance profile, so
+it is an explicit operator action, not part of package installation.
+
+**Packaged artwork versus runtime cache:** The Debian build stages VDR-Suite's
+bundled branding, genre artwork and live-remote illustration at
+`/usr/share/vdr-suite/channel-logos/vdr-suite-brand/`, with the corresponding
+`/channel-logos/vdr-suite-brand/...` URLs resolved by an HTTP-server read-only
+fallback after explicitly configured logo roots and
+`/var/cache/vdr-suite/channel-logos`. No package-owned branding file belongs in
+`/var/cache`: the cache remains for operator/runtime-synchronized broadcaster
+logos and any pre-existing local overrides. This is a **Debian-only CACHEDIR
+staging override**; the canonical manual `mk/install.mk` default remains
+unchanged. Do not copy or delete operator cache data during package installation.
+
+**Exact payload from `debian/vdr-suite-backend-agent.install`:**
+
+| Installed path | Responsibility |
+| --- | --- |
+| `/usr/sbin/vdr-suite-backend-agent` | Agent process and outbound Control Plane connection |
+| `/usr/sbin/vdr-suite-backend-agent-enroll` | Administrator-controlled, one-time enrollment-package creation for an existing backend |
+| `/usr/sbin/vdr-suite-backend-agent-admin` | Local Agent status and explicit revocation |
+| `/usr/sbin/vdr-suite-backend-agent-command-admin` | Administrative command tool; not a client-facing API |
+| `/etc/vdr-suite/backend-agent.conf` | Non-secret service configuration |
+| `/usr/lib/systemd/system/vdr-suite-backend-agent.service` | Restricted systemd service (usrmerged package path) |
+| `/usr/share/man/man8/vdr-suite-backend-agent.8`, `vdr-suite-backend-agent-enroll.8`, `vdr-suite-backend-agent-admin.8`, `vdr-suite-backend-agent-command-admin.8` | Manual pages, including protected command administration |
+
+The Debian package stages systemd units under `/usr/lib/systemd/system` rather than the aliased `/lib/systemd/system`. On a previously **package-managed** `exp1` installation, dpkg may register the old `/lib` path even when both spellings resolve to the same file on an usrmerged system. The P8 preinst permits that **one exact historical unit alias only** after confirming `/lib` is a symlink, both paths resolve to the same inode, the old dpkg owner is the same binary package and its installed executable is package-owned. Foreign/unowned paths, query errors, manually managed units and first installs remain blocked. This is not a general takeover authorization. This is a Debian-only staging override, not a change to the already deployed runtime tree.
+
+The packaged systemd unit runs under `vdr:vdr` with `NoNewPrivileges`, `UMask=0077`, system protection and a private `StateDirectory=vdr-suite/backend-agent` (mode `0700`), located under `/var/lib/vdr-suite/backend-agent`. The experimental `debian/rules` deliberately calls `dh_installsystemd --no-enable --no-start`: **package installation must neither auto-enable nor start the Agent**. Runtime state and credentials are **not** included in the `.deb`.
+
+### After-enrollment boot activation (operator opt-in, not package auto-start)
+
+**2026-10-19 yaVDR incident:** Public-v1 EPG TimerIntent CREATE initially returned
+`503 service_unavailable` while the Backend Agent was `inactive/dead`,
+`disabled`, and its lease/provider evidence stale. A controlled manual
+Agent start restored a fresh lease, provider facts/epoch and the bounded
+real native CREATE/readback path. **This is not proof of boot reliability.**
+The intentionally disabled package default remains correct for new,
+unenrolled installations.
+
+For an **already enrolled, running Agent** only, check the exact *installed*
+unit and state before opting in to boot activation:
+
+```sh
+systemctl cat vdr-suite-backend-agent.service
+systemctl show vdr-suite-backend-agent.service -p FragmentPath -p UnitFileState -p ActiveState -p SubState -p User -p Group -p ExecStart
+systemctl is-enabled vdr-suite-backend-agent.service
+systemctl is-active vdr-suite-backend-agent.service
+```
+
+Confirm the installed unit is the reviewed `vdr:vdr` service with
+`ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf`;
+the actual config references the correct trusted HTTPS Control Plane and
+registered backend, not `example.invalid`; the existing
+`IDENTITY_PATH=/var/lib/vdr-suite/backend-agent/identity` and
+`ENROLLMENT_PATH=/var/lib/vdr-suite/backend-agent/enrollment` are valid
+for the current service account; and the daemon/Agent reports fresh,
+authenticated identity, lease, provider facts and SuiteBridge provider epoch.
+Inspect **existence and ownership only** of protected identity material;
+never print, copy, regenerate or re-enroll it. An active process alone does
+not prove that the expected backend identity and provider facts are current.
+Also check for local unit drop-ins, masked/aliased units and a duplicate
+Agent instance before changing startup policy.
+
+**Packaged post-enrollment helper (integration point for the eventual setup UI):**
+
+```sh
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --check
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --enable
+```
+
+The helper validates the reviewed running `vdr:vdr` unit, the configured trusted HTTPS Control Plane, expected protected identity paths, a consumed enrollment package and the existing Agent administration's **current online lease and backend-health observation**. It performs a second preflight before changing links and verifies that the service stayed active afterward. It **only** executes `systemctl enable`, never `--now`, `start`, `restart`, credential rotation, enrollment, direct SQLite commands or replay of uncertain commands. The existing `vdr-suite-backend-agent-admin --status` check still uses that utility's normal schema-initialization path; this helper does not perform or authorize a database migration. `--check` is the non-enabling readiness gate. Any missing or unexpected fact blocks the mutation. See `man 8 vdr-suite-backend-agent-autostart`.
+
+The current helper is deliberately limited to **same-host Control Plane/Agent installations**: its installed local administration status command reads the local Control Plane database. On a remote Agent host without that database, the guard fails closed; remote Agent automatic setup requires a future authenticated Control Plane readiness check. The current experimental package ships this helper but does **not** run it automatically on install or upgrade. Enrollment-package creation is not evidence that the Agent has consumed it or connected; there is no existing integrated first-run wizard to invoke this step. The eventual setup workflow must call the helper only **after successful enrollment and live readiness**, so the operator will not need to remember `systemctl enable`. Until that workflow is implemented and tested, an administrator runs the guarded step once. An already enabled service retains its boot policy across upgrades; `dh_installsystemd --no-enable --no-start` deliberately remains unchanged.
+
+`enable` installs persistent boot-start links; it **does not restart**
+the running Agent or revoke its identity. Do **not** append `--now`, restart
+VDR/daemon, modify SQLite, grant permissions or run enrollment as part of this
+boot-policy-only change. The source unit has
+`WantedBy=multi-user.target`, `After/Wants=network-online.target`,
+`Restart=on-failure`, protected persistent `StateDirectory` and the
+existing config/identity paths. Do not broaden the package's
+`dh_installsystemd --no-enable --no-start` policy to auto-enable unknown
+new installations. A later *controlled* reboot acceptance must confirm:
+service active, **same Agent identity**, fresh lease/heartbeat and backend
+generation, current provider facts, native capability/clock and matching
+SuiteBridge epoch; otherwise boot reliability remains **PENDING**.
+Never replay historical `waiting_reconciliation` native timer commands
+to prove readiness.
+
+### Configuration and enrollment boundary
+
+The shipped `/etc/vdr-suite/backend-agent.conf` is a **template**, not an immediately functional connection:
+
+- `CONTROL_PLANE_URL=https://control-plane.example.invalid` is intentionally invalid. Set the real trusted HTTPS Control Plane origin (including any necessary proxy base path) during an approved configuration process; TLS hostname and peer verification are mandatory.
+- `BACKEND_ID=default` names the target backend; it must match a backend that has actually been registered/authorized in the central Control Plane.
+- `IDENTITY_PATH` and `ENROLLMENT_PATH` refer to protected Agent state under `/var/lib/vdr-suite/backend-agent/`. One-time enrollment secrets and runtime credentials must not be copied into the non-secret config file, logs or README.
+- `OBSERVATION_DOMAINS=backend-health` with empty `ADAPTERS` is the shipping default. Channel observations require **both** the explicit `channels-conf` adapter and `channels` observation domain, with `CHANNELS_CONF_PATH` pointing to a permitted local snapshot source. There is no implicit fallback to VDR provider endpoints.
+- The config declares the known native timer `COMMAND_TYPES`; this is an allowlist input, **not blanket permission to change VDR**. Commands require the actual enrolled Agent, current generation, Control Plane authorization and runtime capability/provider gates. Other native actions remain gated separately.
+
+The privileged `vdr-suite-backend-agent-enroll` tool creates a mode-`0600` one-time enrollment file for an existing central backend (defaults include a 900-second TTL); this is **a central database operation** and must not be run casually against a live installation. The local `vdr-suite-backend-agent-admin --status` is a read-oriented administrative interface; `--revoke` changes persisted Agent trust and is not a routine diagnostic. Refer to the supplied manual pages and the [Phase-63 runtime acceptance contract](../docs/development/phase-63-backend-agent-runtime-acceptance-runbook.md) before any operator procedure.
+
+**Separation:** Client apps authenticate against the central daemon, which owns user authorization, backend registry and the database. Backend Agents authenticate with their own technical identities, report bounded state and perform explicitly gated backend-local operations. The Agent does not require exposing VDR SVDRP, RESTfulAPI or SuiteBridge to remote clients. See [ADR-0039](../docs/adr/ADR-0039-backend-agent-control-plane-boundary.md).
+
+### Packaging acceptance versus release
+
+On exact code SHA `d144a9cb69e82f5cc60d93962e512a21595a1616`, [CI #135](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38968900186) **passed overall**: full binary builds and disposable install/reinstall/remove/purge on Noble and Resolute, nine real P8 overwrite-refusal fixtures, and a genuine pinned historical `exp1`→`exp2` `dpkg` upgrade including interrupted unpack, configuration, unchanged SQLite/configuration, and offline rollback rehearsal. This is strong **package lifecycle evidence**, but it does **not** verify an enrolled/connected Agent, a live VDR backend, runtime command permissions, a production manual-install takeover or an unassisted live SQLite migration. The subsequent artwork-path relocation remains separately subject to its exact CI checks.
+
+The P8 native `preinst` collision guards protect already-manually-installed paths. In particular, do not run package installation, overwrite existing `/etc/vdr-suite/backend-agent.conf`, change `/var/lib/vdr-suite/backend-agent`, re-enroll or restart the Agent on the productive yaVDR without an explicitly approved migration and rollback plan.
+
+## Git and safe staging
+
+`debian/rules` is executable (Git mode `100755` required by dpkg). Source metadata (`debian/control`, `rules`, `changelog`, `*.install`) remains tracked. Generated `.deb`, `.dsc`, `.changes`, buildinfo, `debian/tmp`, debhelper output and `libvdr-suitebridge.so.*` are ignored. Already tracked outputs are **not** automatically removed; check read-only with:
+
+```sh
+python3 tools/check_packaging_tracked_artifacts.py
+python3 -m unittest discover -s tools -p 'test_packaging_*.py'
+```
+
+[Standalone plugin instructions](../vdr-plugin-suite-bridge/BUILDING.md) and [experimental Ubuntu 24.04 CI workflow](../.github/workflows/packaging-plugin-experimental.yml).
+
+## Source-package smoke test (unsigned, offline)
+
+A separately gated helper prepares a Debian `3.0 (quilt)` source archive from the exact Git commit, with the upstream tarball containing no `debian/` directory:
+
+```sh
+python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_HEAD_SHA> --preflight-only
+python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_HEAD_SHA>
+```
+
+This is a local, non-root source-package roundtrip. It **does not** sign packages, change the changelog distribution from `unstable`, upload to Launchpad, or validate the complete daemon/agent binary build. See [source package acceptance](../docs/planning/packaging-source-package-experiment.md).
+
+**Hosted deterministic-source evidence:** [CI #128](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38957762174), tested workflow/code SHA `de5cab976e883bc7dcce6cca92bbab45c88c89a6`, built two separate Git-tracked `3.0 (quilt)` source packages without the Seahawk PPA. Both `.dsc` roundtrips passed; the original upstream tarball, Debian tarball and `.dsc` have identical SHA-256 checksums across the two builds (`SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS`). This is **unsigned source reproducibility**, not licensing clearance, a signed PPA source upload, or an installed binary-package acceptance. The separate host-specific source helper above retains its safety gates.
+
+The standalone SuiteBridge binary package **has now been built successfully** on the maintainer's yaVDR VDR ABI `vdr-abi-2.8.3-0yavdr`, with no daemon dependency, at candidate `ce63332dc72b0a262f1f30b410c18493668c2df1`. This is *not* official Ubuntu compatibility certification.
+
+## Release block
+
+**NOT RELEASE-READY.** Ubuntu noble against Seahawk VDR 2.8.3 has a verified full three-binary build plus disposable package install/reinstall/remove/purge (GitHub Actions #29). Ubuntu 26.04 Resolute now also has an exact-ABI unprivileged full three-binary build (CI [#123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320), exact code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`), with package manifests, the generated `vdr-abi-2.8.3-0yavdr` dependency and native P8 preinst guards checked. Resolute install/lifecycle acceptance remains pending. Still open: source-release copyright/third-party review, other distribution ABI coverage, manual source-install migration, real service startup, historic-version DB upgrade/rollback, lintian and release signing. No package upload to Launchpad and no production yaVDR installation are authorized by this document.
+
+In the experimental packages, automatic systemd enable/start is explicitly disabled. No maintainer script performs database migration.
+
+## Full default-profile build on Ubuntu 26.04 Resolute (2026-10-16)
+
+On exact code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`, the [CI #123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320) `full-default-packages-resolute` job built all three `0.14.1-1~exp2` amd64 binary packages as a non-root user with exact Seahawk `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, VDR API 14 and ABI `vdr-abi-2.8.3-0yavdr`. CI verified package names, versions, Depends, manifests, SuiteBridge `.so.14` and the generated native P8 `preinst` refusal guards. `nodejs <!plugin-only>` is a build-time dependency for generating a browser diagnostics page in the full daemon installation stage; the independent SuiteBridge-only profile does not need it. The CI artifacts are **unsigned experimental binaries, not a PPA publication**. No live or isolated Resolute package installation is implied by this binary-build milestone.
+
+## Verified CI full-build staging ownership (2026-10-14)
+
+The first full Ubuntu 24.04 + Seahawk VDR 2.8.3 compilation reached `dh_missing --fail-missing` but failed because three staged assets had no package owner. The daemon now declares ownership for `/usr/bin/vdr-suite-media-calibrate` (a Python 3 command) and the inactive Nginx snippet `/etc/nginx/snippets/vdr-suite.conf`. The independent SuiteBridge binary package owns `/usr/lib/tmpfiles.d/vdr-suite-live.conf` because VDR runs as user `vdr` and requires private `/run/vdr` transport roots. The plugin-only profile explicitly stages that file without invoking the daemon build. No Nginx site is activated or VDR service started by this change.
+
+The old `dh_missing` failure was recorded in [GitHub Actions run #26](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38584786074). A successful replacement full build occurred in [GitHub Actions #27](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38586364547) and was repeated with 50 passing Packaging tests in [#29](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38588255607). This validates the experimental noble binary-build gate but does not complete P5 legal/source-release acceptance. Whether manual existing Nginx snippets collide with dpkg conffiles, and install-time tmpfiles execution under target VDR, remain P6 gates. Neither a package install nor an upgrade is authorized on production yaVDR.
+
+## Experimental P7 versioned upgrade job
+
+The branch now builds `0.14.1-1~exp2` separately from pinned earlier commit `bc4623374a4df4c08118c424ea19aaf552a4964c` (`0.14.1-1~exp1`). GitHub Actions constructs both **unsigned** package sets in disposable runners, tests a real dpkg upgrade and later an explicit binary downgrade after restoring synthetic offline test data. This is not an on-host install procedure or evidence of supported runtime migration. See [`P7 upgrade/recovery`](../docs/planning/packaging-p7-upgrade-recovery.md).
+
+## Debian copyright and project artwork license (2026-10-17)
+
+The DEP-5 [`debian/copyright`](copyright) records the intended `GPL-3.0-or-later` licensing for authorized original code and for the VDR-Suite graphics generated by ChatGPT from the maintainer's ideas. The maintainer explicitly selected the same open-source license for project branding, icon and genre artwork on 2026-10-17. The former pending-license markers for these VDR-Suite graphics have been removed. This does not create exclusive copyright in unprotectable AI output, certify trademark clearance, or extend to downloaded broadcaster logos, TV/movie posters, or the separately maintained VIDAA repository.
+
+The adapted TVScraper `services.h` continues to retain `GPL-2.0-or-later` attribution and the HbbTV/Teletext ABI mirrors retain scoped provenance. A generic contributor credit cannot verify every copyright holder; relevant non-artwork source rights and actual distribution scope remain subject to the [license inventory](../docs/third-party-license-inventory.md) and [compatibility audit](../docs/gplv3-compatibility-audit.md).
+
+At exact code SHA `cd0bc82ca1ff183c3d7cc69a553a51cd479b9eca`, [GitHub Actions run 38990016336](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38990016336) passed all 19 CI jobs, confirmed a copyright file in each .deb and reported `LINTIAN_ERROR_GATE=PASS` (three `copyright-without-copyright-notice` warnings remained). The updated artwork licensing has not yet been accepted by a completed exact-head CI run. A zero-error Lintian result is not legal or PPA-release clearance. No Launchpad upload or productive yaVDR takeover is authorized.

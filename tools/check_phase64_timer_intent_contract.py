@@ -1,0 +1,470 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+required_files = [
+    "core/timers/include/TimerIntent.h",
+    "core/timers/src/TimerIntent.cpp",
+    "core/timers/tests/test_timer_intent.cpp",
+    "core/timers/include/TimerIntentRepository.h",
+    "core/timers/src/TimerIntentRepository.cpp",
+    "core/timers/tests/test_timer_intent_repository.cpp",
+    "core/timers/include/TimerAssignment.h",
+    "core/timers/src/TimerAssignment.cpp",
+    "core/timers/tests/test_timer_assignment.cpp",
+    "docs/development/phase-64-timer-intent-contract.md",
+    "docs/development/phase-64-timer-intent-repository.md",
+    "docs/development/phase-64-timer-assignment-contract.md",
+    "mk/phase64-timer-intent-tests.mk",
+    "Makefile",
+    "docs/planning/roadmap.md",
+]
+for relative in required_files:
+    if not (ROOT / relative).is_file():
+        raise SystemExit(f"missing Phase-64 file: {relative}")
+
+header = (ROOT / required_files[0]).read_text(encoding="utf-8")
+source = (ROOT / required_files[1]).read_text(encoding="utf-8")
+test = (ROOT / required_files[2]).read_text(encoding="utf-8")
+repository_header = (ROOT / required_files[3]).read_text(encoding="utf-8")
+repository_source = (ROOT / required_files[4]).read_text(encoding="utf-8")
+repository_test = (ROOT / required_files[5]).read_text(encoding="utf-8")
+assignment_header = (ROOT / required_files[6]).read_text(encoding="utf-8")
+assignment_source = (ROOT / required_files[7]).read_text(encoding="utf-8")
+assignment_test = (ROOT / required_files[8]).read_text(encoding="utf-8")
+contract_doc = (ROOT / required_files[9]).read_text(encoding="utf-8")
+repository_doc = (ROOT / required_files[10]).read_text(encoding="utf-8")
+assignment_doc = (ROOT / required_files[11]).read_text(encoding="utf-8")
+make_fragment = (ROOT / required_files[12]).read_text(encoding="utf-8")
+makefile = (ROOT / required_files[13]).read_text(encoding="utf-8")
+roadmap = (ROOT / required_files[14]).read_text(encoding="utf-8")
+
+for token in [
+    "TimerIntentType",
+    "TimerIntentState",
+    "TimerIntentSpec",
+    "TimerIntent",
+    "TimerIntentAutomationSource",
+    "TimerIntentBackendEventRef",
+    "TimerIntentChannelRequirement",
+    "TimerIntentSchedule",
+    "TimerIntentRecordingOptions",
+    "TimerIntentAssignmentPolicy",
+    "TimerIntentReplicaPolicy",
+    "TimerIntentDuplicatePolicy",
+    "timerIntentRevisionMatches",
+    "timerIntentCanTransition",
+    "timerIntentAssignable",
+    "timerIntentTerminal",
+    "timerIntentSemanticIdentity",
+]:
+    if token not in header:
+        raise SystemExit(f"missing TimerIntent header contract marker: {token}")
+
+for token in [
+    '"programme_event"',
+    '"manual_window"',
+    '"recurring_schedule"',
+    '"draft"',
+    '"active"',
+    '"paused"',
+    '"satisfied"',
+    '"cancel_requested"',
+    '"cancelled"',
+    '"expired"',
+    '"failed"',
+    '"timer-intent-semantic/1|"',
+    "appendField",
+    "desiredAssignments",
+    "programEventId",
+    "backendEventRef",
+    "channelRequirement",
+]:
+    if token not in source:
+        raise SystemExit(f"missing TimerIntent source contract marker: {token}")
+
+for token in [
+    "timerIntentValidSpec(base)",
+    "timerIntentRevisionMatches",
+    "timerIntentCanTransition",
+    "timerIntentSemanticIdentity(collisionLeft) != timerIntentSemanticIdentity(collisionRight)",
+    "replicaPolicy.desiredAssignments = 2",
+    "assignmentPolicy.allowFailover = false",
+    "duplicatePolicy.requireOperatorReviewOnAmbiguity = false",
+]:
+    if token not in test:
+        raise SystemExit(f"missing TimerIntent regression marker: {token}")
+
+for token in [
+    "TimerIntentRepositoryStatus",
+    "TimerIntentRepositoryResult",
+    "TimerIntentRepositoryListResult",
+    "class TimerIntentRepository",
+    "alreadyExists",
+    "conflict",
+    "findEquivalent",
+    "expectedRevision",
+]:
+    if token not in repository_header:
+        raise SystemExit(f"missing TimerIntent repository header marker: {token}")
+
+for token in [
+    '"CREATE TABLE IF NOT EXISTS timer_intents ("',
+    '"intent_revision INTEGER NOT NULL CHECK(intent_revision > 0),"',
+    '"semantic_identity TEXT NOT NULL"',
+    '"BEGIN IMMEDIATE TRANSACTION;"',
+    '"WHERE timer_intent_id=? AND intent_revision=?;"',
+    "timerIntentRevisionMatches(expectedRevision, current.intentRevision)",
+    "expectedRevisionNumber + 1",
+    "timerIntentTerminal(current.state)",
+    "timerIntentCanTransition(current.state, next.state)",
+    "timerIntentSemanticIdentity(intent.spec) == columnText(statement, 46)",
+]:
+    if token not in repository_source:
+        raise SystemExit(f"missing TimerIntent repository source marker: {token}")
+
+for token in [
+    'database.open(":memory:")',
+    'created.intent.intentRevision == "1"',
+    "TimerIntentRepositoryStatus::alreadyExists",
+    "TimerIntentRepositoryStatus::conflict",
+    'conflict.intent.intentRevision == "2"',
+    "manufacturedRevision.intentRevision = \"3\"",
+    "TimerIntentState::active",
+    "TimerIntentState::satisfied",
+    "TimerIntentRepositoryStatus::notFound",
+    "twoEquivalent.intents.size() == 2",
+]:
+    if token not in repository_test:
+        raise SystemExit(f"missing TimerIntent repository regression marker: {token}")
+
+for token in [
+    "TimerAssignmentState",
+    "TimerAssignmentRole",
+    "TimerAssignmentChannelBinding",
+    "TimerAssignmentDecisionEvidence",
+    "struct TimerAssignment",
+    "assignmentEpoch",
+    "backendGeneration",
+    "nativeTimerBindingId",
+    "timerAssignmentRevisionMatches",
+    "timerAssignmentCanTransition",
+    "timerAssignmentActiveOwnershipState",
+    "timerAssignmentTerminal",
+]:
+    if token not in assignment_header:
+        raise SystemExit(f"missing TimerAssignment header contract marker: {token}")
+
+for token in [
+    '"proposed"',
+    '"selected"',
+    '"provisioning"',
+    '"bound"',
+    '"reconciling"',
+    '"unassigned"',
+    '"superseding"',
+    '"superseded"',
+    '"cancel_requested"',
+    '"cancelled"',
+    '"failed"',
+    '"primary"',
+    '"replica"',
+    '"replacement"',
+    "unassignedShapeValid",
+    "assignedShapeValid",
+    "assignment.nativeTimerBindingId",
+]:
+    if token not in assignment_source:
+        raise SystemExit(f"missing TimerAssignment source contract marker: {token}")
+
+for token in [
+    "timerAssignmentValid(selected)",
+    "TimerAssignmentState::unassigned",
+    "TimerAssignmentState::bound",
+    "nativeTimerBindingId = \"native-timer-binding:1\"",
+    "TimerAssignmentRole::replica",
+    "TimerAssignmentRole::replacement",
+    "timerAssignmentCanTransition",
+    "timerAssignmentActiveOwnershipState",
+    "timerAssignmentTerminal",
+]:
+    if token not in assignment_test:
+        raise SystemExit(f"missing TimerAssignment regression marker: {token}")
+
+for token in [
+    "Control Plane",
+    "TimerAssignment",
+    "NativeTimerBinding",
+    "SearchTimer",
+    "timer-intent-semantic/1|",
+    "programme_event",
+    "manual_window",
+    "recurring_schedule",
+    "authoritative readback",
+    "mutations=disabled",
+    "no real yaVDR acceptance",
+    "TimerIntent persistence",
+]:
+    if token not in contract_doc:
+        raise SystemExit(f"missing Phase-64 Slice-1 contract statement: {token}")
+
+for token in [
+    "TimerIntentRepository",
+    "repository issues the successor revision",
+    "stale writer",
+    "semantic identity",
+    "core/timers/src/*Repository.cpp",
+    "TimerAssignment",
+    "NativeTimerBinding",
+    "no real yaVDR acceptance",
+    "mutations=enabled",
+]:
+    if token not in repository_doc:
+        raise SystemExit(f"missing Phase-64 Slice-2 repository statement: {token}")
+
+for token in [
+    "TimerAssignment Domain Contract",
+    "assignmentEpoch",
+    "active ownership states",
+    "unassigned",
+    "nativeTimerBindingId",
+    "authoritative native readback",
+    "Account management",
+    "existing Phase-62",
+    "TimerAssignment repository",
+    "mutations=disabled",
+    "no real yaVDR acceptance",
+]:
+    if token not in assignment_doc:
+        raise SystemExit(f"missing Phase-64 Slice-3 assignment statement: {token}")
+
+for token in [
+    "test-phase64-timer-intent-contract-architecture",
+    "test-phase64-timer-intent-contract:",
+    "test-phase64-timer-intent-repository:",
+    "test-phase64-timer-assignment-contract:",
+    "core/timers/src/TimerIntent.cpp",
+    "core/timers/src/TimerIntentRepository.cpp",
+    "core/timers/tests/test_timer_intent_repository.cpp",
+    "core/timers/src/TimerAssignment.cpp",
+    "core/timers/tests/test_timer_assignment.cpp",
+    "test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract",
+    "test-architecture: test-phase64-timer-intent-contract-architecture",
+]:
+    if token not in make_fragment:
+        raise SystemExit(f"missing Phase-64 test-graph marker: {token}")
+
+if "include mk/phase64-timer-intent-tests.mk" not in makefile:
+    raise SystemExit("Phase-64 Timer test fragment is not included by Makefile")
+
+for token in [
+    "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
+    "Phase 64 - Timer Intent and Multi-Backend Orchestration",
+    "Phase 64 Slice 1 — TimerIntent Domain Contract",
+    "Phase 64 Slice 2 — TimerIntent Persistence and Repository Semantics",
+    "Phase 64 Slice 3 — TimerAssignment Domain Contract",
+    "Status: **Active; Slice 3 is the TimerAssignment domain contract.**",
+    "No TimerAssignment persistence; no NativeTimerBinding; no scheduler or failover execution",
+    "Account/backend access management is a hard prerequisite before broad Timer UI wiring",
+]:
+    if token not in roadmap:
+        raise SystemExit(f"missing Phase-64 roadmap boundary: {token}")
+
+# Slice 3 originally prohibited every TimerIntent/TimerAssignment runtime token
+# outside core/timers. Later Phase-64 slices are reviewed independently and may
+# cross that boundary only when the specific runtime file or its focused
+# regression is protected by its own architecture guard. Keep this allow-list
+# intentionally narrow: adding another integration point is a separate review.
+readback_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_readback_reconciliation.py"
+)
+if not readback_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C readback-reconciliation guard is required for the reviewed "
+        "dormant TimerAssignment consumer"
+    )
+readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+if not productive_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C productive Timer CREATE successor guard is required for "
+        "the reviewed native-effect runtime"
+    )
+productive_successor = productive_successor_guard.read_text(encoding="utf-8")
+phase69d_collection_guard = (
+    ROOT / "tools/check_phase69d_timer_assignment_collection.py"
+)
+if not phase69d_collection_guard.is_file():
+    raise SystemExit(
+        "Phase-69.D collection guard is required for the reviewed public "
+        "TimerAssignment collection consumer"
+    )
+phase69d_collection = phase69d_collection_guard.read_text(encoding="utf-8")
+for marker in [
+    "Phase 69.D TimerAssignment collection guard passed.",
+    "no federation, legacy fallback, Timer mutation, Home or LiveTV change",
+]:
+    if marker not in phase69d_collection:
+        raise SystemExit(
+            "Phase-69.D collection guard missing reviewed TimerAssignment "
+            "consumer marker: " + marker
+        )
+for marker in [
+    "reconcileNativeTimerCreateReadback(",
+    "must remain productively",
+    "fulfillmentService.bindVerified(",
+]:
+    if marker not in readback_successor:
+        raise SystemExit(
+            "Phase-69.C readback-reconciliation guard missing TimerAssignment "
+            "consumer marker: " + marker
+        )
+
+# Post-Phase-69 public Timer MODIFY adds one narrowly audited native-effect
+# successor. Only these two integration files can depend on Phase-64 Timer
+# intent/assignment abstractions; the Agent still owns native execution.
+modify_header_path = Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h")
+modify_source_path = Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp")
+modify_header = ROOT / modify_header_path
+modify_source = ROOT / modify_source_path
+if not modify_header.is_file() or not modify_source.is_file():
+    raise SystemExit("missing reviewed public-v1 native Timer MODIFY runtime")
+header_text = modify_header.read_text(encoding="utf-8")
+source_text = modify_source.read_text(encoding="utf-8")
+for marker in (
+    "advanceNativeTimerModifyRuntimeOnce(",
+    "TimerIntentRepository&",
+    "TimerAssignmentRepository&",
+    "NativeTimerModifyReadbackVerificationService&",
+):
+    if marker not in header_text:
+        raise SystemExit("native Timer MODIFY runtime header missing fence: " + marker)
+for marker in (
+    "op.verificationPolicy != MutationOperationVerificationPolicy::readbackRequired",
+    "operations.findPayloadByOperationId(",
+    "payload.expectedIntentRevision",
+    "payload.expectedAssignmentRevision",
+    "b.observedState.recording || b.observedState.pending",
+    "agents.findAgentForBackend(op.backendId)",
+    "assigner.assign(",
+    "commands.findAssignmentForOperation(",
+    "applyDurableNativeTimerModifyResult(",
+    "readback(applied.outcome.expectation)",
+    "verifier.verify(",
+    "completion.complete(",
+):
+    if marker not in source_text:
+        raise SystemExit("native Timer MODIFY runtime missing safety fence: " + marker)
+
+reviewed_runtime_files = {
+    modify_header_path,
+    modify_source_path,
+    Path("core/agent/src/BackendAgentNativeTimerCreateActivation.cpp"),
+    Path("core/agent/tests/test_backend_agent_native_timer_create_activation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_result_outcome_application.cpp"),
+    Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
+    Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
+    Path("api/rest/include/PublicApiRuntime.h"),
+    Path("api/rest/src/PublicApiRuntime.cpp"),
+    # ADR-0068: reviewed byte-exact relocation of read-only lookup methods.
+    Path("api/rest/src/PublicTimerReadLookupRuntime.cpp"),
+    Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
+    Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
+    Path("api/rest/tests/test_public_timer_assignment_collection.cpp"),
+    # Post-Phase-69 reviewed fail-closed EPG TimerIntent admission regression.
+    # The HTTP test may name TimerIntent, but no native mutation runs here.
+    Path("api/rest/tests/test_public_epg_timer_intent_admission.cpp"),
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+    Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+    Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
+}
+for marker in [
+    "advanceNativeTimerCreateRuntimeOnce(",
+    "outcome_unknown",
+    "no blind retry",
+]:
+    if marker not in productive_successor:
+        raise SystemExit(
+            "Phase-69.C productive Timer CREATE guard missing reviewed "
+            "TimerAssignment consumer marker: " + marker
+        )
+
+# Retain an explicit read-only fence for the newly reviewed lookup owner.
+timer_read_source = (ROOT / "api/rest/src/PublicTimerReadLookupRuntime.cpp")
+if not timer_read_source.is_file():
+    raise SystemExit("missing reviewed ADR-0068 Timer read lookup source")
+timer_read = timer_read_source.read_text(encoding="utf-8")
+for marker in (
+    "PublicApiRuntime::registerTimerAssignmentLookup(",
+    "PublicApiRuntime::resetTimerAssignmentLookup()",
+    "PublicApiRuntime::lookupTimerAssignment(",
+    "timerAssignmentLookupMutex_",
+    "PublicApiRuntime::registerTimerAssignmentCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerPreviewLookup(",
+):
+    if marker not in timer_read:
+        raise SystemExit("ADR-0068 Timer read lifecycle marker lost: " + marker)
+for forbidden in (
+    "NativeTimerCreateAdmissionService",
+    "NativeTimerModifyAdmission",
+    "NativeTimerDeleteAdmission",
+    "SearchTimerCreate(",
+    "TimerIntentRepository",
+):
+    if forbidden in timer_read:
+        raise SystemExit("ADR-0068 Timer lookup owner gained mutation authority: " + forbidden)
+
+for reviewed in reviewed_runtime_files:
+    if not (ROOT / reviewed).is_file():
+        raise SystemExit(f"missing reviewed Phase-64 runtime file: {reviewed}")
+
+forbidden_roots = [
+    ROOT / "apps",
+    ROOT / "api",
+    ROOT / "core" / "agent",
+    ROOT / "core" / "daemon",
+    ROOT / "core" / "http",
+    ROOT / "core" / "runtime",
+    ROOT / "core" / "vdr",
+    ROOT / "vdr-plugin-suite-bridge",
+]
+text_suffixes = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk", ".conf", ".service"}
+for root in forbidden_roots:
+    if not root.exists():
+        continue
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in text_suffixes:
+            continue
+        relative = path.relative_to(ROOT)
+        if relative in reviewed_runtime_files:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "TimerIntent" in text or "TimerAssignment" in text or "timer-intent-semantic/1" in text:
+            raise SystemExit(f"premature Phase-64 Timer runtime wiring: {relative}")
+
+for relative in [
+    required_files[0],
+    required_files[1],
+    required_files[2],
+    required_files[3],
+    required_files[4],
+    required_files[5],
+    required_files[6],
+    required_files[7],
+    required_files[8],
+    required_files[12],
+]:
+    text = (ROOT / relative).read_text(encoding="utf-8")
+    if "mutations=enabled" in text:
+        raise SystemExit(f"Phase-64 domain slice must not enable mutations: {relative}")
+
+print("Phase-64 TimerIntent and TimerAssignment contract check passed")
+print("Slice-3 boundary: assignment value contract only; later runtime files require explicit reviewed allow-list entries")

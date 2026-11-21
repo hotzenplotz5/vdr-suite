@@ -1,0 +1,87 @@
+From: VDR-Suite S1 native metadata fail-closed parser
+Subject: [PATCH 7/7] epgsearch: reject ambiguous native marker blocks on reload
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0006 in filename order
+
+A native generation/revision comment pair is only authoritative when the
+generation marker occurs exactly once before at most one revision marker.
+Reject repeated, malformed, or out-of-order metadata instead of silently
+accepting the last valid comment. On generation collisions across rules,
+invalidate both the generation and revision of the earlier rule.
+
+Legacy epgsearch data lines continue to load. Malformed metadata requires a
+subsequent successful Save() to establish fresh native identities, and
+Public-v1 CAS remains unavailable until that persistence is confirmed.
+
+diff --git a/epgsearchext.c b/epgsearchext.c
+--- a/epgsearchext.c
++++ b/epgsearchext.c
+@@ -1527,3 +1527,6 @@
+             std::string pendingGeneration;
+             std::string pendingRevision;
++            bool generationMarkerSeen = false;
++            bool revisionMarkerSeen = false;
++            bool invalidNativeMetadata = false;
+             std::set<std::string> seenGenerations;
+@@ -1539,7 +1539,14 @@
+-                    pendingGeneration = ValidNativeGeneration(value) ?
+-                        std::string(value) : std::string();
+-                    pendingRevision.clear();
+-                    if (pendingGeneration.empty())
+-                        LogFile.eSysLog("invalid native generation in '%s', line %d",
+-                                         fileName, line);
++                    // Duplicate or out-of-order marker blocks cannot be
++                    // trusted, even when the final marker value is valid.
++                    if (generationMarkerSeen || revisionMarkerSeen)
++                        invalidNativeMetadata = true;
++                    generationMarkerSeen = true;
++                    pendingGeneration = ValidNativeGeneration(value) ?
++                        std::string(value) : std::string();
++                    pendingRevision.clear();
++                    if (pendingGeneration.empty()) {
++                        invalidNativeMetadata = true;
++                        LogFile.eSysLog("invalid native generation in '%s', line %d",
++                                         fileName, line);
++                    }
+                     continue;
+@@ -1554,6 +1554,11 @@
+-                    pendingRevision = ValidNativeRevision(value) ?
+-                        std::string(value) : std::string();
+-                    if (pendingRevision.empty())
+-                        LogFile.eSysLog("invalid native revision in '%s', line %d",
+-                                         fileName, line);
++                    if (!generationMarkerSeen || revisionMarkerSeen)
++                        invalidNativeMetadata = true;
++                    revisionMarkerSeen = true;
++                    pendingRevision = ValidNativeRevision(value) ?
++                        std::string(value) : std::string();
++                    if (pendingRevision.empty()) {
++                        invalidNativeMetadata = true;
++                        LogFile.eSysLog("invalid native revision in '%s', line %d",
++                                         fileName, line);
++                    }
+                     continue;
+@@ -1574,5 +1574,6 @@
+                     cSearchExt* search = new cSearchExt;
+                     if (search->Parse(buffer)) {
+-                        if (this == &SearchExts && !pendingGeneration.empty()) {
++                        if (this == &SearchExts && !invalidNativeMetadata &&
++                            !pendingGeneration.empty()) {
+                             bool duplicate =
+                                 !seenGenerations.insert(pendingGeneration).second;
+@@ -1586,3 +1586,6 @@
+                                     old->nativeGeneration.clear();
+                                     old->nativeGenerationDurable = false;
++                                    old->nativeRevision.clear();
++                                    old->nativeRevisionDurable = false;
++                                    old->lastPersistedText.clear();
+                                     duplicate = true;
+@@ -1614,5 +1614,8 @@
+                     }
+                 }
+                 pendingGeneration.clear();
+                 pendingRevision.clear();
++                generationMarkerSeen = false;
++                revisionMarkerSeen = false;
++                invalidNativeMetadata = false;
+             }

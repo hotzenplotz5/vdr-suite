@@ -1,0 +1,843 @@
+#include "MetadataController.h"
+
+#include "CurlExternalArtworkHttpTransport.h"
+#include "CanonicalGenreRegistry.h"
+#include "MetadataRepository.h"
+#include "RecordingMetadataTitleMatch.h"
+#include "TmdbRecordingMetadataCandidateProvider.h"
+#include "TmdbRecordingMetadataCredentialResolver.h"
+
+#include <algorithm>
+#include <cctype>
+#include <map>
+#include <set>
+#include <vector>
+#include <cstdlib>
+#include <exception>
+#include <iostream>
+#include <sstream>
+#include <string>
+
+namespace
+{
+constexpr int MaximumManualMovieCast = 128;
+
+std::string environmentOrEmpty(const char* name)
+{
+    const char* value = std::getenv(name);
+    return value == nullptr ? std::string{} : std::string(value);
+}
+
+std::string environmentOrDefault(
+    const char* name,
+    const std::string& fallback)
+{
+    const std::string value = environmentOrEmpty(name);
+    return value.empty() ? fallback : value;
+}
+
+TmdbRecordingMetadataCandidateProviderConfig providerConfig(
+    const std::string& backendId)
+{
+    TmdbRecordingMetadataCandidateProviderConfig config;
+    config.readAccessToken =
+        TmdbRecordingMetadataCredentialResolver::resolveReadAccessToken(
+            backendId);
+    config.language = environmentOrDefault(
+        "VDR_SUITE_TMDB_LANGUAGE",
+        config.language);
+    return config;
+}
+
+CurlExternalArtworkHttpTransport& defaultTransport()
+{
+    static CurlExternalArtworkHttpTransport transport(
+        CurlExternalArtworkHttpTransportConfig{
+            {
+                "api.themoviedb.org",
+                "image.tmdb.org"
+            },
+            "vdr-suite/manual-recording-metadata"
+        });
+    return transport;
+}
+
+std::string jsonEscape(const std::string& value)
+{
+    static const char Hex[] = "0123456789abcdef";
+    std::string escaped;
+    escaped.reserve(value.size() + 16U);
+    for (const unsigned char character : value)
+    {
+        switch (character)
+        {
+        case '"': escaped += "\\\""; break;
+        case '\\': escaped += "\\\\"; break;
+        case '\b': escaped += "\\b"; break;
+        case '\f': escaped += "\\f"; break;
+        case '\n': escaped += "\\n"; break;
+        case '\r': escaped += "\\r"; break;
+        case '\t': escaped += "\\t"; break;
+        default:
+            if (character < 0x20U)
+            {
+                escaped += "\\u00";
+                escaped.push_back(Hex[(character >> 4U) & 0x0fU]);
+                escaped.push_back(Hex[character & 0x0fU]);
+            }
+            else escaped.push_back(static_cast<char>(character));
+        }
+    }
+    return escaped;
+}
+
+ApiResponse errorResponse(
+    int statusCode,
+    const std::string& code,
+    const std::string& message)
+{
+    ApiResponse response;
+    response.statusCode = statusCode;
+    response.contentType = "application/json";
+    response.body =
+        "{\"error\":{\"code\":\"" + jsonEscape(code) +
+        "\",\"message\":\"" + jsonEscape(message) + "\"}}";
+    return response;
+}
+
+std::string serializeCandidate(
+    const RecordingMetadataCandidate& candidate)
+{
+    std::ostringstream json;
+    json << "{";
+    json << "\"kind\":\""
+         << recordingMetadataCandidateKindName(candidate.kind) << "\",";
+    json << "\"providerId\":\"" << jsonEscape(candidate.providerId) << "\",";
+    json << "\"externalNamespace\":\""
+         << jsonEscape(candidate.externalNamespace) << "\",";
+    json << "\"externalId\":\"" << jsonEscape(candidate.externalId) << "\",";
+    json << "\"parentExternalId\":\""
+         << jsonEscape(candidate.parentExternalId) << "\",";
+    json << "\"title\":\"" << jsonEscape(candidate.title) << "\",";
+    json << "\"originalTitle\":\""
+         << jsonEscape(candidate.originalTitle) << "\",";
+    json << "\"overview\":\"" << jsonEscape(candidate.overview) << "\",";
+    json << "\"releaseDate\":\""
+         << jsonEscape(candidate.releaseDate) << "\",";
+    json << "\"posterReference\":\""
+         << jsonEscape(candidate.posterReference) << "\",";
+    json << "\"backdropReference\":\""
+         << jsonEscape(candidate.backdropReference) << "\",";
+    json << "\"seasonNumber\":" << candidate.seasonNumber << ",";
+    json << "\"episodeNumber\":" << candidate.episodeNumber << ",";
+    json << "\"rating\":" << candidate.rating;
+    json << "}";
+    return json.str();
+}
+
+ApiResponse candidateResponse(const RecordingMetadataCandidatePage& page)
+{
+    if (!page.error.empty())
+    {
+        const int status = page.providerAvailable ? 502 : 503;
+        return errorResponse(
+            status,
+            page.attempted
+                ? "metadata_provider_unavailable"
+                : "metadata_provider_not_configured",
+            page.error);
+    }
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    std::ostringstream json;
+    json << "{\"providerId\":\"" << jsonEscape(page.providerId) << "\",";
+    json << "\"attempted\":" << (page.attempted ? "true" : "false") << ",";
+    json << "\"providerAvailable\":"
+         << (page.providerAvailable ? "true" : "false") << ",";
+    json << "\"truncated\":" << (page.truncated ? "true" : "false") << ",";
+    json << "\"count\":" << page.candidates.size() << ",";
+    json << "\"candidates\":[";
+    for (std::size_t index = 0; index < page.candidates.size(); ++index)
+    {
+        if (index > 0) json << ",";
+        json << serializeCandidate(page.candidates[index]);
+    }
+    json << "]}";
+    response.body = json.str();
+    return response;
+}
+
+bool decimalIdentifier(const std::string& value)
+{
+    return !value.empty() && value.size() <= 16U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return character >= '0' && character <= '9';
+        });
+}
+
+ApiResponse trailerResponse(const RecordingMetadataTrailerPage& page)
+{
+    if (!page.error.empty())
+    {
+        return errorResponse(
+            page.providerAvailable ? 502 : 503,
+            page.attempted
+                ? "metadata_trailer_provider_unavailable"
+                : "metadata_trailer_provider_not_configured",
+            page.error);
+    }
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    if (page.trailers.empty())
+    {
+        response.body = "{\"available\":false,\"provider\":\"youtube\"}";
+        return response;
+    }
+
+    const RecordingMetadataTrailer& trailer = page.trailers.front();
+    if (!trailer.valid())
+    {
+        return errorResponse(
+            502,
+            "metadata_trailer_invalid",
+            "The provider returned an invalid trailer descriptor");
+    }
+
+    std::ostringstream json;
+    json << "{\"available\":true,\"provider\":\"youtube\""
+         << ",\"videoId\":\"" << jsonEscape(trailer.externalId) << "\""
+         << ",\"title\":\"" << jsonEscape(trailer.title) << "\""
+         << ",\"language\":\"" << jsonEscape(trailer.language) << "\""
+         << ",\"official\":" << (trailer.official ? "true" : "false")
+         << "}";
+    response.body = json.str();
+    return response;
+}
+
+std::string serializePerson(const ManualRecordingMetadataPerson& person)
+{
+    std::ostringstream json;
+    json << "{\"metadataEntityId\":\""
+         << jsonEscape(person.metadataEntityId) << "\",";
+    json << "\"providerId\":\"" << jsonEscape(person.providerId) << "\",";
+    json << "\"externalNamespace\":\""
+         << jsonEscape(person.externalNamespace) << "\",";
+    json << "\"externalId\":\"" << jsonEscape(person.externalId) << "\",";
+    json << "\"name\":\"" << jsonEscape(person.name) << "\",";
+    json << "\"normalizedName\":\""
+         << jsonEscape(person.normalizedName) << "\",";
+    json << "\"role\":\"" << jsonEscape(person.role) << "\",";
+    json << "\"characterName\":\""
+         << jsonEscape(person.characterName) << "\",";
+    json << "\"profileAvailable\":"
+         << (!person.profilePath.empty() ? "true" : "false") << ",";
+    json << "\"order\":" << person.ordinal << "}";
+    return json.str();
+}
+
+std::string serializeAssignment(
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    std::ostringstream json;
+    json << "{";
+    json << "\"found\":" << (assignment.found ? "true" : "false");
+    if (assignment.found)
+    {
+        json << ",\"backendId\":\"" << jsonEscape(assignment.backendId) << "\"";
+        json << ",\"metadataTargetId\":\""
+             << jsonEscape(assignment.metadataTargetId) << "\"";
+        json << ",\"metadataAssignmentId\":\""
+             << jsonEscape(assignment.metadataAssignmentId) << "\"";
+        json << ",\"metadataEntityId\":\""
+             << jsonEscape(assignment.metadataEntityId) << "\"";
+        json << ",\"providerId\":\"" << jsonEscape(assignment.providerId) << "\"";
+        json << ",\"externalNamespace\":\""
+             << jsonEscape(assignment.externalNamespace) << "\"";
+        json << ",\"externalId\":\"" << jsonEscape(assignment.externalId) << "\"";
+        json << ",\"mediaType\":\"" << jsonEscape(assignment.mediaType) << "\"";
+        json << ",\"title\":\"" << jsonEscape(assignment.title) << "\"";
+        json << ",\"originalTitle\":\""
+             << jsonEscape(assignment.originalTitle) << "\"";
+        json << ",\"overview\":\"" << jsonEscape(assignment.overview) << "\"";
+        json << ",\"releaseDate\":\""
+             << jsonEscape(assignment.releaseDate) << "\"";
+        json << ",\"posterAvailable\":"
+             << (!assignment.posterReference.empty() ? "true" : "false");
+        json << ",\"seasonNumber\":" << assignment.seasonNumber;
+        json << ",\"episodeNumber\":" << assignment.episodeNumber;
+        json << ",\"revision\":" << assignment.revision;
+        json << ",\"manual\":true";
+        json << ",\"relationshipLocked\":"
+             << (assignment.relationshipLocked ? "true" : "false");
+        json << ",\"castComplete\":"
+             << (assignment.castComplete ? "true" : "false");
+        json << ",\"people\":[";
+        for (std::size_t index = 0; index < assignment.people.size(); ++index)
+        {
+            if (index > 0U) json << ',';
+            json << serializePerson(assignment.people[index]);
+        }
+        json << ']';
+    }
+    json << "}";
+    return json.str();
+}
+
+ApiResponse enrichMovieCast(
+    ManualRecordingMetadataSelection& selection,
+    IRecordingMetadataCandidateProvider& provider)
+{
+    const RecordingMetadataCastPage page = provider.movieCredits(
+        selection.externalId,
+        MaximumManualMovieCast);
+    if (!page.error.empty())
+    {
+        return errorResponse(
+            page.providerAvailable ? 502 : 503,
+            "metadata_cast_enrichment_failed",
+            page.error);
+    }
+
+    selection.people.clear();
+    selection.people.reserve(page.cast.size());
+    for (const RecordingMetadataCastMember& member : page.cast)
+    {
+        if (!member.valid())
+        {
+            return errorResponse(
+                502,
+                "metadata_cast_enrichment_failed",
+                "The provider returned an invalid cast entry");
+        }
+        ManualRecordingMetadataPerson person;
+        person.providerId = member.providerId;
+        person.externalNamespace = member.externalNamespace;
+        person.externalId = member.externalId;
+        person.name = member.name;
+        person.role = "actor";
+        person.characterName = member.characterName;
+        person.profileReference = member.profileReference;
+        person.ordinal = member.order;
+        selection.people.push_back(std::move(person));
+    }
+    selection.castComplete = true;
+    ApiResponse success;
+    success.statusCode = 0;
+    success.contentType.clear();
+    return success;
+}
+}
+
+MetadataController::MetadataController(
+    MetadataRepository& metadataRepository,
+    IRecordingMetadataCandidateProvider* candidateProvider)
+    : metadataRepository_(metadataRepository),
+      candidateProvider_(candidateProvider)
+{
+}
+
+ApiResponse MetadataController::getMetadata()
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+
+    const auto metadataItems = metadataRepository_.getAllMetadata();
+    std::ostringstream json;
+    json << "{\"metadata\":[";
+    for (std::size_t index = 0; index < metadataItems.size(); ++index)
+    {
+        const auto& metadata = metadataItems[index];
+        if (index > 0) json << ",";
+        json << "{";
+        json << "\"id\":" << metadata.id << ",";
+        json << "\"recordingId\":" << metadata.recordingId << ",";
+        json << "\"mediaType\":\"" << jsonEscape(metadata.mediaType) << "\",";
+        json << "\"title\":\"" << jsonEscape(metadata.title) << "\",";
+        json << "\"originalTitle\":\""
+             << jsonEscape(metadata.originalTitle) << "\",";
+        json << "\"year\":" << metadata.year << ",";
+        json << "\"seasonNumber\":" << metadata.seasonNumber << ",";
+        json << "\"episodeNumber\":" << metadata.episodeNumber << ",";
+        json << "\"genre\":\"" << jsonEscape(metadata.genre) << "\",";
+        json << "\"description\":\""
+             << jsonEscape(metadata.description) << "\",";
+        json << "\"source\":\"" << jsonEscape(metadata.source) << "\",";
+        json << "\"externalId\":\""
+             << jsonEscape(metadata.externalId) << "\"";
+        json << "}";
+    }
+    json << "]}";
+    response.body = json.str();
+    return response;
+}
+
+ApiResponse MetadataController::searchRecordingMetadataCandidates(
+    const std::string& backendId,
+    const std::string& query,
+    RecordingMetadataCandidateKind kind,
+    int limit)
+{
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->search(query, kind, limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.search(query, kind, limit));
+}
+
+// Resolve TMDb identities once in the existing Metadata Core.
+// This method neither imports video nor assigns/writes Recording metadata.
+ApiResponse MetadataController::resolveRecordingMetadata(
+    const std::string& backendId,
+    const std::string& title,
+    RecordingMetadataCandidateKind kind,
+    int seasonNumber,
+    int episodeNumber,
+    int releaseYear,
+    const std::string& episodeTitle)
+{
+    auto outcome = [](const char* status) {
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.headers["Cache-Control"] = "no-store";
+        response.body = std::string("{\"status\":\"") + status + "\"}";
+        return response;
+    };
+    if (title.size() < 2U || title.size() > 160U ||
+        (kind != RecordingMetadataCandidateKind::Series &&
+         kind != RecordingMetadataCandidateKind::Movie) ||
+        (kind == RecordingMetadataCandidateKind::Series &&
+         (seasonNumber < 1 || seasonNumber > 10000 ||
+          episodeNumber < 1 || episodeNumber > 10000)) ||
+        releaseYear < 0 || releaseYear > 9999)
+        return errorResponse(400, "invalid_metadata_resolve_request",
+            "A series needs an exact season and episode; title is required");
+
+    TmdbRecordingMetadataCandidateProvider defaultProvider(
+        defaultTransport(), providerConfig(backendId));
+    IRecordingMetadataCandidateProvider& provider = candidateProvider_
+        ? *candidateProvider_ : defaultProvider;
+
+    const std::vector<std::string> queries =
+        recordingMetadataTitleMatch::searchQueries(title);
+    const std::string space = kind == RecordingMetadataCandidateKind::Series
+        ? "tv" : "movie";
+
+    RecordingMetadataCandidate found;
+    RecordingMetadataCandidate selectedEpisode;
+    bool hasSelectedEpisode = false;
+    bool hasMatch = false;
+
+    // The same provider-identity and exact-coordinate validation is used
+    // for ordinary episode lookup and for tie-breaking equal series titles.
+    const auto validEpisode = [seasonNumber, episodeNumber](
+        const RecordingMetadataCandidate& ep,
+        const RecordingMetadataCandidate& series) {
+        const std::string& id = ep.externalId;
+        return ep.kind == RecordingMetadataCandidateKind::Episode &&
+            ep.providerId == "tmdb" && ep.externalNamespace == "tv-episode" &&
+            ep.parentExternalId == series.externalId &&
+            ep.seasonNumber == seasonNumber &&
+            ep.episodeNumber == episodeNumber &&
+            !ep.title.empty() && !id.empty() && id.size() <= 16U &&
+            std::all_of(id.begin(), id.end(), [](unsigned char c) {
+                return c >= '0' && c <= '9';
+            });
+    };
+
+    for (const std::string& query : queries)
+    {
+        const RecordingMetadataCandidatePage page =
+            provider.search(query, kind, 12);
+        if (!page.providerAvailable || !page.error.empty())
+            return errorResponse(503, "metadata_provider_unavailable",
+                page.error.empty() ? "TMDb unavailable" : page.error);
+        // Rank by title/original-title evidence, not TMDb result order.
+        // A localized title may differ completely from the original title.
+        // Never infer a match from a shortened search query alone.
+        std::map<std::string, std::pair<int, RecordingMetadataCandidate>> matches;
+        for (const RecordingMetadataCandidate& candidate : page.candidates)
+        {
+            const std::string& id = candidate.externalId;
+            if (candidate.kind != kind || candidate.providerId != "tmdb" ||
+                candidate.externalNamespace != space ||
+                id.empty() || id.size() > 16U ||
+                !std::all_of(id.begin(), id.end(), [](unsigned char c) {
+                    return c >= '0' && c <= '9';
+                })) continue;
+            const int evidence = std::max(
+                recordingMetadataTitleMatch::score(title, candidate.title),
+                recordingMetadataTitleMatch::score(
+                    title, candidate.originalTitle));
+            if (evidence == 0) continue;
+            // Series and movies alike can share a title across years.
+            // This year refers to the first series air date / film release,
+            // never to an individual episode.
+            if (releaseYear > 0 &&
+                candidate.releaseDate.substr(0, 4) !=
+                    std::to_string(releaseYear)) continue;
+            const auto existing = matches.find(id);
+            if (existing == matches.end() || evidence > existing->second.first)
+                matches[id] = {evidence, candidate};
+        }
+        int highest = 0;
+        std::size_t equallyStrong = 0U;
+        for (const auto& entry : matches)
+        {
+            const int evidence = entry.second.first;
+            if (evidence > highest)
+            {
+                highest = evidence;
+                equallyStrong = 1U;
+                found = entry.second.second;
+            }
+            else if (evidence == highest && highest != 0)
+                ++equallyStrong;
+        }
+        if (equallyStrong > 1U)
+        {
+            // Equally named TV series can have completely different S01E08.
+            // An optional, filename-derived episode title is *positive*
+            // evidence for one candidate; coordinates alone are not enough
+            // to prefer a popular series, its provider order, or its year.
+            // Without that evidence, the historical ambiguous result remains.
+            if (kind == RecordingMetadataCandidateKind::Series &&
+                !episodeTitle.empty())
+            {
+                int strongestEpisode = 0;
+                std::size_t equallyStrongEpisodes = 0U;
+                RecordingMetadataCandidate bestSeries;
+                RecordingMetadataCandidate bestEpisode;
+                for (const auto& entry : matches)
+                {
+                    if (entry.second.first != highest) continue;
+                    const RecordingMetadataCandidate& series =
+                        entry.second.second;
+                    const RecordingMetadataCandidatePage season =
+                        provider.episodes(series.externalId, seasonNumber, 100);
+                    if (!season.providerAvailable || !season.error.empty())
+                        return errorResponse(503, "metadata_provider_unavailable",
+                            season.error.empty()
+                                ? "TMDb unavailable" : season.error);
+                    std::map<std::string, RecordingMetadataCandidate> episodes;
+                    for (const auto& ep : season.candidates)
+                        if (validEpisode(ep, series))
+                            episodes.emplace(ep.externalId, ep);
+
+                    for (const auto& item : episodes)
+                    {
+                        const RecordingMetadataCandidate& ep = item.second;
+                        const int evidence = std::max(
+                            recordingMetadataTitleMatch::score(
+                                episodeTitle, ep.title),
+                            recordingMetadataTitleMatch::score(
+                                episodeTitle, ep.originalTitle));
+                        if (evidence == 0) continue;
+                        if (evidence > strongestEpisode)
+                        {
+                            strongestEpisode = evidence;
+                            equallyStrongEpisodes = 1U;
+                            bestSeries = series;
+                            bestEpisode = ep;
+                        }
+                        else if (evidence == strongestEpisode)
+                            ++equallyStrongEpisodes;
+                    }
+                }
+                if (strongestEpisode > 0 &&
+                    equallyStrongEpisodes == 1U)
+                {
+                    found = bestSeries;
+                    selectedEpisode = bestEpisode;
+                    hasSelectedEpisode = true;
+                    hasMatch = true;
+                    break;
+                }
+            }
+            return outcome("ambiguous");
+        }
+        if (equallyStrong == 1U)
+        {
+            hasMatch = true;
+            break;
+        }
+    }
+    if (!hasMatch) return outcome("not_found");
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    if (kind == RecordingMetadataCandidateKind::Movie)
+    {
+        response.body = "{\"status\":\"matched\",\"mediaType\":\"movie\","
+            "\"movie\":" + serializeCandidate(found) + "}";
+        return response;
+    }
+
+    if (!hasSelectedEpisode)
+    {
+        const RecordingMetadataCandidatePage page =
+            provider.episodes(found.externalId, seasonNumber, 100);
+        if (!page.providerAvailable || !page.error.empty())
+            return errorResponse(503, "metadata_provider_unavailable",
+                page.error.empty() ? "TMDb unavailable" : page.error);
+        std::map<std::string, RecordingMetadataCandidate> episodes;
+        for (const RecordingMetadataCandidate& ep : page.candidates)
+            if (validEpisode(ep, found))
+                episodes.emplace(ep.externalId, ep);
+        if (episodes.size() > 1U) return outcome("ambiguous");
+        if (episodes.empty()) return outcome("not_found");
+        selectedEpisode = episodes.begin()->second;
+    }
+    response.body = "{\"status\":\"matched\",\"mediaType\":\"episode\","
+        "\"series\":" + serializeCandidate(found) +
+        ",\"episode\":" + serializeCandidate(selectedEpisode) + "}";
+    return response;
+}
+
+ApiResponse MetadataController::getRecordingMetadataSeasons(
+    const std::string& backendId,
+    const std::string& seriesExternalId,
+    int limit)
+{
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->seasons(
+            seriesExternalId,
+            limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.seasons(seriesExternalId, limit));
+}
+
+ApiResponse MetadataController::getRecordingMetadataEpisodes(
+    const std::string& backendId,
+    const std::string& seriesExternalId,
+    int seasonNumber,
+    int limit)
+{
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->episodes(
+            seriesExternalId,
+            seasonNumber,
+            limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.episodes(
+        seriesExternalId,
+        seasonNumber,
+        limit));
+}
+
+ApiResponse MetadataController::getRecordingMetadataTrailer(
+    const std::string& backendId,
+    const std::string& mediaType,
+    const std::string& externalId)
+{
+    if ((mediaType != "movie" && mediaType != "series") ||
+        !decimalIdentifier(externalId))
+    {
+        return errorResponse(
+            400,
+            "invalid_metadata_trailer_identity",
+            "Trailer lookup requires movie or series metadata with a numeric external id");
+    }
+
+    constexpr int MaximumTrailerCandidates = 8;
+    if (candidateProvider_ != nullptr)
+        return trailerResponse(candidateProvider_->trailers(
+            mediaType,
+            externalId,
+            MaximumTrailerCandidates));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return trailerResponse(provider.trailers(
+        mediaType,
+        externalId,
+        MaximumTrailerCandidates));
+}
+
+ApiResponse MetadataController::getManualRecordingMetadata(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = serializeAssignment(
+        metadataRepository_.getManualRecordingMetadata(backendId, resourceKey));
+    return response;
+}
+
+ApiResponse MetadataController::getManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+
+    CanonicalGenreRegistry registry;
+    const std::string selectedGenreId =
+        metadataRepository_.getManualRecordingGenre(
+            backendId,
+            resourceKey);
+
+    std::ostringstream json;
+    json << "{\"backendId\":\"" << jsonEscape(
+        backendId.empty() ? "default" : backendId) << "\"";
+    json << ",\"resourceKey\":\"" << jsonEscape(resourceKey) << "\"";
+    json << ",\"selectedGenreId\":\""
+         << jsonEscape(selectedGenreId) << "\"";
+    json << ",\"genres\":[";
+    bool firstGenre = true;
+    for (const CanonicalGenre& genre : registry.allKnown())
+    {
+        if (!genre.known || genre.id == "unclassified") continue;
+        if (!firstGenre) json << ',';
+        firstGenre = false;
+        json << "{\"id\":\"" << jsonEscape(genre.id)
+             << "\",\"label\":\"" << jsonEscape(genre.labelDe)
+             << "\"}";
+    }
+    json << "]}";
+    response.body = json.str();
+    return response;
+}
+
+ApiResponse MetadataController::setManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    const std::string& genreId)
+{
+    if (resourceKey.empty())
+    {
+        return errorResponse(
+            400,
+            "invalid_recording_resource_key",
+            "A recording resource key is required");
+    }
+
+    const bool updated = genreId.empty()
+        ? metadataRepository_.clearManualRecordingGenre(
+            backendId,
+            resourceKey)
+        : metadataRepository_.setManualRecordingGenre(
+            backendId,
+            resourceKey,
+            genreId);
+
+    if (!updated)
+    {
+        return errorResponse(
+            400,
+            "invalid_recording_genre",
+            "The recording or selected genre is invalid");
+    }
+
+    return getManualRecordingGenre(
+        backendId,
+        resourceKey);
+}
+
+ApiResponse MetadataController::assignManualRecordingMetadata(
+    ManualRecordingMetadataSelection selection,
+    const std::string& actorRef)
+{
+    if (selection.providerId == "tmdb" &&
+        selection.externalNamespace == "movie" &&
+        selection.mediaType == "movie")
+    {
+        ApiResponse enrichment;
+        if (candidateProvider_ != nullptr)
+        {
+            enrichment = enrichMovieCast(selection, *candidateProvider_);
+        }
+        else
+        {
+            TmdbRecordingMetadataCandidateProvider provider(
+                defaultTransport(),
+                providerConfig(selection.backendId));
+            enrichment = enrichMovieCast(selection, provider);
+        }
+        if (enrichment.statusCode != 0) return enrichment;
+    }
+
+    selection.actorRef = actorRef;
+    ManualRecordingMetadataAssignment assigned;
+    if (!metadataRepository_.assignManualRecordingMetadata(selection, assigned))
+    {
+        return errorResponse(
+            selection.expectedRevision > 0 ? 409 : 400,
+            selection.expectedRevision > 0
+                ? "metadata_assignment_revision_conflict"
+                : "invalid_metadata_assignment",
+            selection.expectedRevision > 0
+                ? "The selected metadata assignment changed before this request"
+                : "The manual metadata assignment is invalid");
+    }
+
+    // Keep the existing authenticated assignment as the only request.
+    // A native write error never reverses the persisted Suite assignment.
+    bool nativeUpdated = false;
+    if (nativeInfoUpdate_) {
+        try { nativeUpdated = nativeInfoUpdate_(selection, assigned); }
+        catch (const std::exception& error) {
+            std::cerr << "VDR native info update deferred: "
+                      << error.what() << std::endl;
+        }
+    }
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = serializeAssignment(assigned);
+    if (nativeInfoUpdate_ && !response.body.empty() &&
+        response.body.back() == '}')
+        response.body.insert(response.body.size() - 1,
+            nativeUpdated ? ",\"nativeInfoUpdated\":true"
+                          : ",\"nativeInfoUpdated\":false");
+    return response;
+}
+
+ApiResponse MetadataController::withdrawManualRecordingMetadata(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    int expectedRevision,
+    const std::string& actorRef)
+{
+    ManualRecordingMetadataAssignment withdrawn;
+    if (!metadataRepository_.withdrawManualRecordingMetadata(
+            backendId,
+            resourceKey,
+            actorRef,
+            expectedRevision,
+            withdrawn))
+    {
+        return errorResponse(
+            409,
+            "metadata_assignment_revision_conflict",
+            "The selected metadata assignment no longer matches this request");
+    }
+
+    withdrawn.found = true;
+    withdrawn.relationshipLocked = false;
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = serializeAssignment(withdrawn);
+    return response;
+}

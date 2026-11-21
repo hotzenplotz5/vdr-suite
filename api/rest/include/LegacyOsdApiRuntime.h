@@ -1,0 +1,52 @@
+#pragma once
+
+#include "DashboardController.h"
+#include "LegacyOsdInputDomain.h"
+
+#include <string>
+
+class LegacyOsdSessionService;
+class OsdViewerBindingService;
+class OsdControllerLeaseService;
+
+class LegacyOsdApiRuntime
+{
+public:
+    static LegacyOsdApiRuntime& instance();
+    bool configure(LegacyOsdSessionService& sessionService);
+    bool configure(
+        LegacyOsdSessionService& sessionService,
+        OsdViewerBindingService& viewerService);
+    bool configure(
+        LegacyOsdSessionService& sessionService,
+        OsdViewerBindingService& viewerService,
+        OsdControllerLeaseService& controllerService);
+    bool configure(
+        LegacyOsdSessionService& sessionService,
+        OsdViewerBindingService& viewerService,
+        OsdControllerLeaseService& controllerService,
+        ILegacyOsdInputService& inputService);
+    void reset();
+    bool configured() const;
+
+    bool tryHandleGet(
+        const std::string& requestTarget,
+        ApiResponse& response,
+        const std::string& actorRef = "",
+        const std::string& clientRef = "") const;
+
+    bool tryHandlePost(
+        const std::string& requestTarget,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& clientRef,
+        const std::string& correlationRef,
+        ApiResponse& response) const;
+
+private:
+    LegacyOsdApiRuntime() = default;
+    LegacyOsdSessionService* sessionService_ = nullptr;
+    OsdViewerBindingService* viewerService_ = nullptr;
+    OsdControllerLeaseService* controllerService_ = nullptr;
+    ILegacyOsdInputService* inputService_ = nullptr;
+};

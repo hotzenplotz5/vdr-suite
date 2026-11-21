@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "image",
+  "version": "0.1.0",
+  "package": "vdr-suite-addon-image",
+  "state": "scaffold",
+  "displayName": "Images",
+  "description": "Future photo library, albums and slideshow; no runnable handlers yet",
+  "entrypoints": [],
+  "capabilities": [],
+  "permissions": [],
+  "dependencies": []
+}

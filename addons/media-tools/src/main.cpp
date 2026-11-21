@@ -1,0 +1,131 @@
+#include "MediaImport.h"
+
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
+using namespace vdrsuite::mediatools;
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: vdr-suite-media-import plan SOURCE_ROOT VIDEO_ROOT FILE\n"
+                  << "       vdr-suite-media-import import SOURCE_ROOT VIDEO_ROOT FILE --confirm-writes [--approve-video-reencode]\n"
+                  << "       Use plan first to inspect the codec. The optional encoding flag is operator-only.\n";
+        return 2;
+    }
+    try {
+        const std::string action(argv[1]);
+        if (action != "plan" && action != "import")
+            throw std::invalid_argument("unknown action");
+        // Existing command syntax remains unchanged when the one-shot
+        // metadata snapshot is absent (offline/local NFO fallback).
+        const bool localReencode = action == "import" && argc >= 7 &&
+            std::string(argv[6]) == "--approve-video-reencode";
+        const int metadataIndex = localReencode ? 7 : 6;
+        const bool withMetadata = action == "import" && argc > metadataIndex &&
+            std::string(argv[metadataIndex]).compare(0, 11, "--metadata=") == 0;
+        if ((action == "plan" && argc != 5) ||
+            (action == "import" &&
+             (std::string(argv[5]) != "--confirm-writes" ||
+              argc != 6 + (localReencode ? 1 : 0) + (withMetadata ? 1 : 0)))) {
+            throw std::invalid_argument("invalid import arguments or missing write confirmation");
+        }
+        ImportConfirmedMetadata frozenMetadata;
+        if (withMetadata && !parseFrozenImportMetadata(
+                std::string(argv[metadataIndex]).substr(11), frozenMetadata))
+            throw std::invalid_argument("invalid frozen import metadata");
+        // The pinned Agent supplies only these three trusted values through
+        // its sanitized child environment; no HTTP operation controls them.
+        // Direct backend-local CLI keeps the historical defaults.
+        MediaToolExecutables tools;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_FFMPEG"))
+            tools.ffmpeg = value;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_FFPROBE"))
+            tools.ffprobe = value;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_VDR"))
+            tools.vdr = value;
+        // Agent-owned values are passed in the pinned child environment.
+        // No browser argument can provide an FFmpeg option or encoding profile.
+        const auto parseCrf = [](const char* key, int& target) {
+            if (const char* raw = std::getenv(key)) {
+                const std::string value(raw);
+                if (value.empty() || value.size() > 2 ||
+                    !std::all_of(value.begin(), value.end(),
+                        [](unsigned char c) { return c >= '0' && c <= '9'; }))
+                    throw std::invalid_argument(std::string("invalid ") + key);
+                target = std::stoi(value);
+            }
+        };
+        parseCrf("VDR_SUITE_MEDIA_IMPORT_H264_CRF", tools.encoding.importH264Crf);
+        parseCrf("VDR_SUITE_MEDIA_SHRINK_H265_CRF", tools.encoding.shrinkH265Crf);
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_IMPORT_H264_PRESET"))
+            tools.encoding.importH264Preset = v;
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_SHRINK_H265_PRESET"))
+            tools.encoding.shrinkH265Preset = v;
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_VAAPI_RENDER_DEVICE"))
+            tools.encoding.vaapiRenderDevice = v;
+        if (!tools.valid())
+            throw std::invalid_argument("invalid backend media tool or encoding settings");
+        const auto plan = action == "plan"
+            ? inspectImportPreview(ImportRequest{argv[2], argv[3], argv[4]})
+            : inspectImport(ImportRequest{argv[2], argv[3], argv[4]});
+        std::cout << "SOURCE=" << plan.sourceFile << "\n"
+                  << "TITLE=" << plan.title << "\n"
+                  << "SOURCE_BYTES=" << plan.sourceBytes << "\n"
+                  << "TARGET_PARENT=" << plan.titleDirectory << "\n";
+        if (action == "plan") {
+            NativeProcessRunner probe(std::chrono::seconds(30), tools);
+            const auto codec = probeImportVideoCodec(plan, probe);
+            const auto capacity = inspectImportCapacity(plan);
+            std::cout << "VIDEO_CODEC=" << codec << "\n"
+                      << "VIDEO_REENCODE_REQUIRED="
+                      << (importVideoNeedsReencode(codec) ? "YES" : "NO") << "\n"
+                      << "AVAILABLE_BYTES=" << capacity.availableBytes << "\n"
+                      << "REQUIRED_BYTES=" << capacity.requiredBytes << "\n"
+                      << "RESERVE_BYTES=" << capacity.reserveBytes << "\n"
+                      << "TARGET_WRITABLE=" << (capacity.writable ? "YES" : "NO") << "\n"
+                      << "SPACE_SUFFICIENT=" << (capacity.sufficient ? "YES" : "NO") << "\n"
+                      << "DUPLICATE="
+                      << (plan.duplicateTarget ? "YES" : "NO") << "\n"
+                      << "IMPORT_STATUS=PLAN_ONLY\n";
+            return 0;
+        }
+        if (!localReencode) {
+            // Fail before copying gigabytes into private staging. The
+            // executor repeats this check on the immutable staged snapshot
+            // in case the source or codec changes after the plan.
+            NativeProcessRunner preview(std::chrono::seconds(30), tools);
+            const auto codec = probeImportVideoCodec(plan, preview);
+            if (importVideoNeedsReencode(codec)) {
+                std::cout << "VIDEO_CODEC=" << codec << "\n"
+                          << "VIDEO_REENCODE_REQUIRED=YES\n"
+                          << "IMPORT_STATUS=DECISION_REQUIRED\n"
+                          << "SOURCE_PRESERVED=YES\n";
+                return 3;
+            }
+        }
+        // The Agent owns the Core deadline; individual FFmpeg tools must
+        // not apply a shorter cap to stream-copy or post-encode import.
+        NativeProcessRunner runner(std::chrono::seconds(24 * 3600), tools);
+        const auto result = executeRemuxImport(
+            plan, runner, requireProductionCapacity, localReencode,
+            withMetadata ? &frozenMetadata : nullptr);
+        std::cout << "IMPORT_STATUS=COMMITTED\nRECORDING=" << result << "\n"
+                  << "SOURCE_PRESERVED=YES\n"
+                  << "SUITE_RECONCILIATION=NOT_CONNECTED\n";
+        return 0;
+    } catch (const std::exception& exc) {
+        std::cerr << "MEDIA_IMPORT_ERROR=" << exc.what() << "\n";
+        // Fixed native worker exit codes, interpreted by the owning Agent.
+        // Never infer an FFmpeg error from untrusted source filenames.
+        if (std::string(exc.what()) == "ffmpeg_timeout") return 71;
+        if (std::string(exc.what()) == "ffmpeg_failed") return 72;
+        if (std::string(exc.what()) == "vdr_index_failed") return 73;
+        if (std::string(exc.what()) ==
+                "import output is not VDR-compatible H.264 Main 8-bit") return 74;
+        if (std::string(exc.what()) ==
+                "invalid_media_encoding_settings") return 75;
+        return 1;
+    }
+}

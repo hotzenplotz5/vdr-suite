@@ -1,0 +1,51 @@
+.TH VDR-SUITE-FIRST-ADMIN-BOOTSTRAP 8 "September 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-first-admin-bootstrap \- issue short-lived first-admin setup material
+.SH SYNOPSIS
+.B vdr-suite-first-admin-bootstrap
+.RI [ --database " PATH" ]
+.RI [ --ttl-seconds " 300..3600" ]
+.SH DESCRIPTION
+.B vdr-suite-first-admin-bootstrap
+is a local root-only administration command for an unclaimed VDR-Suite server.
+It creates cryptographically random, short-lived first-admin bootstrap material
+in the existing Suite security database.
+.PP
+The raw setup secret is printed once to standard output. Only a one-way verifier,
+the bootstrap identifier, expiry and lifecycle metadata are persisted.
+The setup secret is not a normal account password, browser session or reusable
+API credential.
+.PP
+The command refuses issuance after the server is already claimed and while an
+effective unconsumed bootstrap issuance exists.
+.SH OPTIONS
+.TP
+.BI --database " PATH"
+Use the specified Suite database instead of
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.TP
+.BI --ttl-seconds " SECONDS"
+Set bootstrap lifetime. The accepted range is 300 through 3600 seconds.
+The default is 900 seconds.
+.SH OUTPUT
+On success, the command prints exactly one bootstrap identifier, setup secret
+and expiry timestamp:
+.PP
+.nf
+bootstrap_id=...
+setup_secret=...
+expires_at=...
+.fi
+.PP
+Treat the setup secret as transient security material. It is intended only for
+the later first-admin claim flow and cannot be recovered from the database.
+.SH SECURITY
+The command must be run as root. Remote anonymous callers cannot invoke this
+local command through the VDR-Suite HTTP API. No plaintext bootstrap secret is
+written to package configuration or persistent Suite state.
+.SH FILES
+.TP
+.I /var/lib/vdr-suite/vdr-suite.db
+Default Suite security database.
+.SH SEE ALSO
+.BR vdr-suite-daemon (8)

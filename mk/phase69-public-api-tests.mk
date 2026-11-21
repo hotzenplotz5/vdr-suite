@@ -1,0 +1,772 @@
+# Immutable offline-native-CAS admission, no HTTP/native writer.
+.PHONY: test-searchtimer-native-cas-durable-admission
+test-searchtimer-native-cas-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_admission_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
+	$(BUILD_DIR)/test_search_timer_native_cas_admission_service
+
+test-phase: test-searchtimer-native-cas-durable-admission
+test-fast: test-searchtimer-native-cas-durable-admission
+
+
+# One-shot durable SearchTimer native-CAS gate; offline mock provider only.
+.PHONY: test-searchtimer-native-cas-durable-dispatch
+test-searchtimer-native-cas-durable-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_dispatch_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+	$(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+
+test-phase: test-searchtimer-native-cas-durable-dispatch
+test-fast: test-searchtimer-native-cas-durable-dispatch
+
+# Provider-native CAS protocol is a mock-only prerequisite. Never
+# substitute a legacy numeric-ID RESTfulAPI/SVDRP writer here.
+.PHONY: test-searchtimer-native-cas-contract
+test-searchtimer-native-cas-contract:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/tests/test_search_timer_native_cas_contract.cpp \
+		-o $(BUILD_DIR)/test_search_timer_native_cas_contract
+	$(BUILD_DIR)/test_search_timer_native_cas_contract
+
+test-phase: test-searchtimer-native-cas-contract
+test-fast: test-searchtimer-native-cas-contract
+
+.PHONY: test-public-epg-timer-intent-admission
+
+test-public-epg-timer-intent-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_epg_timer_intent_admission.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_admission
+	$(BUILD_DIR)/test_public_epg_timer_intent_admission
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) $(SECURITY_SRC) \
+		core/security/tests/test_public_epg_timer_intent_security.cpp \
+		$(LDFLAGS) -o $(BUILD_DIR)/test_public_epg_timer_intent_security
+	$(BUILD_DIR)/test_public_epg_timer_intent_security
+
+test-phase: test-public-epg-timer-intent-admission
+
+.PHONY: test-public-v1-native-timer-detail
+test-public-v1-native-timer-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_detail.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_detail
+	$(BUILD_DIR)/test_public_native_timer_detail
+	$(CXX) $(CXXFLAGS) -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
+test-fast: test-public-v1-native-timer-detail
+
+.PHONY: test-public-v1-native-timer-delete
+test-public-v1-native-timer-delete:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_delete.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_delete
+	$(BUILD_DIR)/test_public_native_timer_delete
+
+test-fast: test-public-v1-native-timer-delete
+
+.PHONY: test-public-v1-native-timer-modifications
+test-public-v1-native-timer-modifications:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_modifications.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_modifications
+	$(BUILD_DIR)/test_public_native_timer_modifications
+
+test-fast: test-public-v1-native-timer-modifications
+
+.PHONY: test-phase69-public-epg-timer-intent-draft
+
+test-phase69-public-epg-timer-intent-draft:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/tests/test_epg_timer_intent_draft.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_draft
+	$(BUILD_DIR)/test_public_epg_timer_intent_draft
+
+.PHONY: test-phase69-public-epg-timer-selection
+
+test-phase69-public-epg-timer-selection:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/tests/test_epg_timer_selection_guard.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_selection_guard
+	$(BUILD_DIR)/test_public_epg_timer_selection_guard
+	python3 tools/check_public_epg_event_id_provenance.py
+
+.PHONY: test-phase69-public-api-contract-root
+
+test-phase69-public-api-contract-root:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_api_contract_runtime.cpp \
+		-o $(BUILD_DIR)/test_public_api_contract_runtime
+	$(BUILD_DIR)/test_public_api_contract_runtime
+
+.PHONY: test-phase69-public-resource-preconditions
+
+test-phase69-public-resource-preconditions:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/http/tests/test_public_resource_preconditions.cpp \
+		-o $(BUILD_DIR)/test_public_resource_preconditions
+	$(BUILD_DIR)/test_public_resource_preconditions
+
+.PHONY: test-phase69-operation-read-facade
+
+test-phase69-operation-read-facade:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/operations/src/MutationOperationReadService.cpp \
+		core/operations/tests/test_mutation_operation_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_mutation_operation_read_service
+	$(BUILD_DIR)/test_mutation_operation_read_service
+
+.PHONY: test-phase69-public-operation-resource
+
+test-phase69-public-operation-resource:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_operation_resource.cpp \
+		-o $(BUILD_DIR)/test_public_operation_resource
+	$(BUILD_DIR)/test_public_operation_resource
+
+.PHONY: test-phase69-timer-assignment-read-facade
+
+test-phase69-timer-assignment-read-facade:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentReadService.cpp \
+		core/timers/tests/test_timer_assignment_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_read_service
+	$(BUILD_DIR)/test_timer_assignment_read_service
+
+.PHONY: test-phase69-timer-assignment-runtime-composition
+
+test-phase69-timer-assignment-runtime-composition:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_timer_assignment_lookup.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
+	$(BUILD_DIR)/test_public_timer_assignment_lookup
+	python3 tools/check_phase69_timer_assignment_runtime_composition.py
+
+.PHONY: test-phase69-public-timer-assignment-resource
+
+test-phase69-public-timer-assignment-resource:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_timer_assignment_resource.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_resource
+	$(BUILD_DIR)/test_public_timer_assignment_resource
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_assignment_read_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_assignment_read_security
+	$(BUILD_DIR)/test_public_timer_assignment_read_security
+	python3 tools/check_phase69_public_timer_assignment_resource.py
+
+.PHONY: test-phase69-native-timer-create-preparation-runtime
+
+test-phase69-native-timer-create-preparation-runtime:
+	python3 tools/check_phase69_native_timer_create_preparation_runtime.py
+
+.PHONY: test-phase69-native-timer-create-dispatch-runtime
+
+test-phase69-native-timer-create-dispatch-runtime:
+	python3 tools/check_phase69_native_timer_create_dispatch_runtime.py
+
+.PHONY: test-phase69-timer-assignment-native-specification
+
+test-phase69-timer-assignment-native-specification:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/tests/test_timer_assignment_desired_native_specification.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_desired_native_specification
+	$(BUILD_DIR)/test_timer_assignment_desired_native_specification
+	python3 tools/check_phase69_timer_assignment_native_specification.py
+
+.PHONY: test-phase69-native-timer-create-fulfillment-runtime
+
+test-phase69-native-timer-create-fulfillment-runtime:
+	python3 tools/check_phase69_native_timer_create_fulfillment_runtime.py
+
+.PHONY: test-phase69-timer-create-identity-authority
+
+test-phase69-timer-create-identity-authority:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/operations/include -Icore/timers/include \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/timers/src/NativeTimerBindingIdentity.cpp \
+		core/timers/tests/test_timer_create_identity_authority.cpp \
+		-o $(BUILD_DIR)/test_timer_create_identity_authority
+	$(BUILD_DIR)/test_timer_create_identity_authority
+	python3 tools/check_phase69_timer_create_identity_authority.py
+
+.PHONY: test-phase69-atomic-timer-create-admission
+
+test-phase69-atomic-timer-create-admission:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/operations/include -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		core/timers/src/TimerIntentApplicationService.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingIdentity.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
+		core/timers/src/NativeTimerCreateAdmissionService.cpp \
+		core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
+		core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
+		core/agent/src/BackendAgentLocalProvider.cpp \
+		core/timers/tests/test_native_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_admission_service
+	$(BUILD_DIR)/test_native_timer_create_admission_service
+	python3 tools/check_phase69_atomic_timer_create_admission.py
+
+.PHONY: test-phase69-public-timer-create-admission
+
+test-phase69-public-timer-create-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_timer_create_admission.cpp \
+		-o $(BUILD_DIR)/test_public_timer_create_admission
+	$(BUILD_DIR)/test_public_timer_create_admission
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_create_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_create_security
+	$(BUILD_DIR)/test_public_timer_create_security
+	python3 tools/check_phase69_public_timer_create_admission.py
+
+.PHONY: test-phase69-native-timer-create-reconciliation-runtime
+
+test-phase69-native-timer-create-reconciliation-runtime:
+	python3 tools/check_phase69_native_timer_create_reconciliation_runtime.py
+
+
+.PHONY: test-phase69-native-timer-create-outcome-evidence
+
+test-phase69-native-timer-create-outcome-evidence: test-phase64-native-timer-create-delivery
+	python3 tools/check_phase69_native_timer_create_outcome_evidence.py
+
+
+.PHONY: test-phase69-native-timer-create-outcome-application
+
+test-phase69-native-timer-create-outcome-application: test-phase69-native-timer-create-outcome-evidence
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+		core/daemon/tests/test_native_timer_create_result_outcome_application.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_result_outcome_application
+	$(BUILD_DIR)/test_native_timer_create_result_outcome_application
+	python3 tools/check_phase69_native_timer_create_outcome_application.py
+
+.PHONY: test-phase69-native-timer-create-readback-reconciliation
+
+test-phase69-native-timer-create-readback-reconciliation: test-phase69-native-timer-create-outcome-application
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/sqlite/include -Icore/operations/include -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerObservation.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
+		core/timers/src/NativeTimerCreateReadbackVerificationService.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
+		core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
+		core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_readback_reconciliation
+	$(BUILD_DIR)/test_native_timer_create_readback_reconciliation
+	python3 tools/check_phase69_native_timer_create_readback_reconciliation.py
+
+
+
+.PHONY: test-phase69-native-timer-create-productive-runtime
+
+test-phase69-native-timer-create-productive-runtime: test-phase69-native-timer-create-readback-reconciliation
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/sqlite/include -Icore/operations/include -Icore/timers/include -Icore/agent/include -Icore/security/include -Icore/vdr/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+		core/agent/src/BackendAgentCommandReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerObservation.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
+		core/timers/src/NativeTimerCreateReadbackVerificationService.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
+		core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+		core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
+		core/daemon/src/NativeTimerCreateProductiveRuntime.cpp \
+		core/daemon/tests/test_native_timer_create_productive_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_productive_runtime
+	$(BUILD_DIR)/test_native_timer_create_productive_runtime
+	python3 tools/check_phase69_native_timer_create_productive_runtime.py
+
+.PHONY: test-phase69-native-timer-create-real-acceptance-fixture
+
+test-phase69-native-timer-create-real-acceptance-fixture:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		tools/phase69-runtime-acceptance/prepare_native_timer_create_fixture.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture
+	$(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture --self-test
+	python3 tools/check_phase69_native_timer_create_real_acceptance_fixture.py
+
+
+
+.PHONY: test-phase69c-closeout
+
+test-phase69c-closeout:
+	python3 tools/check_phase69c_closeout.py
+
+.PHONY: test-phase69d-timer-assignment-collection-read
+
+test-phase69d-timer-assignment-collection-read:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentReadService.cpp \
+		core/timers/tests/test_timer_assignment_collection_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_collection_read_service
+	$(BUILD_DIR)/test_timer_assignment_collection_read_service
+
+.PHONY: test-phase69d-public-timer-assignment-collection
+
+test-phase69d-public-timer-assignment-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_timer_assignment_collection.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_collection
+	$(BUILD_DIR)/test_public_timer_assignment_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_assignment_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_assignment_collection_security
+	$(BUILD_DIR)/test_public_timer_assignment_collection_security
+	python3 tools/check_phase69d_timer_assignment_collection.py
+
+# SearchTimer inactive-create HTTP regression is included in this compiled
+# Public-v1 collection test. Never rely on an unrun test for write safety.
+test-fast: test-phase69d-public-timer-assignment-collection
+
+.PHONY: test-phase69d-public-channel-collection
+
+test-phase69d-public-channel-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_channel_collection.cpp \
+		-o $(BUILD_DIR)/test_public_channel_collection
+	$(BUILD_DIR)/test_public_channel_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_channel_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_channel_collection_security
+	$(BUILD_DIR)/test_public_channel_collection_security
+	python3 tools/check_phase69d_public_channel_collection.py
+
+
+# Compile ONLY the changed daemon composition TU without linking or
+# rebuilding the daemon. Keep deployment and DB state untouched.
+.PHONY: test-phase69d-public-channel-neighbor-daemon-syntax
+
+test-phase69d-public-channel-neighbor-daemon-syntax:
+	$(CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
+.PHONY: test-phase69d-closeout
+
+test-phase69d-closeout:
+	python3 tools/check_phase69d_closeout.py
+
+
+.PHONY: test-phase69e-compatibility-policy
+
+test-phase69e-compatibility-policy: test-phase69-public-api-contract-root
+	python3 tools/check_phase69e_compatibility_policy.py
+
+
+.PHONY: test-phase69e-legacy-route-classification
+
+test-phase69e-legacy-route-classification:
+	python3 tools/check_phase69_public_api_inventory.py
+	python3 tools/check_phase69e_legacy_route_classification.py
+
+.PHONY: test-phase69e-closeout
+
+test-phase69e-closeout: test-phase69e-compatibility-policy test-phase69e-legacy-route-classification
+	python3 tools/check_phase69e_closeout.py
+
+
+.PHONY: test-phase69f-client-error-mutation-fallback
+
+test-phase69f-client-error-mutation-fallback:
+	node web/frontend/tests/test_phase69f_client_error_mutation_fallback.js
+	python3 tools/check_phase69f_client_error_mutation_fallback.py
+
+test-frontend-contracts: test-phase69f-client-error-mutation-fallback
+
+
+.PHONY: test-phase69f-searchtimer-fallback-removal
+
+test-phase69f-searchtimer-fallback-removal:
+	node web/frontend/tests/test_phase69f_searchtimer_fallback_removal.js
+	node web/frontend/tests/test_query_cache_refresh_security_runtime.js
+	python3 tools/check_phase69f_searchtimer_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-searchtimer-fallback-removal
+
+
+.PHONY: test-phase69f-read-alias-fallback-removal
+
+test-phase69f-read-alias-fallback-removal:
+	node web/frontend/tests/test_phase69f_read_alias_fallback_removal.js
+	python3 tools/check_phase69f_read_alias_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-read-alias-fallback-removal
+
+
+.PHONY: test-phase69f-client-contract-matrix
+
+test-phase69f-client-contract-matrix:
+	python3 tools/check_phase69f_client_contract_matrix.py
+
+test-frontend-contracts: test-phase69f-client-contract-matrix
+
+
+.PHONY: test-addon-media-import-source-list-api
+
+test-addon-media-import-source-list-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_source_list.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_source_list
+	$(BUILD_DIR)/test_public_media_import_source_list
+
+.PHONY: test-addon-media-import-api-admission
+
+test-addon-media-import-api-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_admission.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_admission
+	$(BUILD_DIR)/test_public_media_import_admission
+
+.PHONY: test-addon-media-import-api-capability
+
+test-addon-media-import-api-capability:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_capability.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_capability
+	$(BUILD_DIR)/test_public_media_import_capability
+
+.PHONY: test-phase69f-public-backend-collection
+
+test-phase69f-public-backend-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_backend_collection.cpp \
+		-o $(BUILD_DIR)/test_public_backend_collection
+	$(BUILD_DIR)/test_public_backend_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_backend_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_backend_collection_security
+	$(BUILD_DIR)/test_public_backend_collection_security
+	python3 tools/check_phase69f_public_backend_collection.py
+
+
+.PHONY: test-phase69f-home-epg-fallback-removal
+
+test-phase69f-home-epg-fallback-removal:
+	node web/frontend/tests/test_phase69f_home_epg_fallback_removal.js
+	node web/frontend/tests/test_home_now_next_artwork_hero.js
+	node web/frontend/tests/test_phase66_live_tv_hero.js
+	node web/frontend/tests/test_post_phase66_home_performance.js
+	python3 tools/check_phase69f_home_epg_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-home-epg-fallback-removal
+
+
+.PHONY: test-phase69f-timer-live-fallback-removal
+
+test-phase69f-timer-live-fallback-removal:
+	node web/frontend/tests/test_phase69f_timer_live_fallback_removal.js
+	python3 tools/check_phase69f_timer_live_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-timer-live-fallback-removal
+
+
+.PHONY: test-phase69f-public-v1-discovery-reference-client
+
+test-phase69f-public-v1-discovery-reference-client:
+	node clients/reference-js/tests/test_public_v1_discovery_client.js
+	python3 tools/check_phase69f_public_v1_discovery_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-channel-reference-client
+
+test-phase69f-public-v1-channel-reference-client:
+	node clients/reference-js/tests/test_public_v1_channel_client.js
+	python3 tools/check_phase69f_public_v1_channel_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-timer-assignment-collection-reference-client
+
+test-phase69f-public-v1-timer-assignment-collection-reference-client:
+	node clients/reference-js/tests/test_public_v1_timer_assignment_collection_client.js
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
+	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
+
+
+.PHONY: test-public-v1-searchtimer-safe-client
+test-public-v1-searchtimer-safe-client:
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
+
+test-fast: test-public-v1-searchtimer-safe-client
+
+.PHONY: test-phase69f-public-v1-timer-assignment-item-reference-client
+
+test-phase69f-public-v1-timer-assignment-item-reference-client:
+	node clients/reference-js/tests/test_public_v1_timer_assignment_item_client.js
+	python3 tools/check_phase69f_public_v1_timer_assignment_item_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-timer-create-reference-client
+
+test-phase69f-public-v1-timer-create-reference-client:
+	node clients/reference-js/tests/test_public_v1_timer_create_client.js
+	python3 tools/check_phase69f_public_v1_timer_create_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-operation-reference-client
+
+test-phase69f-public-v1-operation-reference-client:
+	node clients/reference-js/tests/test_public_v1_operation_client.js
+	python3 tools/check_phase69f_public_v1_operation_reference_client.py
+
+
+.PHONY: test-phase69-closeout
+
+test-phase69-closeout:
+	python3 tools/check_phase69_closeout.py
+
+.PHONY: test-public-epg-now-next-api
+
+test-public-epg-now-next-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_epg_now_next.cpp \
+		-o $(BUILD_DIR)/test_public_epg_now_next
+	$(BUILD_DIR)/test_public_epg_now_next
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_epg_now_next_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_epg_now_next_security
+	$(BUILD_DIR)/test_public_epg_now_next_security
+
+# Persistence-only SearchTimer CREATE admission. No RESTfulAPI calls, no
+# mutation registration and no native TimerAssignment execution.
+.PHONY: test-searchtimer-create-durable-admission
+test-searchtimer-create-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_admission_service
+	$(BUILD_DIR)/test_search_timer_create_admission_service
+
+# Add this bounded in-memory regression to the phase test graph.
+test-phase: test-searchtimer-create-durable-admission
+
+# Standalone one-shot dispatch safety proof with fake provider (never yaVDR).
+.PHONY: test-searchtimer-create-one-shot-dispatch
+test-searchtimer-create-one-shot-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDispatchService.cpp \
+		core/vdr/src/RestfulApiSearchTimerMapper.cpp \
+		core/vdr/tests/test_search_timer_create_dispatch_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_dispatch_service
+	$(BUILD_DIR)/test_search_timer_create_dispatch_service
+
+test-phase: test-searchtimer-create-one-shot-dispatch
+
+# Orphan recovery is purely a durable operation CAS; no provider/executor linked.
+.PHONY: test-searchtimer-create-orphan-recovery
+test-searchtimer-create-orphan-recovery:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateRecoveryService.cpp \
+		core/vdr/tests/test_search_timer_create_recovery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_recovery_service
+	$(BUILD_DIR)/test_search_timer_create_recovery_service
+
+test-phase: test-searchtimer-create-orphan-recovery
+
+# Persistence-only Device-scoped CREATE admission (no public handler, no POST).
+.PHONY: test-searchtimer-create-device-admission
+test-searchtimer-create-device-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDeviceAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_device_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_device_admission_service
+	$(BUILD_DIR)/test_search_timer_create_device_admission_service
+
+test-phase: test-searchtimer-create-device-admission
+
+.PHONY: test-public-epg-event-detail
+# Authenticated Public-v1 read only, no Timer CREATE mutation.
+test-public-epg-event-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_epg_event_detail.cpp \
+		-o $(BUILD_DIR)/test_public_epg_event_detail
+	$(BUILD_DIR)/test_public_epg_event_detail

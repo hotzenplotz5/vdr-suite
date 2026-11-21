@@ -1,0 +1,63 @@
+#pragma once
+
+#include "DashboardController.h"
+#include "ManualRecordingMetadataAssignmentRepository.h"
+
+#include <functional>
+#include <map>
+#include <string>
+
+class VdrRecordingQueryResultJsonSerializer;
+class VdrRecordingQueryService;
+
+class VdrRecordingQueryController
+{
+public:
+    using ManualMetadataBatchLookup =
+        std::function<
+            std::map<std::string, ManualRecordingMetadataAssignment>(
+                const std::string& backendId)>;
+
+    VdrRecordingQueryController(
+        VdrRecordingQueryService& queryService,
+        VdrRecordingQueryResultJsonSerializer& jsonSerializer);
+
+    VdrRecordingQueryController(
+        VdrRecordingQueryService& queryService,
+        VdrRecordingQueryResultJsonSerializer& jsonSerializer,
+        ManualMetadataBatchLookup manualMetadataBatchLookup);
+
+    ApiResponse getRecordings();
+
+    ApiResponse getRecordings(
+        const std::string& title,
+        const std::string& path,
+        const std::string& sort,
+        const std::string& order,
+        const std::string& from,
+        const std::string& to,
+        int durationMin,
+        int durationMax,
+        int limit,
+        int offset);
+
+    ApiResponse getRecordings(
+        const std::string& title,
+        const std::string& backend,
+        const std::string& path,
+        const std::string& sort,
+        const std::string& order,
+        const std::string& from,
+        const std::string& to,
+        int durationMin,
+        int durationMax,
+        int limit,
+        int offset,
+        int movieReleaseYearFrom = 0,
+        int movieReleaseYearTo = 0);
+
+private:
+    VdrRecordingQueryService& queryService_;
+    VdrRecordingQueryResultJsonSerializer& jsonSerializer_;
+    ManualMetadataBatchLookup manualMetadataBatchLookup_;
+};

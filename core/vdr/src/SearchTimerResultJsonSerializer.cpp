@@ -1,0 +1,215 @@
+#include "SearchTimerResultJsonSerializer.h"
+
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace {
+
+std::string optionalBoolField(const char* name, const std::optional<bool>& value)
+{
+    if (!value.has_value()) return {};
+    return "\"" + std::string(name) + "\":" + (*value ? "true," : "false,");
+}
+
+std::string escapeJsonString(
+    const std::string& value)
+{
+    std::ostringstream escaped;
+
+    for (char c : value) {
+        switch (c) {
+        case '\\':
+            escaped << "\\\\";
+            break;
+        case '"':
+            escaped << "\\\"";
+            break;
+        case '\n':
+            escaped << "\\n";
+            break;
+        case '\r':
+            escaped << "\\r";
+            break;
+        case '\t':
+            escaped << "\\t";
+            break;
+        default:
+            if (static_cast<unsigned char>(c) < 0x20U) {
+                constexpr char hex[] = "0123456789abcdef";
+                const auto value = static_cast<unsigned char>(c);
+                escaped << "\\u00" << hex[value >> 4U] << hex[value & 15U];
+            } else {
+                escaped << c;
+            }
+            break;
+        }
+    }
+
+    return escaped.str();
+}
+
+std::string stateToJson(
+    SearchTimerState state)
+{
+    if (state == SearchTimerState::Active) {
+        return "active";
+    }
+
+    if (state == SearchTimerState::Inactive) {
+        return "inactive";
+    }
+
+    return "unknown";
+}
+
+void appendSearchTimerSettings(std::ostringstream& json, const SearchTimer& timer)
+{
+    json
+        << "\"recordingOptions\":{"
+        << "\"directory\":\"" << escapeJsonString(timer.recordingOptions().directory()) << "\","
+        << "\"priority\":" << timer.recordingOptions().priority() << ","
+        << "\"lifetime\":" << timer.recordingOptions().lifetime()
+        << "},"
+        << "\"scheduleOptions\":{"
+        << "\"marginStartMinutes\":" << timer.scheduleOptions().marginStartMinutes() << ","
+        << "\"marginStopMinutes\":" << timer.scheduleOptions().marginStopMinutes() << ","
+        << "\"useVps\":" << (timer.scheduleOptions().useVps() ? "true" : "false")
+        << "},"
+        << "\"filterOptions\":{"
+        << "\"useChannel\":" << (timer.filterOptions().useChannel() ? "true" : "false") << ","
+        << "\"useChannelMode\":" << timer.filterOptions().channelMode() << ","
+        << "\"useTime\":" << (timer.filterOptions().useTime() ? "true" : "false") << ","
+        << "\"startTime\":" << timer.filterOptions().startTime() << ","
+        << "\"stopTime\":" << timer.filterOptions().stopTime() << ","
+        << "\"dayOfWeek\":" << timer.filterOptions().dayOfWeek() << ","
+        << "\"useDayOfWeek\":" << (timer.filterOptions().useDayOfWeek() ? "true" : "false") << ","
+        << "\"useDuration\":" << (timer.filterOptions().useDuration() ? "true" : "false") << ","
+        << "\"durationMinMinutes\":" << timer.filterOptions().durationMinMinutes() << ","
+        << "\"durationMaxMinutes\":" << timer.filterOptions().durationMaxMinutes()
+        << "},"
+        << "\"comparisonOptions\":{"
+        << "\"compareTitle\":" << (timer.comparisonOptions().compareTitle() ? "true" : "false") << ","
+        << "\"compareSubtitle\":" << (timer.comparisonOptions().compareSubtitle() ? "true" : "false") << ","
+        << "\"compareSummary\":" << (timer.comparisonOptions().compareSummary() ? "true" : "false") << ","
+        << optionalBoolField("repeatCompareTitle", timer.comparisonOptions().repeatCompareTitle())
+        << optionalBoolField("repeatCompareSubtitle", timer.comparisonOptions().repeatCompareSubtitle())
+        << optionalBoolField("repeatCompareSummary", timer.comparisonOptions().repeatCompareSummary())
+        << "\"compareCategories\":" << (timer.comparisonOptions().compareCategories() ? "true" : "false") << ","
+        << "\"compareTime\":" << (timer.comparisonOptions().compareTime() ? "true" : "false")
+        << "},"
+        << "\"repeatOptions\":{"
+        << "\"avoidRepeats\":" << (timer.repeatOptions().avoidRepeats() ? "true" : "false") << ","
+        << "\"allowedRepeats\":" << timer.repeatOptions().allowedRepeats() << ","
+        << "\"repeatsWithinDays\":" << timer.repeatOptions().repeatsWithinDays()
+        << "},"
+        << "\"channelOptions\":{"
+        << "\"channels\":\"" << escapeJsonString(timer.channelOptions().channels()) << "\","
+        << "\"channelMin\":" << timer.channelOptions().channelMin() << ","
+        << "\"channelMax\":" << timer.channelOptions().channelMax() << ","
+        << "\"channelMinId\":\"" << escapeJsonString(timer.channelOptions().channelMinId()) << "\","
+        << "\"channelMaxId\":\"" << escapeJsonString(timer.channelOptions().channelMaxId()) << "\"" 
+        << "},"
+        << "\"seriesOptions\":{"
+        << "\"useSeriesRecording\":" << (timer.seriesOptions().useSeriesRecording() ? "true" : "false") << ","
+        << "\"keepRecordings\":" << timer.seriesOptions().keepRecordings() << ","
+        << "\"deleteMode\":" << timer.seriesOptions().deleteMode() << ","
+        << "\"searchTimerAction\":" << timer.seriesOptions().searchTimerAction()
+        << "},"
+        << "\"blacklistOptions\":{"
+        << "\"blacklistMode\":" << timer.blacklistOptions().blacklistMode() << ","
+        << "\"blacklistIds\":\"" << escapeJsonString(timer.blacklistOptions().blacklistIds()) << "\""
+        << "},"
+        << "\"matchOptions\":{"
+        << "\"mode\":" << timer.matchOptions().mode() << ","
+        << "\"matchCase\":" << (timer.matchOptions().matchCase() ? "true" : "false") << ","
+        << "\"tolerance\":" << timer.matchOptions().tolerance() << ","
+        << "\"summaryMatch\":" << timer.matchOptions().summaryMatch()
+        << "},"
+        << "\"extendedEpgOptions\":{"
+        << "\"useExtendedEpgInfo\":" << (timer.extendedEpgOptions().useExtendedEpgInfo() ? "true" : "false") << ","
+        << "\"extendedEpgInfo\":\"" << escapeJsonString(timer.extendedEpgOptions().extendedEpgInfo()) << "\","
+        << "\"ignoreMissingEpgCategories\":" << (timer.extendedEpgOptions().ignoreMissingEpgCategories() ? "true" : "false") << ","
+        << "\"contentDescriptors\":\"" << escapeJsonString(timer.extendedEpgOptions().contentDescriptors()) << "\""
+        << "},"
+        << "\"validityOptions\":{"
+        << "\"useInFavorites\":" << (timer.validityOptions().useInFavorites() ? "true" : "false") << ","
+        << "\"activeFrom\":\"" << escapeJsonString(timer.validityOptions().activeFrom()) << "\","
+        << "\"activeUntil\":\"" << escapeJsonString(timer.validityOptions().activeUntil()) << "\""
+        << "},"
+        << "\"actionOptions\":{"
+        << "\"pauseOnRecordings\":" << (timer.actionOptions().pauseOnRecordings() ? "true" : "false") << ","
+        << "\"switchMinutesBefore\":" << timer.actionOptions().switchMinutesBefore() << ","
+        << "\"unmuteSoundOnSwitch\":" << (timer.actionOptions().unmuteSoundOnSwitch() ? "true" : "false") << ","
+        << "\"deleteRecordingsAfterDays\":" << timer.actionOptions().deleteRecordingsAfterDays() << ","
+        << "\"deleteAfterCountRecordings\":" << timer.actionOptions().deleteAfterCountRecordings() << ","
+        << "\"deleteAfterDaysOfFirstRecording\":" << timer.actionOptions().deleteAfterDaysOfFirstRecording()
+        << "}";
+}
+
+void appendSearchTimerArray(
+    std::ostringstream& json,
+    const std::vector<SearchTimer>& timers)
+{
+    json << "[";
+
+    for (std::size_t index = 0;
+         index < timers.size();
+         ++index)
+    {
+        const SearchTimer& timer = timers.at(index);
+
+        if (index > 0) {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"backendId\":\"" << escapeJsonString(timer.backendId()) << "\","
+            << "\"backendNativeId\":\"" << escapeJsonString(timer.backendNativeId()) << "\","
+            << "\"name\":\"" << escapeJsonString(timer.name()) << "\","
+            << "\"query\":\"" << escapeJsonString(timer.query()) << "\","
+            << "\"state\":\"" << stateToJson(timer.state()) << "\",";
+        appendSearchTimerSettings(json, timer);
+        json
+            << "}";
+    }
+
+    json << "]";
+}
+
+} // namespace
+
+std::string SearchTimerResultJsonSerializer::serialize(
+    const SearchTimerResult& result) const
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"totalCount\":" << result.totalCount() << ","
+        << "\"returnedCount\":" << result.returnedCount() << ","
+        << "\"limit\":" << result.limit() << ","
+        << "\"offset\":" << result.offset() << ","
+        << "\"searchtimers\":";
+
+    appendSearchTimerArray(json, result.items());
+
+    json << ",\"searchTimers\":";
+
+    appendSearchTimerArray(json, result.items());
+
+    json << "}";
+
+    return json.str();
+}
+
+std::string SearchTimerResultJsonSerializer::serializePublicSettings(
+    const SearchTimer& timer) const
+{
+    std::ostringstream json;
+    json << "{";
+    appendSearchTimerSettings(json, timer);
+    json << "}";
+    return json.str();
+}

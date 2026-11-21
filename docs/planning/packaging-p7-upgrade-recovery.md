@@ -1,0 +1,398 @@
+# P7 — Upgrade/recovery policy and preflight
+
+Status: policy, **read-only inspection** and a private-workspace **offline backup/restore rehearsal** implemented. No production migration, automated live backup, or supported downgrade path.
+
+## Safety contract
+
+1. Stop write producers only during a separately approved controlled maintenance window. Package installation must not assume it can safely stop a running VDR on first install.
+2. Inspect SQLite database with `python3 tools/packaging_upgrade_preflight.py --database /path/to/offline-copy.db`. The preflight is strictly read-only and uses SQLite immutable mode. **It now rejects any `-wal`, `-shm` or `-journal` sidecar, including symlinks**, because immutable inspection can silently ignore committed WAL transactions and report a stale but superficially valid schema. Use an already quiesced, checkpointed offline snapshot; do not simply delete sidecars or inspect a live file. The checker also refuses known active VDR-Suite state roots including `/var/lib/vdr-suite`, `/etc/vdr-suite` and the two named source checkouts; arbitrary paths still require operator-verified offline provenance. The repeated sidecar check narrows but cannot eliminate races with active writers. This is not a consistent backup.
+3. For an actual backup use SQLite's supported online backup API or safely shut down writers, and verify integrity of the resulting backup. Include SQLite WAL changes; never simply copy a live main `.db` file while a WAL is active.
+4. Record source version, target package version, schema version, backup location and file hashes; protect secrets and backups using least privilege.
+5. Install/upgrade only in an isolated test environment until schema migration is proven idempotent, transactional and safely resumable.
+6. Recover by stopping application writes and restoring a verified, compatible backup before reverting binaries. A newer DB schema must not be opened by an older unsupported binary.
+7. Do not delete persistent databases during package `remove`; `purge` must never silently destroy recorded content.
+
+## Observed yaVDR source-state size and WAL boundary (2026-10-16)
+
+The live host reported `/var/lib/vdr-suite/vdr-suite.db` at
+3,357,405,184 bytes, `vdr-suite.db-wal` at 198,295,632 bytes, and
+`vdr-suite.db-shm` at 393,216 bytes. Existence of these files does not
+prove current writer activity, but **does** prohibit certifying a raw
+`.db` copy as a consistent snapshot. The approved P7 offline tools refuse
+sidecars and protected live state; they cannot be pointed at these host paths.
+A consistent offline sample requires an independently approved writer-quiesce
+and WAL-aware snapshot procedure, verification and sufficient private scratch
+capacity **before** any copying. No such host operation is authorized.
+This observed database has no established source-version/schema provenance.
+
+## Offline scratch recovery rehearsal (experimental)
+
+The source file `tools/packaging_recovery_rehearsal.py` accepts an **already quiesced database copy** in a private directory owned by the calling non-root user (mode `0700`). It refuses a symlink, a hardlinked source database, suspicious/hardlinked WAL/SHM sidecars, rollback journals, or real-user state outside that scratch workspace. It creates a fresh backup with SQLite's backup API, verifies integrity/schema/user_version and SHA-256, restores to a second *new* filename in the same workspace, and verifies integrity and byte identity. Existing files are never overwritten. Resource checks reserve at least 4 GiB or 15% of the workspace filesystem, with a budget for concurrent artifacts.
+
+For a pre-existing **private, offline test workspace only**, with `test-copy.db` already located in it:
+
+```sh
+python3 tools/packaging_recovery_rehearsal.py \\
+  --workspace /path/to/private-0700-test-workspace \\
+  --source test-copy.db --backup test-backup.db --restored test-restored.db
+```
+
+This is a rehearsal, not a procedure for copying the active VDR-Suite database. Do **not** point it at `/var/lib/vdr-suite`, live WAL files or existing backups. There is no service shutdown, package installation, migration or live restore. Tests in `tools/test_packaging_recovery_rehearsal.py` cover committed WAL data, integrity, overwrite refusal, private workspace, symlinks, and reserved space.
+
+## Fail-closed offline inspection (P7 hardening)
+
+A private WAL-mode regression demonstrates the defect: `mode=ro&immutable=1` can fail to see a table and rows committed in an accompanying WAL file, even though a normal `mode=ro` reader sees them. The preflight now refuses sidecars rather than claiming an upgrade-ready schema. Tests cover committed WAL data, orphaned rollback journals and dangling shared-memory symlinks without altering any original bytes. This validation checks only a **pre-existing offline copy**, not a live source or a production quiesce protocol.
+
+Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. The offline inspector now emits the **observed positive integer markers** in `suite_metadata_schema_versions` and `vdr_global_search_schema_versions` (when those tables exist), keeping absent tables absent. Unexpected non-integer or nonpositive markers fail closed. The read-only preflight output schema revision is now `4`. In addition to these
+partial version markers, it computes `schema_sha256` from the ordered
+`(type, name, SQL)` rows of `sqlite_master` (the same fingerprint algorithm
+as the offline recovery rehearsal), reports `schema_object_count`, and
+rejects any `PRAGMA foreign_key_check` violation. It now also emits
+`file_sha256` and `file_size_bytes` from the exact offline SQLite bytes.
+The full-file hash changes when row data changes while the DDL fingerprint
+remains the same, allowing a future evidence record to identify a specific
+examined copy. The inspector hashes the file both before and after the SQLite
+read and rejects detected file/path replacement, inode/size/timestamp changes,
+and hardlinks to avoid silently examining another database. Streaming is
+bounded in memory but reads the entire file twice: this is **offline-only**. No row values, tokens,
+passwords or recordings enter the fingerprint; changing rows alone does not
+change the DDL fingerprint. A change to the SQL schema does change it.
+
+These checks cannot prove that writers were quiesced before copying,
+prevent adversarial in-place A→B→A edits, or certify original-file provenance.
+Hashes of potentially confidential data should themselves be handled as
+protected operational metadata. Never run against the live database.
+
+The result explicitly sets `compatibility=REVIEW_REQUIRED`. A matching
+fingerprint or green foreign-key check **does not identify a source daemon
+version, prove a quiesced/WAL-consistent copy, authenticate provenance, check
+every application-level invariant, or authorize upgrade/rollback**. The output
+contains the offline database path; handle it accordingly. This is evidence
+to compare already approved, offline daemon-created samples against the
+documented source SHA and future compatibility matrix, not an automatic
+compatibility registry. These remain **partial observations, not upgrade
+compatibility decisions**. In particular, `database/migrations/README.md` explicitly reserves that directory; no complete migration runner is present there. Never infer backward compatibility or authorize a package upgrade solely from the read-only preflight.
+
+## Historical tagged schema rehearsal — isolated only
+
+A new offline regression uses the **byte-exact** `database/schema/vdr-suite.sql` from Git tag
+`v1.60.15m-recording-actions-cache-consistency`, annotated tag object
+`50e699956dbd4407a57680b6359dca54f000ee74`, peeled commit `646020746bc449b220ff4f24b80992e5f38f0162` (Git blob
+`af0dd4265ca37ce8ef34f9ff1fbac18e079cf0ac`), vendored as
+`tools/fixtures/packaging/v1.60.15m-vdr-suite.sql`.
+The test verifies source identity before testing, then creates a **temporary**
+SQLite database containing one row each for recording, metadata, artwork, job,
+EPG, recording cache and associated state. It applies the current
+`database/schema/metadata-platform-v1.sql` **additively in a transaction**,
+checks legacy rows, schema object definitions, foreign keys and integrity,
+repeats the SQL for idempotency, injects a forced failure to prove rollback of
+that test transaction, and verifies restoration from an earlier SQLite backup
+into a fresh offline database.
+
+This is real historical **SQL** provenance, **not** an older released binary
+package or a complete production migration. The current daemon initializes many
+additional tables through repository-owned `ensureSchema()` calls; this
+rehearsal does not execute those calls, start the daemon, or prove that old
+runtime state is compatible with current binaries. Neither package upgrades nor
+a database restore have been authorized on the productive yaVDR. Regression:
+`python3 -m unittest -v tools.test_packaging_p7_historical_schema`.
+
+## Real C++ repository schema initialization on a historical fixture
+
+The `test-packaging-p7-runtime-schema` Make target compiles the actual
+`GenreIndexRepository::ensureSchema()` and
+`GlobalSearchRepository::ensureSchema()` implementation against SQLite.
+A non-root harness creates the proven tagged historical SQL database and
+sample rows in a **fresh 0700 scratch directory**, runs the C++ initializers
+twice per process and over two process starts, confirms the original columns,
+row values and SQL objects remain intact, verifies SQLite integrity/foreign
+keys and the domain-specific version markers, then restores the pre-upgrade
+backup into another isolated file and validates the original schema and rows.
+The test is now invoked inside the disposable Ubuntu 24.04 full-package CI
+runner. It cannot operate on `/var/lib/vdr-suite` or any installed database
+because the script does not accept a database path.
+
+This now additionally exercises the real SecurityIdentity, HumanAccount,
+CredentialVerifier, MutationOperation, TimerIntent and TimerAssignment
+`ensureSchema()` methods. After the first initialization, the private harness
+commits synthetic account, credential-verifier and operation/payload records;
+a fresh process must preserve their values and all existing SQL definitions.
+No real password or productive user database is accessed. Timer tables are
+initialized and replayed, but preservation of **historical timer data** is
+not yet established.
+
+This improves migration evidence for the listed repository owners only.
+It does **not** execute every daemon initializer, test historical Debian
+package upgrades, start services, or establish production rollback approval.
+
+## Focused real C++ older-column migration rehearsal
+
+The disposable runtime test also creates a **reconstructed**, explicitly
+non-historical fixture `tools/fixtures/packaging/p7-pre-revision-security-operations.sql`.
+It models legacy SQLite `security_human_accounts` without `revision` and
+`mutation_operations` without `expected_resource_fingerprint`, alongside
+one synthetic user/credential/verifier and one synthetic queued operation.
+The test calls the current real C++ repository `ensureSchema()` methods,
+requires both missing columns to be added with expected default values,
+proves each original column and row value survives both C++ reopens, and
+allows newly seeded current-schema rows to coexist on the second open while
+independently checking that every original tuple is still present. Full
+current-schema rows must additionally remain identical on reinitialization.
+confirms the pre-upgrade backup restores the original missing-column shapes.
+
+The SQL file **was not recovered from an older release**; it combines
+table shapes from two different older commits with invented test-only data.
+A new provenance gate verifies that both legacy CREATE TABLE statements
+(including their constraints) match **byte-exact source snapshots** of
+`HumanAccountRepository.cpp` at commit
+`e63623d80be9b9d69f5219edd379a973968cd282` and
+`MutationOperationRepository.cpp` at commit
+`6df73c326f32ae8ddd739caf1452b6ccddc16b1e`, both by Git blob SHA-1.
+Run `python3 -m unittest -v tools.test_packaging_p7_schema_provenance`
+to verify the attestation without modifying a database. A fake, unusable password-hash
+sentinel is used. This is evidence for specific old-column migrations only,
+not a supported old-package upgrade, complete daemon-start migration, or
+production restore procedure.
+
+
+## P7 versioned package upgrade experiment (unreleased)
+
+The verified CI #41 commit `bc4623374a4df4c08118c424ea19aaf552a4964c` contains `0.14.1-1~exp1`
+as an **experimental source-packaging state**, not a distributed package release.
+A fresh disposable Ubuntu 24.04 CI runner now builds its three binary packages
+from that immutable commit. The active packaging branch produces **a distinct**
+`0.14.1-1~exp2` binary revision while keeping the application version
+`0.14.1`. Both builds resolve the Seahawk VDR 2.8.3 ABI.
+
+The new `p7-versioned-upgrade-noble` job first installs `exp1` in a throwaway
+Ubuntu container with service activation blocked, constructs a synthetic
+`vdr-suite.db` from tagged historical SQL and independently source-attested
+older-column test SQL, and adds a test-only operator-managed configuration and
+unowned persistent-data sentinel. It records a read-only hash and an offline
+backup. It then runs `dpkg --unpack` on all three `exp2` binaries, checks
+the unconfigured state, resumes with `dpkg --configure -a` and compares the
+original SQLite **bytes, rows and schema**, conffiles and user sentinel.
+Finally it verifies the backup, alters only the disposable test database,
+restores its older snapshot and explicitly downgrades the three binaries to
+`exp1`, verifying recovered state. This **experimental dpkg package-version
+transition passed** on [CI #46](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38640654487)
+(commit `098a14046d346cda5f03bbd3abaf4b386ae03428`) and again on
+[CI #47](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38645349742)
+(commit `08b0fbfdfb3c9ea959d93d7010801b53d46dbbd1`).
+Both completed all five jobs successfully. Local validation of the latter
+commit passed 68 packaging tests, version checks and the tracked-artifact audit.
+
+**Important limits:** Neither older `exp1` nor `exp2` is a published
+supported Debian package release. The older test data is fabricated from
+historical SQL and placed on disk *after* installing the prior binaries; the
+old daemon is not started and did not generate those data. The real package
+maintainer scripts deliberately do not perform schema migration. Thus even
+passing CI proves a package manager upgrade plus persistence/recovery behavior,
+not upgrade compatibility of active daemon databases, nontrivial schema
+migration, fail-after-mutation recovery, or a production downtime procedure.
+The failed-interruption exercise is an unpacked-but-unconfigured dpkg state;
+it does not assert resilience to arbitrary power loss.
+
+## Remaining before P7 acceptance
+
+The successful `exp1 → exp2` experiment verifies that the package manager
+preserves a synthetic offline database and operator-managed configuration when
+service startup is blocked. It **does not** provide a support matrix for
+previously published packages or for databases used by a running daemon.
+Until an explicit compatibility table covers the actual runtime schema owners
+and release pairs, treat unknown source schema, future markers and unknown
+binary/database combinations as **unsupported**; neither automatic migration
+nor a downgrade of a newer live database is approved.
+The first packaging release does not need a fictitious published predecessor;
+its upgrade gate concerns only explicitly supported earlier **manual-install**
+databases. Do not assume that every development checkout can be migrated.
+
+- Schema migration registry and compatible version boundaries.
+- An approved quiesce/snapshot method for the real daemon and all SQLite/WAL writers. The scratch rehearsal is not an integrated production backup.
+- For the first package release, isolated migration tests for explicitly supported existing manual-install versions and daemon-created databases; after a previous supported package release exists, versioned binary-package upgrade tests for those supported predecessors.
+- Full upgrade/rollback matrix, including compatibility and restoration of all state in an isolated Debian/Ubuntu install root.
+- Concurrent service start/stop and admin onboarding acceptance on real yaVDR.
+
+No maintainer script or automated installer currently performs a database migration.
+
+The scratch rehearsal now rejects `/var`, `/etc` and other protected system namespaces as well as the two known VDR-Suite source checkouts. A new regression exercises a race in which a second process creates the restore target just before the exclusive open; the tool must preserve the other process's file rather than treat it as its own cleanup target. No production directory permissions or ownerships are changed.
+
+The disposable Ubuntu noble package lifecycle exercise passed in [GitHub Actions #29](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38588255607). It verifies same-version reinstall, configuration and an unowned data sentinel across remove/purge, **not** upgrade from a previous version or database schema compatibility. Do not confuse a successful no-migration package reinstall with approval to downgrade or restore a live database.
+
+## P7 incremental C++ owners: device pairing and channel cache
+
+The isolated C++ schema rehearsal now additionally executes the real
+`DevicePairingRequestRepository::ensureSchema()` and
+`VdrChannelCacheRepository::ensureSchema()` twice per process and on two
+fresh process invocations. The pairing fixture reconstructs an older table
+without `revision`, `decided_by_actor_id` or `decided_at`; the test checks
+that existing fake pairing data survives column addition with correct defaults.
+It also seeds one new pairing record and one channel cache record, checks every
+row and SQL object survives reopening, and verifies the independently restored
+backup retains the pre-alter table shape. The fixture is **not an attested
+historical binary/database**; this does not close the all-owners P7 gate.
+
+CI confirmation: [GitHub Actions #48](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38676138135)
+passed all five jobs for commit `db10fba7164b43ecea8832f5353da9ad1cd0a10c`.
+The completed C++ test log contains
+`P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS` and
+`P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS`. This confirms the two new
+repository owners' isolated, synthetic fixture behavior, **not** the
+compatibility of an active database, a released older package, or an automatic
+production migration. No real SQLite/WAL writer was stopped or accessed.
+
+## P7 incremental C++ owners: browser sessions and playback progress
+
+The C++ offline rehearsal now additionally runs the real schema initializers
+for `BrowserSessionCredentialRepository`, `ContinueWatchingRepository`, and
+`RecentlyWatchedRepository`. Pre-column fixtures contain synthetic historical-
+shape browser-session and playback-state rows. Checks assert that browser
+`last_seen_at` is backfilled from `created_at`, the two playback tables
+receive an empty `backend_native_id` default, and pre-existing columns and
+records survive both a fresh-process reinitialization and offline restoration.
+The synthetic browser identity has valid SQLite foreign-key relationships but
+no usable secrets. These tests are not a published-package migration, a live
+session upgrade or complete runtime schema-owner coverage.
+
+## P7 additive owners: media sessions, transcode settings and EPG
+
+The offline C++ rehearsal now also calls the real initializers for
+`MediaSessionRepository` (sessions, routes, provider leases and access
+grants), `MediaTranscodeBackendSettingsRepository`, `EpgEventRepository`
+and `EpgSearchNativeFuzzyCapabilityRepository`. The tagged historical EPG
+rows remain intact; after the first initializer run the test seeds synthetic
+media/session records and a managed encoder mode. The EPG-event and
+fuzzy-capability rows from the tagged historical fixture remain untouched.
+A fresh C++ process must retain all rows and schema objects unchanged;
+the separate offline restore must still reproduce the pre-upgrade snapshot.
+This covers idempotent initialization and persistence only, **not** actual
+streaming/session runtime acceptance or migration from a published package.
+
+## P7 recording cache, identities, series overrides and EPG artwork
+
+The isolated C++ rehearsal now executes the real initializers for the VDR
+recording cache, public recording identities, per-recording series hierarchy,
+and EPG artwork/scraper metadata. The tagged historical recording cache lacks
+`metadata_payload` and `recording_duration_known`; the rehearsal checks
+that their additive columns retain original rows with defaults before adding
+synthetic current-version data. All new records and SQL objects must survive
+a second independent C++ invocation, while restoring the offline snapshot
+must reproduce the old column shape and original records. This remains a
+test-only fixture and not a real manual-install upgrade approval.
+
+The CI #51/#52 historical-row assertion exposed an invalid **test seed**:
+additional EPG/fuzzy rows were inserted into tables that are part of the
+immutable tagged historical baseline. This is a fixture failure, not evidence
+of a production migration mutating data. The regression now prohibits all
+synthetic runtime seeds from changing historical baseline rows and reports
+the specific changed table and pass, without printing private row contents.
+
+## P7 security grants, device credential bindings and accountability
+
+The offline rehearsal now also invokes the actual schema initializers for
+`SecurityPermissionGrantRepository`,
+`DeviceCredentialVerifierRepository` and
+`AccountabilityEventRepository`. The exercise uses synthetic actor, service
+device, credential-verifier, permission-grant and append-only audit-event rows
+with valid SQLite foreign-key references. It verifies durable rows and SQL
+objects across a separate C++ process and the old snapshot after offline
+restore. None of the synthetic credential data is valid for authentication.
+This is schema/persistence evidence only, not authentication or authorization
+runtime acceptance, nor an approved migration of live account data.
+
+The source-owner audit is tracked separately in
+[the P7 schema-owner inventory](packaging-p7-schema-owner-inventory.md),
+which explicitly distinguishes the exercised initializers from the uncovered
+ones and notes SQL-creation helpers outside the inventory pattern.
+
+## P7 series artwork fallback and provider cache migration
+
+The offline C++ rehearsal now invokes `EpgSeriesArtworkFallbackRepository`
+and `EpgSeriesArtworkProviderCacheRepository`. A synthetic (not historically
+source-attested) older fallback table lacks `origin`. The existing artwork
+row must survive the real C++ ALTER with `external-fallback` as default.
+New artwork and provider-cache rows must survive independent process reopens.
+Offline restore must recover the pre-origin column shape and its old rows.
+This is not a live migration or compatibility approval.
+
+## P7 first-admin bootstrap and account-create idempotency
+
+The isolated C++ rehearsal now invokes
+`FirstAdminBootstrapRepository::ensureSchema()` and
+`HumanAccountCreationRepository::ensureSchema()`. It seeds deliberately
+unusable, expired synthetic bootstrap verifier data and a synthetic
+account-create idempotency record with valid actor/account FKs. Both data
+records and their schema objects must survive two fresh C++ process opens.
+The independent offline backup restores the initial no-table state.
+This validates table initialization and persistence, **not** productive
+first-admin onboarding or actual credentials.
+
+## P7 manual recording metadata before cast_complete
+
+The isolated C++ rehearsal invokes
+`ManualRecordingMetadataAssignmentRepository::ensureSchema()` twice per
+process and across two separate C++ invocations. A synthetic pre-column
+manual assignment has a title, season/episode, valid entity/target/provider
+and assignment FK parents but no `cast_complete`. The real initializer must
+add `cast_complete INTEGER NOT NULL DEFAULT 0` without changing the old
+values. A separate new assignment with `cast_complete=1` must survive a
+fresh-process reopen. The newly created withdrawal, people and cast relation
+tables are included in the schema and persistence snapshots. The offline
+backup/restore must recover the pre-column table unchanged.
+
+The FK foundation here is from the **current checked-in**
+`database/schema/metadata-platform-v1.sql` while the manual assignment
+table is synthetically reconstructed; therefore this is not evidence for an
+actual previous released package or a real manual-install database.
+
+## P7 native VDR timer binding schema ownership
+
+The real `NativeTimerBindingRepository::ensureSchema()` is now part of the
+offline rehearsal, linked with its real read/write storage functions and the
+native timer model. An artificial external timer binding with backend, VDR
+native timer ID, observed state and ownership must survive two independent
+fresh-process reopens. The table and unique identity indexes are initialized
+without touching VDR's actual timers; the offline snapshot restores the
+pre-table database. This validates database schema durability only, **not**
+timer dispatch, timers.conf migration, timer ownership reconciliation or
+production VDR lifecycle.
+
+## P7 backend-agent enrollment, observation and generations
+
+The offline C++ rehearsal now also calls
+`BackendAgentRepository::ensureSchema()`, including its delegated
+`BackendRuntimeGenerationRepository` initializer. The isolated database
+contains fake enrollment, agent identity, credential rotation, capabilities,
+an observation receipt/cursor, channel fact and runtime generation.
+Existing SQL constraints, rows and indexes must survive fresh-process
+reinitialization; the original offline backup must restore pre-agent state.
+No real agent, credential or VDR backend is contacted. This is **not** runtime
+agent acceptance or live manual-install migration evidence.
+
+## P7 embedded recording cut and marks command ledgers
+
+The actual C++ `EmbeddedRecordingCutRepository` and
+`EmbeddedRecordingMarksRepository` initializers are now exercised with
+synthetic cut/marks commands in a disposable SQLite database. Each fake
+command's identity, fingerprint, state and editing evidence are checked
+for preservation across two fresh C++ process starts; unique command-ID
+constraints and table definitions are retained. The independent offline
+backup restores the pre-command-table state. No actual VDR recording,
+cut command, marks file or host video data is changed.
+
+## P7 native recording metadata one-time migration
+
+The isolated C++ rehearsal invokes
+`VdrRecordingNativeMetadataRepository::ensureSchema()`. Its synthetic
+pre-migration state is created from the **current checked-in initializer
+DDL**, deliberately omitting the subsequent one-time migration DML/marker,
+rather than claiming historical released-package provenance. A synthetic
+`not_found` series recording with `reason=provider-no-match` and nonzero
+negative cache TTL must have that TTL reset to zero exactly once, with the
+`tvscraper-signed-series-provider-id-v1` migration marker added and all
+recording identity/title fields preserved. A new metadata record and child
+text/person/artwork records must survive another independent process open.
+The offline backup must reproduce the original pre-migration TTL and absence
+of the marker. This is not approval for migration of a real pre-package
+daemon database, and SQL writers outside the named Repository pattern still
+require a separate inventory.

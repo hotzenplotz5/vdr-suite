@@ -1,0 +1,52 @@
+name: Public API v1 Acceptance Runner
+
+on:
+  pull_request:
+    paths:
+      - "tools/run_api_v1_acceptance.py"
+      - "tools/api-v1-acceptance/**"
+      - "tests/test_api_v1_acceptance_runner.py"
+      - "api/openapi.json"
+      - ".github/workflows/public-api-v1-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-v1-offline:
+    name: Offline contract and runner regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Python regression tests (no daemon and no secrets)
+        run: python3 -m unittest discover -s tests -p test_api_v1_acceptance_runner.py -v
+      - name: Offline acceptance matrix (no hardware)
+        shell: bash
+        run: |
+          python3 tools/run_api_v1_acceptance.py --profile offline --output-dir "$RUNNER_TEMP/api-v1-results"
+          cat "$RUNNER_TEMP/api-v1-results/last-summary.txt"
+          cat "$RUNNER_TEMP/api-v1-results/last-errors.log"
+      - name: Controlled-write fixture gate (no daemon, must remain BLOCKED)
+        shell: bash
+        run: |
+          set +e
+          python3 tools/run_api_v1_acceptance.py --profile controlled --origin http://127.0.0.1:1 --output-dir "$RUNNER_TEMP/api-v1-controlled" > "$RUNNER_TEMP/controlled-output.txt"
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+          python3 -c 'import json,os,pathlib; r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"api-v1-controlled/last-results.json").read_text()); x={t["id"]:t["status"] for t in r["tests"]}; assert r["overall"]=="INCOMPLETE" and x["controlled.approval"]=="BLOCKED" and x["timer.intent-create"]=="BLOCKED"'
+          cat "$RUNNER_TEMP/api-v1-controlled/last-summary.txt"
+      - name: Upload offline acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-v1-offline-acceptance
+          path: |
+            ${{ runner.temp }}/api-v1-results/last-*.*
+            ${{ runner.temp }}/api-v1-controlled/last-*.*
+          if-no-files-found: warn
+          retention-days: 14

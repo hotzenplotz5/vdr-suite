@@ -1,0 +1,261 @@
+# Packaging P2–P7 implementation ledger
+
+Status: **in development**, not released. Source-level implementation is distinct from tested packaging.
+
+| Slice | Added now | Remaining release gate |
+| --- | --- | --- |
+| P2 | Root `VERSION`, compiler input and packaging version checks; 0.14.1 consistency verified by CI | Full installed version-report audit and monotonic target-series changelog still pending |
+| P3 | `DESTDIR` install and distinct daemon, agent and plugin payload manifests; isolated builds PASS | Final clean *source archive* default build and legacy install conflict audit |
+| P4 | Ubuntu noble Seahawk VDR 2.8.3 ABI verified; Ubuntu 26.04 Resolute API-14 SuiteBridge-only `.deb` and generated ABI dependency PASS [CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893), code `c957f0c0a6c6b21e152315da31152f572c1e59b8`; live yaVDR `/proc/<MainPID>/maps` confirms mapped `.so.14` and matches the on-disk file's device/inode (`MAPPED_FILE_IDENTITY=PASS`, read-only operator audit, 2026-10-16) | Live VDR PID 1757 has `SOCK_SEQPACKET` listener (`0700/0660 vdr:vdr`), and passive journal counts show exactly one accepted control-plane start, one accepted plugin-lifecycle start, zero rejected control-plane starts (`START_LOG_EVIDENCE=PASS`); passive capability journal audit PASS; **live SVDRP CAPS 1/SNAP reply schema and counters PASS**, **private Unix v1 CAPS reply PASS with matching kernel server `SO_PEERCRED`** (2026-10-16); negative peer-auth checks, agent integration, private non-CAPS operations, Resolute package install/lifecycle, Debian 13, lintian and live-package takeover remain open |
+| P5 | Working root `debian/rules` (mode 100755), `3.0 (quilt)` source preview, three separate noble and Resolute `.deb` outputs, and ABI-correct plugin-only profile PASS (Resolute CI #123) | `debian/copyright` and third-party licensing, final source build reproducibility and upload metadata |
+| P6 | Disposable Ubuntu noble real package install/reinstall/remove/purge and conffile/state sentinel preservation PASS | Systemd startup/user/runtime directory tests, real manual-install transition and actual live yaVDR approval |
+| P7 | Tagged historical SQLite replay, additive SQL / synthetic old-column fixtures, 33/33 **named Repository C++ `ensureSchema()`** sources plus GenreIndex .inc exercised offline; synthetic pairing/browser/playback/artwork/manual-metadata and native-recording one-time DML migration rehearsals, and *unreleased* `exp1 → exp2` package upgrade/restore in disposable Noble CI | For first publication: actual **manual-install daemon-created database** compatibility evidence, SQL writers outside the named repository pattern, writer quiescence/WAL backup and restore, enforced source/target version policy and approved service transitions |
+
+## 2026-10-16 — full Ubuntu Resolute package build (Slice 1)
+
+[CI #123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320), exact tested **code SHA** `a2bd136074cfcc84b981af5abf010c9e4ccd1426`, passes the new Ubuntu 26.04 Resolute full-default job. The disposable container resolved `vdr` and `vdr-dev` **`2.8.3-0yavdr0~resolute`**, API **14**, ABI **`vdr-abi-2.8.3-0yavdr`**. A non-root mapped builder compiled all three `0.14.1-1~exp2` amd64 `.deb` packages, with verified names, versions, dependency fields, file manifests, `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`, generated VDR ABI dependency, and three syntax-checked P8 pre-unpack guards. Exact CI outputs include `RESOLUTE_FULL_DPKG_BUILDPACKAGE=PASS` and `RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS`; artifact name `vdr-suite-three-binaries-resolute-experimental`. The independent Resolute plugin-only job also passed. `nodejs <!plugin-only>` is now a declared full-build dependency and is installed explicitly in both Noble and Resolute full-package CI runners, without adding a plugin-only Node dependency.
+
+**Limit:** This is binary-build/manifest/preinst acceptance only. The new Resolute packages have not been installed, started, upgraded, removed or purged in an isolated Resolute target yet. It proves no compatibility with the existing manual yaVDR installation or its large SQLite/WAL state. This documentation was added **after** the tested code SHA; do not treat the documentation commit as another code-CI acceptance. PPA signing, source-package reproducibility, `debian/copyright`, lintian and production takeover remain separately gated.
+
+## 2026-10-16 — Backend Agent packaging documentation and P5/P6 follow-up
+
+The repository [README](../../README.md#debian-packages-and-the-backend-agent), [Debian README](../../debian/README.md#backend-agent-package-roles-and-deployment) and [Packaging README](../../packaging/README.md) now describe the three independent binary package roles, installed Agent tools and service, its intentionally invalid default HTTPS origin, controlled enrollment, local state and the distinction between a single-host topology and a remotely enrolled Agent. This is documentation of the existing implementation; it does not establish that a separate Agent service is mandatory on a single-VDR host.
+
+[CI #124](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38955128884), exact code SHA `91ff94b352e1d54c527f31f741c8a59d2be1137a`, confirmed a successful **Resolute full three-package build** and captured a Lintian baseline (`LINTIAN_EXIT_STATUS=2`, **release gate not passed**). Its Noble plugin/full-build jobs failed **before compilation**, at the remote Seahawk PPA download of `vdr-dev_2.8.3-0yavdr0~noble_amd64.deb` (HTTP 503); the dependent Noble lifecycle jobs did not run in that attempt. The Lintian findings included aliased `/lib/systemd` paths, a generic Agent synopsis, missing `debian/copyright`, shipped artwork under `/var/cache` and three binaries without manual pages.
+
+The following follow-up code changes are **candidates, not verified successes** until their exact CI jobs pass:
+
+- [P5 systemd/Lintian candidate `5f3bd3b`](https://github.com/hotzenplotz5/vdr-suite/commit/5f3bd3b6fa3466d6b7119667ee853e68567ac10c) uses Debian-only `SYSTEMDUNITDIR=/usr/lib/systemd/system`, updates package manifests, improves the Agent description and extends P8 first-install regression coverage for old unmanaged `/lib/systemd` unit files. The general source runtime install default was **not** changed.
+- [P6 Resolute lifecycle candidate `5637b64`](https://github.com/hotzenplotz5/vdr-suite/commit/5637b64d1174a79d25484f1c81300aebc04f7e30) adds disposable Ubuntu 26.04 install/reinstall/remove/purge, exact Seahawk VDR/ABI, vdr user, service no-start and state/config preservation checks. This job runs only after the matching three-package Resolute build; it is not a real-host deployment.
+
+**Open P5 release gates:** a truthful, rights-reviewed `debian/copyright` and third-party media/interface notices, review or correction of remaining Lintian warnings, source-package reproducibility, series-specific signing/upload policy. **Open P6/P7/P8:** installed Resolute lifecycle acceptance, manual-install collision/takeover, authentic daemon-created SQLite migration and rollback. No Launchpad upload, real yaVDR install or live database operation is authorized.
+
+## 2026-10-16 — offline manifest guards and deterministic source package verified
+
+[CI #128](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38957762174), exact tested **code/workflow SHA** `de5cab976e883bc7dcce6cca92bbab45c88c89a6`, reports two independent **successful** no-PPA checks:
+
+- `packaging-offline-regressions`: **28/28 source-level manifest/P8 tests PASS**, including the new usrmerged systemd paths and old `/lib/systemd/system` unmanaged-first-install guard, plus tracked artifact and packaging-version checks.
+- `reproducible-debian-source-offline`: two isolated Git-tracked `3.0 (quilt)` `dpkg-source` builds, two valid `.dsc` extraction roundtrips and equal SHA-256 for each of the original tarball, Debian tarball and `.dsc` (`SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS`). Both builds are **unsigned** and not Launchpad uploads.
+
+These checks do not establish a full clean binary build for the new systemd staging change. The externally hosted Seahawk PPA `vdr-dev` downloads returned repeated HTTP 503 in recent Noble/Resolute runs; the full builds and new disposable Resolute lifecycle must still be verified on an exact code SHA after that external dependency is accessible. P5 copyright/provenance, Lintian artwork placement and CLI manual-page warnings, source signing, and first-release migration remain blocked separately.
+
+## 2026-10-16 — P8 host preflight reconciled with usrmerged Debian unit paths
+
+At [CI #129](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958032827), the Resolute independent-plugin build reached the packaging tests and correctly **failed closed** when the read-only P8 host collision preflight still expected the old `lib/systemd/system/*.service` manifest paths after the Debian payload had moved to `usr/lib/systemd/system/*.service`. The JSON/installer regression failures in the same run were secondary to that manifest allowlist mismatch; this was a real source-test failure, not evidence of a safe package build.
+
+[Fix commit `83b00db9422ea8554176b4386c46a641ca5db048`](https://github.com/hotzenplotz5/vdr-suite/commit/83b00db9422ea8554176b4386c46a641ca5db048) updates the P8 host preflight to the **new exact usrmerged package targets** and independently retains old `lib/systemd/system` files as manual-install review findings. It does not relax the requirement to refuse or review foreign/unowned files. The PPA-independent [CI #130](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958512351) offline job passed **49/49** manifest, native P8 preinst, host collision and installer regressions at this exact code SHA (`PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS`). The independent deterministic two-source-package job also passed at this SHA. These checks do not replace the separate exact-VDR Resolute binary-build or isolated installation lifecycle acceptance.
+
+## 2026-10-16 — full Resolute three-package CI, lifecycle bootstrap correction
+
+[CI #130](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958512351), exact code SHA `83b00db9422ea8554176b4386c46a641ca5db048`, completed **SUCCESS** in the full Ubuntu 26.04 Resolute `full-default-packages-resolute` job after the usrmerged service-manifest/host-preflight correction. The independently built Resolute and Noble SuiteBridge plugin-only packages, 49-source-test P8/manifest job, and deterministic source-archive job also succeeded. The full Resolute job emitted `RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS` and generated unsigned three-package artifacts, with remaining Lintian issues recorded separately (not release-cleared).
+
+The **new** disposable Resolute install/reinstall/remove/purge job on that same code SHA did **not** pass. It failed before apt/dpkg installation because its minimal Ubuntu container could not create `policy-rc.d` through `install -m 0755 /dev/stdin ...`. Its failure provides no installed-package or lifecycle acceptance. The narrowly scoped follow-up [commit `aca3f2d`](https://github.com/hotzenplotz5/vdr-suite/commit/aca3f2d161fee75cb0c4be8abadf5f2783e29bd1) changes this CI preparation to shell redirection plus chmod, and packages a source-backed manual for the Agent command-administration utility. Both are **untested candidates** until the exact new workflow jobs complete.
+
+## 2026-10-16 — confirmed Noble and Resolute package lifecycle acceptance
+
+[CI #132](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38959664545), exact candidate SHA `aca3f2d161fee75cb0c4be8abadf5f2783e29bd1`, provides **successful default three-binary builds** for Ubuntu 24.04 Noble and Ubuntu 26.04 Resolute. In disposable target containers, **both** the `isolated-package-lifecycle-noble` and `isolated-package-lifecycle-resolute` jobs completed successfully: package metadata and VDR ABI checks, service no-autostart boundary, install, reinstall, remove, purge and preservation of operator-owned config/state sentinels. Nine real P8 dpkg refusal fixture jobs passed. The independent Resolute plugin-only job and pinned historical Noble P7 build in the same workflow failed on Seahawk PPA `vdr-dev` download issues (HTTP 503); those distinct jobs do not invalidate the successful three-binary jobs. The full-run status is therefore not a blanket green release gate.
+
+**Post-CI source follow-up:** The daemon package previously lacked manual pages for its `vdr-suite-logo-sync` and `vdr-suite-media-calibrate` helper binaries. A scoped packaging follow-up adds those pages to the canonical installation staging and daemon manifest with regression assertions; this follow-up is **not** covered by the exact SHA above and requires a new independent CI acceptance.
+
+**Still outside this acceptance:** actual installed service runtime, real manual-host collision takeover, existing live VDR-Suite SQLite/WAL upgrade and rollback, complete `debian/copyright` and third-party rights, the artwork cache-file layout, signed source upload and PPA publication. No installed yaVDR files or live database were touched.
+
+## 2026-10-16 — P7 historical exp1-to-exp2 transition finding
+
+Exact [CI #133](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38961485327), code SHA `2c4b212f4a04e5109f953dfba747c12e32f341dd`, succeeded in all six default/plugin-only Noble/Resolute and offline-build checks, plus the Resolute disposable install/reinstall/remove/purge and all nine P8 refusal fixtures. The overall workflow **FAILED**: the Noble lifecycle test was blocked by an intermittent Seahawk Launchpad `vdr-abi-2.8.3-0yavdr` download/index 503; independently the real `exp1`→`exp2` P7 package upgrade reached `dpkg --unpack` and was refused by the P8 preinst for the daemon and Agent systemd units (`OWNERSHIP_UNKNOWN`). On usrmerged filesystems the exp1 units are package-registered under `/lib/systemd/system`, whereas exp2 queries the newer `/usr/lib/systemd/system` spelling.
+
+A narrowly scoped P8 candidate therefore checks the **exact same-package old /lib unit ownership** only if /lib is symlinked, the old and new paths denote the same regular inode, direct new-path ownership was absent (not foreign or an API error), and the older package's executable is owned. The generated guard remains strict for all other manifest targets and first installs; focused regression fixtures exercise authorized upgrade as well as unrelated owner, ambiguous owner, unmerged paths, query failure, first-install and foreign direct-owner refusal. **The P7 transition has not passed until its exact new CI job proves it**; this description records cause and intent, not acceptance. Production migration and release authorization remain separate.
+
+## 2026-10-16 — full Noble/Resolute and pinned P7 upgrade acceptance
+
+[CI #135](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38968900186), exact code SHA `d144a9cb69e82f5cc60d93962e512a21595a1616`, concluded **SUCCESS**. Confirmed separate Noble and Resolute three-package binary builds and SuiteBridge-only builds; 53 P8/source-manifest regressions; reproducible independent source-archive roundtrips; nine actual `dpkg` rejection fixtures; and isolated install/reinstall/remove/purge lifecycles on both target series. The pinned prior `exp1` historical three-binary build and complete **`exp1`→`exp2` unpack/configure/SQLite-and-config-preservation/backup-restore** test also succeeded. The exact `/lib`↔`/usr/lib` alias ownership exception was exercised against actual installed dpkg package metadata, not just mocks.
+
+**P5 artwork follow-up (new candidate, not yet accepted):** the Debian-only `CACHEDIR=/usr/share/vdr-suite` stage override relocates bundled brand/genre/remote art from packaged `/var/cache/vdr-suite/channel-logos/vdr-suite-brand` to read-only package data under `/usr/share/vdr-suite/channel-logos/vdr-suite-brand`; the HTTP logo resolver retains configured roots and existing cache priority, with `/usr/share` as a fallback. The canonical manual installer and runtime logo sync cache defaults remain unchanged. CI now checks the binary manifest and installed files before accepting this correction. Do not claim a green Lintian or installed runtime until those new exact-head checks complete.
+
+**Remaining release blockers:** rights-reviewed and accurate `debian/copyright`, third-party artwork/source attribution, any residual Lintian findings, dedicated installed-service/Agent enrollment acceptance, and approved real-host manual-install takeover. Nothing was installed on the productive yaVDR or uploaded to Launchpad.
+
+## Confirmed local build milestone (2026-10-14)
+
+Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.
+
+An unsigned, no-install source-package roundtrip and an Ubuntu noble source preview are confirmed PASS on their recorded earlier SHAs; exact current-head source rebuild remains a separate gate. Signed Ubuntu series uploads remain gated by license, build-dependency and lifecycle review.
+
+## October 14: Ubuntu PPA preflight additions
+
+- The original local binary-only SuiteBridge and unsigned source-only `3.0 (quilt)` roundtrip are confirmed **PASS**; neither output has been installed, signed or uploaded.
+- Ubuntu `noble` (24.04) officially supplies `vdr-dev` 2.6.0-1.1, which is **not** the yaVDR `vdr-abi-2.8.3-0yavdr` tested on the user's build host. Ubuntu must build its own matching plugin ABI.
+- The source helper supports **offline only** `--ubuntu-preview noble` or `--ubuntu-preview resolute`: the target suite and packaging revision are changed only in an isolated source snapshot, not in Git, the normal checkout or the host installation. The maintainer has now confirmed **noble source preview PASS** at `0ff3f56f0b91e390fed7e4d6ff872715571bf740`; resolute and clean Ubuntu binaries are not yet tested.
+- Source dependencies now declare required daemon/agent development headers for libcurl, OpenSSL, libcrypt and SQLite under `<!plugin-only>`, so the independent SuiteBridge profile stays lean.
+- Ubuntu 24.04 CI now has three successful jobs: independent SuiteBridge, full default three-binary build and disposable package install/reinstall/remove/purge, all against Seahawk VDR 2.8.3. Actual Launchpad source builds remain unverified.
+- Release blockers remain: a fresh release-source build, legal source/license inventory and `debian/copyright`, non-tested service startup/user/config transitions, P7 older-version upgrade/restore acceptance, and user-authorized signing/upload.
+
+## Seahawk Launchpad dependency configuration (2026-10-14)
+
+The maintainer confirms having added `ppa:seahawk1986-hotmail/vdr-2.8.3` to `ppa:hotzenplotz5/vdr-suite` using Launchpad's **Edit PPA dependencies**. This is a user-reported completion, not yet an independently verified public API result. A new read-only checker, `python3 tools/check_launchpad_ppa_dependency.py`, validates the external archive link and reports pin priorities when Launchpad's public API is accessible. GitHub's Ubuntu noble build and package-install logs now prove Seahawk `vdr-dev` and `vdr` 2.8.3 resolution with the ABI `vdr-abi-2.8.3-0yavdr`; other distribution series and Launchpad chroot resolution remain unproven. The local host APT sources have not been changed by this work.
+
+## Essential release policy
+
+- No package maintainer script may silently delete `/var/lib/vdr-suite`, secrets, recordings or a user-managed configuration.
+- `remove` keeps state and configuration. A `purge` must not delete valuable user data by default without explicit opt-in/data export guidance.
+- DB rollback means restoring a validated pre-upgrade backup, not running an undocumented reverse migration.
+- No database mutation in `postinst` until a tested reversible migration sequence and explicit transactional safety are available.
+- Do not turn on or restart VDR automatically on the production yaVDR target during experimentation.
+- Existing manually installed files under `/usr/local` must be detected before package deployment; dpkg ownership does not protect these paths.
+- Ubuntu Launchpad PPA only after source package and isolated installation/upgrade tests pass.
+
+## Candidate release acceptance
+
+1. Build and test in fresh Debian 13 and Ubuntu 24.04/26.04 containers/VMs as available.
+2. `dpkg-buildpackage -us -uc` succeeds from a pristine source package.
+3. `lintian`, shared library, and VDR ABI dependencies verified.
+4. Install, reinstall, remove, purge, and upgrade preserve config and database state as specified.
+5. Real yaVDR smoke test only under separate deployment approval.
+
+## CI milestone: Ubuntu noble + Seahawk VDR 2.8.3 (2026-10-14)
+
+At [GitHub Actions run #27](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38586364547), both jobs passed on commit `e158ef2ca170280e1cf9f6278bf36c460b3c0d01`: 48 Packaging tests, independently built SuiteBridge with the `vdr-abi-2.8.3-0yavdr` dependency, and the **complete default** `vdr-suite-daemon`, `vdr-suite-backend-agent`, and `vdr-plugin-suitebridge` amd64 packages. A previous `dh_missing --fail-missing` identified an unowned Nginx snippet, calibrator, and transport tmpfiles configuration; the fix assigns each without suppressing `dh_missing`. These are **runner-local experimental binary builds**, not signed PPA uploads or installed yaVDR packages.
+
+At [GitHub Actions run #29](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38588255607), on candidate `42c0ae1d0aa17b376be1a0ef3b0932ddaa59c627`, **all three jobs PASS**: 50 Packaging unit tests, independent plugin, full three-binary build and disposable Ubuntu 24.04 install/reinstall/remove/purge against Seahawk VDR 2.8.3. A modified daemon conffile and an unowned persistent sentinel survived reinstall and remove; the sentinel also survived purge. System services were blocked from starting in the container; real service startup was **not** tested. This validates P6's isolated package lifecycle *subset* only; it is neither a historical-version upgrade/migration test nor live yaVDR acceptance. P7's existing scratch SQLite backup/recovery rehearsal has unit tests, including a no-deletion race test, but no production quiesce/restore integration. Missing legal notices, `debian/copyright`, lintian review, older-version compatibility, and a separately approved runtime smoke test remain explicit release blockers.
+
+## Experimental exp1 → exp2 P7 package transition
+
+The previous successful CI #41 commit `bc4623374a4df4c08118c424ea19aaf552a4964c` is now pinned for a separate build of unsigned `0.14.1-1~exp1` packages. The branch changelog advances to `0.14.1-1~exp2` and a new disposable Ubuntu Noble container CI job exercises an **actual dpkg package version transition**, interrupted unpack/configure, preservation of user-edited conffiles and source-attested synthetic SQLite rows, verified offline backup restore and binary downgrade. The [CI run #46](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38640654487) on `098a14046d346cda5f03bbd3abaf4b386ae03428` and the [CI run #47](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38645349742) on `08b0fbfdfb3c9ea959d93d7010801b53d46dbbd1` both completed with all five jobs **PASS**, including `p7-versioned-upgrade-noble`. The latter SHA also passed all **68** local packaging tests, version checks (`0.14.1`, `0.14.1-1~exp2`) and tracked-artifact audit. This establishes an **experimental disposable-container package transition only**, not an upgrade of released legacy binaries, a live daemon-created database or production yaVDR. No PPA signing/upload or live installation is authorized.
+
+## CI #48 — additional SQLite repository owners (2026-10-15)
+
+[GitHub Actions #48](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38676138135)
+finished **SUCCESS** on immutable commit `db10fba7164b43ecea8832f5353da9ad1cd0a10c`:
+all five Ubuntu Noble packaging jobs passed, including the independent
+SuiteBridge build, three-binary build, offline C++ historical-schema rehearsal,
+package lifecycle, and the experimental `exp1 → exp2` upgrade/restore/downgrade.
+The C++ runner explicitly emitted
+`P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS` and
+`P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS`.
+Pairing migration uses a **synthetic, not historical-source-attested** older
+column shape. No released-binary compatibility, complete schema-owner coverage,
+production restore or live yaVDR deployment is established.
+
+## First-release migration acceptance — no fictional older package
+
+VDR-Suite currently has no published supported earlier Debian/Ubuntu package
+release in this experimental packaging sequence. Therefore **a previously
+published binary-package upgrade is not a prerequisite for the first package
+release when no such predecessor exists**. Instead the initial release must
+name which pre-package/manual VDR-Suite versions are eligible for migration,
+exercise representative real-daemon-created databases from those versions in
+isolated installations, preserve operator-owned state, and explicitly reject
+unknown or newer schemas. The disposable `exp1 → exp2` test proves the dpkg
+mechanics only; it does **not** establish support for any manual-install
+transition or any real service migration. For subsequent published packages,
+version-to-version upgrade tests become mandatory for supported predecessors.
+
+## P7 named schema-initializer coverage (2026-10-15)
+
+The source-audited test ledger is
+[packaging-p7-schema-owner-inventory.md](packaging-p7-schema-owner-inventory.md).
+The current real C++ offline harness invokes **33 of 33** named
+`Repository::ensureSchema()` owners that create tables in the narrowly scoped
+`core/*/src/*Repository[Schema].cpp` pattern. GenreIndex is additionally
+exercised through its `.inc` source. One-time native-recording-cache TTL
+invalidation is exercised against a synthetic pre-marker database, with
+restoration of the prior value/marker; manual recording cast completeness and
+other additive columns also have synthetic old-column tests. No real VDR
+recording, timer, device credential or account is modified by these tests.
+
+**The 33/33 count does not close P7.** Table creation, schema writes and
+database operations in other source files still need a separate inventory.
+The provided historical tagged SQL is real source provenance, but the
+additional old-column and pre-marker fixtures are reconstructed, not actual
+databases from released package binaries. The first-release migration gate
+remains unfulfilled until we can validate specifically supported prior
+**manual** installs using offline copies of databases actually created by
+their daemons, backed up consistently with WAL writers quiesced. The dpkg
+`exp1 → exp2` rehearsal proves experimental package mechanics only.
+
+## CI #60 — named schema-owner rehearsal complete (2026-10-15)
+
+[GitHub Actions #60](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38715053824)
+finished **SUCCESS** for immutable code commit
+`412d83706adb0c8becbf8c2b81ce81b88fbdc232`: all five Ubuntu
+Noble Seahawk VDR 2.8.3 packaging jobs PASS (independent SuiteBridge,
+prior exp1 build, full three-binary build, disposable package lifecycle,
+and isolated exp1-to-exp2 upgrade/state/rollback). The real C++ offline
+schema test explicitly emitted:
+`P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS`,
+`P7_NATIVE_TIMER_BINDINGS_PRESERVATION=PASS`,
+`P7_BACKEND_AGENT_STATE_PRESERVATION=PASS`,
+`P7_EMBEDDED_RECORDING_EDITS_PRESERVATION=PASS`,
+`P7_NATIVE_METADATA_ONETIME_DML_PRESERVATION=PASS`, and
+`P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS`.
+
+The 33/33 counted named C++ initializers do not cover SQL writers outside
+that naming pattern, and the synthetic fixtures are not daemon-created
+databases from a previously published binary. No installed yaVDR service,
+real runtime database or Launchpad archive has been changed.
+
+
+## P7 post-33 runtime SQL-writer survey (incremental)
+
+A separate C++ runtime DDL file-owner inventory classifies named, included,
+indirectly exercised and pending writers. The first additional real C++ test
+covers TimerAssignmentSetRevisionRepository.cpp with a synthetic epoch-7
+backfill, three triggers and an epoch-8 insertion. Eleven writer source files
+remain pending; dynamic SQL, in-file statement changes, migration DML and real
+manual-install database transitions are not yet covered. This does not close P7.
+
+## P7 non-repository writer increment — embedded lifecycle
+
+The real C++ `EmbeddedBackendLifecycleService::ensureSchema()` is now
+exercised on a private SQLite fixture, including an artificial persisted
+backend lifecycle row, idempotent reopens and backup/restore preservation.
+The narrow C++ DDL file survey now has 11 explicitly pending writers.
+This does not prove compatibility of real manual-install databases.
+
+## P7 static runtime DDL survey milestone (CI #84, 2026-10-15)
+
+The bounded `tools/test_packaging_p7_sql_writer_inventory.py` source-file
+survey now classifies **every discovered runtime DDL writer file** in scope:
+the final four source owners have passed actual C++ initializer/trigger
+regressions in [CI #84](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38801942051)
+on `e116824ef0cf30b0effb80285bc3a145f9e8d857`, all five jobs green.
+`PENDING=0` is a **source-file DDL inventory milestone**, not a release
+acceptance label. `BackendRuntimeGeneration.cpp` remains indirectly
+exercised rather than independently tested; SQL DML and constructed SQL
+still need separate migration-risk review. See
+[the current schema-owner ledger](packaging-p7-schema-owner-inventory.md).
+
+**Do not close P7** without a real (quiesced, safely obtained) supported
+manual-install daemon-created database sample, a named old-source SHA or
+version and source/target compatibility policy, tested WAL-consistent
+snapshot/restore with writer quiescence, fail-closed unknown/future schema
+behavior, approved service startup/rollback gates and additional release
+checks. No production yaVDR modifications, package upload/signing or
+migration are authorized by this CI evidence.
+
+## P7 offline source-schema evidence (2026-10-16)
+
+The read-only `tools/packaging_upgrade_preflight.py` now emits an output
+schema revision **3** and a stable `schema_sha256` of ordered
+`sqlite_master` DDL object tuples; its algorithm matches the independent
+offline recovery rehearsal. It also reports the DDL object count and rejects
+SQLite foreign-key violations in addition to quick-check failures. Python
+regressions assert that changing only stored row contents preserves the DDL
+fingerprint, DDL changes invalidate it, the result contains no test row secrets,
+and invalid foreign keys fail without changing the source file.
+
+This is a **source-evidence preparation tool only**, not an upgrade eligibility
+decision: `compatibility=REVIEW_REQUIRED` is always emitted. Exact-source
+[GitHub Actions #88](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38850863155)
+**PASS, all five jobs**, on
+`6ab051f8e8dd2bafaf03a26da38117024e202cec`, including **84 Packaging
+Python regressions**, independent SuiteBridge, daemon/agent build, disposable
+package lifecycle and experimental exp1-to-exp2 recovery. The subsequent
+status-ledger-only change does not alter the tested tool or tests. The tool
+never reads a production database automatically, performs no DDL/DML, and
+neither snapshots writers nor modifies installed services.
+
+P7 remains blocked on an identified and explicitly supported old manual-install
+source SHA/version and its authentic daemon-created SQLite snapshot, approved
+consistent backup (including WAL and writer quiescence), fail-closed
+source/target compatibility registry, isolated real-version migrations and
+rollback, and authorized live lifecycle acceptance. Fingerprints alone are
+insufficient to approve any of these operations.

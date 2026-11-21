@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+# dh_installsystemd --no-start can omit its postinst daemon-reload.
+# Reload package units before any explicit first-install service start.
+# Upgrades reload unit definitions without changing existing service state.
+if [ "$1" = configure ] && [ -d /run/systemd/system ] && \
+   command -v systemctl >/dev/null 2>&1; then
+    systemctl --system daemon-reload >/dev/null || true
+fi
+
+# Only a genuinely new installation starts the Suite daemon automatically.
+# Upgrades must retain the host's existing service policy.
+if [ "$1" = configure ] && [ -z "${2:-}" ] && [ -d /run/systemd/system ]; then
+    if command -v deb-systemd-helper >/dev/null 2>&1; then
+        deb-systemd-helper enable vdr-suite-daemon.service >/dev/null || true
+    fi
+    if command -v deb-systemd-invoke >/dev/null 2>&1; then
+        deb-systemd-invoke start vdr-suite-daemon.service >/dev/null || true
+    fi
+fi
+
+#DEBHELPER#
+exit 0

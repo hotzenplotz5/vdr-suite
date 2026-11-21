@@ -1,0 +1,162 @@
+# Development Documentation
+
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
+- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Phase 69 Closeout](phase-69-closeout.md)
+- [Post-Phase-69 Recording Cut Progress and Variant Hardening](post-phase69-recording-cut-progress-variant.md)
+- [Post-Phase-69 EPG Current Context and Live Action Hardening](post-phase69-epg-current-context-live-action.md)
+- [Phase 69.F Client Error and Mutation-Fallback Safety](phase-69f-client-error-mutation-fallback.md)
+- [Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md)
+- [Phase 69.F Same-Handler Read Alias Fallback Removal](phase-69f-read-alias-fallback-removal.md)
+- [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
+- [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
+- [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
+- [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
+- [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
+- [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
+- [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
+- [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
+- [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
+- [Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md)
+
+---
+
+## Purpose
+
+This is a stable navigation page for development contracts and evidence. It does not duplicate active PR tips or transient CI checkpoints. Those volatile facts belong only in [Current State](../CURRENT.md).
+
+## Current orientation
+
+- [Add-on Branch Consolidation](addon-branch-consolidation.md) — one long-lived branch, integrated legacy registry histories and de-duplicated authority.
+- [Installed Add-on Registry Contract](addon-installed-registry-contract.md) — read-only package discovery and non-executing admission preview; no runtime activation.
+- [Optional Add-on Source Packaging](addon-source-packaging.md) — independent scaffold and C++ Media Tools preview packaging, disabled by default.
+- [Clean-checkout Developer Quickstart](quickstart.md) — first build/test on a disposable Linux environment, without deployment.
+- [Newcomer Getting Started](../getting-started.md) — user-facing product overview and honest install status.
+- [Current State](../CURRENT.md)
+- [Main Documentation Reconciliation — 2026-10-11](main-docs-audit-2026-10-11.md) — source baseline, verified drift and outstanding archive-wide audit.
+- [Post-Phase-69 Device Recording playback](public-v1-device-recording-playback.md) — merged R2 source and independently gated hardware acceptance.
+- [Device Tracks/Index/SRT Merge History](vidaa-device-tracks-index-srt-integration-20261011.md)
+- [Current Project Status](current-status.md)
+- [Current Architecture State](current-architecture-state.md)
+- [Architecture Map](architecture-map.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [Phase 69 Closeout](phase-69-closeout.md) — completed public API/client compatibility phase.
+- [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) — cross-cutting Account/backend administration scope and dependency history; the active successor is recorded only in [Current State](../CURRENT.md).
+- [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed lifecycle mutation boundary.
+- [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
+- [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
+- [MU.8A Safe Credential / Session Metadata](post-phase69-mu8a-credential-session-metadata.md) — implementation merged as PR #415; secret-free credential/session reads, runtime acceptance pending.
+- [MU.8B Session Revoke](post-phase69-mu8b-session-revoke.md) — implementation merged as PR #416 after focused yaVDR acceptance; PR and post-merge hosted CI green.
+- [MU.8C Human-password Credential Revoke](post-phase69-mu8c-credential-revoke.md) — merged as PR #417 after focused yaVDR acceptance; credential-owned revision, final-usable-admin protection and issuer-session fencing.
+- [MU.9A Account Administration Read UI](post-phase69-mu9a-account-admin-read-ui.md) — merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI green; read-only Account/grant/Credential/Session administration in Settings.
+- [MU.9B Account Lifecycle Mutation UI](post-phase69-mu9b-account-lifecycle-ui.md) — merged as PR #420 after real yaVDR acceptance with green PR/post-merge hosted CI; selected Account display-name and activate/deactivate controls with ETag/CSRF fencing.
+- [MU.9C Session Revoke UI](post-phase69-mu9c-session-revoke-ui.md) — merged as PR #426 after focused yaVDR acceptance and green hosted PR CI.
+- [MU.9D Human-password Credential Revoke UI](post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
+- [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
+- [MU.9F Account CREATE UI](post-phase69-mu9f-account-create-ui.md)
+- [MU.9 Closeout](post-phase69-mu9-closeout.md) — accepted MU.9A-F browser administration surface after PR #430, over the previously accepted MU.6D Account CREATE/idempotency contract.
+- [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md) — pre-implementation audit; historical snapshot, not a live status source.
+- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request and polling.
+- [MU.10B Administrator Pairing Approval](post-phase69-mu10b-admin-pairing-approval.md) — real yaVDR acceptance evidence.
+- [MU.10C1-E3 Device implementation contracts](post-phase69-mu10c-device-credential-issuance.md) — see the [Multiuser Workstream](post-phase69-multiuser-workstream.md) for issuance, authentication, grants, revocation and rotation, and [CURRENT](../CURRENT.md) for acceptance gates.
+- [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
+- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
+- [Phase 66 Closeout](phase-66-closeout.md)
+- [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Recording Folder and Manual Genre Management](recording-folder-genre-management.md) — working branch contract; not merged yet.
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [ADR-0058 Media Home Architecture](../adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
+- [Phase 65 Closeout](phase-65-closeout.md)
+
+## Completed and historical evidence
+
+- [Completed Phases](completed-phases.md)
+- [Latest Completed Marker](completed-phases-latest.md)
+- [Completed Phase Archive](completed-phases/README.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
+- [Post-Phase-66 Home Performance Hardening](post-phase-66-home-performance-hardening.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
+- [Phase 64 Final Closeout](phase-64-closeout.md)
+- [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
+- [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
+- [Phase 65.C Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
+- [Phase 65.D Browser-local Volume/Mute Closeout](phase-65d-browser-volume-mute-closeout.md)
+- [Phase 62 Security Contract Index](phase-62-security-contract-index.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
+- [Phase 63 Backend Agent Foundation](phase-63-backend-agent-foundation.md)
+- [Phase 63 Observation and Snapshot Ingestion](phase-63-observation-ingestion.md)
+- [Phase 63 Durable Command Delivery](phase-63-command-delivery.md)
+- [Phase 63 Fenced Native Operation](phase-63-fenced-native-operation.md)
+- [Phase 63 Local Provider Ownership](phase-63-local-provider-ownership.md)
+- [Phase 63 Local Provider Selection Runtime](phase-63-local-provider-selection-runtime.md)
+- [Phase 63 Protected Write Contract](phase-63-protected-write-contract.md)
+
+Historical exact heads, CI runs, hashes and runtime evidence stay in their closeouts. Historical slice documents remain traceability records and do not authorize successor implementation.
+
+Historical static-guard anchors: `phase-62-slice-2i-recording-execution-security-migration.md`, `phase-62-slice-2j-searchtimer-create-security-migration.md`, `phase-62-slice-2k-runtime-acceptance-harness.md`, `phase-62-slice-2l-searchtimer-maintenance-security-migration.md`, `phase-62-slice-2m-safe-post-classification.md`, `phase-62-slice-2n-searchtimer-execution-security-migration.md`, `phase-62-slice-2o-native-fuzzy-refresh-security-migration.md`, `phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md`, `phase-62-slice-2r-browser-session-lifetime-configuration.md`, `phase-62-slice-2s-browser-session-outcome-accountability.md`, `phase-62-slice-2t-browser-session-issuer-binding.md`.
+
+The complete historical Phase-62 navigation is maintained in `phase-62-security-contract-index.md`; the raw anchors above exist only for compatibility with older static guards that still inspect this index directly.
+
+## Timer-orchestration material
+
+Phase-64 Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduling, native observation/readback, protected operations and controlled reassignment/failover under ADR-0044.
+
+Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for current operational status.
+
+## Current media/home position
+
+Phase 65 - Streaming Gateway and Media Sessions is completed. Use [Phase 65 Closeout](phase-65-closeout.md) and Phase-65.D contracts for durable evidence/history. The later accepted Live-TV `ended` stabilization is documented as post-closeout evidence in the Phase-65.D.1 closeout and does not reopen Phase 65.
+
+Phase 66 - Media Home and Browse Experience is completed. The later Home performance, Recording Discovery, Series metadata/artwork and final H0-H5 Home rebuild are completed as non-numbered hardening and do not reopen Phase 66. Use [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the consolidated current Home truth.
+
+The current accepted Recordings 2 detail/presentation layer, including the cinematic Hero, restored actions/cache fallback, clickable cast/local person search, bottom Metadata navigation, strict paused canonical-owner prewarm, corrected related-Recording portrait posters and inline privacy-enhanced YouTube Trailers, is documented separately in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md). Native marks/cutting remains separately documented in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md).
+
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV is completed. Teletext merged through PR #293 and HbbTV discovery/session/presentation-media runtime through PR #300. Use [Phase 67 Closeout](phase-67-closeout.md) for durable evidence; ADR-0054 remains the binding companion-service architecture.
+
+Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work and do not reopen Phase 65.
+
+## Developer references
+
+- [Agenten-Dokumentationsprüfer](agent-doc-checker.md) — freiwillige Diagnose für Regelkennungen, lokale Links und überholte aktive Anweisungen (kein CI-Gate).
+- [Documentation Guide / authority map](../documentation-guide.md)
+- [Historical Documentation Hub](../history/index.md)
+- [Pruning Decisions and Deletion Evidence](documentation-pruning-review.md)
+- [Canonical contribution instructions](../../CONTRIBUTING.md)
+- [Developer Onboarding](developer-onboarding.md)
+- [Build System State](build-system-state.md)
+- [GitHub Actions Status Handoff](github-actions-status-handoff.md)
+- [Web Client API Contract Snapshot](web-client-api-contract-snapshot.md)
+- [Person API](person-api.md)
+
+## Placement rules
+
+- volatile operational truth -> `docs/CURRENT.md`
+- stable architecture -> `docs/architecture/` and accepted ADRs
+- future order and gates -> `docs/planning/`
+- active bounded implementation contracts -> `docs/development/`
+- completed exact evidence -> historical development closeouts
+- completed Phase-62 security slice navigation -> `phase-62-security-contract-index.md`
+- non-numbered Home/Recording/Live hardening -> dedicated post-phase or post-closeout evidence without inventing a numbered phase
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)
+

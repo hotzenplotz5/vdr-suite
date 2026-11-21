@@ -1,0 +1,1894 @@
+// Phase 60.9b: Active SearchTimer browser module.
+// SearchTimer browser with compact cards and safe create/preview/delete workflows.
+//
+// Historical contract markers retained for the static migration guard:
+// Phase 60.10a: Active SearchTimer browser module with editor shell.
+// Phase 60.10d: Active SearchTimer browser module with preview-only editor wiring.
+// Phase 60.10e: Active SearchTimer browser module with readable preview result rendering.
+// Phase 60.10f: Active SearchTimer browser module with preview query parameter mapping.
+// Phase 60.10g: Active SearchTimer browser module with preview comparison options.
+// Phase 60.10h: Active SearchTimer browser module with polished preview result cards.
+// Phase 60.9e: Active SearchTimer browser module with Live parity field groups.
+// Legacy vocabulary: del_recs_after_days use_as_searchtimer_from use_ext_epg_info
+// blacklist_ids blacklist_mode use_vps Weitere Live-Paritätsfelder
+// Wiederholungen, Serien und Blacklist Kanal-, Zeit- und Dauerfilter Aufnahmeoptionen
+// Neuer SearchTimer Preview-only Editor Abbrechen Speichern Vorschau
+// data-searchtimer-action data-searchtimer-editor-form data-searchtimer-editor
+// data-searchtimer-preview-result name = 'search' saveButton.disabled = true;
+// previewButton.disabled = false; Technische JSON-Details
+// searchtimer-preview-warnings searchtimer-preview-matches searchtimer-preview-description
+// function renderSearchTimerEditorShell(parent)
+// function appendFieldGroup(parent, title, fields)
+// function checkboxInput(name, checked)
+// input.checked = Boolean(checked);
+// checkboxInput('compareTitle', true)
+// checkboxInput('compareSubtitle', true)
+// checkboxInput('compareSummary', false)
+// function collectSearchTimerEditorPayload(form)
+// function buildSearchTimerPreviewQueryPayload(payload)
+// previewQuery.query = searchText;
+// previewQuery.text = searchText;
+// delete previewQuery.search;
+// query: buildSearchTimerPreviewQueryPayload(payload)
+// function runSearchTimerPreview(form, button, target)
+// function renderSearchTimerPreviewData(target, message, data)
+// function appendPreviewMetric(parent, label, value)
+// function appendPreviewWarnings(parent, warnings)
+// function appendPreviewMatches(parent, data)
+// function appendPreviewTechnicalDetails(parent, data)
+// function previewEventFromMatch(match)
+// function previewFieldFromMatch(match, eventKeys, matchKeys, fallback)
+// function formatPreviewUnixTime(value)
+// function formatPreviewDuration(value)
+// function truncatePreviewText(value, maxLength)
+// function appendPreviewBadge(parent, text)
+// searchtimer-preview-match-heading searchtimer-preview-badges
+// searchtimer-preview-badge searchtimer-preview-summary
+
+(function(global) {
+  'use strict';
+
+  let searchTimerBrowserContext = Object.freeze({});
+  let activeCreateForm = null;
+  let activeCreateTemplate = null;
+  let lastSearchTimerData = null;
+  let channelCache = Object.create(null);
+  let directoryCache = Object.create(null);
+
+  const UNGROUPED_CHANNEL_KEY = '__ungrouped__';
+
+  function configureContext(context) {
+    searchTimerBrowserContext = Object.freeze(Object.assign({}, context || {}));
+  }
+
+  function platform() {
+    return global.VdrSuitePlatform || null;
+  }
+
+  function clientApi() {
+    if (searchTimerBrowserContext.clientApi) return searchTimerBrowserContext.clientApi;
+
+    const runtime = platform();
+    if (runtime && typeof runtime.getClientApi === 'function') {
+      const api = runtime.getClientApi();
+      if (api) return api;
+    }
+
+    return global.VdrSuiteClientApi || null;
+  }
+
+  function selectedBackendId() {
+    if (typeof searchTimerBrowserContext.getSelectedBackendId === 'function') {
+      const contextId = String(searchTimerBrowserContext.getSelectedBackendId() || '').trim();
+      if (contextId !== '') return contextId;
+    }
+
+    const runtime = platform();
+    if (runtime && typeof runtime.getSelectedBackendId === 'function') {
+      const runtimeId = String(runtime.getSelectedBackendId() || '').trim();
+      if (runtimeId !== '') return runtimeId;
+    }
+
+    return 'default';
+  }
+
+  function reloadSearchTimers() {
+    if (typeof searchTimerBrowserContext.reload === 'function') {
+      searchTimerBrowserContext.reload();
+      return;
+    }
+
+    if (typeof document !== 'undefined') {
+      const refresh = document.getElementById('refresh-detail');
+      if (refresh && !refresh.disabled && typeof refresh.click === 'function') refresh.click();
+    }
+  }
+
+  function addText(element, text) {
+    element.textContent = String(text);
+    return element;
+  }
+
+  function firstValue(source, keys, fallback) {
+    if (!source || typeof source !== 'object') return fallback;
+    for (const key of keys) {
+      if (Object.prototype.hasOwnProperty.call(source, key) &&
+          source[key] !== undefined && source[key] !== null && source[key] !== '') {
+        return source[key];
+      }
+    }
+    return fallback;
+  }
+
+  function listFromResponse(data, key) {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data[key])) return data[key];
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
+  }
+
+  function boolValue(value, fallback) {
+    if (value === true || value === 1 || value === '1' || value === 'true' || value === 'yes') return true;
+    if (value === false || value === 0 || value === '0' || value === 'false' || value === 'no') return false;
+    return Boolean(fallback);
+  }
+
+  function numberValue(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.trunc(number) : Number(fallback || 0);
+  }
+
+  function objectValue(source, key) {
+    const value = source && typeof source === 'object' ? source[key] : null;
+    return value && typeof value === 'object' ? value : {};
+  }
+
+  function normalizeDirectory(value) {
+    return String(value || '')
+      .trim()
+      .replace(/^[~\\/]+|[~\\/]+$/g, '')
+      .split(/[~\\/]+/)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .join('~');
+  }
+
+  function directoryOptionLabel(directory) {
+    const normalized = normalizeDirectory(directory);
+    return normalized === '' ? 'Stammverzeichnis' : normalized.split('~').join(' › ');
+  }
+
+  function recordingFolderPathToDirectory(path) {
+    return normalizeDirectory(path);
+  }
+
+  function normalizeChannel(channel, index) {
+    const source = channel && typeof channel === 'object' ? channel : {};
+    return {
+      source,
+      index: Number(index) || 0,
+      id: String(firstValue(source, ['id', 'channelId', 'channel_id'], '')).trim(),
+      number: numberValue(firstValue(source, ['number', 'channelNumber'], 0), 0),
+      name: String(firstValue(source, ['name', 'channelName'], '')).trim(),
+      group: String(firstValue(source, ['group', 'channelGroup', 'groupName'], '')).trim(),
+      enabled: boolValue(firstValue(source, ['enabled'], true), true),
+      radio: boolValue(firstValue(source, ['radio', 'is_radio'], false), false)
+    };
+  }
+
+  function normalizeChannels(data) {
+    return listFromResponse(data, 'channels')
+      .map(normalizeChannel)
+      .filter(channel => channel.id !== '' && channel.enabled)
+      .sort((left, right) => {
+        const delta = left.number - right.number;
+        return delta !== 0 ? delta : left.name.localeCompare(right.name, 'de');
+      });
+  }
+
+  function channelGroupKey(channel) {
+    return channel.group === '' ? UNGROUPED_CHANNEL_KEY : channel.group;
+  }
+
+  function channelGroups(channels, includeUngrouped) {
+    const groups = [];
+    const seen = new Set();
+    let hasUngrouped = false;
+
+    (Array.isArray(channels) ? channels : []).forEach(channel => {
+      const normalized = channel && channel.id !== undefined ? channel : normalizeChannel(channel, 0);
+      if (normalized.group === '') {
+        hasUngrouped = true;
+        return;
+      }
+      if (!seen.has(normalized.group)) {
+        seen.add(normalized.group);
+        groups.push(normalized.group);
+      }
+    });
+
+    if (includeUngrouped && hasUngrouped && groups.length > 0) groups.push(UNGROUPED_CHANNEL_KEY);
+    return groups;
+  }
+
+  function channelsForGroup(channels, groupKey) {
+    const source = Array.isArray(channels) ? channels : [];
+    if (!groupKey) return source.slice();
+    return source.filter(channel => channelGroupKey(channel) === groupKey);
+  }
+
+  function channelOptionLabel(channel) {
+    const number = channel.number > 0 ? String(channel.number) + ' · ' : '';
+    return number + (channel.name || channel.id);
+  }
+
+  function inferChannelMode(rawMode, channels, channelMin, channelMax) {
+    if (rawMode === true || rawMode === 'true') {
+      if (String(channels || '').trim() !== '') return 2;
+      if (String(channelMin || '').trim() !== '' || String(channelMax || '').trim() !== '') return 1;
+      return 0;
+    }
+    return numberValue(rawMode, 0);
+  }
+
+  function normalizeSearchTimer(searchTimer, index) {
+    const input = searchTimer && typeof searchTimer === 'object' ? searchTimer : {};
+    // The administrator Public-v1 projection uses the original Web field
+    // groups. Top-level identity/state are authoritative, never settings.
+    const source = Object.assign({}, objectValue(input, 'settings'), input);
+    const recording = objectValue(source, 'recordingOptions');
+    const schedule = objectValue(source, 'scheduleOptions');
+    const filters = objectValue(source, 'filterOptions');
+    const comparison = objectValue(source, 'comparisonOptions');
+    const repeats = objectValue(source, 'repeatOptions');
+    const channels = objectValue(source, 'channelOptions');
+    const series = objectValue(source, 'seriesOptions');
+    const blacklist = objectValue(source, 'blacklistOptions');
+    const match = objectValue(source, 'matchOptions');
+    const extended = objectValue(source, 'extendedEpgOptions');
+    const validity = objectValue(source, 'validityOptions');
+    const actions = objectValue(source, 'actionOptions');
+    const state = String(firstValue(source, ['state'], '')).toLowerCase();
+    const channelNames = String(firstValue(channels, ['channels'], firstValue(source, ['channels'], '')));
+    const channelMin = String(firstValue(channels, ['channelMinId', 'channelMin'], firstValue(source, ['channel_min', 'channelMin'], '')));
+    const channelMax = String(firstValue(channels, ['channelMaxId', 'channelMax'], firstValue(source, ['channel_max', 'channelMax'], '')));
+    const rawUseChannel = firstValue(filters, ['useChannelMode', 'useChannel'], firstValue(source, ['use_channel', 'useChannel'], 0));
+
+    return {
+      source,
+      index: Number(index) || 0,
+      backendId: String(firstValue(source, ['backendId', 'backend'], 'default')),
+      backendNativeId: String(firstValue(source, ['backendNativeId', 'id', 'timerId'], '')),
+      searchTimerId: String(firstValue(source, ['searchTimerId'], '')),
+      state,
+      name: String(firstValue(source, ['name', 'title', 'search', 'query'], 'Suchtimer')),
+      query: String(firstValue(source, ['query', 'search', 'pattern'], '')),
+      active: state === 'active' || boolValue(firstValue(source, ['active', 'enabled', 'isActive', 'use_as_searchtimer'], false), false),
+      directory: normalizeDirectory(firstValue(recording, ['directory'], firstValue(source, ['directory'], ''))),
+      priority: numberValue(firstValue(recording, ['priority'], firstValue(source, ['priority'], 0)), 0),
+      lifetime: numberValue(firstValue(recording, ['lifetime'], firstValue(source, ['lifetime'], 0)), 0),
+      marginStartMinutes: numberValue(firstValue(schedule, ['marginStartMinutes'], firstValue(source, ['margin_start', 'marginStart'], 0)), 0),
+      marginStopMinutes: numberValue(firstValue(schedule, ['marginStopMinutes'], firstValue(source, ['margin_stop', 'marginStop'], 0)), 0),
+      useVps: boolValue(firstValue(schedule, ['useVps'], firstValue(source, ['use_vps', 'vps'], false)), false),
+      useChannel: inferChannelMode(rawUseChannel, channelNames, channelMin, channelMax),
+      channels: channelNames,
+      channelMin,
+      channelMax,
+      useTime: boolValue(firstValue(filters, ['useTime'], firstValue(source, ['use_time', 'useTime'], false)), false),
+      startTime: numberValue(firstValue(filters, ['startTime'], firstValue(source, ['start_time', 'startTime'], 0)), 0),
+      stopTime: numberValue(firstValue(filters, ['stopTime'], firstValue(source, ['stop_time', 'stopTime'], 0)), 0),
+      dayOfWeek: numberValue(firstValue(filters, ['dayOfWeek'], firstValue(source, ['dayofweek', 'dayOfWeek'], 0)), 0),
+      useDuration: boolValue(firstValue(filters, ['useDuration'], firstValue(source, ['use_duration', 'useDuration'], false)), false),
+      durationMinMinutes: numberValue(firstValue(filters, ['durationMinMinutes'], firstValue(source, ['duration_min', 'durationMin'], 0)), 0),
+      durationMaxMinutes: numberValue(firstValue(filters, ['durationMaxMinutes'], firstValue(source, ['duration_max', 'durationMax'], 0)), 0),
+      useDayOfWeek: boolValue(firstValue(filters, ['useDayOfWeek'], firstValue(source, ['use_dayofweek', 'useDayOfWeek'], false)), false),
+      compareTitle: boolValue(firstValue(comparison, ['compareTitle'], firstValue(source, ['compare_title', 'use_title'], true)), true),
+      compareSubtitle: boolValue(firstValue(comparison, ['compareSubtitle'], firstValue(source, ['compare_subtitle', 'use_subtitle'], false)), false),
+      compareSummary: boolValue(firstValue(comparison, ['compareSummary'], firstValue(source, ['compare_summary', 'use_description'], false)), false),
+      repeatCompareTitle: boolValue(firstValue(comparison, ['repeatCompareTitle'], firstValue(source, ['compare_title'], false)), false),
+      repeatCompareSubtitle: boolValue(firstValue(comparison, ['repeatCompareSubtitle'], firstValue(source, ['compare_subtitle'], false)), false),
+      repeatCompareSummary: boolValue(firstValue(comparison, ['repeatCompareSummary'], firstValue(source, ['compare_summary'], false)), false),
+      compareCategories: boolValue(firstValue(comparison, ['compareCategories'], firstValue(source, ['compare_categories'], false)), false),
+      compareTime: boolValue(firstValue(comparison, ['compareTime'], firstValue(source, ['compare_time'], false)), false),
+      avoidRepeats: boolValue(firstValue(repeats, ['avoidRepeats'], firstValue(source, ['avoid_repeats'], false)), false),
+      allowedRepeats: numberValue(firstValue(repeats, ['allowedRepeats'], firstValue(source, ['allowed_repeats'], 0)), 0),
+      repeatsWithinDays: numberValue(firstValue(repeats, ['repeatsWithinDays'], firstValue(source, ['repeats_within_days'], 0)), 0),
+      useSeriesRecording: boolValue(firstValue(series, ['useSeriesRecording'], firstValue(source, ['use_series_recording'], false)), false),
+      keepRecordings: numberValue(firstValue(series, ['keepRecordings'], firstValue(source, ['keep_recs'], 0)), 0),
+      deleteMode: numberValue(firstValue(series, ['deleteMode'], firstValue(source, ['del_mode'], 0)), 0),
+      searchTimerAction: numberValue(firstValue(series, ['searchTimerAction'], firstValue(source, ['search_timer_action'], 0)), 0),
+      blacklistMode: numberValue(firstValue(blacklist, ['blacklistMode'], firstValue(source, ['blacklist_mode'], 0)), 0),
+      blacklistIds: String(firstValue(blacklist, ['blacklistIds'], firstValue(source, ['blacklist_ids'], ''))),
+      mode: numberValue(firstValue(match, ['mode'], firstValue(source, ['mode'], 0)), 0),
+      matchCase: boolValue(firstValue(match, ['matchCase'], firstValue(source, ['match_case'], false)), false),
+      tolerance: numberValue(firstValue(match, ['tolerance'], firstValue(source, ['tolerance'], 0)), 0),
+      summaryMatch: numberValue(firstValue(match, ['summaryMatch'], firstValue(source, ['summary_match'], 0)), 0),
+      useExtendedEpgInfo: boolValue(firstValue(extended, ['useExtendedEpgInfo'], firstValue(source, ['use_ext_epg_info'], false)), false),
+      extendedEpgInfo: String(firstValue(extended, ['extendedEpgInfo'], firstValue(source, ['ext_epg_info'], ''))),
+      ignoreMissingEpgCategories: boolValue(firstValue(extended, ['ignoreMissingEpgCategories'], firstValue(source, ['ignore_missing_epg_cats'], false)), false),
+      contentDescriptors: String(firstValue(extended, ['contentDescriptors'], firstValue(source, ['content_descriptors'], ''))),
+      useInFavorites: boolValue(firstValue(validity, ['useInFavorites'], firstValue(source, ['use_in_favorites'], false)), false),
+      activeFrom: String(firstValue(validity, ['activeFrom'], firstValue(source, ['use_as_searchtimer_from'], ''))),
+      activeUntil: String(firstValue(validity, ['activeUntil'], firstValue(source, ['use_as_searchtimer_til'], ''))),
+      pauseOnRecordings: boolValue(firstValue(actions, ['pauseOnRecordings'], firstValue(source, ['pause_on_recs'], false)), false),
+      switchMinutesBefore: numberValue(firstValue(actions, ['switchMinutesBefore'], firstValue(source, ['switch_min_before'], 0)), 0),
+      unmuteSoundOnSwitch: boolValue(firstValue(actions, ['unmuteSoundOnSwitch'], firstValue(source, ['unmute_sound_on_switch'], false)), false),
+      deleteRecordingsAfterDays: numberValue(firstValue(actions, ['deleteRecordingsAfterDays'], firstValue(source, ['del_recs_after_days'], 0)), 0),
+      deleteAfterCountRecordings: numberValue(firstValue(actions, ['deleteAfterCountRecordings'], firstValue(source, ['del_after_count_recs'], 0)), 0),
+      deleteAfterDaysOfFirstRecording: numberValue(firstValue(actions, ['deleteAfterDaysOfFirstRecording'], firstValue(source, ['del_after_days_of_first_rec'], 0)), 0),
+      updateSafe: ['active', 'inactive'].includes(state) && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
+    };
+  }
+
+  function directoryOptions(folderData, searchTimerData, currentDirectory) {
+    const values = new Set();
+
+    listFromResponse(folderData, 'folders').forEach(folder => {
+      // Exclude recording-title leaves identified by the browse API.
+      if (folder.singleRecordingLeaf === true) return;
+      const directory = recordingFolderPathToDirectory(firstValue(folder, ['path', 'name'], ''));
+      if (directory !== '') values.add(directory);
+    });
+
+    listFromResponse(searchTimerData, 'searchTimers')
+      .map(normalizeSearchTimer)
+      .map(timer => timer.directory)
+      .filter(Boolean)
+      .forEach(directory => values.add(directory));
+
+    const current = normalizeDirectory(currentDirectory);
+    if (current !== '') values.add(current);
+
+    return [''].concat(Array.from(values).sort((left, right) => (
+      directoryOptionLabel(left).localeCompare(directoryOptionLabel(right), 'de')
+    )));
+  }
+
+  function installStyles() {
+    if (typeof document === 'undefined' || document.getElementById('vdr-suite-searchtimer-workflow-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'vdr-suite-searchtimer-workflow-styles';
+    style.textContent = `
+.searchtimer-module{display:grid;gap:.8rem}.searchtimer-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem}.searchtimer-summary h3,.searchtimer-card h3{margin:0}.searchtimer-create-panel,.searchtimer-card{border:1px solid rgba(96,165,250,.24);border-radius:.95rem;background:rgba(15,23,42,.72)}.searchtimer-create-panel>summary,.searchtimer-card>summary{cursor:pointer;padding:.82rem .9rem;color:#f8fafc;font-weight:850}.searchtimer-create-panel[open]>summary,.searchtimer-card[open]>summary{border-bottom:1px solid rgba(148,163,184,.18)}.searchtimer-card.inactive{opacity:.8}.searchtimer-card-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.6rem}.searchtimer-card-title strong{display:block;overflow:hidden;text-overflow:ellipsis}.searchtimer-card-title span{display:block;margin-top:.15rem;color:#94a3b8;font-size:.86rem;font-weight:500;overflow:hidden;text-overflow:ellipsis}.searchtimer-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.32rem}.searchtimer-badge{padding:.22rem .48rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;background:rgba(2,6,23,.72);color:#cbd5e1;font-size:.74rem;font-weight:800}.searchtimer-badge.active{border-color:rgba(74,222,128,.5);color:#bbf7d0}.searchtimer-badge.vps,.searchtimer-badge.filter{border-color:rgba(56,189,248,.48);color:#bae6fd}.searchtimer-create-body,.searchtimer-card-body{display:grid;gap:.72rem;padding:.82rem .9rem .9rem}.searchtimer-form{display:grid;gap:.72rem}.searchtimer-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.62rem}.searchtimer-field{display:grid;gap:.28rem;min-width:0}.searchtimer-field.wide{grid-column:1/-1}.searchtimer-field>span{color:#cbd5e1;font-size:.78rem;font-weight:750}.searchtimer-field input,.searchtimer-field select{box-sizing:border-box;width:100%;min-width:0;min-height:2.55rem;padding:.5rem .62rem;border:1px solid #475569;border-radius:.62rem;background:#111827;color:#f8fafc;font:inherit}.searchtimer-field select:disabled{opacity:.62}.searchtimer-check{display:flex;align-items:center;gap:.45rem;min-height:2.55rem}.searchtimer-check input{width:1.15rem;height:1.15rem}.searchtimer-selector-status{margin:.15rem 0 0;color:#94a3b8;font-size:.78rem}.searchtimer-expert{grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(2,6,23,.36)}.searchtimer-expert>summary{cursor:pointer;padding:.75rem;color:#e2e8f0;font-size:1rem;font-weight:750}.searchtimer-option-group{grid-column:1/-1;border:1px solid #475569;border-radius:.65rem;padding:.65rem}.searchtimer-option-group legend{font-weight:750;padding:0 .4rem}.searchtimer-expert>.searchtimer-field{padding:0 .65rem .65rem}.searchtimer-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}.searchtimer-meta{padding:.52rem .6rem;border:1px solid rgba(148,163,184,.16);border-radius:.64rem;background:rgba(15,23,42,.64)}.searchtimer-meta span{display:block;color:#94a3b8;font-size:.72rem;font-weight:750;text-transform:uppercase}.searchtimer-meta strong{display:block;margin-top:.14rem;color:#f8fafc;overflow-wrap:anywhere}.searchtimer-actions{display:flex;flex-wrap:wrap;gap:.5rem}.searchtimer-actions button{min-height:2.55rem;padding:.55rem .78rem;border-radius:.65rem}.searchtimer-actions .danger{border-color:rgba(248,113,113,.55);color:#fecaca}.searchtimer-actions .primary{border-color:rgba(56,189,248,.55)}.searchtimer-feedback{min-height:1.2rem;padding:.58rem .65rem;border-radius:.62rem;background:rgba(2,6,23,.5);color:#cbd5e1}.searchtimer-feedback.success{border:1px solid rgba(74,222,128,.4);color:#bbf7d0}.searchtimer-feedback.error{border:1px solid rgba(248,113,113,.45);color:#fecaca}.searchtimer-preview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.45rem}.searchtimer-preview-metric{padding:.5rem;border:1px solid rgba(56,189,248,.2);border-radius:.62rem;background:rgba(15,23,42,.7)}.searchtimer-preview-metric span{display:block;color:#94a3b8;font-size:.7rem}.searchtimer-preview-metric strong{display:block;margin-top:.12rem}.searchtimer-preview-match{margin-top:.55rem;padding:.62rem;border:1px solid rgba(148,163,184,.18);border-radius:.68rem;background:rgba(15,23,42,.68)}.searchtimer-preview-match h5{margin:0}.searchtimer-preview-badges{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}.searchtimer-preview-badge{padding:.18rem .4rem;border-radius:999px;background:rgba(2,6,23,.7);color:#bae6fd;font-size:.72rem}.searchtimer-preview-technical{margin-top:.6rem}.searchtimer-preview-technical pre{max-height:22rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.searchtimer-safety-note{padding:.62rem;border:1px solid rgba(251,191,36,.3);border-radius:.68rem;background:rgba(120,53,15,.18);color:#fde68a}
+.searchtimer-module [hidden]{display:none!important}
+@media(max-width:760px){.searchtimer-card-summary{grid-template-columns:minmax(0,1fr)}.searchtimer-badges{justify-content:flex-start}.searchtimer-form-grid{grid-template-columns:minmax(0,1fr)}.searchtimer-field.wide,.searchtimer-expert{grid-column:auto}.searchtimer-actions{display:grid;grid-template-columns:minmax(0,1fr)}.searchtimer-actions button{width:100%}.searchtimer-meta-grid{grid-template-columns:minmax(0,1fr)}}`;
+    document.head.appendChild(style);
+  }
+
+  function input(name, value, type) {
+    const element = document.createElement('input');
+    element.name = name;
+    element.type = type || 'text';
+    element.value = value === undefined || value === null ? '' : String(value);
+    return element;
+  }
+
+  // Display native, localized clock controls while preserving epgsearch's
+  // integer HHMM wire contract (e.g. 20:00 in the UI -> 2000 in the API).
+  function clockValue(hhmm) {
+    const value = Number(hhmm);
+    const valid = Number.isInteger(value) && value >= 0 &&
+      value <= 2359 && value % 100 < 60;
+    const clock = valid
+      ? String(Math.floor(value / 100)).padStart(2, '0') + ':' +
+        String(value % 100).padStart(2, '0')
+      : '';
+    return clock;
+  }
+
+  function clockInput(name, hhmm) {
+    const control = input(name, clockValue(hhmm), 'time');
+    control.step = '60'; // Minutes only; no seconds.
+    return control;
+  }
+
+  function clockFormValue(form, name, fallback) {
+    const control = form.elements[name];
+    if (!control) return numberValue(fallback, 0);
+    const clock = String(control.value || '').trim();
+    const parts = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(clock);
+    // Never silently treat an empty/invalid active time as midnight.
+    return parts ? Number(parts[1]) * 100 + Number(parts[2]) : NaN;
+  }
+
+  function field(label, control, wide) {
+    const row = document.createElement('label');
+    row.className = 'searchtimer-field' + (wide ? ' wide' : '');
+    row.appendChild(addText(document.createElement('span'), label));
+    row.appendChild(control);
+    return row;
+  }
+
+  function check(name, label, checked) {
+    const row = document.createElement('label');
+    row.className = 'searchtimer-check';
+    const control = document.createElement('input');
+    control.type = 'checkbox';
+    control.name = name;
+    control.checked = Boolean(checked);
+    row.appendChild(control);
+    row.appendChild(addText(document.createElement('span'), label));
+    return row;
+  }
+
+  function revealWhenChecked(toggleRow, dependents) {
+    const checkbox = toggleRow.children[0];
+    function render() {
+      dependents.forEach(element => { element.hidden = !checkbox.checked; });
+    }
+    checkbox.addEventListener('change', render);
+    render();
+    return render;
+  }
+
+  function select(name, value, options) {
+    const control = document.createElement('select');
+    control.name = name;
+    options.forEach(optionData => {
+      const item = document.createElement('option');
+      item.value = String(optionData[0]);
+      item.textContent = String(optionData[1]);
+      control.appendChild(item);
+    });
+    control.value = String(value);
+    return control;
+  }
+
+  function option(value, label, selected) {
+    const item = document.createElement('option');
+    item.value = String(value);
+    item.textContent = String(label);
+    item.selected = Boolean(selected);
+    return item;
+  }
+
+  function formValue(form, name, fallback) {
+    const element = form.elements[name];
+    if (!element) return fallback;
+    if (element.type === 'checkbox') return element.checked;
+    return String(element.value || '').trim();
+  }
+
+  function effectiveDirectory(form, fallback) {
+    const manual = normalizeDirectory(formValue(form, 'manualDirectory', ''));
+    if (manual !== '') return manual;
+    return normalizeDirectory(formValue(form, 'directory', fallback));
+  }
+
+  function effectiveChannelFilter(form, source) {
+    const manualMode = String(formValue(form, 'manualUseChannel', '')).trim();
+    const manualChannels = String(formValue(form, 'manualChannels', '')).trim();
+    const manualMin = String(formValue(form, 'manualChannelMin', '')).trim();
+    const manualMax = String(formValue(form, 'manualChannelMax', '')).trim();
+
+    if (manualMode !== '' || manualChannels !== '' || manualMin !== '' || manualMax !== '') {
+      return {
+        useChannel: numberValue(manualMode, source.useChannel),
+        channels: manualChannels,
+        channelMin: manualMin,
+        channelMax: manualMax
+      };
+    }
+
+    const mode = numberValue(formValue(form, 'channelFilterMode', source.useChannel), 0);
+    if (mode === 1) {
+      const channelId = String(formValue(form, 'channelId', '')).trim();
+      const endId = String(formValue(form, 'channelEndId', channelId)).trim() || channelId;
+      return {useChannel: channelId === '' ? 0 : 1, channels: '', channelMin: channelId, channelMax: endId};
+    }
+    if (mode === 2) {
+      const group = String(formValue(form, 'channelFilterGroup', '')).trim();
+      return {useChannel: group === '' ? 0 : 2, channels: group, channelMin: '', channelMax: ''};
+    }
+    if (mode === 3) return {useChannel: 3, channels: '', channelMin: '', channelMax: ''};
+    return {useChannel: 0, channels: '', channelMin: '', channelMax: ''};
+  }
+
+  function buildCreatePayload(form, template) {
+    const source = template || normalizeSearchTimer({}, 0);
+    const channelFilter = effectiveChannelFilter(form, source);
+
+    return {
+      backendId: selectedBackendId(),
+      name: formValue(form, 'name', source.name),
+      query: formValue(form, 'query', source.query),
+      active: boolValue(formValue(form, 'active', true), true),
+      directory: effectiveDirectory(form, source.directory),
+      priority: numberValue(formValue(form, 'priority', source.priority), 0),
+      lifetime: numberValue(formValue(form, 'lifetime', source.lifetime), 0),
+      marginStartMinutes: numberValue(formValue(form, 'marginStartMinutes', source.marginStartMinutes), 0),
+      marginStopMinutes: numberValue(formValue(form, 'marginStopMinutes', source.marginStopMinutes), 0),
+      useVps: boolValue(formValue(form, 'useVps', source.useVps), false),
+      useChannel: channelFilter.useChannel,
+      channels: channelFilter.channels,
+      channelMin: channelFilter.channelMin,
+      channelMax: channelFilter.channelMax,
+      useTime: boolValue(formValue(form, 'useTime', source.useTime), false),
+      startTime: clockFormValue(form, 'startTime', source.startTime),
+      stopTime: clockFormValue(form, 'stopTime', source.stopTime),
+      useDuration: boolValue(formValue(form, 'useDuration', source.useDuration), false),
+      durationMinMinutes: numberValue(formValue(form, 'durationMinMinutes', source.durationMinMinutes), 0),
+      durationMaxMinutes: numberValue(formValue(form, 'durationMaxMinutes', source.durationMaxMinutes), 0),
+      useDayOfWeek: boolValue(formValue(form, 'useDayOfWeek', source.useDayOfWeek), false),
+      dayOfWeek: numberValue(formValue(form, 'dayOfWeek', source.dayOfWeek), 0),
+      avoidRepeats: boolValue(formValue(form, 'avoidRepeats', source.avoidRepeats), false),
+      allowedRepeats: numberValue(formValue(form, 'allowedRepeats', source.allowedRepeats), 0),
+      repeatsWithinDays: numberValue(formValue(form, 'repeatsWithinDays', source.repeatsWithinDays), 0),
+      compareTitle: boolValue(formValue(form, 'compareTitle', source.compareTitle), true),
+      compareSubtitle: boolValue(formValue(form, 'compareSubtitle', source.compareSubtitle), false),
+      compareSummary: boolValue(formValue(form, 'compareSummary', source.compareSummary), false),
+      repeatCompareTitle: boolValue(formValue(form, 'repeatCompareTitle', source.repeatCompareTitle), false),
+      repeatCompareSubtitle: boolValue(formValue(form, 'repeatCompareSubtitle', source.repeatCompareSubtitle), false),
+      repeatCompareSummary: boolValue(formValue(form, 'repeatCompareSummary', source.repeatCompareSummary), false),
+      compareCategories: boolValue(formValue(form, 'compareCategories', source.compareCategories), false),
+      compareTime: boolValue(formValue(form, 'compareTime', source.compareTime), false),
+      useSeriesRecording: boolValue(formValue(form, 'useSeriesRecording', source.useSeriesRecording), false),
+      keepRecordings: numberValue(formValue(form, 'keepRecordings', source.keepRecordings), 0),
+      deleteMode: numberValue(formValue(form, 'deleteMode', source.deleteMode), 0),
+      searchTimerAction: numberValue(formValue(form, 'searchTimerAction', source.searchTimerAction), 0),
+      blacklistMode: numberValue(formValue(form, 'blacklistMode', source.blacklistMode), 0),
+      blacklistIds: formValue(form, 'blacklistIds', source.blacklistIds),
+      mode: numberValue(formValue(form, 'mode', source.mode), 0),
+      matchCase: boolValue(formValue(form, 'matchCase', source.matchCase), false),
+      tolerance: numberValue(formValue(form, 'tolerance', source.tolerance), 0),
+      summaryMatch: numberValue(formValue(form, 'summaryMatch', source.summaryMatch), 0),
+      useExtendedEpgInfo: boolValue(formValue(form, 'useExtendedEpgInfo', source.useExtendedEpgInfo), false),
+      extendedEpgInfo: String(formValue(form, 'extendedEpgInfo', source.extendedEpgInfo) || ''),
+      ignoreMissingEpgCategories: boolValue(formValue(form, 'ignoreMissingEpgCategories', source.ignoreMissingEpgCategories), false),
+      contentDescriptors: String(formValue(form, 'contentDescriptors', source.contentDescriptors) || ''),
+      useInFavorites: boolValue(formValue(form, 'useInFavorites', source.useInFavorites), false),
+      activeFrom: String(formValue(form, 'activeFrom', source.activeFrom) || ''),
+      activeUntil: String(formValue(form, 'activeUntil', source.activeUntil) || ''),
+      pauseOnRecordings: boolValue(formValue(form, 'pauseOnRecordings', source.pauseOnRecordings), false),
+      switchMinutesBefore: numberValue(formValue(form, 'switchMinutesBefore', source.switchMinutesBefore), 0),
+      unmuteSoundOnSwitch: boolValue(formValue(form, 'unmuteSoundOnSwitch', source.unmuteSoundOnSwitch), false),
+      deleteRecordingsAfterDays: numberValue(formValue(form, 'deleteRecordingsAfterDays', source.deleteRecordingsAfterDays), 0),
+      deleteAfterCountRecordings: numberValue(formValue(form, 'deleteAfterCountRecordings', source.deleteAfterCountRecordings), 0),
+      deleteAfterDaysOfFirstRecording: numberValue(formValue(form, 'deleteAfterDaysOfFirstRecording', source.deleteAfterDaysOfFirstRecording), 0)
+    };
+  }
+
+  function validateCreatePayload(payload) {
+    const errors = [];
+    if (String(payload.query || '').trim() === '') errors.push('Suchbegriff fehlt.');
+    if (String(payload.name || '').trim() === '') payload.name = String(payload.query || '').trim();
+    if (!payload.compareTitle && !payload.compareSubtitle && !payload.compareSummary) {
+      errors.push('Mindestens Titel, Untertitel oder Beschreibung muss durchsucht werden.');
+    }
+    if (payload.useDuration && payload.durationMaxMinutes > 0 && payload.durationMinMinutes > payload.durationMaxMinutes) {
+      errors.push('Minimale Dauer darf nicht größer als maximale Dauer sein.');
+    }
+    if (payload.useChannel === 1 && String(payload.channelMin || '').trim() === '') {
+      errors.push('Für den Einzelkanal-Filter muss ein Kanal ausgewählt werden.');
+    }
+    if (payload.useChannel === 2 && String(payload.channels || '').trim() === '') {
+      errors.push('Für den Kanalgruppen-Filter muss eine Kanalgruppe ausgewählt werden.');
+    }
+    if (payload.useTime && (!Number.isInteger(payload.startTime) ||
+        !Number.isInteger(payload.stopTime) || payload.startTime < 0 ||
+        payload.startTime > 2359 || payload.stopTime < 0 ||
+        payload.stopTime > 2359 || payload.startTime % 100 >= 60 ||
+        payload.stopTime % 100 >= 60)) {
+      errors.push('Ungültiger Uhrzeitfilter: Bitte Beginn und Ende als HH:MM eingeben.');
+    }
+    if (![0, 1, 2, 3].includes(numberValue(payload.useChannel, -1))) {
+      errors.push('Unbekannter Kanalfilter-Modus.');
+    }
+    return errors;
+  }
+
+  function setFeedback(target, message, error) {
+    target.className = 'searchtimer-feedback ' + (error ? 'error' : 'success');
+    target.textContent = String(message || '');
+  }
+
+  function resultMessage(result, fallback) {
+    if (result && result.message) return String(result.message);
+    if (result && Array.isArray(result.errors) && result.errors.length > 0) return result.errors.join(' · ');
+    return fallback;
+  }
+
+  function fetchChannels(backendId = selectedBackendId()) {
+    if (channelCache[backendId]) return channelCache[backendId];
+    const api = clientApi();
+    if (!api || typeof api.fetchClientChannels !== 'function') {
+      return Promise.reject(new Error('Kanalliste ist nicht verfügbar.'));
+    }
+    channelCache[backendId] = api.fetchClientChannels({
+      query: {backend: backendId, _: String(Date.now())},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(normalizeChannels).catch(error => {
+      delete channelCache[backendId];
+      throw error;
+    });
+    return channelCache[backendId];
+  }
+
+  function fetchDirectoryData(backendId = selectedBackendId()) {
+    if (directoryCache[backendId]) return directoryCache[backendId];
+    const api = clientApi();
+    if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
+      return Promise.reject(new Error('Aufnahmeverzeichnisse sind nicht verfügbar.'));
+    }
+    directoryCache[backendId] = api.fetchClientRecordingFolder({
+      query: {backend: backendId, path: '', limit: 500, offset: 0, _: String(Date.now())},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).catch(error => {
+      delete directoryCache[backendId];
+      throw error;
+    });
+    return directoryCache[backendId];
+  }
+
+  function populateChannelSelect(selectElement, channels, selectedId) {
+    selectElement.replaceChildren();
+    if (channels.length === 0) {
+      selectElement.appendChild(option(selectedId || '', selectedId ? 'Aktueller Kanal · ' + selectedId : 'Keine Kanäle verfügbar', true));
+      selectElement.value = selectedId || '';
+      selectElement.disabled = true;
+      return;
+    }
+    selectElement.disabled = false;
+    selectElement.appendChild(option('', 'Kanal auswählen …', selectedId === ''));
+    channels.forEach(channel => {
+      selectElement.appendChild(option(channel.id, channelOptionLabel(channel), channel.id === selectedId));
+    });
+    if (selectedId && !channels.some(channel => channel.id === selectedId)) {
+      selectElement.appendChild(option(selectedId, 'Aktueller Kanal · ' + selectedId, true));
+    }
+    selectElement.value = selectedId || '';
+  }
+
+  function configureDirectorySelector(selectElement, manualInput, status, source) {
+    status.textContent = 'Aufnahmeverzeichnisse werden geladen …';
+    selectElement.disabled = true;
+    // Never overwrite edits or a template chosen while the catalogue loads.
+    selectElement.addEventListener('change', () => { manualInput.value = ''; });
+    manualInput.addEventListener('input', () => {
+      if (manualInput.value.trim() !== '') selectElement.value = '';
+    });
+    fetchDirectoryData(source.backendId).then(folderData => {
+      const current = selectElement.value;
+      const directories = directoryOptions(folderData, lastSearchTimerData || {}, current);
+      selectElement.replaceChildren();
+      directories.forEach(directory => {
+        selectElement.appendChild(option(directory, directoryOptionLabel(directory), directory === current));
+      });
+      selectElement.disabled = false;
+      selectElement.value = current;
+      status.textContent = String(directories.length) + ' Verzeichnisziele verfügbar.';
+    }).catch(error => {
+      const current = selectElement.value;
+      selectElement.replaceChildren(option(current, directoryOptionLabel(current), true));
+      selectElement.value = current;
+      selectElement.disabled = current === '';
+      status.textContent = 'Verzeichnisliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
+        String(error && error.message ? error.message : error);
+    });
+  }
+
+  function createDirectoryFields(grid, source) {
+    const directorySelect = select('directory', source.directory, [[source.directory, directoryOptionLabel(source.directory)]]);
+    const directoryField = field('Aufnahmeverzeichnis auswählen', directorySelect, true);
+    const status = document.createElement('p');
+    status.className = 'searchtimer-selector-status';
+    directoryField.appendChild(status);
+
+    const expert = document.createElement('details');
+    expert.className = 'searchtimer-expert';
+    expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Verzeichnis manuell eingeben'));
+    const manualInput = input('manualDirectory', '');
+    expert.appendChild(field('Manuelles VDR-Verzeichnis (überschreibt Auswahl)', manualInput, true));
+
+    grid.appendChild(directoryField);
+    grid.appendChild(expert);
+    global.setTimeout(() => configureDirectorySelector(directorySelect, manualInput, status, source), 0);
+  }
+
+  function configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, channelEndSelect, expert, status, source) {
+    status.textContent = 'Kanalfilter werden geladen …';
+    modeSelect.disabled = true;
+    groupField.hidden = true;
+    channelGroupField.hidden = true;
+    channelField.hidden = true;
+    expert.hidden = numberValue(modeSelect.value, 0) === 0 ||
+      numberValue(modeSelect.value, 0) === 3;
+
+    fetchChannels(source.backendId).then(channels => {
+      const selectorGroups = channelGroups(channels, true);
+      const realGroups = channelGroups(channels, false);
+      const currentSingleId = channelSelect.value;
+      const currentGroup = channelGroupSelect.value;
+      populateChannelSelect(channelSelect, channels, channelSelect.value);
+      populateChannelSelect(channelEndSelect, channels, channelEndSelect.value);
+      channelEndSelect.addEventListener('change', clearManualChannelFilter);
+      const currentChannel = channels.find(channel => channel.id === currentSingleId) || null;
+
+      modeSelect.disabled = false;
+ 
+      groupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
+      selectorGroups.forEach(group => {
+        groupSelect.appendChild(option(group, group === UNGROUPED_CHANNEL_KEY ? 'Ohne Kanalgruppe' : group, false));
+      });
+
+      channelGroupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
+      realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === currentGroup)));
+
+      function clearManualChannelFilter() {
+        ['manualUseChannel', 'manualChannels', 'manualChannelMin', 'manualChannelMax'].forEach(name => {
+          if (modeSelect.form && modeSelect.form.elements[name]) modeSelect.form.elements[name].value = '';
+        });
+      }
+
+      function renderMode() {
+        const mode = numberValue(modeSelect.value, 0);
+        groupField.hidden = mode !== 1 || selectorGroups.length === 0;
+        channelField.hidden = mode !== 1;
+        channelGroupField.hidden = mode !== 2;
+        expert.hidden = mode === 0 || mode === 3;
+        if (expert.hidden) expert.open = false;
+
+        if (mode === 1) {
+          if (selectorGroups.length === 0) {
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
+          } else if (groupSelect.value !== '') {
+            populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), channelSelect.value);
+          } else {
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
+          }
+        }
+      }
+
+      if (currentChannel && selectorGroups.length > 0) groupSelect.value = channelGroupKey(currentChannel);
+      if (currentGroup && !realGroups.includes(currentGroup))
+        channelGroupSelect.appendChild(option(currentGroup, currentGroup, true));
+      channelGroupSelect.value = currentGroup;
+
+      modeSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        renderMode();
+      });
+      groupSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        populateChannelSelect(channelSelect, groupSelect.value
+          ? channelsForGroup(channels, groupSelect.value) : channels, '');
+        channelEndSelect.value = '';
+      });
+      channelSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        channelEndSelect.value = '';
+      });
+      channelGroupSelect.addEventListener('change', clearManualChannelFilter);
+      modeSelect.refreshSearchTimerFilter = renderMode;
+      renderMode();
+
+      status.textContent = String(realGroups.length) + ' Kanalgruppen · ' + String(channels.length) + ' Kanäle.';
+      if (source.useChannel === 1 && source.channelMin && source.channelMax && source.channelMin !== source.channelMax) {
+        status.textContent += ' Senderbereich von/bis ist ausgewählt.';
+      }
+    }).catch(error => {
+      modeSelect.disabled = false;
+      groupField.hidden = true;
+      channelField.hidden = modeSelect.value !== '1';
+      channelGroupField.hidden = modeSelect.value !== '2';
+      expert.hidden = false;
+      expert.open = true;
+      status.textContent = 'Kanalliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
+        String(error && error.message ? error.message : error);
+    });
+  }
+
+  function createChannelFilterFields(grid, source) {
+    const modeSelect = select('channelFilterMode', source.useChannel, [
+      [0, 'Alle Kanäle'],
+      [1, 'Kanal / Kanalbereich'],
+      [2, 'Kanalgruppe'],
+      [3, 'Nur frei empfangbare Kanäle (FTA)']
+    ]);
+    const modeField = field('Kanalfilter', modeSelect, true);
+    const status = document.createElement('p');
+    status.className = 'searchtimer-selector-status';
+    modeField.appendChild(status);
+
+    const groupSelect = select('channelSelectorGroup', '', []);
+    const groupField = field('Kanalgruppe zur Auswahl', groupSelect, true);
+    groupField.hidden = true;
+
+    const initialChannel = source.useChannel === 1 ? (source.channelMin || source.channelMax) : '';
+    const channelSelect = select('channelId', initialChannel, [[initialChannel, initialChannel || 'Kanal auswählen …']]);
+    const channelField = document.createElement('div');
+    channelField.className = 'searchtimer-field wide';
+    channelField.appendChild(field('Von Sender', channelSelect, true));
+    const initialEnd = source.useChannel === 1 ? (source.channelMax || initialChannel) : '';
+    const channelEndSelect = select('channelEndId', initialEnd, [[initialEnd, initialEnd || 'Gleicher Sender']]);
+    channelField.appendChild(field('Bis Sender (leer = gleicher Sender)', channelEndSelect, true));
+    channelField.hidden = true;
+
+    const initialGroup = source.useChannel === 2 ? source.channels : '';
+    const channelGroupSelect = select('channelFilterGroup', initialGroup, [[initialGroup, initialGroup || 'Kanalgruppe auswählen …']]);
+    const channelGroupField = field('Kanalgruppe filtern', channelGroupSelect, true);
+    channelGroupField.hidden = true;
+
+    const expert = document.createElement('details');
+    expert.className = 'searchtimer-expert';
+    expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Kanalfilter manuell eingeben'));
+    expert.appendChild(field('use_channel (0–3)', input('manualUseChannel', source.useChannel > 3 ? source.useChannel : ''), true));
+    expert.appendChild(field('channels / Kanalgruppenname', input('manualChannels', ''), true));
+    expert.appendChild(field('channel_min / Startkanal-ID', input('manualChannelMin', ''), true));
+    expert.appendChild(field('channel_max / Endkanal-ID', input('manualChannelMax', ''), true));
+
+    grid.appendChild(modeField);
+    grid.appendChild(groupField);
+    grid.appendChild(channelField);
+    grid.appendChild(channelGroupField);
+    grid.appendChild(expert);
+
+    global.setTimeout(() => {
+      configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, channelEndSelect, expert, status, source);
+    }, 0);
+  }
+
+  function formatUnixTime(value) {
+    const number = Number(value);
+    const date = Number.isFinite(number) ? new Date(number * 1000) : new Date(String(value || ''));
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('de-DE', {weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+  }
+
+  function previewMatches(data) {
+    if (data && Array.isArray(data.items)) return data.items;
+    return data && data.preview && Array.isArray(data.preview.matches) ? data.preview.matches : [];
+  }
+
+  function appendPreviewMetric(parent, label, value) {
+    const item = document.createElement('div');
+    item.className = 'searchtimer-preview-metric';
+    item.appendChild(addText(document.createElement('span'), label));
+    item.appendChild(addText(document.createElement('strong'), value));
+    parent.appendChild(item);
+  }
+
+  function namedChannelLabel(element, channelId, prefix) {
+    const id = String(channelId || '');
+    fetchChannels().then(channels => {
+      const channel = channels.find(item => item.id === id);
+      if (channel) element.textContent = (prefix || '') + channelOptionLabel(channel);
+    }).catch(() => {}); // Keep the original ID visible when lookup fails.
+    return element;
+  }
+
+  function renderPreview(target, data) {
+    target.replaceChildren();
+    const summary = document.createElement('section');
+    summary.className = 'searchtimer-preview-summary';
+    const statistics = data && data.statistics ? data.statistics : {};
+    const epgInput = data && data.epgInput ? data.epgInput : {};
+    const publicPreview = Boolean(data && Array.isArray(data.items));
+    const matchesForCount = previewMatches(data);
+    appendPreviewMetric(summary, 'Engine', publicPreview ? 'EPG-Suche (Public v1)' : String(firstValue(data || {}, ['previewEngine'], '-')));
+    appendPreviewMetric(summary, 'EPG', publicPreview ? String(data.meta && data.meta.epgInput || '-') : String(firstValue(epgInput, ['status'], '-')));
+    appendPreviewMetric(summary, 'Treffer', String(publicPreview ? data.totalCount : firstValue(statistics, ['totalCount'], matchesForCount.length)));
+    if (!publicPreview) appendPreviewMetric(summary, 'Kanäle', String(firstValue(statistics, ['channelCount'], 0)));
+    target.appendChild(summary);
+
+    const matches = previewMatches(data);
+    if (matches.length === 0) {
+      target.appendChild(addText(document.createElement('p'), 'Keine Treffer in der aktuellen Vorschau.'));
+    } else {
+      matches.slice(0, 40).forEach((match, index) => {
+        const event = match && match.event && typeof match.event === 'object' ? match.event : match;
+        const card = document.createElement('article');
+        card.className = 'searchtimer-preview-match';
+        card.appendChild(addText(document.createElement('h5'), String(firstValue(event, ['title', 'name'], 'Treffer ' + String(index + 1)))));
+        const badges = document.createElement('div');
+        badges.className = 'searchtimer-preview-badges';
+        ['Kanal: ' + String(firstValue(event, ['channelName', 'channel', 'channelId'], '-')), 'Start: ' + formatUnixTime(firstValue(event, ['startTime', 'start'], ''))].forEach(text => {
+          const badge = addText(document.createElement('span'), text);
+          badge.className = 'searchtimer-preview-badge';
+          badges.appendChild(badge);
+          if (text.startsWith('Kanal: ') && !event.channelName)
+            namedChannelLabel(badge, firstValue(event, ['channelId', 'channel'], ''), 'Kanal: ');
+        });
+        card.appendChild(badges);
+        target.appendChild(card);
+      });
+    }
+
+    const technical = document.createElement('details');
+    technical.className = 'searchtimer-preview-technical';
+    technical.appendChild(addText(document.createElement('summary'), 'Technische JSON-Details'));
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(data, null, 2).slice(0, 12000);
+    technical.appendChild(pre);
+    target.appendChild(technical);
+  }
+
+  function runPreview(payload, button, target) {
+    const api = clientApi();
+    if (!api || typeof api.fetchClientSearchTimerPreview !== 'function') {
+      setFeedback(target, 'Suchtimer-Vorschau ist nicht verfügbar.', true);
+      return Promise.resolve(null);
+    }
+    button.disabled = true;
+    setFeedback(target, 'Suchtimer-Vorschau wird geladen …', false);
+    return api.fetchClientSearchTimerPreview({
+      backendId: selectedBackendId(),
+      query: Object.assign({}, payload, {text: payload.query, query: payload.query}),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(result => {
+      target.className = 'searchtimer-feedback success';
+      renderPreview(target, result);
+      return result;
+    }).catch(error => {
+      setFeedback(target, String(error && error.message ? error.message : error), true);
+      return null;
+    }).finally(() => { button.disabled = false; });
+  }
+
+  // One authoritative versioned write per explicit user action. A
+  // transport failure after submission must not silently write again.
+  const mutationObservers = new Set();
+
+  function createMutationController(timer, controls, feedback, inspect) {
+    const api = clientApi();
+    const scope = {backend: timer.backendId, searchTimerId: timer.searchTimerId};
+    let busy = false;
+    let submitted = false;
+    let operationId = '';
+    let events = null;
+    let reading = false;
+    let readAgain = false;
+    let attached = true;
+    let currentAction = '';
+    const originalDisabled = controls.map(control => control.disabled);
+    function lock(value) {
+      controls.forEach((control, index) => { control.disabled = value || originalDisabled[index]; });
+    }
+    function closeEvents() {
+      if (events) { events.close(); events = null; }
+    }
+    function detach() { attached = false; closeEvents(); mutationObservers.delete(detach); }
+    mutationObservers.add(detach);
+    function show(record) {
+      if (!record || record.operationId !== operationId ||
+          record.backendId !== scope.backend || typeof record.state !== 'string')
+        throw new Error('Suchtimer-Vorgang entspricht nicht der Anfrage.');
+      if (!attached) return;
+      if (record.state === 'succeeded') {
+        closeEvents();
+        inspect.hidden = true;
+        setFeedback(feedback, 'Änderung durch epgsearch-Readback bestätigt.', false);
+        mutationObservers.delete(detach);
+        if (selectedBackendId() === scope.backend)
+          global.setTimeout(() => { if (attached) reloadSearchTimers(); }, 300);
+      } else if (record.state === 'failed_verified' || record.state === 'failed_before_dispatch') {
+        closeEvents();
+        setFeedback(feedback, 'Änderung abgelehnt (' + record.state + '). Liste aktualisieren.', true);
+        inspect.hidden = false;
+      } else {
+        const uncertain = record.state === 'outcome_unknown' || record.state === 'executed_unverified';
+        setFeedback(feedback, 'Vorgang: ' + record.state +
+          (uncertain ? '. Keine Wiederholung; Vorgang prüfen.' : ' – epgsearch-Bestätigung steht aus.'), uncertain);
+        inspect.hidden = false;
+      }
+    }
+    async function readOperation() {
+      if (!attached || !operationId) return;
+      if (reading) { readAgain = true; return; }
+      reading = true;
+      inspect.disabled = true;
+      setFeedback(feedback, 'Änderungsvorgang wird geprüft …', false);
+      try {
+        show(await api.fetchClientSearchTimerOperation({operationId}));
+        if (attached && !inspect.hidden) feedback.textContent = 'Status geprüft: ' + feedback.textContent;
+      } catch (error) {
+        if (attached) setFeedback(feedback, 'Vorgang kann nicht bestätigt werden: ' +
+          String(error && error.message || error) + '. Nicht erneut senden.', true);
+      } finally {
+        reading = false;
+        if (attached && !inspect.hidden) inspect.disabled = false;
+        if (readAgain) { readAgain = false; if (attached && !inspect.hidden) readOperation(); }
+      }
+    }
+    inspect.addEventListener('click', readOperation);
+    function subscribe() {
+      if (!attached || typeof api.createClientOperationUpdateSource !== 'function') return;
+      events = api.createClientOperationUpdateSource(operationId);
+      if (!events) return;
+      const hint = event => {
+        let data;
+        try { data = JSON.parse(String(event.data || '')); } catch (_) { return; }
+        if (data && data.operationId === operationId) readOperation();
+      };
+      events.onmessage = hint;
+      if (typeof events.addEventListener === 'function') {
+        events.addEventListener('operation', hint);
+        events.addEventListener('hello', readOperation);
+        events.addEventListener('resync', readOperation);
+      }
+      // The Client API stream reconnects itself; manual GET remains available.
+      events.onerror = () => { if (attached && !inspect.hidden) inspect.disabled = false; };
+    }
+    async function execute(action, changes, editorVersion) {
+      if (!attached || busy || submitted) return;
+      if (!api || typeof api.fetchPublicSearchTimerVersion !== 'function' ||
+          typeof api.mutatePublicSearchTimer !== 'function') {
+        setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
+        return;
+      }
+      const payload = {action, confirmed: true};
+      if (action === 'update') {
+        Object.assign(payload, changes);
+        if (!changes || Object.keys(changes).length === 0) {
+          setFeedback(feedback, 'Keine Einstellungen geändert.', false);
+          return;
+        }
+      }
+      const label = {update:'ändern', activate:'aktivieren', deactivate:'deaktivieren', delete:'löschen'}[action];
+      if (!global.confirm('Suchtimer „' + timer.name + '“ ' + label + '?' +
+          (action === 'activate' ? ' Die Regel kann sofort Timer erzeugen.' : ''))) return;
+      const key = newStagedIdempotencyKey();
+      if (!key) { setFeedback(feedback, 'Vorgangs-ID konnte nicht erzeugt werden.', true); return; }
+      busy = true;
+      currentAction = action;
+      lock(true);
+      setFeedback(feedback, 'Aktuelle Suchtimer-Version wird geladen …', false);
+      try {
+        // The version response binds the current rule to the same revision.
+        // Do not require a separate DETAIL request before a mutation.
+        const version = editorVersion || await api.fetchPublicSearchTimerVersion(scope);
+        if (!attached) return;
+        if (!version || version.searchTimerId !== scope.searchTimerId ||
+            version.backendId !== scope.backend || !/^sr_[0-9a-f]{32}$/.test(version.revision)) {
+          throw new Error('Keine gültige Suchtimer-Revision erhalten.');
+        }
+        if (version.query !== timer.query || version.state !== timer.state) {
+          throw new Error('Suchtimer wurde geändert. Bitte Liste aktualisieren.');
+        }
+        submitted = true;
+        setFeedback(feedback, 'Suchtimer wird über Public API v1 ' + label + ' …', false);
+        const result = await api.mutatePublicSearchTimer(Object.assign({}, scope, {
+          revision: version.revision, idempotencyKey: key, payload
+        }));
+        if (!attached) return;
+        if (!result || result.backendId !== scope.backend ||
+            !/^op_[0-9a-f]{32}$/.test(String(result.operationId || '')))
+          throw new Error('Vorgangsbestätigung fehlt.');
+        operationId = result.operationId;
+        inspect.hidden = false;
+        inspect.disabled = false;
+        show(result);
+        if (!['succeeded','failed_verified','failed_before_dispatch'].includes(result.state)) subscribe();
+      } catch (error) {
+        if (!attached) return;
+        const rejected = !operationId && error && [400,401,403,404,409,415,422].includes(error.status);
+        if (rejected) submitted = false;
+        if (!submitted) {
+          lock(false);
+          setFeedback(feedback, String(error && error.message || error), true);
+        } else {
+          setFeedback(feedback, 'Ausgang der Aktion ' + currentAction + ' unklar: ' +
+            String(error && error.message || error) + '. Nicht erneut senden; Liste/Vorgang prüfen.', true);
+        }
+      } finally {
+        busy = false;
+        if (attached && !submitted) lock(false);
+      }
+    }
+    return {execute, lock, addControl(control) { controls.push(control); originalDisabled.push(control.disabled); }};
+  }
+
+  async function runSavedPreview(timer, button, target) {
+    const api = clientApi();
+    if (!api || typeof api.fetchPublicSearchTimerPreview !== 'function') {
+      setFeedback(target, 'Suchtimer-Vorschau ist nicht verfügbar.', true);
+      return;
+    }
+    button.disabled = true;
+    setFeedback(target, 'Vorschau wird geladen …', false);
+    try {
+      const result = await api.fetchPublicSearchTimerPreview({
+        backend: timer.backendId, searchTimerId: timer.searchTimerId, limit: 30
+      });
+      if (!result || !Array.isArray(result.items) || !result.meta ||
+          result.meta.partial !== false || result.backendId !== timer.backendId ||
+          result.searchTimerId !== timer.searchTimerId)
+        throw new Error('Keine vollständige Vorschau erhalten.');
+      target.className = 'searchtimer-feedback success';
+      renderPreview(target, result);
+      target.appendChild(addText(document.createElement('p'),
+        'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
+    } catch (error) {
+      setFeedback(target, String(error && error.message || error), true);
+    } finally { button.disabled = false; }
+  }
+
+  // Draft preview is EPG text-only; full CREATE settings are transported
+  // through the common Public-v1 operation, never a legacy browser writer.
+  function stagedCreateValidation(payload) {
+    const errors = [];
+    const query = String(payload.query || '').trim();
+    if (query.length < 2 || query.length > 240) {
+      errors.push('Suchbegriff muss zwischen 2 und 240 Zeichen enthalten.');
+    }
+    if (!payload.compareTitle && !payload.compareSubtitle && !payload.compareSummary) {
+      errors.push('Mindestens ein Suchfeld auswählen.');
+    }
+    if (![0, 1, 2, 3, 4, 5].includes(payload.mode)) {
+      errors.push('Dieser Suchmodus wird beim sicheren Anlegen nicht unterstützt.');
+    }
+    if (!Number.isInteger(payload.tolerance) || payload.tolerance < 0 ||
+        payload.tolerance > 3 || (payload.mode !== 5 && payload.tolerance !== 0)) {
+      errors.push('Toleranz ist nur bei unscharfer Suche (0–3) möglich.');
+    }
+    return errors;
+  }
+
+  function newStagedIdempotencyKey() {
+    // Crypto.getRandomValues also works on unencrypted private LAN origins.
+    // Never use Math.random for an operation identity.
+    const crypto = global.crypto;
+    if (!crypto || typeof crypto.getRandomValues !== 'function') return '';
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return 'search-web-' +
+      Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  function createForm(template, editContext) {
+    const editing = Boolean(editContext);
+    const source = template || normalizeSearchTimer({backendId: selectedBackendId()}, 0);
+    const form = document.createElement('form');
+    form.className = 'searchtimer-form';
+    form.dataset.searchtimerEditorForm = editing ? 'update' : 'create';
+
+    const notice = addText(document.createElement('p'),
+      editing ? 'Suchtimer bearbeiten – nur geänderte Einstellungen werden gespeichert. ' +
+        'Aktivieren und Deaktivieren erfolgen weiterhin separat.' :
+      'VDR-Suite: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
+      'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
+      'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
+      'Public API v1 mit der angemeldeten Browser-Sitzung.');
+    notice.className = 'searchtimer-safety-note';
+    form.appendChild(notice);
+    const grid = document.createElement('div');
+    grid.className = 'searchtimer-form-grid';
+    grid.appendChild(field('Suchbegriff / Name', input('query', source.query), true));
+    if (!editing) grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
+    grid.appendChild(check('compareTitle', 'Titel durchsuchen', template ? source.compareTitle : true));
+    grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
+    grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
+    grid.appendChild(field('Suchmodus', select('mode',
+      [0, 1, 2, 3, 4, 5].includes(source.mode) ? source.mode : 0,
+      [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
+       [3, 'Exakt'], [4, 'Regulärer Ausdruck'], [5, 'Unscharf']])));
+    grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
+      editing || source.mode === 5 ? source.tolerance : 0, 'number')));
+    form.appendChild(grid);
+
+    const advanced = document.createElement('details');
+    advanced.className = 'searchtimer-expert';
+    if (editing) advanced.open = true;
+    advanced.appendChild(addText(document.createElement('summary'),
+      'Weitere Einstellungen'));
+    const advancedGrid = document.createElement('div');
+    advancedGrid.className = 'searchtimer-form-grid';
+    advancedGrid.style.padding = '.65rem';
+    advancedGrid.appendChild(check('useVps', 'VPS verwenden', source.useVps));
+    advancedGrid.appendChild(field('Aufnahme-Priorität', input('priority', source.priority, 'number')));
+    advancedGrid.appendChild(field('Lebensdauer', input('lifetime', source.lifetime, 'number')));
+    advancedGrid.appendChild(field('Vorlauf in Minuten (leer = VDR-Standard)',
+      input('marginStartMinutes', template ? source.marginStartMinutes : '', 'number')));
+    advancedGrid.appendChild(field('Nachlauf in Minuten (leer = VDR-Standard)',
+      input('marginStopMinutes', template ? source.marginStopMinutes : '', 'number')));
+    createDirectoryFields(advancedGrid, source);
+    createChannelFilterFields(advancedGrid, source);
+    const durationGroup = document.createElement('fieldset');
+    durationGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    durationGroup.appendChild(addText(document.createElement('legend'), 'Aufnahmedauer'));
+    advancedGrid.appendChild(durationGroup);
+    const durationToggle = check('useDuration', 'Aktivieren', source.useDuration);
+    durationGroup.appendChild(durationToggle);
+    const durationMin = field('Mindestdauer (HHMM)',
+      input('durationMinMinutes', source.durationMinMinutes, 'number'));
+    const durationHelp = addText(document.createElement('p'), 'Beispiel: 0130 = 1 Stunde 30 Minuten.');
+    const durationMax = field('Höchstdauer (HHMM)',
+      input('durationMaxMinutes', source.durationMaxMinutes, 'number'));
+    [durationMin, durationHelp, durationMax].forEach(element => durationGroup.appendChild(element));
+    const refreshDuration = revealWhenChecked(durationToggle, [durationMin, durationHelp, durationMax]);
+
+    const timeGroup = document.createElement('fieldset');
+    timeGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    timeGroup.appendChild(addText(document.createElement('legend'), 'Uhrzeitfilter'));
+    advancedGrid.appendChild(timeGroup);
+    const timeToggle = check('useTime', 'Aktivieren', source.useTime);
+    // Reserve the first grid row for the toggle so Beginn and Ende
+    // are adjacent in the next row, including when responsive.
+    timeToggle.style.gridColumn = '1 / -1';
+    timeGroup.appendChild(timeToggle);
+    const startTimeField = field('Beginn', clockInput('startTime', source.startTime));
+    const stopTimeField = field('Ende', clockInput('stopTime', source.stopTime));
+    timeGroup.appendChild(startTimeField);
+    timeGroup.appendChild(stopTimeField);
+    const refreshTime = revealWhenChecked(timeToggle, [startTimeField, stopTimeField]);
+
+    const repeatGroup = document.createElement('fieldset');
+    repeatGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    repeatGroup.appendChild(addText(document.createElement('legend'), 'Wiederholungen'));
+    advancedGrid.appendChild(repeatGroup);
+    const repeatToggle = check('avoidRepeats', 'Vermeiden', source.avoidRepeats);
+    repeatGroup.appendChild(repeatToggle);
+    repeatGroup.appendChild(check('repeatCompareTitle', 'Titel auf Wiederholung prüfen', template ? source.repeatCompareTitle : true));
+    if (!editing) repeatGroup.appendChild(check('repeatCompareSubtitle', 'Untertitel auf Wiederholung prüfen', source.repeatCompareSubtitle));
+    repeatGroup.appendChild(check('repeatCompareSummary', 'Beschreibung auf Wiederholung prüfen', source.repeatCompareSummary));
+    if (editing) {
+      repeatGroup.appendChild(field('Untertitelvergleich', select('repeatCompareSubtitleMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Ja'], [2, 'Wenn vorhanden']])));
+      repeatGroup.appendChild(field('Zeitvergleich (nativer Modus)', select('repeatCompareTimeMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Modus 1'], [2, 'Modus 2'], [3, 'Modus 3']])));
+      repeatGroup.appendChild(field('EPG-Kategorien (Bitmaske)', input('repeatCompareCategoriesMask', '')));
+    }
+    repeatGroup.appendChild(field('Erlaubte Wiederholungen',
+      input('allowedRepeats', source.allowedRepeats, 'number')));
+    repeatGroup.appendChild(field('Wiederholungen innerhalb (Tage)',
+      input('repeatsWithinDays', source.repeatsWithinDays, 'number')));
+    if (!editing) {
+      repeatGroup.appendChild(check('compareCategories', 'EPG-Kategorien vergleichen', source.compareCategories));
+      repeatGroup.appendChild(check('compareTime', 'Zeit vergleichen', source.compareTime));
+    }
+    repeatGroup.appendChild(field('Ähnlichkeit der Beschreibung (%)',
+      input('summaryMatch', source.summaryMatch, 'number')));
+    const refreshRepeats = revealWhenChecked(repeatToggle,
+      Array.from(repeatGroup.children).slice(2));
+    advancedGrid.appendChild(field('Blacklist-Modus', select('blacklistMode', source.blacklistMode,
+      [[0, 'Globale Blacklists'], [1, 'Ausgewählte Blacklists'], [2, 'Alle Blacklists'], [3, 'Keine Blacklist']])));
+    advancedGrid.appendChild(field('Blacklist-IDs',
+      input('blacklistIds', source.blacklistIds)));
+    advancedGrid.appendChild(check('matchCase',
+      'Groß-/Kleinschreibung beachten', source.matchCase));
+    const extra = document.createElement('details');
+    extra.className = 'searchtimer-expert';
+    extra.appendChild(addText(document.createElement('summary'),
+      'Weitere epgsearch-Regeloptionen'));
+    const extraGrid = document.createElement('div');
+    extraGrid.className = 'searchtimer-form-grid';
+    extraGrid.style.padding = '.65rem';
+    const extras = [
+      ['useDayOfWeek','Wochentage filtern','bool'],
+      ['dayOfWeek','Wochentagsmaske','number'],
+      ['useSeriesRecording','Serienaufnahme','bool'],
+      ['keepRecordings','Aufnahmen behalten','number'],
+      ['deleteMode','Löschmodus','number'],
+      ['searchTimerAction','Suchtimer-Aktion','number'],
+      ['useExtendedEpgInfo','Erweiterte EPG-Daten','bool'],
+      ['extendedEpgInfo','Erweiterte EPG-Filter','text'],
+      ['ignoreMissingEpgCategories','Fehlende EPG-Kategorien ignorieren','bool'],
+      ['contentDescriptors','Inhaltskennungen','text'],
+      ['useInFavorites','In Favoriten verwenden','bool'],
+      ['activeFrom','Gültig ab','text'],
+      ['activeUntil','Gültig bis','text'],
+      ['pauseOnRecordings','Aufnahme beim Suchtimer pausieren','bool'],
+      ['switchMinutesBefore','Vor Umschaltung (Minuten)','number'],
+      ['unmuteSoundOnSwitch','Ton bei Umschaltung aktivieren','bool'],
+      ['deleteRecordingsAfterDays','Aufnahmen löschen nach Tagen','number'],
+      ['deleteAfterCountRecordings','Aufnahmen löschen ab Anzahl','number'],
+      ['deleteAfterDaysOfFirstRecording','Aufnahmen löschen nach erster Aufnahme','number']
+    ];
+    let weekdayToggle = null;
+    let weekdayField = null;
+    extras.forEach(([name, title, type]) => {
+      if (editing && ['compareCategories', 'compareTime', 'pauseOnRecordings'].includes(name)) return;
+      const row = type === 'bool'
+        ? check(name, title, source[name])
+        : field(title, input(name, source[name], type));
+      extraGrid.appendChild(row);
+      if (name === 'useDayOfWeek') weekdayToggle = row;
+      if (name === 'dayOfWeek') weekdayField = row;
+    });
+    const refreshWeekdays = revealWhenChecked(weekdayToggle, [weekdayField]);
+    form.refreshSearchTimerConditionalFields = () => {
+      refreshDuration();
+      refreshTime();
+      refreshRepeats();
+      refreshWeekdays();
+    };
+    if (editing) {
+      extraGrid.appendChild(field('Pausieren ab Anzahl Aufnahmen (leer = unverändert)', input('pauseOnRecordingsCount', '', 'number')));
+      extraGrid.appendChild(field('Aktivierungsmodus', select('activeMode', '', source.active
+        ? [['', 'Unverändert'], [1, 'Aktiv'], [2, 'Zeitlich begrenzt']]
+        : [['', 'Unverändert'], [0, 'Inaktiv']])));
+    }
+    extra.appendChild(extraGrid);
+    advancedGrid.appendChild(extra);
+    advanced.appendChild(advancedGrid);
+    form.appendChild(advanced);
+
+    const actions = document.createElement('div');
+    actions.className = 'searchtimer-actions';
+    const previewButton = addText(document.createElement('button'), 'Vorschau');
+    previewButton.type = 'button';
+    previewButton.className = 'primary';
+    const saveButton = addText(document.createElement('button'), editing ? 'Änderung speichern' : 'Suchtimer speichern');
+    saveButton.type = editing ? 'button' : 'submit';
+    saveButton.dataset.searchtimerAction = 'save';
+    actions.appendChild(previewButton);
+    actions.appendChild(saveButton);
+    const checkOperationButton = addText(
+      document.createElement('button'), 'Anlagevorgang prüfen');
+    checkOperationButton.type = 'button';
+    checkOperationButton.hidden = true;
+    checkOperationButton.disabled = true;
+    if (!editing) actions.appendChild(checkOperationButton);
+    const cancelButton = addText(document.createElement('button'), 'Abbrechen / Zurück');
+    cancelButton.type = 'button';
+    cancelButton.addEventListener('click', () => {
+      if (editing) { editContext.close(); return; }
+      // Preserve admitted operation and duplicate protection when collapsing.
+      let panel = form.parentElement;
+      while (panel && panel.className !== 'searchtimer-create-panel') panel = panel.parentElement;
+      if (panel) panel.open = false;
+    });
+    actions.appendChild(cancelButton);
+    form.appendChild(actions);
+    const feedback = document.createElement('div');
+    feedback.className = 'searchtimer-feedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    form.appendChild(feedback);
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    form.appendChild(previewOutput);
+
+    if (editing) {
+      const baseline = buildCreatePayload(form, source);
+      const nativeBaseline = {};
+      const nativeKeys = ['activeMode', 'repeatCompareSubtitleMode', 'repeatCompareTimeMode', 'repeatCompareCategoriesMask'];
+      let editorVersion = null;
+      editContext.mutation.addControl(saveButton);
+      // Load exact native modes from the existing revision observation.
+      const api = clientApi();
+      if (api && typeof api.fetchPublicSearchTimerVersion === 'function') {
+        Promise.resolve(api.fetchPublicSearchTimerVersion({backend: source.backendId, searchTimerId: source.searchTimerId})).then(version => {
+          if (!version || version.searchTimerId !== source.searchTimerId ||
+              version.backendId !== source.backendId || version.query !== source.query ||
+              version.state !== source.state) return;
+          editorVersion = version;
+          nativeKeys.forEach(key => {
+            const control = form.elements[key];
+            if (!control || version[key] === undefined || version[key] === null) return;
+            nativeBaseline[key] = String(version[key]);
+            if (String(control.value || '') === '') control.value = nativeBaseline[key];
+          });
+        }).catch(() => {
+          // Ordinary fields remain editable; save obtains a fresh revision.
+        });
+      }
+      function changes() {
+        const current = buildCreatePayload(form, source);
+        const edited = {};
+        Object.keys(current).forEach(key => {
+          if (['backendId', 'name', 'active', 'pauseOnRecordings', 'compareCategories', 'compareTime', 'repeatCompareSubtitle'].includes(key)) return;
+          if (current[key] !== baseline[key]) edited[key] = current[key];
+        });
+        // Channel representations have shared dependencies: send the complete
+        // selected channel filter only when that selection changed.
+        const channelKeys = ['useChannel', 'channels', 'channelMin', 'channelMax'];
+        if (channelKeys.some(key => Object.prototype.hasOwnProperty.call(edited, key)))
+          channelKeys.forEach(key => { edited[key] = current[key]; });
+        nativeKeys.forEach(key => {
+          const value = formValue(form, key, '');
+          if (value !== '' && value !== nativeBaseline[key])
+            edited[key] = key === 'repeatCompareCategoriesMask' ? value : Number(value);
+        });
+        const pause = formValue(form, 'pauseOnRecordingsCount', '');
+        if (pause !== '') edited.pauseOnRecordings = Number(pause);
+        return edited;
+      }
+      previewButton.addEventListener('click', () => {
+        const current = buildCreatePayload(form, source);
+        if (String(current.query || '').trim()) runPreview(current, previewButton, previewOutput);
+      });
+      const save = () => editContext.mutation.execute('update', changes(), editorVersion);
+      saveButton.addEventListener('click', save);
+      form.addEventListener('submit', event => { event.preventDefault(); return save(); });
+      return form;
+    }
+
+    let pending = false;
+    let submitted = false;
+    function payload() {
+      const result = buildCreatePayload(form, activeCreateTemplate || source);
+      result.query = String(result.query || '').trim();
+      result.name = result.query;
+      result.backendId = selectedBackendId();
+      const errors = validateCreatePayload(result);
+      if (!result.backendId) errors.push('Backend fehlt.');
+      if (errors.length) {
+        setFeedback(feedback, errors.join(' '), true);
+        return null;
+      }
+      return result;
+    }
+    previewButton.addEventListener('click', () => {
+      const result = payload();
+      if (result) runPreview(result, previewButton, previewOutput);
+    });
+    let operationId = '';
+    let operationEvents = null;
+    let operationReadPending = false;
+    let operationReadAgain = false;
+    let operationBackend = '';
+    let attached = true;
+    function detachCreate() {
+      attached = false;
+      if (operationEvents) { operationEvents.close(); operationEvents = null; }
+      mutationObservers.delete(detachCreate);
+    }
+    mutationObservers.add(detachCreate);
+    function showOperation(record, expectedBackend) {
+      if (!record || record.operationId !== operationId ||
+          record.backendId !== expectedBackend ||
+          typeof record.state !== 'string') {
+        throw new Error('Vorgang entspricht nicht der angefragten Anlage.');
+      }
+      if (!attached) return record;
+      const state = record.state;
+      if (state === 'succeeded') {
+        setFeedback(feedback,
+          'Suchtimer erfolgreich angelegt und durch epgsearch-Readback bestätigt.', false);
+        checkOperationButton.hidden = true;
+        checkOperationButton.disabled = true;
+        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+        global.setTimeout(() => {
+          if (attached && selectedBackendId() === operationBackend) reloadSearchTimers();
+        }, 300);
+      } else if (state === 'outcome_unknown' ||
+                 state === 'executed_unverified' || state === 'dispatching') {
+        setFeedback(feedback, 'CREATE-Ausgang nicht zweifelsfrei bestätigt (' +
+          state + '). Keine zweite Anlage durchführen. Die Statusabfrage liest den gespeicherten Vorgang; sie führt keine neue Anlage aus.', true);
+      } else if (state === 'failed_before_dispatch') {
+        setFeedback(feedback,
+          'Anlage vom Backend vor dem Schreiben abgelehnt. Vorgang prüfen.', true);
+        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+      } else {
+        setFeedback(feedback,
+          'Anlagevorgang ' + state +
+          ': epgsearch-Readback steht noch aus. Nicht erneut anlegen.', false);
+      }
+      return record;
+    }
+    function checkOperation() {
+      const api = clientApi();
+      if (!attached) return Promise.resolve(null);
+      if (!operationId ||
+          !api || typeof api.fetchClientSearchTimerOperation !== 'function') {
+        setFeedback(feedback, 'Vorgangsabfrage derzeit nicht verfügbar.', true);
+        return Promise.resolve(null);
+      }
+      if (operationReadPending) {
+        // Coalesce a completion hint received during an in-flight GET.
+        operationReadAgain = true;
+        return Promise.resolve(null);
+      }
+      operationReadPending = true;
+      checkOperationButton.disabled = true;
+      setFeedback(feedback, 'Anlagevorgang wird geprüft …', false);
+      return api.fetchClientSearchTimerOperation({operationId})
+        .then(record => {
+          showOperation(record, operationBackend);
+          if (attached && !checkOperationButton.hidden) feedback.textContent = 'Status geprüft: ' + feedback.textContent;
+          return record;
+        })
+        .catch(error => {
+          setFeedback(feedback,
+            'Vorgang kann nicht bestätigt werden: ' +
+            String(error && error.message ? error.message : error) +
+            '. Bitte keinen zweiten CREATE auslösen.', true);
+          return null;
+        })
+        .finally(() => {
+          operationReadPending = false;
+          if (!checkOperationButton.hidden)
+            checkOperationButton.disabled = false;
+          if (operationReadAgain) {
+            operationReadAgain = false;
+            if (!checkOperationButton.hidden) checkOperation();
+          }
+        });
+    }
+    checkOperationButton.addEventListener('click', checkOperation);
+
+    function subscribeOperation() {
+      const api = clientApi();
+      if (!operationId || !api ||
+          typeof api.createClientOperationUpdateSource !== 'function') return;
+      // The Client API owns the authenticated Public-v1 Operation SSE.
+      // The editor observes its change hints, never polls or dispatches again.
+      operationEvents = api.createClientOperationUpdateSource(operationId);
+      if (!operationEvents) return;
+      // Operation SSE carries a scoped change hint (operationId), NOT a
+      // trusted state object. Read the existing actor-owned Public-v1 GET.
+      const handle = event => {
+        let hint;
+        try { hint = JSON.parse(String(event.data || '')); }
+        catch (_) { return; }
+        if (!hint || hint.operationId !== operationId) return;
+        checkOperation();
+      };
+      operationEvents.onmessage = handle;
+      if (typeof operationEvents.addEventListener === 'function') {
+        operationEvents.addEventListener('operation', handle);
+        // One-time sync on subscribe/reconnect and overflow recovery.
+        operationEvents.addEventListener('hello', checkOperation);
+        operationEvents.addEventListener('resync', checkOperation);
+      }
+      operationEvents.onerror = () => {
+        // Keep the shared client's automatic reconnect behavior.
+        if (!attached) return;
+        checkOperationButton.hidden = false;
+        checkOperationButton.disabled = false;
+      };
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      if (pending || submitted) {
+        setFeedback(feedback,
+          'Der vorige Anlageversuch muss im VDR geprüft werden. ' +
+          'Bitte nicht erneut anlegen.', true);
+        return;
+      }
+      const requested = payload();
+      if (!requested) return;
+      const api = clientApi();
+      if (!api || typeof api.fetchClientSearchTimerCreateStaged !== 'function') {
+        setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
+        return;
+      }
+      const idempotencyKey = newStagedIdempotencyKey();
+      if (!idempotencyKey) {
+        setFeedback(feedback,
+          'Sichere Vorgangs-ID kann nicht erzeugt werden. Keine Anlage gesendet.', true);
+        return;
+      }
+      if (!global.confirm('Suchtimer „' + requested.query +
+          '“ auf Backend „' + requested.backendId + '“ ' +
+          (requested.active ? 'AKTIV anlegen? Die Regel kann sofort Timer erzeugen.'
+            : 'inaktiv anlegen?'))) return;
+      const body = Object.assign({}, requested, {confirmed: true});
+      delete body.backendId; // Authoritative scope comes from ?backend=.
+      if (form.elements.marginStartMinutes &&
+          String(form.elements.marginStartMinutes.value).trim() === '')
+        delete body.marginStartMinutes;
+      if (form.elements.marginStopMinutes &&
+          String(form.elements.marginStopMinutes.value).trim() === '')
+        delete body.marginStopMinutes;
+      operationBackend = requested.backendId;
+      pending = true;
+      submitted = true;
+      saveButton.disabled = true;
+      setFeedback(feedback,
+        'Suchtimer wird über Public API v1 einmalig angelegt …', false);
+      api.fetchClientSearchTimerCreateStaged({
+        backend: requested.backendId,
+        idempotencyKey,
+        payload: body
+      }).then(result => {
+        if (!attached) return;
+        if (!result || !/^op_[0-9a-f]{32}$/.test(
+              String(result.operationId || '')) ||
+            result.backendId !== requested.backendId)
+          throw new Error('Public-v1-Vorgangsbestätigung fehlt.');
+        operationId = result.operationId;
+        checkOperationButton.hidden = false;
+        checkOperationButton.disabled = false;
+        showOperation(result, requested.backendId);
+        if (result.state !== 'succeeded' &&
+            result.state !== 'failed_before_dispatch')
+          subscribeOperation();
+      }).catch(error => {
+        // A confirmed Public-v1 validation_error means no provider dispatch.
+        // Unlock only for this definitive rejection, never for 409 or
+        // ambiguous network/transport failures.
+        if (error && error.status === 422 &&
+            error.code === 'validation_error') {
+          submitted = false;
+          saveButton.disabled = false;
+          setFeedback(feedback,
+            'Eingabe abgelehnt: ' +
+            String(error.message || 'Ungültige Angaben.') +
+            '. Angaben korrigieren und erneut speichern.', true);
+          return;
+        }
+        setFeedback(feedback,
+          'Anlageausgang unklar: ' +
+          String(error && error.message ? error.message : error) +
+          '. Diesen Vorgang nicht erneut senden. epgsearch-Liste prüfen.', true);
+      }).finally(() => { pending = false; });
+    });
+    activeCreateForm = form;
+    return form;
+  }
+
+  function populateCreateForm(timer) {
+    if (!activeCreateForm) return;
+    activeCreateTemplate = timer;
+
+    // Copy every supported editor field from the selected native rule.
+    // A partial copy would otherwise silently erase advanced epgsearch flags.
+    Object.keys(timer).forEach(name => {
+      const control = activeCreateForm.elements[name];
+      if (!control || timer[name] === undefined || timer[name] === null) return;
+      if (control.type === 'checkbox') control.checked = Boolean(timer[name]);
+      else if (control.type === 'time') control.value = clockValue(timer[name]);
+      else control.value = String(timer[name]);
+    });
+    if (activeCreateForm.elements.query)
+      activeCreateForm.elements.query.value = timer.query;
+    if (activeCreateForm.elements.tolerance && timer.mode !== 5)
+      activeCreateForm.elements.tolerance.value = '0';
+
+    if (activeCreateForm.elements.directory) {
+      const control = activeCreateForm.elements.directory;
+      if (!Array.from(control.children).some(item => item.value === timer.directory))
+        control.appendChild(option(timer.directory, directoryOptionLabel(timer.directory), true));
+      control.value = timer.directory;
+    }
+    if (activeCreateForm.elements.manualDirectory) {
+      activeCreateForm.elements.manualDirectory.value = activeCreateForm.elements.directory && activeCreateForm.elements.directory.value === timer.directory ? '' : timer.directory;
+    }
+    if (activeCreateForm.elements.channelFilterMode) activeCreateForm.elements.channelFilterMode.value = String(timer.useChannel);
+    function preserveSelection(name, value) {
+      const control = activeCreateForm.elements[name];
+      if (!control) return;
+      if (!Array.from(control.children).some(item => item.value === value))
+        control.appendChild(option(value, value, true));
+      control.value = value;
+    }
+    preserveSelection('channelFilterGroup', timer.useChannel === 2 ? timer.channels : '');
+    preserveSelection('channelId', timer.useChannel === 1 ? timer.channelMin || timer.channelMax : '');
+    preserveSelection('channelEndId', timer.useChannel === 1 ? timer.channelMax || timer.channelMin : '');
+    const modeControl = activeCreateForm.elements.channelFilterMode;
+    if (modeControl && modeControl.refreshSearchTimerFilter) modeControl.refreshSearchTimerFilter();
+    if (activeCreateForm.elements.manualUseChannel) activeCreateForm.elements.manualUseChannel.value = '';
+    if (activeCreateForm.elements.manualChannels) activeCreateForm.elements.manualChannels.value = '';
+    if (activeCreateForm.elements.manualChannelMin) activeCreateForm.elements.manualChannelMin.value = '';
+    if (activeCreateForm.elements.manualChannelMax) activeCreateForm.elements.manualChannelMax.value = '';
+    if (activeCreateForm.refreshSearchTimerConditionalFields)
+      activeCreateForm.refreshSearchTimerConditionalFields();
+
+    const panel = activeCreateForm.closest('.searchtimer-create-panel');
+    if (panel) panel.open = true;
+    activeCreateForm.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  function appendMeta(parent, label, value) {
+    const item = document.createElement('div');
+    item.className = 'searchtimer-meta';
+    item.appendChild(addText(document.createElement('span'), label));
+    item.appendChild(addText(document.createElement('strong'), value === '' ? '-' : value));
+    parent.appendChild(item);
+  }
+
+  function channelFilterLabel(timer) {
+    if (timer.useChannel === 1) {
+      return timer.channelMin === timer.channelMax || timer.channelMax === ''
+        ? 'Kanal · ' + (timer.channelMin || timer.channelMax || '-')
+        : 'Bereich · ' + timer.channelMin + ' bis ' + timer.channelMax;
+    }
+    if (timer.useChannel === 2) return 'Gruppe · ' + (timer.channels || '-');
+    if (timer.useChannel === 3) return 'nur FTA';
+    return 'alle';
+  }
+
+  function createCard(timer) {
+    const card = document.createElement('details');
+    card.className = 'searchtimer-card' + (timer.active ? '' : ' inactive');
+    const summary = document.createElement('summary');
+    const summaryGrid = document.createElement('div');
+    summaryGrid.className = 'searchtimer-card-summary';
+    const title = document.createElement('div');
+    title.className = 'searchtimer-card-title';
+    title.appendChild(addText(document.createElement('strong'), timer.name));
+    title.appendChild(addText(document.createElement('span'), timer.query || 'Kein Suchbegriff'));
+    summaryGrid.appendChild(title);
+    const badges = document.createElement('div');
+    badges.className = 'searchtimer-badges';
+    const status = addText(document.createElement('span'), timer.state === 'unknown' ? 'unbekannt' : (timer.active ? 'aktiv' : 'inaktiv'));
+    status.className = 'searchtimer-badge ' + (timer.active ? 'active' : '');
+    badges.appendChild(status);
+    if (timer.useVps) {
+      const vps = addText(document.createElement('span'), 'VPS');
+      vps.className = 'searchtimer-badge vps';
+      badges.appendChild(vps);
+    }
+    if (timer.useChannel || timer.useDuration || timer.avoidRepeats) {
+      const filterBadge = addText(document.createElement('span'), 'Filter');
+      filterBadge.className = 'searchtimer-badge filter';
+      badges.appendChild(filterBadge);
+    }
+    summaryGrid.appendChild(badges);
+    summary.appendChild(summaryGrid);
+    card.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'searchtimer-card-body';
+    const meta = document.createElement('div');
+    meta.className = 'searchtimer-meta-grid';
+    appendMeta(meta, 'Backend-ID', timer.backendId);
+    if (timer.searchTimerId) appendMeta(meta, 'Suchtimer-ID', timer.searchTimerId);
+    else if (timer.backendNativeId) appendMeta(meta, 'Native ID', timer.backendNativeId);
+    appendMeta(meta, 'Verzeichnis', directoryOptionLabel(timer.directory));
+    appendMeta(meta, 'Priorität / Lebensdauer', String(timer.priority) + ' / ' + String(timer.lifetime));
+    appendMeta(meta, 'Marge Start / Stop', String(timer.marginStartMinutes) + ' / ' + String(timer.marginStopMinutes) + ' Min.');
+    appendMeta(meta, 'Suchfelder', [timer.compareTitle ? 'Titel' : '', timer.compareSubtitle ? 'Untertitel' : '', timer.compareSummary ? 'Beschreibung' : ''].filter(Boolean).join(', ') || '-');
+    const channelMeta = document.createElement('div');
+    channelMeta.className = 'searchtimer-meta';
+    channelMeta.appendChild(addText(document.createElement('span'), 'Kanalfilter'));
+    const channelLabel = addText(document.createElement('strong'), channelFilterLabel(timer));
+    channelMeta.appendChild(channelLabel);
+    meta.appendChild(channelMeta);
+    if (timer.useChannel === 1) fetchChannels(timer.backendId).then(channels => {
+      const label = id => { const channel = channels.find(item => item.id === id); return channel ? channelOptionLabel(channel) : id; };
+      channelLabel.textContent = label(timer.channelMin) +
+        (timer.channelMax && timer.channelMax !== timer.channelMin ? ' bis ' + label(timer.channelMax) : '');
+    }).catch(() => {});
+    appendMeta(meta, 'Zeitfenster', timer.useTime
+      ? String(timer.startTime).padStart(4, '0') + '–' + String(timer.stopTime).padStart(4, '0')
+      : 'alle Zeiten');
+    if (timer.useDayOfWeek) appendMeta(meta, 'Wochentage (VDR-Maske)', String(timer.dayOfWeek));
+    appendMeta(meta, 'Wiederholungen', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
+    if (timer.avoidRepeats) {
+      appendMeta(meta, 'Wiederholungsvergleich', [
+        timer.repeatCompareTitle ? 'Titel' : '', timer.repeatCompareSubtitle ? 'Untertitel' : '',
+        timer.repeatCompareSummary ? 'Beschreibung' : '', timer.compareCategories ? 'EPG-Kategorien' : '',
+        timer.compareTime ? 'Zeit' : ''
+      ].filter(Boolean).join(', ') || 'Keine Vergleichsfelder gemeldet');
+      appendMeta(meta, 'Erlaubt / Zeitraum', String(timer.allowedRepeats) + ' / ' +
+        (timer.repeatsWithinDays ? String(timer.repeatsWithinDays) + ' Tage' : 'unbegrenzt'));
+    }
+    body.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'searchtimer-actions';
+    const publicId = /^st_[0-9a-f]{32}$/.test(timer.searchTimerId);
+    const copy = addText(document.createElement('button'), 'Als Vorlage öffnen');
+    copy.type = 'button';
+    copy.addEventListener('click', () => populateCreateForm(timer));
+    actions.appendChild(copy);
+
+    const edit = addText(document.createElement('button'), 'Suchtimer bearbeiten');
+    edit.type = 'button';
+    edit.disabled = !timer.updateSafe;
+    actions.appendChild(edit);
+    const toggle = addText(document.createElement('button'), timer.active ? 'Deaktivieren' : 'Aktivieren');
+    toggle.type = 'button';
+    toggle.disabled = !publicId || timer.state === 'unknown';
+    actions.appendChild(toggle);
+    const preview = addText(document.createElement('button'), 'Vorschau');
+    preview.type = 'button';
+    preview.disabled = !publicId;
+    actions.appendChild(preview);
+    const remove = addText(document.createElement('button'), 'Suchtimer löschen');
+    remove.type = 'button';
+    remove.className = 'danger';
+    remove.disabled = !publicId;
+    actions.appendChild(remove);
+    const inspect = addText(document.createElement('button'), 'Änderungsvorgang prüfen');
+    inspect.type = 'button';
+    inspect.hidden = true;
+    inspect.disabled = true;
+    actions.appendChild(inspect);
+    body.appendChild(actions);
+
+    const editor = document.createElement('div');
+    editor.hidden = true;
+    body.appendChild(editor);
+
+    const feedback = document.createElement('div');
+    feedback.className = 'searchtimer-feedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    body.appendChild(feedback);
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    body.appendChild(previewOutput);
+    const mutation = createMutationController(timer, [edit, toggle, remove], feedback, inspect);
+    let editorForm = null;
+    edit.addEventListener('click', () => {
+      if (!editorForm) {
+        editorForm = createForm(timer, {mutation, close() { editor.hidden = true; }});
+        editor.appendChild(editorForm);
+      }
+      editor.hidden = !editor.hidden;
+    });
+    toggle.addEventListener('click', () => mutation.execute(timer.active ? 'deactivate' : 'activate'));
+    remove.addEventListener('click', () => mutation.execute('delete'));
+    preview.addEventListener('click', () => runSavedPreview(timer, preview, previewOutput));
+
+    const technical = document.createElement('details');
+    technical.className = 'searchtimer-preview-technical';
+    technical.appendChild(addText(document.createElement('summary'), 'Technische Details'));
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(timer.source, null, 2);
+    technical.appendChild(pre);
+    body.appendChild(technical);
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderList(data) {
+    Array.from(mutationObservers).forEach(detach => detach());
+    installStyles();
+    activeCreateTemplate = null;
+    lastSearchTimerData = data;
+    const mountTarget = searchTimerBrowserContext.detailDataElement;
+    if (!mountTarget) throw new Error('SearchTimer browser mount target is not configured');
+
+    const searchTimers = listFromResponse(data, 'searchTimers').map(normalizeSearchTimer);
+    mountTarget.replaceChildren();
+    const list = document.createElement('section');
+    list.className = 'list searchtimer-module';
+    const summary = document.createElement('article');
+    summary.className = 'module-placeholder searchtimer-summary';
+    summary.appendChild(addText(document.createElement('h3'), 'Suchtimer'));
+    summary.appendChild(addText(document.createElement('p'), String(searchTimers.length) + ' Suchtimer geladen.'));
+    list.appendChild(summary);
+
+    const createPanel = document.createElement('details');
+    createPanel.className = 'searchtimer-create-panel';
+    createPanel.dataset.searchtimerEditor = 'create';
+    createPanel.appendChild(addText(document.createElement('summary'), 'Neuen Suchtimer erstellen'));
+    const createBody = document.createElement('div');
+    createBody.className = 'searchtimer-create-body';
+    createBody.appendChild(createForm(null));
+    createPanel.appendChild(createBody);
+    list.appendChild(createPanel);
+
+    if (searchTimers.length === 0) {
+      const empty = document.createElement('article');
+      empty.className = 'module-placeholder';
+      empty.appendChild(addText(document.createElement('h3'), 'Keine Suchtimer'));
+      empty.appendChild(addText(document.createElement('p'), 'Der Backend-Endpunkt hat keine Suchtimer geliefert.'));
+      list.appendChild(empty);
+    } else {
+      searchTimers.forEach(timer => list.appendChild(createCard(timer)));
+    }
+    mountTarget.appendChild(list);
+  }
+
+  const searchTimerBrowserApi = Object.freeze({
+    configureContext: configureContext,
+    renderList: renderList,
+    normalizeSearchTimer: normalizeSearchTimer,
+    normalizeDirectory: normalizeDirectory,
+    directoryOptionLabel: directoryOptionLabel,
+    recordingFolderPathToDirectory: recordingFolderPathToDirectory,
+    directoryOptions: directoryOptions,
+    normalizeChannel: normalizeChannel,
+    normalizeChannels: normalizeChannels,
+    channelGroups: channelGroups,
+    channelsForGroup: channelsForGroup,
+    channelOptionLabel: channelOptionLabel,
+    inferChannelMode: inferChannelMode,
+    effectiveChannelFilter: effectiveChannelFilter,
+    buildCreatePayload: buildCreatePayload,
+    validateCreatePayload: validateCreatePayload,
+    stagedCreateValidation: stagedCreateValidation,
+    selectedBackendId: selectedBackendId
+  });
+
+  global.VdrSuiteSearchTimerBrowser = searchTimerBrowserApi;
+  if (global.VdrSuitePlatform &&
+      typeof global.VdrSuitePlatform.registerModule === 'function' &&
+      typeof global.VdrSuitePlatform.hasModule === 'function' &&
+      !global.VdrSuitePlatform.hasModule('searchtimers')) {
+    global.VdrSuitePlatform.registerModule('searchtimers', searchTimerBrowserApi);
+  }
+})(window);

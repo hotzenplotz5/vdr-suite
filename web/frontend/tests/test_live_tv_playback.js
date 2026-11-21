@@ -1,0 +1,679 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+const requests = [];
+const videos = [];
+let failFastRecording = false;
+let returnHlsRecording = false;
+let rejectNextVideoPlay = false;
+let legacyStartCalls = 0;
+let continuousMseEnabled = false;
+let continuousFetchCalls = 0;
+let objectUrlSequence = 0;
+let clock = 1000;
+let deferBrowserSessionRestore = false;
+let browserSessionRestored = true;
+let failNextLiveSession = false;
+let pendingBrowserSessionRestore = null;
+let browserSessionRestoreCalls = 0;
+
+function node(tagName) {
+  const listeners = {};
+  const value = {
+    tagName: String(tagName || '').toUpperCase(),
+    children: [],
+    className: '',
+    classList: {
+      toggle() {}, add() {}, remove() {}
+    },
+    style: {},
+    textContent: '',
+    hidden: false,
+    disabled: false,
+    controls: false,
+    autoplay: false,
+    playsInline: false,
+    preload: '',
+    src: '',
+    replacement: null,
+    error: null,
+    currentTime: 0,
+    appendChild(child) { this.children.push(child); return child; },
+    setAttribute() {},
+    removeAttribute(name) { if (name === 'src') this.src = ''; },
+    addEventListener(name, callback) { listeners[name] = callback; },
+    dispatch(name) { if (listeners[name]) listeners[name](); },
+    replaceWith(replacement) { this.replacement = replacement; },
+    pause() { this.paused = true; },
+    load() { this.loaded = (this.loaded || 0) + 1; },
+    play() {
+      this.played = (this.played || 0) + 1;
+      if (rejectNextVideoPlay) {
+        rejectNextVideoPlay = false;
+        return Promise.reject(new Error('play rejected'));
+      }
+      return Promise.resolve();
+    }
+  };
+  if (value.tagName === 'VIDEO') videos.push(value);
+  return value;
+}
+
+function pendingStreamResponse() {
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader() {
+        return {
+          read() {
+            return new Promise(function () {});
+          },
+          cancel() {
+            return Promise.resolve();
+          }
+        };
+      }
+    }
+  };
+}
+
+const window = {
+  console,
+  performance: {
+    now() { clock += 125; return clock; }
+  },
+  VdrSuitePublicUrl: {
+    basePath: '/vdr-suite',
+    resolvePath(path) { return '/vdr-suite' + path; }
+  },
+  VdrSuiteBrowserSession: {
+    restore() {
+      browserSessionRestoreCalls += 1;
+      if (!deferBrowserSessionRestore) {
+        browserSessionRestored = true;
+        return Promise.resolve({authenticated: true});
+      }
+      return new Promise(function (resolve) {
+        pendingBrowserSessionRestore = function () {
+          browserSessionRestored = true;
+          deferBrowserSessionRestore = false;
+          pendingBrowserSessionRestore = null;
+          resolve({authenticated: true});
+        };
+      });
+    },
+    csrfHeaders() {
+      return browserSessionRestored
+        ? {'X-CSRF-Token': 'csrf-live-token'}
+        : {};
+    },
+    subscribe() {}
+  },
+  VdrSuiteClientApi: {
+    requestJson(path, options) {
+      requests.push({path, options});
+      const body = JSON.parse(options.body);
+      if (body.operation === 'stop') {
+        return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
+      }
+      if (body.resourceKind === 'live-channel') {
+        if (failNextLiveSession) {
+          failNextLiveSession = false;
+          return Promise.reject(
+            new Error('live_provider_open_failed')
+          );
+        }
+        return Promise.resolve({
+          mediaSession: {
+            id: 'live_session_test',
+            resourceKind: 'live-channel',
+            state: 'ready',
+            presentationProfileId: 'live-progressive-fmp4',
+            mediaPath: '/api/media/sessions/live_session_test/live/stream.mp4'
+          }
+        });
+      }
+      if (failFastRecording) {
+        return Promise.reject(new Error('progressive recording unavailable'));
+      }
+      if (returnHlsRecording) {
+        return Promise.resolve({
+          mediaSession: {
+            id: 'recording_hls_session_test',
+            resourceKind: 'recording',
+            state: 'ready',
+            presentationProfileId: 'hls-fmp4',
+            mediaPath: '/api/media/sessions/recording_hls_session_test/hls/master.m3u8'
+          }
+        });
+      }
+      return Promise.resolve({
+        mediaSession: {
+          id: 'recording_session_test',
+          resourceKind: 'recording',
+          state: 'ready',
+          presentationProfileId: 'progressive-fmp4',
+          mediaPath: '/api/media/sessions/recording_session_test/recording/stream.mp4'
+        }
+      });
+    }
+  },
+  fetch(path, options) {
+    requests.push({path, options});
+    if (continuousMseEnabled && /\/stream\.mp4$/.test(String(path))) {
+      continuousFetchCalls += 1;
+      return Promise.resolve(pendingStreamResponse());
+    }
+    return Promise.resolve({ok: true});
+  },
+  document: {
+    readyState: 'complete',
+    visibilityState: 'visible',
+    createElement: node,
+    addEventListener() {}
+  },
+  addEventListener() {},
+  removeEventListener() {},
+  setTimeout
+};
+
+const context = vm.createContext({
+  window,
+  document: window.document,
+  console,
+  Object,
+  String,
+  Number,
+  Array,
+  Boolean,
+  Promise,
+  RegExp,
+  Error,
+  JSON,
+  Math,
+  Uint8Array,
+  setTimeout
+});
+
+const sourcePath = 'web/frontend/api/session-frontend-sync.js';
+const source = fs.readFileSync(sourcePath, 'utf8');
+vm.runInContext(source, context, {filename: sourcePath});
+
+assert.ok(window.VdrSuiteLivePlayback);
+assert.ok(window.VdrSuiteRecordingFastPlayback);
+assert.ok(window.VdrSuiteRecordings2Playback);
+assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+
+const liveTest = window.VdrSuiteLivePlayback.__test;
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(liveTest.liveCapabilities())),
+  {
+    protocols: ['progressive'],
+    containers: ['fmp4'],
+    videoCodecs: ['h264'],
+    audioCodecs: ['aac'],
+    supportsByteRanges: false,
+    maxVideoWidth: 1920,
+    maxVideoHeight: 1080,
+    maxAudioChannels: 2
+  }
+);
+assert.strictEqual(liveTest.supportsContinuousFmp4Mse(), false);
+assert.strictEqual(
+  liveTest.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
+  '/api/media/sessions/live_session_test/live/stream.mp4'
+);
+assert.strictEqual(
+  liveTest.publicLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
+  '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+);
+assert.strictEqual(liveTest.safeLiveMediaPath('/api/media/sessions/live_session_test/hls/master.m3u8'), '');
+assert.strictEqual(liveTest.safeLiveMediaPath('unix:///run/vdr/live.sock'), '');
+assert.strictEqual(liveTest.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4?token=x'), '');
+assert.strictEqual(liveTest.publicLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4?token=x'), '');
+
+const recordingTest = window.VdrSuiteRecordingFastPlayback.__test;
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(recordingTest.recordingCapabilities())),
+  {
+    protocols: ['progressive'],
+    containers: ['fmp4'],
+    videoCodecs: ['h264'],
+    audioCodecs: ['aac'],
+    supportsByteRanges: false,
+    maxVideoWidth: 1920,
+    maxVideoHeight: 1080,
+    maxAudioChannels: 2
+  }
+);
+assert.strictEqual(recordingTest.supportsContinuousFmp4Mse(), false);
+assert.strictEqual(
+  recordingTest.safeRecordingMediaPath(
+    '/api/media/sessions/recording_session_test/recording/stream.mp4'
+  ),
+  '/api/media/sessions/recording_session_test/recording/stream.mp4'
+);
+assert.strictEqual(
+  recordingTest.publicRecordingMediaPath(
+    '/api/media/sessions/recording_session_test/recording/stream.mp4'
+  ),
+  '/vdr-suite/api/media/sessions/recording_session_test/recording/stream.mp4'
+);
+assert.strictEqual(recordingTest.safeRecordingMediaPath('/srv/vdr/video.00/test/00001.ts'), '');
+assert.strictEqual(
+  recordingTest.safeRecordingMediaPath(
+    '/api/media/sessions/recording_session_test/recording/stream.mp4?token=x'
+  ),
+  ''
+);
+
+(async function () {
+  requests.length = 0;
+  videos.length = 0;
+
+  // Browser-session restore is asynchronous during startup. A protected
+  // MediaSession mutation must wait for that restore so it cannot race ahead
+  // without X-CSRF-Token and invalidate the just-restoring browser session.
+  deferBrowserSessionRestore = true;
+  browserSessionRestored = false;
+  pendingBrowserSessionRestore = null;
+  const restoreCallsBeforeRace = browserSessionRestoreCalls;
+  const restoreRacePlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1079-10350', name: 'Restore Race'},
+    'living-room',
+    {}
+  );
+  const restoreRaceStart = restoreRacePlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(
+    requests.length,
+    0,
+    'Live-TV MediaSession POST must wait for browser-session restore'
+  );
+  assert.strictEqual(
+    browserSessionRestoreCalls,
+    restoreCallsBeforeRace + 1
+  );
+  assert.strictEqual(typeof pendingBrowserSessionRestore, 'function');
+  pendingBrowserSessionRestore();
+  assert.strictEqual(await restoreRaceStart, 'live_session_test');
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(requests[0].path, '/api/media/sessions');
+  assert.strictEqual(
+    requests[0].options.headers['X-CSRF-Token'],
+    'csrf-live-token'
+  );
+  restoreRacePlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+  browserSessionRestored = true;
+
+  failNextLiveSession = true;
+
+  const retryPlayback =
+    window.VdrSuiteRecordings2Playback.createLivePanel(
+      {id: 'C-1-1079-10349', name: 'Retry Test'},
+      'living-room',
+      {}
+    );
+
+  const failedRetryStart = await retryPlayback.start();
+  assert.strictEqual(failedRetryStart, '');
+  assert.strictEqual(
+    requests.length,
+    1,
+    'failed Live-TV startup must issue exactly one MediaSession POST'
+  );
+
+  const successfulRetryStart = await retryPlayback.start();
+  assert.strictEqual(
+    successfulRetryStart,
+    'live_session_test',
+    'second start() must retry after failed MediaSession creation'
+  );
+  assert.strictEqual(
+    requests.length,
+    2,
+    'second start() must issue a fresh MediaSession POST'
+  );
+
+  retryPlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+
+  const playback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1079-10351', name: 'Das Erste HD'},
+    'living-room',
+    {replacesSessionId: 'live_session_a'}
+  );
+  assert.ok(playback.element);
+  assert.strictEqual(typeof playback.start, 'function');
+  assert.strictEqual(typeof playback.relinquishForReplacement, 'function');
+  assert.strictEqual(typeof playback.switchToExternalStream, 'function');
+  assert.strictEqual(typeof playback.restoreBroadcastStream, 'function');
+  assert.strictEqual(typeof playback.releaseExternalStream, 'function');
+  assert.strictEqual(typeof playback.setExternalPaused, 'function');
+
+  const sessionId = await playback.start();
+  assert.strictEqual(sessionId, 'live_session_test');
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(requests[0].path, '/api/media/sessions');
+  const createBody = JSON.parse(requests[0].options.body);
+  assert.strictEqual(createBody.resourceKind, 'live-channel');
+  assert.strictEqual(createBody.backendId, 'living-room');
+  assert.strictEqual(createBody.channelId, 'C-1-1079-10351');
+  assert.strictEqual(createBody.replacesSessionId, 'live_session_a');
+  assert.deepStrictEqual(createBody.capabilities.protocols, ['progressive']);
+  assert.deepStrictEqual(createBody.capabilities.containers, ['fmp4']);
+  assert.strictEqual(requests[0].options.headers['X-CSRF-Token'], 'csrf-live-token');
+
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(
+    videos[0].src,
+    '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+  );
+  assert.strictEqual(videos[0].autoplay, true);
+  assert.strictEqual(videos[0].played, 1);
+
+  const relinquished = await playback.relinquishForReplacement();
+  assert.strictEqual(relinquished, 'live_session_test');
+  assert.strictEqual(requests.length, 1, 'replacement handoff must not STOP A in the browser');
+  playback.destroy();
+  assert.strictEqual(requests.length, 1);
+
+  // Loading the recording HLS runtime later must preserve Live-TV direct and
+  // replace only the Recording entrypoint with the Phase-65.C fast facade.
+  window.VdrSuiteRecordings2Playback = Object.freeze({
+    createPanel() {
+      const element = node('section');
+      return Object.freeze({
+        element,
+        start() { legacyStartCalls += 1; return Promise.resolve('legacy_session'); },
+        destroy() {},
+        sessionId() { return 'legacy_session'; }
+      });
+    }
+  });
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+
+  requests.length = 0;
+  videos.length = 0;
+  const recordingPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-42', title: 'Schnelle Aufnahme'},
+    'living-room'
+  );
+  const recordingSessionId = await recordingPlayback.start();
+  assert.strictEqual(recordingSessionId, 'recording_session_test');
+  assert.strictEqual(requests.length, 1);
+  const recordingBody = JSON.parse(requests[0].options.body);
+  assert.strictEqual(recordingBody.backendId, 'living-room');
+  assert.strictEqual(recordingBody.recordingId, 'recording-42');
+  assert.deepStrictEqual(recordingBody.capabilities.protocols, ['progressive']);
+  assert.deepStrictEqual(recordingBody.capabilities.containers, ['fmp4']);
+  assert.strictEqual(recordingBody.capabilities.supportsByteRanges, false);
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(
+    videos[0].src,
+    '/vdr-suite/api/media/sessions/recording_session_test/recording/stream.mp4'
+  );
+  assert.strictEqual(videos[0].played, 1);
+  videos[0].dispatch('playing');
+  assert.ok(recordingPlayback.element.children[1].textContent.includes('Start 0.'));
+  recordingPlayback.destroy();
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  assert.strictEqual(legacyStartCalls, 0, 'successful fast recording must not enter HLS fallback');
+
+  // A request-level fast-path failure must fall back to the accepted existing
+  // Recording HLS player.
+  requests.length = 0;
+  failFastRecording = true;
+  const fallbackPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'growing-recording', title: 'Wachsende Aufnahme'},
+    'living-room'
+  );
+  const fallbackSession = await fallbackPlayback.start();
+  assert.strictEqual(fallbackSession, 'legacy_session');
+  assert.strictEqual(legacyStartCalls, 1);
+  assert.ok(fallbackPlayback.element.replacement);
+  fallbackPlayback.destroy();
+  failFastRecording = false;
+
+  // If the server already issued a valid Recording session but selected HLS,
+  // the fast facade must own and STOP that provisional session before opening
+  // the legacy HLS owner. It must not strand a second FFmpeg worker.
+  requests.length = 0;
+  returnHlsRecording = true;
+  const selectedHlsPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-hls-selected', title: 'HLS Auswahl'},
+    'living-room'
+  );
+  const selectedHlsSession = await selectedHlsPlayback.start();
+  assert.strictEqual(selectedHlsSession, 'legacy_session');
+  assert.strictEqual(legacyStartCalls, 2);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_hls_session_test';
+  }));
+  selectedHlsPlayback.destroy();
+  returnHlsRecording = false;
+
+  // A browser-level play() rejection is also a failed fast path and must
+  // recover through HLS instead of leaving a ready but unusable direct stream.
+  requests.length = 0;
+  videos.length = 0;
+  rejectNextVideoPlay = true;
+  const rejectedPlayPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-play-rejected', title: 'Play abgelehnt'},
+    'living-room'
+  );
+  await rejectedPlayPlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 3);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  rejectedPlayPlayback.destroy();
+
+  // A native direct stream that stalls before its first playing event is
+  // likewise a failed fast path. The MSE path deliberately does not reuse this
+  // signal because SourceBuffer can be waiting for the next complete fragment.
+  requests.length = 0;
+  videos.length = 0;
+  const stalledPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-stalled', title: 'Fast Path Stall'},
+    'living-room'
+  );
+  await stalledPlayback.start();
+  videos[0].dispatch('stalled');
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 4);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  stalledPlayback.destroy();
+
+  const second = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10352', name: 'NDR FS HH HD'},
+    'living-room',
+    {}
+  );
+  await second.start();
+  second.destroy();
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'live_session_test';
+  }));
+
+
+  // HbbTV broadband media reuses the exact same HTMLMediaElement. Entering the
+  // external stream explicitly closes the current Broadcast MediaSession;
+  // leaving it creates a fresh Broadcast session on the same channel.
+  requests.length = 0;
+  videos.length = 0;
+  const hbbtvSwitchPlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10354', name: 'HbbTV Switch'},
+    'living-room',
+    {}
+  );
+  assert.strictEqual(await hbbtvSwitchPlayback.start(), 'live_session_test');
+  assert.strictEqual(videos.length, 1);
+  const persistentVideo = videos[0];
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.switchToExternalStream(
+      '/api/media/sessions/hbbtv_media_session/live/stream.mp4',
+      {label: 'HbbTV-Medium', paused: false}
+    ),
+    true
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'external');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/hbbtv_media_session/live/stream.mp4'
+  );
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' &&
+      body.resourceKind === 'live-channel' &&
+      body.sessionId === 'live_session_test';
+  }));
+
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(true), true);
+  assert.strictEqual(persistentVideo.paused, true);
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(false), true);
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.restoreBroadcastStream(),
+    'live_session_test'
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+  );
+  hbbtvSwitchPlayback.destroy();
+
+  // Android Chromium demonstrated that native <video src=stream.mp4> can route
+  // open-ended fMP4 through Android MediaExtractor and fail with
+  // MEDIA_ERR_SRC_NOT_SUPPORTED. A browser that explicitly exposes MSE plus a
+  // streaming Fetch body must therefore keep the same one Gateway stream but
+  // consume it through MediaSource instead of handing the URL to MediaExtractor.
+  class FakeMediaSource {
+    constructor() {
+      this.readyState = 'open';
+    }
+    static isTypeSupported() { return true; }
+    addEventListener() {}
+    removeEventListener() {}
+    addSourceBuffer() {
+      throw new Error('test reader intentionally stays pending before init parsing');
+    }
+    endOfStream() {}
+  }
+  class FakeAbortController {
+    constructor() { this.signal = {}; }
+    abort() { this.aborted = true; }
+  }
+
+  window.MediaSource = FakeMediaSource;
+  window.AbortController = FakeAbortController;
+  window.ReadableStream = function ReadableStream() {};
+  window.URL = {
+    createObjectURL() {
+      objectUrlSequence += 1;
+      return 'blob:continuous-fmp4-test-' + objectUrlSequence;
+    },
+    revokeObjectURL() {}
+  };
+  continuousMseEnabled = true;
+  continuousFetchCalls = 0;
+  assert.strictEqual(liveTest.supportsContinuousFmp4Mse(), true);
+  assert.strictEqual(recordingTest.supportsContinuousFmp4Mse(), true);
+
+  requests.length = 0;
+  videos.length = 0;
+  const mseLivePlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10353', name: 'MSE Live'},
+    'living-room',
+    {}
+  );
+  assert.strictEqual(await mseLivePlayback.start(), 'live_session_test');
+  assert.strictEqual(videos.length, 1);
+  assert.ok(videos[0].src.startsWith('blob:continuous-fmp4-test-'));
+  assert.ok(requests.some(entry =>
+    entry.path === '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4' &&
+    entry.options && entry.options.credentials === 'same-origin'
+  ));
+  assert.strictEqual(continuousFetchCalls, 1);
+  mseLivePlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+  const mseRecordingPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-mse', title: 'MSE Aufnahme'},
+    'living-room'
+  );
+  assert.strictEqual(await mseRecordingPlayback.start(), 'recording_session_test');
+  assert.strictEqual(videos.length, 1);
+  assert.ok(videos[0].src.startsWith('blob:continuous-fmp4-test-'));
+  assert.ok(requests.some(entry =>
+    entry.path === '/vdr-suite/api/media/sessions/recording_session_test/recording/stream.mp4' &&
+    entry.options && entry.options.credentials === 'same-origin'
+  ));
+  const legacyBeforeMseStall = legacyStartCalls;
+  videos[0].dispatch('stalled');
+  await Promise.resolve();
+  assert.strictEqual(
+    legacyStartCalls,
+    legacyBeforeMseStall,
+    'MSE startup must not misclassify SourceBuffer waiting as native progressive stall'
+  );
+  assert.strictEqual(continuousFetchCalls, 2);
+  mseRecordingPlayback.destroy();
+
+  continuousMseEnabled = false;
+  delete window.MediaSource;
+  delete window.AbortController;
+  delete window.ReadableStream;
+  delete window.URL;
+
+  assert.ok(source.includes("protocols: ['progressive']"));
+  assert.ok(source.includes('publicLiveMediaPath'));
+  assert.ok(source.includes('publicRecordingMediaPath'));
+  assert.ok(source.includes('recording\\/stream\\.mp4'));
+  assert.ok(source.includes('recording playback first-media'));
+  assert.ok(source.includes("video.addEventListener('stalled'"));
+  assert.ok(source.includes('createContinuousFmp4Mse'));
+  assert.ok(source.includes('response.body.getReader'));
+  assert.ok(!source.includes('navigator.userAgent'));
+  assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
+  assert.ok(!source.includes('master.m3u8'));
+
+  console.log('direct and continuous-MSE Live TV / low-latency Recording browser contracts ok');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -1,0 +1,1248 @@
+#include "SimpleHttpListener.h"
+
+#include "HttpServerRequest.h"
+#include "HttpServerResponse.h"
+#include "DeviceLiveEventHub.h"
+#include "BrowserLiveEventSubscription.h"
+
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <cerrno>
+#include <cctype>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <cstring>
+#include <deque>
+#include <filesystem>
+#include <fcntl.h>
+#include <iostream>
+#include <mutex>
+#include <netdb.h>
+#include <poll.h>
+#include <sstream>
+#include <string>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
+#include <utility>
+#include <vector>
+
+namespace {
+
+// Bounded diagnostics only: a synchronous listener phase that exceeds the
+// Agent's fast-poll timeout must be visible in the daemon journal. This does
+// not start a second HTTP handler or let requests race shared Core state.
+constexpr auto SLOW_LISTENER_PHASE = std::chrono::seconds(2);
+
+void reportSlowListenerPhase(
+    const char* phase,
+    std::chrono::steady_clock::time_point started)
+{
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started);
+    if (elapsed >= SLOW_LISTENER_PHASE)
+        std::cerr << "HTTP_LISTENER_STALL phase=" << phase
+                  << " duration_ms=" << elapsed.count() << std::endl;
+}
+
+// Only direct TCP peers on a private subnet attached to this host are
+// eligible for the one-time first-admin browser form. No forwarded headers,
+// DNS names or environment-provided network range grants this permission.
+bool privateIpv4(uint32_t address)
+{
+    return (address & 0xff000000U) == 0x0a000000U ||
+           (address & 0xfff00000U) == 0xac100000U ||
+           (address & 0xffff0000U) == 0xc0a80000U;
+}
+
+bool privateIpv6(const in6_addr& address)
+{
+    return (address.s6_addr[0] & 0xfeU) == 0xfcU ||
+           IN6_IS_ADDR_LINKLOCAL(&address);
+}
+
+bool directTrustedLanPeer(int clientSocket)
+{
+    sockaddr_storage peer{};
+    socklen_t length = sizeof(peer);
+    if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                    &length) != 0) return false;
+
+    if (peer.ss_family == AF_INET) {
+        const auto& p = reinterpret_cast<const sockaddr_in&>(peer);
+        const uint32_t remote = ntohl(p.sin_addr.s_addr);
+        if ((remote & 0xff000000U) == 0x7f000000U) return true;
+        if (!privateIpv4(remote)) return false;
+    } else if (peer.ss_family == AF_INET6) {
+        const auto& p = reinterpret_cast<const sockaddr_in6&>(peer);
+        if (IN6_IS_ADDR_LOOPBACK(&p.sin6_addr)) return true;
+        if (!privateIpv6(p.sin6_addr)) return false;
+    } else {
+        return false;
+    }
+
+    ifaddrs* interfaces = nullptr;
+    if (getifaddrs(&interfaces) != 0) return false;
+    bool trusted = false;
+    for (ifaddrs* current = interfaces; current != nullptr;
+         current = current->ifa_next) {
+        if (!current->ifa_addr || !current->ifa_netmask ||
+            !(current->ifa_flags & IFF_UP) ||
+            (current->ifa_flags & IFF_LOOPBACK) ||
+            current->ifa_addr->sa_family != peer.ss_family) continue;
+
+        if (peer.ss_family == AF_INET) {
+            const auto& p = reinterpret_cast<const sockaddr_in&>(peer);
+            const auto& iface =
+                *reinterpret_cast<const sockaddr_in*>(current->ifa_addr);
+            const auto& mask =
+                *reinterpret_cast<const sockaddr_in*>(current->ifa_netmask);
+            const uint32_t remote = ntohl(p.sin_addr.s_addr);
+            const uint32_t local = ntohl(iface.sin_addr.s_addr);
+            const uint32_t subnetMask = ntohl(mask.sin_addr.s_addr);
+            if (privateIpv4(local) && subnetMask != 0 &&
+                (remote & subnetMask) == (local & subnetMask)) {
+                trusted = true;
+                break;
+            }
+        } else if (peer.ss_family == AF_INET6) {
+            const auto& p = reinterpret_cast<const sockaddr_in6&>(peer);
+            const auto& iface =
+                *reinterpret_cast<const sockaddr_in6*>(current->ifa_addr);
+            const auto& mask =
+                *reinterpret_cast<const sockaddr_in6*>(current->ifa_netmask);
+            if (!privateIpv6(iface.sin6_addr)) continue;
+            if (IN6_IS_ADDR_LINKLOCAL(&p.sin6_addr) &&
+                p.sin6_scope_id != 0 &&
+                p.sin6_scope_id != if_nametoindex(current->ifa_name)) continue;
+            bool match = true;
+            bool hasMask = false;
+            for (std::size_t i = 0; i < 16; ++i) {
+                const unsigned char bitMask = mask.sin6_addr.s6_addr[i];
+                hasMask = hasMask || bitMask != 0;
+                if ((p.sin6_addr.s6_addr[i] & bitMask) !=
+                    (iface.sin6_addr.s6_addr[i] & bitMask)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match && hasMask) {
+                trusted = true;
+                break;
+            }
+        }
+    }
+    freeifaddrs(interfaces);
+    return trusted;
+}
+
+constexpr auto DEFAULT_CLIENT_IO_TIMEOUT = std::chrono::seconds(5);
+constexpr std::size_t IMAGE_WRITER_THREAD_COUNT = 4;
+constexpr std::size_t IMAGE_WRITER_MAX_PENDING = 16;
+constexpr std::size_t STREAM_WRITER_THREAD_COUNT = 4;
+constexpr std::size_t STREAM_WRITER_MAX_PENDING = 4;
+constexpr std::size_t DEVICE_EVENT_WRITER_THREADS = 4;
+constexpr std::size_t DEVICE_EVENT_MAX_PENDING = 4;
+constexpr auto STREAM_FIRST_DATA_TIMEOUT = std::chrono::seconds(5);
+// Unlike transient SO_SNDTIMEO wakes, continuous lack of write progress
+// cannot be retried forever: it occupies a finite stream worker and
+// propagates backpressure through the FIFO to the single native receiver.
+constexpr auto STREAM_CLIENT_NO_PROGRESS_TIMEOUT = std::chrono::seconds(15);
+constexpr auto STREAM_POLL_INTERVAL = std::chrono::milliseconds(100);
+
+timeval socketTimeoutValue(std::chrono::milliseconds timeout)
+{
+    if (timeout.count() <= 0) {
+        timeout = std::chrono::milliseconds(1);
+    }
+
+    const auto totalMicroseconds =
+        std::chrono::duration_cast<std::chrono::microseconds>(timeout).count();
+
+    timeval value{};
+    value.tv_sec = static_cast<time_t>(totalMicroseconds / 1000000);
+    value.tv_usec = static_cast<suseconds_t>(totalMicroseconds % 1000000);
+    return value;
+}
+
+void configureClientSocketTimeouts(
+    int socketFd,
+    std::chrono::milliseconds timeout)
+{
+    const timeval value = socketTimeoutValue(timeout);
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            &value,
+            sizeof(value)) != 0) {
+        std::cerr
+            << "failed to configure HTTP client receive timeout: "
+            << std::strerror(errno)
+            << std::endl;
+    }
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_SNDTIMEO,
+            &value,
+            sizeof(value)) != 0) {
+        std::cerr
+            << "failed to configure HTTP client send timeout: "
+            << std::strerror(errno)
+            << std::endl;
+    }
+}
+
+int noSignalSendFlags()
+{
+#ifdef MSG_NOSIGNAL
+    return MSG_NOSIGNAL;
+#else
+    return 0;
+#endif
+}
+
+std::string lowerAscii(const std::string& value)
+{
+    std::string lowered;
+    lowered.reserve(value.size());
+
+    for (const char character : value) {
+        lowered.push_back(
+            static_cast<char>(
+                std::tolower(
+                    static_cast<unsigned char>(character))));
+    }
+
+    return lowered;
+}
+
+bool hasHeader(
+    const HttpServerResponse& response,
+    const std::string& headerName)
+{
+    const std::string wanted = lowerAscii(headerName);
+
+    for (const auto& header : response.headers) {
+        if (lowerAscii(header.first) == wanted) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::string responseHeaderValue(
+    const HttpServerResponse& response,
+    const std::string& headerName)
+{
+    const std::string wanted = lowerAscii(headerName);
+
+    for (const auto& header : response.headers) {
+        if (lowerAscii(header.first) == wanted) {
+            return header.second;
+        }
+    }
+
+    return {};
+}
+
+bool isImageResponse(const HttpServerResponse& response)
+{
+    const std::string contentType =
+        lowerAscii(responseHeaderValue(response, "Content-Type"));
+
+    return contentType.compare(0, 6, "image/") == 0;
+}
+
+std::string serializedHeaderValue(
+    const std::string& headerName,
+    const std::string& headerValue)
+{
+    if (lowerAscii(headerName) == "content-type" &&
+        lowerAscii(headerValue) == "application/json") {
+        return "application/json; charset=utf-8";
+    }
+
+    return headerValue;
+}
+
+std::string reasonPhrase(int statusCode)
+{
+    if (statusCode == 200) return "OK";
+    if (statusCode == 204) return "No Content";
+    if (statusCode == 400) return "Bad Request";
+    if (statusCode == 401) return "Unauthorized";
+    if (statusCode == 403) return "Forbidden";
+    if (statusCode == 404) return "Not Found";
+    if (statusCode == 405) return "Method Not Allowed";
+    if (statusCode == 409) return "Conflict";
+    if (statusCode == 500) return "Internal Server Error";
+    if (statusCode == 503) return "Service Unavailable";
+    return "OK";
+}
+
+HttpServerRequest parseRequest(const std::string& rawRequest)
+{
+    HttpServerRequest request;
+
+    const std::size_t headerEnd = rawRequest.find("\r\n\r\n");
+
+    std::string headerBlock = rawRequest;
+    if (headerEnd != std::string::npos) {
+        headerBlock = rawRequest.substr(0, headerEnd);
+        request.body = rawRequest.substr(headerEnd + 4);
+    }
+
+    std::istringstream stream(headerBlock);
+    std::string requestLine;
+
+    if (!std::getline(stream, requestLine)) {
+        return request;
+    }
+
+    if (!requestLine.empty() && requestLine.back() == '\r') {
+        requestLine.pop_back();
+    }
+
+    std::istringstream requestLineStream(requestLine);
+    std::string httpVersion;
+
+    requestLineStream
+        >> request.method
+        >> request.path
+        >> httpVersion;
+
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
+        if (line.empty()) {
+            break;
+        }
+
+        const std::size_t colon = line.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+
+        std::string key = line.substr(0, colon);
+        std::string value = line.substr(colon + 1);
+
+        while (!value.empty() && value.front() == ' ') {
+            value.erase(value.begin());
+        }
+
+        request.headers[key] = value;
+    }
+
+    return request;
+}
+
+std::string serializeResponse(
+    const HttpServerResponse& response,
+    bool streaming)
+{
+    std::ostringstream stream;
+
+    stream
+        << "HTTP/1.1 "
+        << response.statusCode
+        << " "
+        << reasonPhrase(response.statusCode)
+        << "\r\n";
+
+    for (const auto& header : response.headers) {
+        stream
+            << header.first
+            << ": "
+            << serializedHeaderValue(header.first, header.second)
+            << "\r\n";
+    }
+
+    if (!hasHeader(response, "Cache-Control")) {
+        stream << "Cache-Control: no-cache\r\n";
+    }
+
+    if (!hasHeader(response, "X-Content-Type-Options")) {
+        stream << "X-Content-Type-Options: nosniff\r\n";
+    }
+
+    if (!streaming) {
+        stream
+            << "Content-Length: "
+            << response.body.size()
+            << "\r\n";
+    }
+
+    stream << "Connection: close\r\n";
+    stream << "\r\n";
+    if (!streaming) stream << response.body;
+
+    return stream.str();
+}
+
+bool hasCompleteHeaders(const std::string& rawRequest)
+{
+    return rawRequest.find("\r\n\r\n") != std::string::npos;
+}
+
+std::size_t contentLength(const HttpServerRequest& request)
+{
+    auto iterator = request.headers.find("Content-Length");
+    if (iterator == request.headers.end()) {
+        return 0;
+    }
+
+    char* end = nullptr;
+    const unsigned long value =
+        std::strtoul(iterator->second.c_str(), &end, 10);
+
+    if (end == iterator->second.c_str()) {
+        return 0;
+    }
+
+    return static_cast<std::size_t>(value);
+}
+
+bool hasCompleteBody(
+    const HttpServerRequest& request,
+    const std::size_t expectedContentLength)
+{
+    return request.body.size() >= expectedContentLength;
+}
+
+bool writeAll(int socketFd, const char* data, std::size_t size)
+{
+    std::size_t offset = 0;
+
+    while (offset < size) {
+        const ssize_t written = send(
+            socketFd,
+            data + offset,
+            size - offset,
+            noSignalSendFlags());
+
+        if (written < 0 && errno == EINTR) continue;
+        if (written <= 0) return false;
+        offset += static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
+bool writeAll(int socketFd, const std::string& data)
+{
+    return writeAll(socketFd, data.data(), data.size());
+}
+
+std::string imageQueueBusyResponse()
+{
+    HttpServerResponse response;
+    response.statusCode = 503;
+    response.headers["Content-Type"] = "text/plain";
+    response.headers["Cache-Control"] = "no-store";
+    response.body = "image response queue is busy";
+    return serializeResponse(response, false);
+}
+
+std::string streamQueueBusyResponse()
+{
+    HttpServerResponse response;
+    response.statusCode = 503;
+    response.headers["Content-Type"] = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.body = "{\"error\":{\"code\":\"live_stream_writer_capacity_exhausted\"}}";
+    return serializeResponse(response, false);
+}
+
+class ImageResponseWriterPool
+{
+public:
+    ImageResponseWriterPool(
+        std::size_t workerCount,
+        std::size_t maximumPending)
+        : maximumPending_(maximumPending)
+    {
+        workers_.reserve(workerCount);
+        for (std::size_t index = 0; index < workerCount; ++index) {
+            workers_.emplace_back([this]() { runWorker(); });
+        }
+    }
+
+    ~ImageResponseWriterPool() { shutdown(); }
+
+    ImageResponseWriterPool(const ImageResponseWriterPool&) = delete;
+    ImageResponseWriterPool& operator=(const ImageResponseWriterPool&) = delete;
+
+    bool enqueue(int socketFd, std::string response,
+                 std::function<std::string()> deferred = {})
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= maximumPending_) return false;
+        jobs_.push_back(Job{socketFd, std::move(response), std::move(deferred)});
+        condition_.notify_one();
+        return true;
+    }
+
+    void shutdown()
+    {
+        std::deque<Job> pending;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopping_) return;
+            stopping_ = true;
+            pending.swap(jobs_);
+        }
+        for (const Job& job : pending) {
+            if (job.socketFd >= 0) close(job.socketFd);
+        }
+        condition_.notify_all();
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) worker.join();
+        }
+        workers_.clear();
+    }
+
+private:
+    struct Job
+    {
+        int socketFd = -1;
+        std::string response;
+        std::function<std::string()> deferred;
+    };
+
+    void runWorker()
+    {
+        while (true) {
+            Job job;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this]() {
+                    return stopping_ || !jobs_.empty();
+                });
+                if (stopping_ && jobs_.empty()) return;
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            if (job.deferred) job.response = job.deferred();
+            writeAll(job.socketFd, job.response);
+            close(job.socketFd);
+        }
+    }
+
+    const std::size_t maximumPending_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<Job> jobs_;
+    std::vector<std::thread> workers_;
+    bool stopping_ = false;
+};
+
+class StreamResponseWriterPool
+{
+public:
+    StreamResponseWriterPool(
+        std::size_t workerCount,
+        std::size_t maximumPending)
+        : maximumPending_(maximumPending)
+    {
+        workers_.reserve(workerCount);
+        for (std::size_t index = 0; index < workerCount; ++index) {
+            workers_.emplace_back([this]() { runWorker(); });
+        }
+    }
+
+    ~StreamResponseWriterPool() { shutdown(); }
+
+    StreamResponseWriterPool(const StreamResponseWriterPool&) = delete;
+    StreamResponseWriterPool& operator=(const StreamResponseWriterPool&) = delete;
+
+    bool enqueue(int socketFd, std::string headers, std::string streamPath)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= maximumPending_) return false;
+        jobs_.push_back(Job{socketFd, std::move(headers), std::move(streamPath)});
+        condition_.notify_one();
+        return true;
+    }
+
+    void shutdown()
+    {
+        std::deque<Job> pending;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopping_) return;
+            stopping_ = true;
+            pending.swap(jobs_);
+        }
+        for (const Job& job : pending) {
+            if (job.socketFd >= 0) close(job.socketFd);
+        }
+        condition_.notify_all();
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) worker.join();
+        }
+        workers_.clear();
+    }
+
+private:
+    struct Job
+    {
+        int socketFd = -1;
+        std::string headers;
+        std::string streamPath;
+    };
+
+    bool stopping() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return stopping_;
+    }
+
+    bool writeStreamAll(
+        int socketFd, const char* data, std::size_t size,
+        const std::string& workspaceCorrelation) const
+    {
+        std::size_t offset = 0;
+        auto lastProgress = std::chrono::steady_clock::now();
+        while (offset < size) {
+            if (stopping()) return false;
+
+            const ssize_t written = send(
+                socketFd,
+                data + offset,
+                size - offset,
+                noSignalSendFlags());
+            if (written > 0) {
+                offset += static_cast<std::size_t>(written);
+                lastProgress = std::chrono::steady_clock::now();
+                continue;
+            }
+            if (written < 0 && errno == EINTR) continue;
+            if (written < 0 &&
+                (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                // SO_SNDTIMEO is a wake-up bound, not a stream deadline.
+                // But a peer that never consumes bytes must release this
+                // worker and FIFO before the upstream receiver overflows.
+                if (std::chrono::steady_clock::now() - lastProgress <
+                    STREAM_CLIENT_NO_PROGRESS_TIMEOUT)
+                    continue;
+                std::cerr << "media_stream_terminal workspace="
+                          << workspaceCorrelation
+                          << " reason=client_send_no_progress" << std::endl;
+                return false;
+            }
+            std::cerr << "media_stream_terminal workspace="
+                      << workspaceCorrelation
+                      << " reason=client_send_error errno="
+                      << (written < 0 ? errno : 0) << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    void stream(Job& job)
+    {
+        if (!writeAll(job.socketFd, job.headers)) return;
+
+        struct stat status {};
+        if (::lstat(job.streamPath.c_str(), &status) != 0 || !S_ISFIFO(status.st_mode))
+            return;
+
+        const int input = ::open(
+            job.streamPath.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (input < 0) return;
+
+        const auto firstDataDeadline =
+            std::chrono::steady_clock::now() + STREAM_FIRST_DATA_TIMEOUT;
+        bool sawData = false;
+        const std::string correlation =
+            std::filesystem::path(job.streamPath).parent_path().filename().string();
+        char buffer[64 * 1024];
+
+        while (!stopping()) {
+            pollfd descriptor {};
+            descriptor.fd = input;
+            descriptor.events = POLLIN;
+            const int ready = ::poll(
+                &descriptor,
+                1,
+                static_cast<int>(STREAM_POLL_INTERVAL.count()));
+            if (ready < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+
+            if (ready > 0 && (descriptor.revents & POLLIN) != 0) {
+                const ssize_t received = ::read(input, buffer, sizeof(buffer));
+                if (received > 0) {
+                    sawData = true;
+                    if (!writeStreamAll(
+                            job.socketFd,
+                            buffer,
+                            static_cast<std::size_t>(received),
+                            correlation)) {
+                        break;
+                    }
+                    continue;
+                }
+                if (received < 0 &&
+                    (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+                    continue;
+                }
+                if (received == 0 && sawData) break;
+            }
+
+            if (ready > 0 &&
+                (descriptor.revents & (POLLERR | POLLNVAL)) != 0) {
+                break;
+            }
+            if (ready > 0 && (descriptor.revents & POLLHUP) != 0 && sawData)
+                break;
+
+            if (!sawData && std::chrono::steady_clock::now() >= firstDataDeadline)
+                break;
+        }
+
+        ::close(input);
+    }
+
+    void runWorker()
+    {
+        while (true) {
+            Job job;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this]() {
+                    return stopping_ || !jobs_.empty();
+                });
+                if (stopping_ && jobs_.empty()) return;
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            stream(job);
+            close(job.socketFd);
+        }
+    }
+
+    const std::size_t maximumPending_;
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<Job> jobs_;
+    std::vector<std::thread> workers_;
+    bool stopping_ = false;
+};
+
+
+// Device events have a separate, bounded writer pool. Streaming clients may
+// occupy a worker for up to two minutes but must never exhaust media FIFO or
+// image writers. Every queued job already passed SecurityHttpGate admission.
+class DeviceEventResponseWriterPool {
+public:
+    DeviceEventResponseWriterPool()
+    {
+        workers_.reserve(DEVICE_EVENT_WRITER_THREADS);
+        for (std::size_t i = 0; i < DEVICE_EVENT_WRITER_THREADS; ++i)
+            workers_.emplace_back([this]() { runWorker(); });
+    }
+
+    ~DeviceEventResponseWriterPool() { shutdown(); }
+
+    bool enqueue(int fd, std::string headers,
+                 std::shared_ptr<DeviceLiveEventSubscription> subscriber)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= DEVICE_EVENT_MAX_PENDING)
+            return false;
+        jobs_.push_back(Job{fd, std::move(headers), std::move(subscriber), nullptr});
+        condition_.notify_one();
+        return true;
+    }
+
+    bool enqueue(int fd, std::string headers,
+                 std::shared_ptr<BrowserLiveEventSubscription> subscriber)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= DEVICE_EVENT_MAX_PENDING)
+            return false;
+        jobs_.push_back(Job{fd, std::move(headers), nullptr, std::move(subscriber)});
+        condition_.notify_one();
+        return true;
+    }
+
+    void shutdown()
+    {
+        std::deque<Job> pending;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopping_) return;
+            stopping_ = true;
+            pending.swap(jobs_);
+        }
+        for (auto& job : pending) {
+            if (job.subscriber) job.subscriber->close();
+            if (job.browserSubscriber) job.browserSubscriber->close();
+            ::close(job.fd);
+        }
+        condition_.notify_all();
+        for (auto& worker : workers_)
+            if (worker.joinable()) worker.join();
+    }
+
+private:
+    struct Job {
+        int fd;
+        std::string headers;
+        std::shared_ptr<DeviceLiveEventSubscription> subscriber;
+        std::shared_ptr<BrowserLiveEventSubscription> browserSubscriber;
+    };
+
+    bool stopping() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return stopping_;
+    }
+
+    bool sendBounded(int fd, const std::string& data) const {
+        std::size_t offset = 0;
+        int timeoutCount = 0;
+        while (offset < data.size()) {
+            if (stopping()) return false;
+            const ssize_t sent = ::send(fd, data.data() + offset,
+                data.size() - offset, noSignalSendFlags());
+            if (sent > 0) {
+                offset += static_cast<std::size_t>(sent);
+                timeoutCount = 0;
+            } else if (sent < 0 && errno == EINTR) {
+                continue;
+            } else if (sent < 0 &&
+                      (errno == EAGAIN || errno == EWOULDBLOCK) &&
+                      ++timeoutCount < 2) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void write(Job& job) {
+        if (!sendBounded(job.fd, job.headers)) return;
+        auto lastHeartbeat = std::chrono::steady_clock::now();
+        while (!stopping()) {
+            std::string frame;
+            const bool ready = job.subscriber
+                ? job.subscriber->next(frame, std::chrono::milliseconds(250))
+                : job.browserSubscriber->next(frame, std::chrono::milliseconds(250));
+            if (!ready) break;
+            if (!frame.empty()) {
+                if (!sendBounded(job.fd, frame)) break;
+                lastHeartbeat = std::chrono::steady_clock::now();
+            } else if (std::chrono::steady_clock::now() - lastHeartbeat >=
+                       std::chrono::seconds(10)) {
+                if (!sendBounded(job.fd, ": keepalive\n\n")) break;
+                lastHeartbeat = std::chrono::steady_clock::now();
+            }
+        }
+        if (job.subscriber) job.subscriber->close();
+        if (job.browserSubscriber) job.browserSubscriber->close();
+    }
+
+    void runWorker() {
+        while (true) {
+            Job job{};
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this]() {
+                    return stopping_ || !jobs_.empty();
+                });
+                if (stopping_ && jobs_.empty()) return;
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            write(job);
+            ::close(job.fd);
+        }
+    }
+
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<Job> jobs_;
+    std::vector<std::thread> workers_;
+    bool stopping_ = false;
+};
+
+} // namespace
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          []() { return false; },
+          []() {})
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          std::move(shouldStop),
+          []() {})
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop,
+    std::function<void()> onTick)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          std::move(shouldStop),
+          std::move(onTick),
+          DEFAULT_CLIENT_IO_TIMEOUT)
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop,
+    std::function<void()> onTick,
+    std::chrono::milliseconds clientIoTimeout)
+    : host_(std::move(host)),
+      port_(port),
+      server_(server),
+      shouldStop_(std::move(shouldStop)),
+      onTick_(std::move(onTick)),
+      clientIoTimeout_(clientIoTimeout)
+{
+}
+
+int SimpleHttpListener::runUntilStopped()
+{
+    const int listenSocket = createListeningSocket();
+    if (listenSocket < 0) return 1;
+
+    ImageResponseWriterPool imageWriters(
+        IMAGE_WRITER_THREAD_COUNT,
+        IMAGE_WRITER_MAX_PENDING);
+    StreamResponseWriterPool streamWriters(
+        STREAM_WRITER_THREAD_COUNT,
+        STREAM_WRITER_MAX_PENDING);
+    DeviceEventResponseWriterPool deviceEventWriters;
+    // Independent bounded workers: browser EventSources cannot starve
+    // authenticated Device and Operation event delivery.
+    DeviceEventResponseWriterPool browserEventWriters;
+
+    std::cout
+        << "simple HTTP listener running on "
+        << host_
+        << ":"
+        << port_
+        << std::endl;
+
+    while (!shouldStop_()) {
+        if (onTick_) {
+            const auto started = std::chrono::steady_clock::now();
+            onTick_();
+            reportSlowListenerPhase("tick", started);
+        }
+
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(listenSocket, &readSet);
+
+        timeval timeout{};
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        const int ready = select(
+            listenSocket + 1,
+            &readSet,
+            nullptr,
+            nullptr,
+            &timeout);
+
+        if (ready < 0) {
+            if (errno == EINTR) break;
+            std::cerr
+                << "select failed: "
+                << std::strerror(errno)
+                << std::endl;
+            continue;
+        }
+        if (ready == 0) continue;
+
+        const int clientSocket = accept(listenSocket, nullptr, nullptr);
+        if (clientSocket < 0) {
+            if (errno == EINTR) break;
+            std::cerr
+                << "accept failed: "
+                << std::strerror(errno)
+                << std::endl;
+            continue;
+        }
+
+        configureClientSocketTimeouts(clientSocket, clientIoTimeout_);
+
+        std::string rawResponse;
+        bool imageResponse = false;
+        std::function<std::string()> deferredImageResponse;
+        std::string streamBodyPath;
+        std::shared_ptr<DeviceLiveEventSubscription> deviceEvents;
+        std::shared_ptr<BrowserLiveEventSubscription> browserEvents;
+
+        if (!prepareClientResponse(
+                clientSocket,
+                rawResponse,
+                imageResponse,
+                deferredImageResponse,
+                streamBodyPath,
+                deviceEvents,
+                browserEvents)) {
+            close(clientSocket);
+            continue;
+        }
+
+        if (deviceEvents) {
+            if (deviceEventWriters.enqueue(
+                    clientSocket, std::move(rawResponse),
+                    std::move(deviceEvents))) continue;
+            // No SSE headers were written: fail closed with an ordinary 503.
+            writeAll(clientSocket, streamQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        if (browserEvents) {
+            if (browserEventWriters.enqueue(
+                    clientSocket, std::move(rawResponse),
+                    std::move(browserEvents))) continue;
+            writeAll(clientSocket, streamQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        if (!streamBodyPath.empty()) {
+            if (streamWriters.enqueue(
+                    clientSocket,
+                    std::move(rawResponse),
+                    std::move(streamBodyPath))) {
+                continue;
+            }
+            writeAll(clientSocket, streamQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        if (imageResponse) {
+            if (imageWriters.enqueue(
+                    clientSocket,
+                    std::move(rawResponse),
+                    std::move(deferredImageResponse))) {
+                continue;
+            }
+            writeAll(clientSocket, imageQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        writeAll(clientSocket, rawResponse);
+        close(clientSocket);
+    }
+
+    browserEventWriters.shutdown();
+    deviceEventWriters.shutdown();
+    streamWriters.shutdown();
+    imageWriters.shutdown();
+    close(listenSocket);
+    return 0;
+}
+
+int SimpleHttpListener::createListeningSocket() const
+{
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    addrinfo* result = nullptr;
+    const std::string port = std::to_string(port_);
+
+    const int lookup = getaddrinfo(
+        host_.c_str(),
+        port.c_str(),
+        &hints,
+        &result);
+
+    if (lookup != 0) {
+        std::cerr
+            << "getaddrinfo failed: "
+            << gai_strerror(lookup)
+            << std::endl;
+        return -1;
+    }
+
+    int listenSocket = -1;
+
+    for (addrinfo* current = result; current != nullptr; current = current->ai_next) {
+        listenSocket = socket(
+            current->ai_family,
+            current->ai_socktype,
+            current->ai_protocol);
+
+        if (listenSocket < 0) continue;
+
+        int reuseAddress = 1;
+        setsockopt(
+            listenSocket,
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &reuseAddress,
+            sizeof(reuseAddress));
+
+        if (bind(listenSocket, current->ai_addr, current->ai_addrlen) == 0)
+            break;
+
+        close(listenSocket);
+        listenSocket = -1;
+    }
+
+    freeaddrinfo(result);
+
+    if (listenSocket < 0) {
+        std::cerr
+            << "failed to bind HTTP listener to "
+            << host_
+            << ":"
+            << port
+            << std::endl;
+        return -1;
+    }
+
+    if (listen(listenSocket, 16) != 0) {
+        std::cerr
+            << "listen failed: "
+            << std::strerror(errno)
+            << std::endl;
+        close(listenSocket);
+        return -1;
+    }
+
+    return listenSocket;
+}
+
+bool SimpleHttpListener::prepareClientResponse(
+    int clientSocket,
+    std::string& rawResponse,
+    bool& imageResponse,
+    std::function<std::string()>& deferredImageResponse,
+    std::string& streamBodyPath,
+    std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents,
+    std::shared_ptr<BrowserLiveEventSubscription>& browserEvents) const
+{
+    std::string rawRequest;
+    char buffer[4096];
+
+    while (!hasCompleteHeaders(rawRequest)) {
+        const ssize_t received = recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0);
+        if (received <= 0) return false;
+        rawRequest.append(buffer, static_cast<std::size_t>(received));
+    }
+
+    HttpServerRequest request = parseRequest(rawRequest);
+    const std::size_t expectedContentLength = contentLength(request);
+
+    while (!hasCompleteBody(request, expectedContentLength)) {
+        const ssize_t received = recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0);
+        if (received <= 0) return false;
+        rawRequest.append(buffer, static_cast<std::size_t>(received));
+        request = parseRequest(rawRequest);
+    }
+
+    request.peerIsTrustedLan = directTrustedLanPeer(clientSocket);
+    if (request.peerIsTrustedLan) {
+        sockaddr_storage peer{};
+        socklen_t peerLength = sizeof(peer);
+        if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                        &peerLength) == 0) {
+            if (peer.ss_family == AF_INET) {
+                const auto& ipv4 = reinterpret_cast<const sockaddr_in&>(peer);
+                request.peerIsDirectPrivateLan =
+                    (ntohl(ipv4.sin_addr.s_addr) & 0xff000000U) != 0x7f000000U;
+            } else if (peer.ss_family == AF_INET6) {
+                const auto& ipv6 = reinterpret_cast<const sockaddr_in6&>(peer);
+                request.peerIsDirectPrivateLan =
+                    !IN6_IS_ADDR_LOOPBACK(&ipv6.sin6_addr);
+            }
+        }
+    }
+    request.deferArtworkPreview = true;
+    const auto handlerStarted = std::chrono::steady_clock::now();
+    HttpServerResponse response = server_.handleRequest(request);
+    reportSlowListenerPhase(
+        request.path.rfind("/api/agent/v1/", 0) == 0
+            ? "agent-handler" : "http-handler",
+        handlerStarted);
+    if (response.deferredArtworkPreview && isImageResponse(response)) {
+        auto transform = std::move(response.deferredArtworkPreview);
+        response.deferredArtworkPreview = {};
+        deferredImageResponse =
+            [authorized = std::move(response), transform = std::move(transform)]()
+                mutable -> std::string {
+                try {
+                    transform(authorized);
+                } catch (...) {
+                    // Preserve the original representation without publishing
+                    // an unvalidated actor-scoped HTTP cache entry.
+                    authorized.headers.erase("X-VDR-Suite-Artwork-Scope");
+                    authorized.headers.erase("ETag");
+                    authorized.headers.erase("Last-Modified");
+                    authorized.headers["Cache-Control"] = "no-store";
+                }
+                return serializeResponse(authorized, false);
+            };
+        imageResponse = true;
+        return true;
+    }
+    imageResponse = isImageResponse(response);
+    streamBodyPath = response.streamBodyPath;
+    deviceEvents = response.deviceEventSubscription;
+    browserEvents = response.browserEventSubscription;
+    rawResponse = serializeResponse(
+        response, !streamBodyPath.empty() || static_cast<bool>(deviceEvents) ||
+                  static_cast<bool>(browserEvents));
+    return true;
+}

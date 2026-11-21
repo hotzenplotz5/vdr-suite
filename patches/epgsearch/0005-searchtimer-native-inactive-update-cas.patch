@@ -1,0 +1,135 @@
+From: VDR-Suite S1 guarded SearchTimer rule update
+Subject: [PATCH 5/5] epgsearch: guarded UPDATE for inactive native search rules
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0004 in filename order
+
+Offer versioned Epgsearch-searchtimer-update-cas-v1.0 via cPlugin::Service.
+Parse the candidate separately and require its numeric ID and explicitly
+inactive useAsSearchTimer=0, then compare the immutable generation and
+revision under the native SearchExts mutex. Reject active rules, stale
+identities, unpersisted changes and invalid settings without writes.
+For a valid inactive update, mutate only under the same owner mutex
+and persist a newly minted revision. Safe-file failures are classified
+as outcome_unknown and never retried automatically.
+
+Native delete and complete SuiteBridge adapter/authorization/preview
+are not implemented. Do NOT advertise full CAS or enable Public-v1
+SearchTimer mutations based on this partial native capability.
+
+diff --git a/services.h b/services.h
+--- a/services.h
++++ b/services.h
+@@ -160,6 +160,32 @@
+     std::string resultingRevision;   // output on success
+ };
+ 
++// Native guarded UPDATE for inactive rules only. An UPDATE cannot
++// enable the search timer; callers must use the separate guarded TOGGLE.
++enum eEpgsearchNativeUpdateCasStatus {
++    enucsUnavailable = 0,
++    enucsApplied,
++    enucsInvalid,
++    enucsNotFound,
++    enucsStaleGeneration,
++    enucsStaleRevision,
++    enucsNotInactive,
++    enucsUnpersistedChange,
++    enucsOutcomeUnknown
++};
++
++struct Epgsearch_searchtimer_update_cas_v1_0 {
++    int nativeId;
++    std::string expectedGeneration;
++    std::string expectedRevision;
++    std::string settings;
++    eEpgsearchNativeUpdateCasStatus status;
++    bool atomicCompareAndWrite;
++    bool noWriteAttested;
++    std::string confirmedGeneration;
++    std::string resultingRevision;
++};
++
+ // Data structures for service "Epgsearch-services-v1.0"
+ class cServiceHandler
+ {
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -222,6 +222,77 @@
+ 
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
++    if (strcmp(Id, "Epgsearch-searchtimer-update-cas-v1.0") == 0) {
++        if (Data == NULL)
++            return true;
++        Epgsearch_searchtimer_update_cas_v1_0 *out =
++            (Epgsearch_searchtimer_update_cas_v1_0 *)Data;
++        out->status = enucsUnavailable;
++        out->atomicCompareAndWrite = false;
++        out->noWriteAttested = false;
++        out->confirmedGeneration.clear();
++        out->resultingRevision.clear();
++
++        // Parse into an unregistered candidate. Never run Parse() on the
++        // live rule before native identity/revision comparison.
++        cSearchExt candidate;
++        if (out->nativeId < 0 || out->settings.empty() ||
++            out->settings.size() > 8192U ||
++            !candidate.Parse(out->settings.c_str()) ||
++            candidate.ID != out->nativeId ||
++            candidate.useAsSearchTimer != 0) {
++            out->status = enucsInvalid;
++            return true;
++        }
++
++        {
++            cMutexLock SearchExtsLock(&SearchExts);
++            cSearchExt *rule = SearchExts.GetSearchFromID(out->nativeId);
++            out->atomicCompareAndWrite = true;
++            if (!rule) {
++                out->status = enucsNotFound;
++                out->noWriteAttested = true;
++            } else if (!rule->nativeGenerationDurable ||
++                       !rule->nativeRevisionDurable) {
++                out->status = enucsUnavailable;
++                out->noWriteAttested = true;
++            } else if (rule->nativeGeneration != out->expectedGeneration) {
++                out->status = enucsStaleGeneration;
++                out->noWriteAttested = true;
++            } else if (rule->nativeRevision != out->expectedRevision) {
++                out->status = enucsStaleRevision;
++                out->noWriteAttested = true;
++            } else if (rule->useAsSearchTimer != 0) {
++                out->status = enucsNotInactive;
++                out->noWriteAttested = true;
++            } else if (rule->lastPersistedText != rule->ToText()) {
++                out->status = enucsUnpersistedChange;
++                out->noWriteAttested = true;
++            } else {
++                // operator= copies epgsearch rule fields, not the native
++                // immutable generation/revision metadata.
++                cSearchExt backup;
++                backup = *rule;
++                const std::string oldRevision = rule->nativeRevision;
++                const std::string oldText = rule->lastPersistedText;
++                *rule = candidate;
++                rule->lastPersistedText.clear(); // consume a new revision
++                if (!SearchExts.Save()) {
++                    *rule = backup;
++                    rule->nativeRevision = oldRevision;
++                    rule->lastPersistedText = oldText;
++                    rule->nativeGenerationDurable = false;
++                    rule->nativeRevisionDurable = false;
++                    out->status = enucsOutcomeUnknown;
++                } else {
++                    out->status = enucsApplied;
++                    out->confirmedGeneration = rule->nativeGeneration;
++                    out->resultingRevision = rule->nativeRevision;
++                }
++            }
++        }
++        return true;
++    }
+     if (strcmp(Id, "Epgsearch-searchtimer-toggle-cas-v1.0") == 0) {
+         if (Data == NULL)
+             return true;

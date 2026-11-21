@@ -1,0 +1,129 @@
+# Packaging P1 — Package boundaries and platform test matrix
+
+Status: P1 package boundaries remain provisional. Full default Ubuntu 24.04
+(Seahawk VDR 2.8.3) builds, independent plugin, disposable install and
+experimental upgrade have passed [CI #112](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38932136305).
+The independent Resolute VDR 2.8.3/API 14 plugin-only package was
+subsequently verified on [CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893):
+**15/15 jobs SUCCESS**, including prior Noble builds, disposable P8 collision
+cases and P7 package lifecycle; code SHA
+`c957f0c0a6c6b21e152315da31152f572c1e59b8`.
+On [CI #123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320), the **full three-package Resolute build also passed** at exact code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`: separate daemon, Backend Agent and API-14 SuiteBridge `.deb` files, generated VDR ABI dependency, file manifests, P8 native `preinst` guards and unprivileged isolated build all PASS. This is **not** an installed Resolute package lifecycle, live VDR integration, or productive manual-install upgrade.
+
+## Binary packages (working names)
+
+| Package | Planned file ownership | Relationship |
+|---|---|---|
+| `vdr-suite-daemon` | daemon, bundled web UI/static assets, essential bootstrap/admin programs, daemon unit/manpages, required runtime configuration | Primary server runtime |
+| `vdr-plugin-suitebridge` | ABI-specific `libvdr-suitebridge.so.<VDR-APIVERSION>` and plugin-only documentation | Must depend on target VDR plugin ABI; cannot use portable architecture-independent package |
+| `vdr-suite-backend-agent` | agent binary/admin/enrollment helpers, unit, agent config and secure state directories | Optional only after startup/runtime audit proves standalone local mode |
+| `vdr-suite` | empty convenience metapackage only | Optional after install topology proven |
+
+Versioned software payload and generated web assets live in `/usr`; admin-owned configuration under `/etc/vdr-suite`; persistent state `/var/lib/vdr-suite`; cache `/var/cache/vdr-suite`. Never put secrets or generated databases into binary package contents.
+
+Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external ABI. Avoid hard dependency on TVScraper, hardware decode tools or FFmpeg where runtime pathways are truly optional; verify from code before freezing metadata.
+
+## Planned target matrix — NOT yet certified
+
+| Target | Priority | Build | Install | Plugin ABI | Real VDR | Upgrade |
+|---|---|---|---|---|---|---|
+| Ubuntu 24.04 LTS (noble), Seahawk VDR 2.8.3 | first | three binaries + plugin-only PASS CI #112 | disposable install/remove/purge PASS | `vdr-abi-2.8.3-0yavdr` generated and verified | real running VDR acceptance pending | synthetic `exp1→exp2` PASS, manual upgrade pending |
+| Ubuntu 26.04 LTS (resolute), Seahawk VDR 2.8.3 | first | **all three binary packages + plugin-only PASS CI #123**, exact VDR/API 14 | isolated install/lifecycle still pending; **no production install** | generated `vdr-abi-2.8.3-0yavdr`, packaged `.so.14`, P8 preinst verified | running VDR read paths observed separately; packaged runtime integration pending | real manual upgrade blocked |
+| Debian 13 | first | pending | pending | pending | pending | pending |
+| Debian 12 | compatibility | pending | pending | pending | pending | pending |
+| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | full three-binary exact-version CI #123 PASS; host install/build not performed | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` confirmed | `vdr.service` active, mapped `libvdr-suitebridge.so.14`; **SVDRP CAPS/SNAP and private CAPS read-path PASS**; negative peer auth and agent-mediated integration pending | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
+
+Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
+The 2026-10-16 yaVDR host observation confirms Ubuntu 26.04
+(`ID=ubuntu`, `VERSION_CODENAME=resolute`), amd64 and package-provided
+VDR API 14. The Ubuntu 24.04 Seahawk
+VDR 2.8.3 CI package build and lifecycle evidence in
+[CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400)
+does not certify this installed `~resolute` VDR build, even if the upstream
+VDR version is identical. Installed SuiteBridge filenames `.so.11`, `.so.14` and older
+backup-suffixed variants are conflicts needing separate review.
+A 2026-10-16 read-only `/proc/<VDR MainPID>/maps` inspection confirmed
+that the active VDR mapped `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`
+at the observed instant (PID 1757). This closes **loaded plugin identity** for that inspection.
+A subsequent non-mutating `/proc/1757/maps` device/inode cross-check
+against `stat` for the disk file returned
+`MAPPED_FILE_IDENTITY=PASS` (disk inode `1704446`, disk size
+`13523792` bytes, SHA-256
+`8158311f874f0e1b10620192eb3e35f6f62d10e7723571d33635e7ecc1858580`).
+The result establishes the mapped file's identity with the current disk
+file at inspection time; the SHA-256 was measured on disk, not from
+the mapped memory, and does **not** attest source commit or CI binary
+provenance. A subsequent read-only `ss -xlnpH` inspection confirmed that
+`/run/vdr/vdr-suite-control/control.sock` is a listening
+`SOCK_SEQPACKET` endpoint owned by the same VDR process (PID 1757,
+fd 28); parent directory `0700 vdr:vdr` and socket `0660 vdr:vdr`.
+That confirms the native control-plane listener and permission topology
+at inspection time. The maintainer's subsequent **passive journald query**
+for the same active VDR MainPID `1757` reported
+`CONTROL_PLANE_START_ACCEPTED=1`,
+`CONTROL_PLANE_START_REJECTED=0` and
+`PLUGIN_LIFECYCLE_START_ACCEPTED=1`
+(`START_LOG_EVIDENCE=PASS`). This verifies that SuiteBridge reported
+successful listener and lifecycle initialization in this boot.
+Another passive `journalctl` query for the same PID showed exactly one
+`suitebridge: capability schema=1` declaration each for
+`snapshots=available`, `local-contract=available`,
+`status-events=available`, and `mutations=disabled`
+(`CAPABILITY_START_EVIDENCE=PASS`). This confirms published startup capability declarations.
+The following **live, read-only protocol calls** were then performed
+against the running VDR PID 1757:
+
+- Local SVDRP (`127.0.0.1:6419`): `PLUG suitebridge CAPS 1` and
+  `PLUG suitebridge SNAP` returned expected reply code 900 and validated
+  schema/capabilities/snapshot counters (`SVDRP_CAPS=PASS`,
+  `SVDRP_SNAP=PASS`, `SUITEBRIDGE_READ_PROTOCOL=PASS`).
+- Private Unix `SOCK_SEQPACKET`: kernel `SO_PEERCRED` confirmed the
+  server peer PID/UID matched the active VDR and its account
+  (`CONTROL_PEER_IDENTITY=PASS`). Binary protocol v1 operation 8
+  (`CapabilityDiscovery`, InteractiveControlRead class, no payload)
+  returned a valid success response, discovery schemas and the four
+  expected capabilities (`PRIVATE_CAPS_PROTOCOL=PASS`,
+  `PRIVATE_CAPS_SCHEMA=PASS`,
+  `PRIVATE_CONTROL_PLANE_READ=PASS`).
+
+These confirmations close the **tested SVDRP CAPS/SNAP and private CAPS
+read paths** at inspection time, but not private peer-rejection negative
+cases, agent-mediated integration, full plugin coverage, mutation
+authorization, future restarts, upgrade/rollback or service recovery. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
+verified the Debian `.so.14` and automatically generated dependency
+`vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.
+Tested code SHA: `c957f0c0a6c6b21e152315da31152f572c1e59b8`.
+The plugin-only package in CI #118 was built in a disposable Ubuntu 26.04 container. **The later full daemon/agent/SuiteBridge three-package build passed in CI #123** at code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`. Neither result proves installed package lifecycle, packaged runtime operation, host deployment or real-manual-upgrade compatibility. If this exact VDR package is unavailable
+in a future build, Ubuntu's stock `vdr-dev` 2.6.9 must not be substituted.
+
+
+Source of the Ubuntu VDR version rows: [Ubuntu 24.04 vdr-dev](https://packages.ubuntu.com/noble/vdr-dev) and [Ubuntu VDR package-version search including 26.04](https://packages.ubuntu.com/vdr), checked 2026-10-14. The local yaVDR ABI is from a maintainer-supplied successful `dpkg-buildpackage -Pplugin-only` output, not the official Ubuntu package repository.
+
+## Delivery channels
+
+1. Locally built `.deb` plus source artifacts for early verification.
+2. Experimental **[Launchpad PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite)** identified by the maintainer (`ppa:hotzenplotz5/vdr-suite`). Upload not yet performed; source signing, clean Ubuntu builds, ownership/license and upgrade gates remain open.
+3. Stable APT publication, if desired, is separately gated after build/install/upgrade acceptance. Debian packages tested independently; Ubuntu PPA is not a substitute for Debian support.
+
+## Dependency and lifecycle requirements
+
+- Declare exact `Build-Depends` and generated shared library runtime dependencies.
+- Discover optional tools dynamically or declare Recommends/Suggests only where appropriate.
+- Model supported `vdr` ABI as a strict package dependency.
+- Make `debian/rules` reuse `DESTDIR` install logic and plugin make install.
+- Protect existing config/secrets and DBs, distinguish `remove` from `purge`.
+- Do not implicitly install/restart VDR/daemon on live yaVDR for testing.
+- Detect files already installed from sources before dpkg assumes ownership.
+- Test upgrades including service restart policy and plugin ABI transitions.
+
+## P1 exit gate
+
+- [x] Draft component/package boundaries.
+- [x] Initial candidate distro and Launchpad test matrix.
+- [ ] Verify backend-agent splitting with actual runtime behavior.
+- [ ] Finalize package ownership with generated install manifest.
+- [x] Identify official Ubuntu stock `vdr-dev` versions, host yaVDR ABI, independent API-14 SuiteBridge (CI #118) and full unprivileged three-package Resolute build (CI #123). End-to-end packaged runtime functionality and installer acceptance are pending.
+- [ ] Confirm support floor and matrix through clean builds.
+
+P1 remains **proposed** until these validation items pass.

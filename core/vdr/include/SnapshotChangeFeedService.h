@@ -1,0 +1,35 @@
+#ifndef SNAPSHOT_CHANGE_FEED_SERVICE_H
+#define SNAPSHOT_CHANGE_FEED_SERVICE_H
+
+#include "SnapshotChangeFeed.h"
+#include "SnapshotChangeFeedEntry.h"
+#include "VdrChangeEvent.h"
+
+#include <string>
+#include <vector>
+
+class SnapshotChangeFeedService {
+public:
+    SnapshotChangeFeedEntry createEntry(
+        int sequenceNumber,
+        int snapshotGeneration,
+        const std::vector<VdrChangeEvent>& changeEvents,
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
+
+    SnapshotChangeFeed createFeed(
+        int sequenceNumber,
+        int snapshotGeneration,
+        const std::vector<VdrChangeEvent>& changeEvents,
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
+
+    void appendChanges(
+        SnapshotChangeFeed& feed,
+        int snapshotGeneration,
+        const std::vector<VdrChangeEvent>& changeEvents,
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
+};
+
+#endif

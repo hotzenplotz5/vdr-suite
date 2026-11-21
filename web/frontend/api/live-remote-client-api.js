@@ -1,0 +1,1182 @@
+(function (global) {
+  'use strict';
+
+  const LOGIN_PATH = '/api/security/browser-sessions';
+  const LOGOUT_PATH = '/api/security/browser-sessions/logout';
+  const RESTORE_PATH = '/api/security/browser-sessions/current';
+  const FIRST_ADMIN_STATUS_PATH = '/api/security/first-admin/status';
+  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/claim';
+  const CSRF_HEADER = 'X-CSRF-Token';
+  const SECURITY_REASONS = Object.freeze({
+    authentication_required: true,
+    invalid_credentials: true,
+    credential_revoked: true,
+    credential_expired: true,
+    session_revoked: true,
+    session_expired: true,
+    csrf_validation_failed: true
+  });
+
+  let csrfToken = '';
+  let expiresAt = '';
+  let authenticated = false;
+  let lastReason = '';
+  let expiryTimer = null;
+  let restorePromise = null;
+  let sessionRevision = 0;
+  const listeners = [];
+
+  function languageIsEnglish() {
+    const document = global.document;
+    return Boolean(
+      document &&
+      document.documentElement &&
+      String(document.documentElement.lang || '').toLowerCase().startsWith('en')
+    );
+  }
+
+  function translated(german, english) {
+    return languageIsEnglish() ? english : german;
+  }
+
+  function securityMessage(reason) {
+    const messages = {
+      authentication_required: translated(
+        'Bitte mit dem zuvor festgelegten Benutzernamen und Passwort anmelden.',
+        'Please sign in with your previously created username and password.'
+      ),
+      invalid_credentials: translated(
+        'Die Anmeldung ist nicht mehr gültig. Bitte erneut anmelden.',
+        'The sign-in is no longer valid. Please sign in again.'
+      ),
+      credential_revoked: translated(
+        'Die Anmeldung wurde widerrufen. Bitte erneut anmelden.',
+        'The sign-in was revoked. Please sign in again.'
+      ),
+      credential_expired: translated(
+        'Die Anmeldung ist abgelaufen. Bitte erneut anmelden.',
+        'The sign-in expired. Please sign in again.'
+      ),
+      session_revoked: translated(
+        'Die Browser-Sitzung wurde widerrufen. Bitte erneut anmelden.',
+        'The browser session was revoked. Please sign in again.'
+      ),
+      session_expired: translated(
+        'Die Browser-Sitzung ist abgelaufen. Bitte erneut anmelden.',
+        'The browser session expired. Please sign in again.'
+      ),
+      csrf_validation_failed: translated(
+        'Die Sicherheitsbestätigung ist nicht mehr gültig. Bitte erneut anmelden.',
+        'The security confirmation is no longer valid. Please sign in again.'
+      )
+    };
+
+    return messages[reason] || '';
+  }
+
+  function snapshot() {
+    return Object.freeze({
+      authenticated: authenticated,
+      expiresAt: expiresAt,
+      reason: lastReason
+    });
+  }
+
+  function applyAuthenticationPresentation(sessionState) {
+    const body = global.document && global.document.body;
+    if (!body || !body.classList) {
+      return;
+    }
+
+    const active = Boolean(sessionState && sessionState.authenticated);
+    body.classList.toggle('vss-authenticated', active);
+    body.classList.toggle('vss-auth-required', !active);
+  }
+
+  function notify() {
+    const state = snapshot();
+    listeners.slice().forEach(function (listener) {
+      try {
+        listener(state);
+      } catch (error) {
+        if (global.console && typeof global.console.error === 'function') {
+          global.console.error(error);
+        }
+      }
+    });
+  }
+
+  function cancelExpiryTimer() {
+    if (expiryTimer !== null && typeof global.clearTimeout === 'function') {
+      global.clearTimeout(expiryTimer);
+    }
+    expiryTimer = null;
+  }
+
+  function clear(reason) {
+    if (authenticated && global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
+    sessionRevision += 1;
+    cancelExpiryTimer();
+    csrfToken = '';
+    expiresAt = '';
+    authenticated = false;
+    lastReason = reason || '';
+    notify();
+  }
+
+  function scheduleExpiry() {
+    cancelExpiryTimer();
+
+    if (!authenticated || !expiresAt || typeof global.setTimeout !== 'function') {
+      return;
+    }
+
+    const expiryEpoch = Date.parse(expiresAt);
+    if (!Number.isFinite(expiryEpoch)) {
+      return;
+    }
+
+    const delay = expiryEpoch - Date.now();
+    if (delay <= 0) {
+      clear('session_expired');
+      return;
+    }
+
+    expiryTimer = global.setTimeout(function () {
+      clear('session_expired');
+    }, Math.min(delay, 2147483647));
+  }
+
+  function subscribe(listener) {
+    if (typeof listener !== 'function') {
+      return function () {};
+    }
+
+    listeners.push(listener);
+    listener(snapshot());
+
+    return function () {
+      const index = listeners.indexOf(listener);
+      if (index >= 0) {
+        listeners.splice(index, 1);
+      }
+    };
+  }
+
+  function utf8Base64(value) {
+    if (typeof global.TextEncoder !== 'function' || typeof global.btoa !== 'function') {
+      throw new Error('UTF-8 Basic authentication encoding is unavailable');
+    }
+
+    const bytes = new global.TextEncoder().encode(value);
+    let binary = '';
+    const chunkSize = 8192;
+
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      const chunk = bytes.subarray(offset, offset + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+
+    return global.btoa(binary);
+  }
+
+  function parseResponse(response) {
+    return response.text().then(function (text) {
+      if (!text) {
+        return null;
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        return null;
+      }
+    });
+  }
+
+  function errorDetails(payload, fallback) {
+    if (payload && payload.error && typeof payload.error === 'object') {
+      return {
+        code: String(payload.error.code || ''),
+        message: String(payload.error.message || fallback)
+      };
+    }
+
+    if (payload && typeof payload === 'object') {
+      return {
+        code: String(payload.code || ''),
+        message: String(payload.message || fallback)
+      };
+    }
+
+    return {code: '', message: fallback};
+  }
+
+  function responseError(response, payload, fallback) {
+    const details = errorDetails(payload, fallback);
+    const messages = {
+      invalid_credentials: translated(
+        'Benutzername oder Passwort ist falsch.',
+        'Incorrect username or password.'
+      ),
+      authentication_required: translated(
+        'Bitte mit deinem Benutzernamen und Passwort anmelden.',
+        'Please sign in with your username and password.'
+      ),
+      credential_revoked: translated(
+        'Das Benutzerkonto ist nicht mehr aktiv.',
+        'This account is no longer active.'
+      ),
+      session_expired: translated(
+        'Die Sitzung ist abgelaufen. Bitte erneut anmelden.',
+        'The session has expired. Please sign in again.'
+      ),
+      lan_setup_only: translated(
+        'Die Ersteinrichtung ist nur im direkt verbundenen Heimnetz möglich.',
+        'First-time setup is only available from the directly connected home network.'
+      ),
+      server_already_claimed: translated(
+        'Ein Administrator existiert bereits. Bitte normal anmelden.',
+        'An administrator already exists. Please sign in.'
+      )
+    };
+    const safeMessage = messages[details.code] || (
+      fallback + (response.status ? ' (HTTP ' + response.status + ')' : '')
+    );
+    const error = new Error(safeMessage);
+    error.status = response.status;
+    error.code = details.code;
+    error.payload = payload;
+    return error;
+  }
+
+  function securityReason(payload) {
+    const details = errorDetails(payload, '');
+    return SECURITY_REASONS[details.code] ? details.code : '';
+  }
+
+  function acceptSessionPayload(payload, fallbackMessage) {
+    const nextCsrfToken = payload && String(payload.csrfToken || '');
+    const nextExpiresAt = payload && String(payload.expiresAt || '');
+
+    if (nextCsrfToken.length < 32 ||
+        nextCsrfToken.length > 256 ||
+        !nextExpiresAt) {
+      throw new Error(fallbackMessage);
+    }
+
+    csrfToken = nextCsrfToken;
+    expiresAt = nextExpiresAt;
+    authenticated = true;
+    lastReason = '';
+    scheduleExpiry();
+    notify();
+    return snapshot();
+  }
+
+  function inspectSecurityResponse(response) {
+    if (!response || (response.status !== 401 && response.status !== 403) ||
+        typeof response.clone !== 'function') {
+      return Promise.resolve(response);
+    }
+
+    let inspectionResponse;
+    try {
+      inspectionResponse = response.clone();
+    } catch (error) {
+      return Promise.resolve(response);
+    }
+
+    return parseResponse(inspectionResponse).then(function (payload) {
+      const reason = securityReason(payload);
+      if (reason) {
+        clear(reason);
+      }
+      return response;
+    }, function () {
+      return response;
+    });
+  }
+
+  function installFetchObserver() {
+    if (typeof global.fetch !== 'function' || global.fetch.__vdrSuiteSessionObserved) {
+      return;
+    }
+
+    const nativeFetch = global.fetch.bind(global);
+    const observedFetch = function (input, init) {
+      return nativeFetch(input, init).then(inspectSecurityResponse);
+    };
+    observedFetch.__vdrSuiteSessionObserved = true;
+    global.fetch = observedFetch;
+  }
+
+  // Recovery must actually contact the server, rather than take restore()'s
+  // authenticated-in-memory shortcut. Read-only; never install a new token
+  // or replay a mutation here. Normal bootstrap owns the resulting session.
+  function verifyConnection() {
+    return global.fetch(RESTORE_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (response.status === 401) return Boolean(securityReason(payload));
+        const token = payload && payload.csrfToken;
+        return Boolean(response.ok && typeof token === 'string' &&
+          token.length >= 32 && token.length <= 256 &&
+          typeof payload.expiresAt === 'string' && payload.expiresAt);
+      });
+    }).catch(function () { return false; });
+  }
+
+  function restore() {
+    if (authenticated && csrfToken) {
+      return Promise.resolve(snapshot());
+    }
+    if (restorePromise) {
+      return restorePromise;
+    }
+
+    const revision = sessionRevision;
+    restorePromise = global.fetch(RESTORE_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok) {
+          const details = errorDetails(
+            payload,
+            translated(
+              'Browser-Sitzung konnte nicht wiederhergestellt werden.',
+              'The browser session could not be restored.'
+            )
+          );
+          if (response.status === 401) {
+            if (revision === sessionRevision) {
+              clear(details.code || 'authentication_required');
+            }
+            return snapshot();
+          }
+          throw responseError(response, payload, details.message);
+        }
+
+        if (revision !== sessionRevision) {
+          return snapshot();
+        }
+
+        return acceptSessionPayload(
+          payload,
+          translated(
+            'Die wiederhergestellte Browser-Sitzung ist ungültig.',
+            'The restored browser session is invalid.'
+          )
+        );
+      });
+    }).finally(function () {
+      restorePromise = null;
+    });
+
+    return restorePromise;
+  }
+
+  function login(username, password) {
+    const normalizedUsername = String(username || '').trim();
+    let submittedPassword = String(password || '');
+
+    if (!normalizedUsername || !submittedPassword ||
+        normalizedUsername.includes(':') ||
+        normalizedUsername.length > 128 ||
+        submittedPassword.length > 1024) {
+      submittedPassword = '';
+      return Promise.reject(new Error(translated(
+        'Benutzername und Passwort sind erforderlich.',
+        'Username and password are required.'
+      )));
+    }
+
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
+    const revision = sessionRevision + 1;
+    sessionRevision = revision;
+    let authorization;
+    try {
+      authorization = 'Basic ' + utf8Base64(
+        normalizedUsername + ':' + submittedPassword
+      );
+    } finally {
+      submittedPassword = '';
+    }
+
+    return global.fetch(LOGIN_PATH, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: authorization
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      authorization = '';
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok) {
+          throw responseError(
+            response,
+            payload,
+            translated('Anmeldung fehlgeschlagen.', 'Sign-in failed.')
+          );
+        }
+        if (revision !== sessionRevision) {
+          return snapshot();
+        }
+
+        if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
+        return acceptSessionPayload(
+          payload,
+          translated(
+            'Die Anmeldung lieferte keine gültige Browser-Sitzung.',
+            'The sign-in did not return a valid browser session.'
+          )
+        );
+      });
+    }, function (error) {
+      authorization = '';
+      throw error;
+    });
+  }
+
+  function firstAdminStatus() {
+    return global.fetch(FIRST_ADMIN_STATUS_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok || !payload || typeof payload.unclaimed !== 'boolean') {
+          throw new Error(translated(
+            'Die Ersteinrichtung konnte nicht geprüft werden.',
+            'First-admin setup status could not be checked.'
+          ));
+        }
+        return payload.unclaimed;
+      });
+    });
+  }
+
+  function firstAdminClaim(fields) {
+    return global.fetch(FIRST_ADMIN_CLAIM_PATH, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(fields),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (response.status !== 201 || !payload || payload.status !== 'claimed') {
+          throw responseError(response, payload, translated(
+            'Administrator konnte nicht erstellt werden.',
+            'Could not create the first administrator.'
+          ));
+        }
+        return true;
+      });
+    });
+  }
+
+  function logout() {
+    if (!authenticated || !csrfToken) {
+      clear('logout');
+      return Promise.resolve(null);
+    }
+
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
+    sessionRevision += 1;
+    const submittedCsrf = csrfToken;
+    return global.fetch(LOGOUT_PATH, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        [CSRF_HEADER]: submittedCsrf
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok) {
+          throw responseError(
+            response,
+            payload,
+            translated('Abmeldung fehlgeschlagen.', 'Sign-out failed.')
+          );
+        }
+
+        clear('logout');
+        return null;
+      });
+    });
+  }
+
+  function csrfHeaders() {
+    if (!authenticated || !csrfToken) {
+      return {};
+    }
+
+    return {[CSRF_HEADER]: csrfToken};
+  }
+
+  function isAuthenticated() {
+    return authenticated;
+  }
+
+  function lastSecurityMessage() {
+    return securityMessage(lastReason);
+  }
+
+  function createElement(tag, className, text) {
+    const element = global.document.createElement(tag);
+    if (className) {
+      element.className = className;
+    }
+    if (text !== undefined) {
+      element.textContent = text;
+    }
+    return element;
+  }
+
+  function installStyles() {
+    if (!global.document || global.document.getElementById('vdr-suite-session-style')) {
+      return;
+    }
+
+    const style = createElement('style');
+    style.id = 'vdr-suite-session-style';
+    style.textContent =
+      '.vss-controls{display:flex;align-items:center;gap:.55rem;margin-left:auto}' +
+      '.vss-state{color:#94a3b8;font-size:.72rem;white-space:nowrap}' +
+      '.vss-button,.vss-submit,.vss-cancel{min-height:2.45rem;padding:.48rem .85rem;border:1px solid rgba(96,165,250,.42);border-radius:999px;background:rgba(15,23,42,.82);color:#e0f2fe;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}' +
+      '.vss-button.authenticated{border-color:rgba(52,211,153,.5);color:#a7f3d0}' +
+      '.vss-dialog{width:min(26rem,calc(100vw - 1.5rem));padding:0;border:0;border-radius:1rem;background:#07111f;color:#e5edf9;box-shadow:0 1.4rem 3.6rem rgba(0,0,0,.65)}' +
+      '.vss-dialog::backdrop{background:rgba(2,6,23,.82);backdrop-filter:blur(4px)}' +
+      '.vss-panel{display:grid;gap:.85rem;padding:1.1rem}' +
+      '.vss-panel h2{margin:0;color:#dbeafe;font-size:1.12rem}' +
+      '.vss-panel label{display:grid;gap:.32rem;color:#bfdbfe;font-size:.8rem;font-weight:700}' +
+      '.vss-panel input,.vss-panel textarea{box-sizing:border-box;width:100%;min-height:2.7rem;padding:.55rem .7rem;border:1px solid #334155;border-radius:.7rem;background:#020617;color:#f8fafc;font:inherit}' +
+      '.vss-password-wrap{position:relative}' +
+      '.vss-password-wrap input{padding-right:3rem}' +
+      '.vss-eye{position:absolute;right:.2rem;top:.2rem;min-width:2.3rem;height:2.3rem;border:0;background:transparent;color:#bfdbfe;cursor:pointer;font-size:1.15rem}' +
+      '.vss-password-hint{margin:.15rem 0 0;color:#fca5a5;font-size:.75rem}' +
+      '.vss-panel [hidden]{display:none!important}' +
+      '.vss-message{min-height:1.25rem;margin:0;color:#cbd5e1;font-size:.78rem;line-height:1.4}' +
+      '.vss-message.error{color:#fca5a5}' +
+      '.vss-actions{display:flex;justify-content:flex-end;gap:.55rem}' +
+      '.vss-submit{background:linear-gradient(145deg,#0c4a6e,#1e3a8a)}' +
+      '.vss-cancel{border-color:#475569;color:#cbd5e1}' +
+      'body.vss-auth-required>main{display:none!important}' +
+      'body.vss-auth-required{min-height:100vh}' +
+      '@media(max-width:760px){.vss-state{display:none}.vss-button{min-height:2.25rem;padding:.4rem .7rem}.app-header{flex-direction:row;align-items:center}.app-header-text{display:none}}';
+    global.document.head.appendChild(style);
+  }
+
+  function mountUi() {
+    if (!global.document || typeof global.document.querySelector !== 'function') {
+      return;
+    }
+
+    const header = global.document.querySelector('.app-header');
+    if (!header || global.document.getElementById('vdr-suite-session-button')) {
+      return;
+    }
+
+    installStyles();
+
+    const controls = createElement('div', 'vss-controls');
+    const state = createElement('span', 'vss-state');
+    state.setAttribute('aria-live', 'polite');
+    const button = createElement('button', 'vss-button');
+    button.id = 'vdr-suite-session-button';
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'dialog');
+    controls.append(state, button);
+    header.appendChild(controls);
+
+    const dialog = createElement('dialog', 'vss-dialog');
+    dialog.id = 'vdr-suite-session-dialog';
+    dialog.setAttribute('aria-labelledby', 'vdr-suite-session-title');
+
+    const form = createElement('form', 'vss-panel');
+    form.noValidate = true;
+    const title = createElement(
+      'h2',
+      '',
+      translated('Bei VDR-Suite anmelden', 'Sign in to VDR-Suite')
+    );
+    title.id = 'vdr-suite-session-title';
+
+    const usernameLabel = createElement(
+      'label',
+      '',
+      translated('Benutzername', 'Username')
+    );
+    const username = createElement('input');
+    username.type = 'text';
+    username.name = 'username';
+    username.autocomplete = 'username';
+    username.required = true;
+    username.maxLength = 128;
+    usernameLabel.appendChild(username);
+
+    const passwordLabel = createElement(
+      'label',
+      '',
+      translated('Passwort', 'Password')
+    );
+    const password = createElement('input');
+    password.type = 'password';
+    password.name = 'password';
+    password.autocomplete = 'current-password';
+    password.required = true;
+    password.maxLength = 1024;
+    const passwordWrap = createElement('div', 'vss-password-wrap');
+    passwordWrap.appendChild(password);
+    const passwordEye = createElement('button', 'vss-eye', '👁');
+    passwordEye.type = 'button';
+    passwordEye.setAttribute('aria-label', translated('Passwörter anzeigen', 'Show passwords'));
+    passwordEye.setAttribute('aria-pressed', 'false');
+    passwordEye.title = translated('Passwörter anzeigen', 'Show passwords');
+    passwordWrap.appendChild(passwordEye);
+    passwordLabel.appendChild(passwordWrap);
+
+    const displayNameLabel = createElement(
+      'label', '', translated('Anzeigename', 'Display name')
+    );
+    const displayName = createElement('input');
+    displayName.name = 'displayName';
+    displayName.type = 'text';
+    displayName.maxLength = 256;
+    displayName.autocomplete = 'off';
+    displayNameLabel.appendChild(displayName);
+
+    const confirmationLabel = createElement(
+      'label', '', translated('Passwort bestätigen', 'Confirm password')
+    );
+    const confirmation = createElement('input');
+    confirmation.name = 'confirmPassword';
+    confirmation.type = 'password';
+    confirmation.maxLength = 1024;
+    confirmation.autocomplete = 'new-password';
+    confirmationLabel.appendChild(confirmation);
+    const confirmHint = createElement('p', 'vss-password-hint', '');
+    confirmHint.setAttribute('aria-live', 'polite');
+    confirmationLabel.appendChild(confirmHint);
+
+    passwordEye.addEventListener('click', function () {
+      const visible = password.type === 'password';
+      password.type = visible ? 'text' : 'password';
+      confirmation.type = visible ? 'text' : 'password';
+      passwordEye.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      passwordEye.setAttribute('aria-label', translated(
+        visible ? 'Passwörter verbergen' : 'Passwörter anzeigen',
+        visible ? 'Hide passwords' : 'Show passwords'
+      ));
+      passwordEye.title = translated(
+        visible ? 'Passwörter verbergen' : 'Passwörter anzeigen',
+        visible ? 'Hide passwords' : 'Show passwords'
+      );
+    });
+
+    function validateConfirmation() {
+      const mismatch = confirmation.value.length > 0 &&
+        confirmation.value !== password.value;
+      const message = mismatch ? translated(
+        'Die Passwörter stimmen nicht überein.',
+        'The passwords do not match.'
+      ) : '';
+      confirmHint.textContent = message;
+      confirmHint.hidden = !message;
+      if (typeof confirmation.setCustomValidity === 'function') {
+        confirmation.setCustomValidity(message);
+      }
+      return !mismatch;
+    }
+    password.addEventListener('input', validateConfirmation);
+    confirmation.addEventListener('input', validateConfirmation);
+
+    const message = createElement('p', 'vss-message');
+    message.setAttribute('aria-live', 'assertive');
+
+    const actions = createElement('div', 'vss-actions');
+    const cancel = createElement(
+      'button',
+      'vss-cancel',
+      translated('Abbrechen', 'Cancel')
+    );
+    cancel.type = 'button';
+    const submit = createElement(
+      'button',
+      'vss-submit',
+      translated('Anmelden', 'Sign in')
+    );
+    submit.type = 'submit';
+    actions.append(cancel, submit);
+
+    form.append(title, usernameLabel, displayNameLabel, passwordLabel,
+      confirmationLabel, message, actions);
+    dialog.appendChild(form);
+    global.document.body.appendChild(dialog);
+
+    let setupMode = false;
+    let reloadAfterFirstAdmin = false;
+
+    function finishFirstAdminPresentation() {
+      // Claim changes server-wide bootstrap state. Re-enter the normal page
+      // bootstrap once, with the confirmed browser session already installed.
+      if (!reloadAfterFirstAdmin || !isAuthenticated()) return;
+      reloadAfterFirstAdmin = false;
+      if (global.location && typeof global.location.reload === 'function') {
+        global.location.reload();
+      }
+    }
+
+    function setSetupMode(value) {
+      setupMode = Boolean(value) && !isAuthenticated();
+      displayNameLabel.hidden = !setupMode;
+      confirmationLabel.hidden = !setupMode;
+      confirmHint.hidden = true;
+      confirmHint.textContent = '';
+      password.type = 'password';
+      confirmation.type = 'password';
+      passwordEye.setAttribute('aria-pressed', 'false');
+      password.autocomplete = setupMode ? 'new-password' : 'current-password';
+      title.textContent = setupMode
+        ? translated('VDR-Suite erstmalig einrichten', 'Set up VDR-Suite')
+        : translated('Bei VDR-Suite anmelden', 'Sign in to VDR-Suite');
+      submit.textContent = setupMode
+        ? translated('Administrator erstellen', 'Create administrator')
+        : translated('Anmelden', 'Sign in');
+      submit.disabled = false;
+      if (setupMode) {
+        message.textContent = '';
+        message.classList.remove('error');
+      }
+    }
+
+    function openLoginDialog() {
+      if (!setupMode) {
+        message.textContent = securityMessage(lastReason) || translated(
+          'Bitte mit deinem zuvor festgelegten Benutzernamen und Passwort anmelden.',
+          'Please sign in with the username and password you previously created.'
+        );
+        message.classList.toggle('error', Boolean(securityMessage(lastReason)));
+      }
+      if (!dialog.open) {
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else {
+          dialog.setAttribute('open', '');
+        }
+      }
+      username.focus();
+    }
+
+    let renderedAuthenticated = false;
+
+    function render(sessionState) {
+      const active = Boolean(sessionState && sessionState.authenticated);
+      const wasAuthenticated = renderedAuthenticated;
+      renderedAuthenticated = active;
+      button.classList.toggle('authenticated', active);
+      button.textContent = active
+        ? translated('Abmelden', 'Sign out')
+        : (setupMode
+          ? translated('Einrichten', 'Set up')
+          : translated('Anmelden', 'Sign in'));
+      if (active) setSetupMode(false);
+      state.textContent = active
+        ? translated('Angemeldet', 'Signed in')
+        : (securityMessage(sessionState && sessionState.reason) ||
+          translated('Nicht angemeldet', 'Not signed in'));
+      cancel.hidden = !active;
+      if (!active && wasAuthenticated) {
+        openLoginDialog();
+      }
+    }
+
+    subscribe(render);
+    restore().then(function (sessionState) {
+      if (!sessionState || !sessionState.authenticated) {
+        return firstAdminStatus().then(function (unclaimed) {
+          setSetupMode(unclaimed);
+          openLoginDialog();
+        }, function () {
+          // Fail closed on status errors: do not offer a first-admin claim.
+          setSetupMode(false);
+          openLoginDialog();
+        });
+      }
+      return null;
+    }).catch(function (error) {
+      message.classList.add('error');
+      message.textContent = String(error && error.message || error);
+      openLoginDialog();
+    });
+
+    dialog.addEventListener('cancel', function (event) {
+      if (!isAuthenticated() && event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+    });
+
+    cancel.addEventListener('click', function () {
+      password.value = '';
+      message.textContent = '';
+      message.classList.remove('error');
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.removeAttribute('open');
+      }
+    });
+
+    button.addEventListener('click', function () {
+      if (isAuthenticated()) {
+        button.disabled = true;
+        logout().catch(function (error) {
+          state.textContent = String(error && error.message || error);
+        }).finally(function () {
+          button.disabled = false;
+        });
+        return;
+      }
+
+      openLoginDialog();
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      submit.disabled = true;
+      cancel.disabled = true;
+      message.classList.remove('error');
+      message.textContent = translated('Anmeldung läuft …', 'Signing in …');
+
+      if (setupMode) {
+        const name = username.value.trim();
+        const submittedPassword = password.value;
+        const repeatedPassword = confirmation.value;
+        try {
+          if (!name || name.includes(':') || name.length > 128 ||
+              !displayName.value.trim() || displayName.value.trim().length > 256 ||
+              submittedPassword.length < 12 ||
+              submittedPassword !== repeatedPassword ||
+              !validateConfirmation()) {
+            throw new Error(translated(
+              'Bitte Namen und Passwort prüfen (mindestens 12 Zeichen, zweimal identisch).',
+              'Check names and password (at least 12 characters and confirmed).'
+            ));
+          }
+        } catch (error) {
+          message.classList.add('error');
+          message.textContent = error.message;
+          submit.disabled = false;
+          cancel.disabled = false;
+          return;
+        }
+        password.value = '';
+        confirmation.value = '';
+        validateConfirmation();
+        message.textContent = translated('Administrator wird eingerichtet …',
+          'Creating administrator …');
+        const claimPromise = firstAdminClaim({
+          loginName: name,
+          password: submittedPassword,
+          displayName: displayName.value.trim()
+        });
+        claimPromise.then(function () {
+          reloadAfterFirstAdmin = true;
+          setSetupMode(false);
+          return login(name, submittedPassword);
+        }).then(function () {
+          username.value = '';
+          displayName.value = '';
+          message.textContent = '';
+          if (typeof dialog.close === 'function') dialog.close();
+          else dialog.removeAttribute('open');
+          finishFirstAdminPresentation();
+        }).catch(function (error) {
+          message.classList.add('error');
+          message.textContent = String(error && error.message || error);
+          if (error && error.code === 'server_already_claimed') {
+            setSetupMode(false);
+          }
+        }).finally(function () {
+          cancel.disabled = false;
+          submit.disabled = false;
+        });
+        return;
+      }
+
+      const loginRequest = login(username.value, password.value);
+      password.value = '';
+
+      loginRequest.then(function () {
+        username.value = '';
+        message.textContent = '';
+        if (typeof dialog.close === 'function') {
+          dialog.close();
+        } else {
+          dialog.removeAttribute('open');
+        }
+        finishFirstAdminPresentation();
+      }).catch(function (error) {
+        password.value = '';
+        message.classList.add('error');
+        message.textContent = String(error && error.message || error);
+        password.focus();
+      }).finally(function () {
+        submit.disabled = false;
+        cancel.disabled = false;
+      });
+    });
+  }
+
+  installFetchObserver();
+
+  const sessionApi = Object.freeze({
+    login: login,
+    logout: logout,
+    restore: restore,
+    verifyConnection: verifyConnection,
+    clear: clear,
+    subscribe: subscribe,
+    snapshot: snapshot,
+    isAuthenticated: isAuthenticated,
+    csrfHeaders: csrfHeaders,
+    lastSecurityMessage: lastSecurityMessage
+  });
+
+  Object.defineProperty(global, 'VdrSuiteBrowserSession', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: sessionApi
+  });
+
+  subscribe(applyAuthenticationPresentation);
+
+  if (global.document) {
+    if (global.document.readyState === 'loading' &&
+        typeof global.document.addEventListener === 'function') {
+      global.document.addEventListener('DOMContentLoaded', mountUi, {once: true});
+    } else {
+      mountUi();
+    }
+  }
+
+  function startRestore() {
+    restore().catch(function (error) {
+      if (global.console && typeof global.console.warn === 'function') {
+        global.console.warn('VDR-Suite browser session restore failed', error);
+      }
+    });
+  }
+
+  startRestore();
+
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('pageshow', function (event) {
+      if (event && event.persisted && !isAuthenticated()) {
+        startRestore();
+      }
+    });
+  }
+
+  const base = global.VdrSuiteClientApi;
+  if (!base || typeof base.requestJson !== 'function') {
+    return;
+  }
+
+  function normalizeOptions(options) {
+    return options && typeof options === 'object' ? options : {};
+  }
+
+  function fetchClientRemoteAction(options) {
+    const value = normalizeOptions(options);
+    const payload = value.payload !== undefined ? value.payload : value.body;
+
+    if (!sessionApi.isAuthenticated()) {
+      return Promise.reject(new Error(
+        sessionApi.lastSecurityMessage() || translated(
+          'Bitte anmelden, um die Fernbedienung zu verwenden.',
+          'Please sign in to use the remote control.'
+        )
+      ));
+    }
+
+    const headers = Object.assign(
+      {'Content-Type': 'application/json'},
+      value.headers || {},
+      sessionApi.csrfHeaders()
+    );
+
+    return base.requestJson('/api/vdr/remote/actions', {
+      method: 'POST',
+      headers: headers,
+      body: payload && typeof payload === 'object' ? JSON.stringify(payload) : payload,
+      cache: value.cache || 'no-store',
+      credentials: value.credentials || 'same-origin'
+    }).catch(function (error) {
+      const message = sessionApi.lastSecurityMessage();
+      if (message) {
+        const securityError = new Error(message);
+        securityError.cause = error;
+        throw securityError;
+      }
+      throw error;
+    });
+  }
+
+  function fetchClientLiveOverlay(options) {
+    const value = normalizeOptions(options);
+    return base.requestJson('/api/vdr/live/overlay', {
+      query: {backend: value.backendId || 'default', _: String(Date.now())},
+      cache: value.cache || 'no-store',
+      credentials: value.credentials || 'same-origin'
+    });
+  }
+
+  // SSE.H2: one physical browser connection, with disposable per-rail
+  // subscriptions. Closing a rail must not disconnect the other rails.
+  let browserLiveConnection = null;
+  let browserLiveSessionToken = '';
+  const browserLiveClients = new Set();
+
+  function dispatchBrowserLive(type, event) {
+    const connection = global.VdrSuiteConnection;
+    if (connection && (type === 'open' || type === 'error')) {
+      try { connection.live(type); } catch (error) {}
+    }
+    // One cache observer per physical connection, before the existing owners
+    // schedule their authoritative readbacks. No additional EventSource.
+    const cache = global.VdrSuiteHomeCache;
+    if (cache && typeof cache.liveEvent === 'function') {
+      try {
+        if (cache.liveEvent(type, event) && type === 'update') {
+          type = 'resync';
+          event = {lastEventId: event.lastEventId, data: '{"reason":"client_cursor_gap"}'};
+        }
+      } catch (error) { /* Cache failure cannot interrupt online subscribers. */ }
+    }
+    Array.from(browserLiveClients).forEach(function (client) {
+      if (client.closed) return;
+      const handlers = (client.listeners[type] || []).slice();
+      handlers.forEach(function (handler) {
+        try { handler(event); } catch (error) {
+          if (global.console && global.console.error) global.console.error(error);
+        }
+      });
+      const property = type === 'open' ? client.onopen :
+        type === 'error' ? client.onerror : null;
+      if (typeof property === 'function') {
+        try { property(event); } catch (error) {
+          if (global.console && global.console.error) global.console.error(error);
+        }
+      }
+    });
+  }
+
+  function closeBrowserLiveConnection() {
+    if (browserLiveConnection) {
+      browserLiveConnection.close();
+      browserLiveConnection = null;
+      const cache = global.VdrSuiteHomeCache;
+      if (cache && typeof cache.liveEvent === 'function') {
+        try { cache.liveEvent('close', {}); } catch (error) {}
+      }
+    }
+  }
+
+  function openBrowserLiveConnection() {
+    if (browserLiveConnection || browserLiveClients.size === 0 ||
+        !sessionApi.isAuthenticated() ||
+        typeof global.EventSource !== 'function') return;
+    const source = new global.EventSource('/api/vdr/live', {withCredentials: true});
+    browserLiveConnection = source;
+    source.onopen = function (event) {
+      if (browserLiveConnection === source) dispatchBrowserLive('open', event);
+    };
+    source.onerror = function (event) {
+      if (browserLiveConnection === source) dispatchBrowserLive('error', event);
+    };
+    ['update', 'resync'].forEach(function (type) {
+      source.addEventListener(type, function (event) {
+        if (browserLiveConnection === source) dispatchBrowserLive(type, event);
+      });
+    });
+  }
+
+  function createClientLiveUpdateSource() {
+    if (typeof global.EventSource !== 'function' ||
+        !sessionApi.isAuthenticated()) return null;
+    const client = {
+      closed: false,
+      listeners: Object.create(null),
+      onopen: null,
+      onerror: null,
+      addEventListener: function (type, handler) {
+        if (this.closed || typeof handler !== 'function') return;
+        (this.listeners[type] ||= []).push(handler);
+      },
+      removeEventListener: function (type, handler) {
+        if (this.closed || !this.listeners[type]) return;
+        this.listeners[type] = this.listeners[type].filter(function (fn) {
+          return fn !== handler;
+        });
+      },
+      close: function () {
+        if (this.closed) return;
+        this.closed = true;
+        this.listeners = Object.create(null);
+        browserLiveClients.delete(this);
+        if (browserLiveClients.size === 0) closeBrowserLiveConnection();
+      }
+    };
+    browserLiveClients.add(client);
+    openBrowserLiveConnection();
+    return client;
+  }
+
+  sessionApi.subscribe(function (state) {
+    const token = state.authenticated ? csrfToken : '';
+    if (token !== browserLiveSessionToken) {
+      browserLiveSessionToken = token;
+      closeBrowserLiveConnection();
+      if (token && browserLiveClients.size > 0) {
+        // A changed authenticated session invalidates prior actor readbacks.
+        dispatchBrowserLive('resync', {data: '{"reason":"session_changed"}'});
+      }
+    }
+    if (token) openBrowserLiveConnection();
+  });
+
+  // Actor-owned Core Operation SSE; the EventSource reconnects itself.
+  function createClientOperationUpdateSource(operationId) {
+    if (typeof operationId !== 'string' ||
+        !/^op_[A-Za-z0-9_-]+$/.test(operationId) ||
+        typeof global.EventSource !== 'function') return null;
+    return new global.EventSource(
+      '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
+      {withCredentials: true});
+  }
+
+  global.VdrSuiteClientApi = Object.freeze(Object.assign({}, base, {
+    fetchClientRemoteAction: fetchClientRemoteAction,
+    fetchClientLiveOverlay: fetchClientLiveOverlay,
+    createClientLiveUpdateSource: createClientLiveUpdateSource,
+    createClientOperationUpdateSource: createClientOperationUpdateSource
+  }));
+}(window));

@@ -1,0 +1,712 @@
+#include "AccountabilityEventRepository.h"
+#include "Database.h"
+#include "DeviceCredentialAuthenticator.h"
+#include "DeviceCredentialVerifierRepository.h"
+#include "PersistentIdentityResolver.h"
+#include "SecurityHttpGate.h"
+#include "SecurityIdentityProvisioningRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
+
+#include <cassert>
+#include <crypt.h>
+#include <string>
+
+namespace
+{
+const std::string CredentialId = "credential_device_mu10d";
+const std::string ActorId = "actor_device_mu10d";
+const std::string DeviceId = "device_mu10d";
+const std::string Secret = "MU10D_0123456789abcdefghijklmnopqrstuvwxyzABCDE";
+
+class Fixture
+{
+public:
+    Fixture()
+        : accountability(database),
+          identity(database),
+          provisioning(database),
+          verifiers(database),
+          grants(database),
+          resolver(identity),
+          authenticator(verifiers, identity, grants),
+          gate(SecurityConfiguration{}, accountability,
+               &resolver, nullptr, nullptr, &authenticator)
+    {
+        assert(database.open(":memory:"));
+        assert(accountability.ensureSchema());
+        assert(identity.ensureSchema());
+        assert(verifiers.ensureSchema());
+        assert(grants.ensureSchema());
+        assert(provisioning.ensureTechnicalIdentity(
+            ActorId, ActorType::Service, "VIDAA TV",
+            DeviceId, "VIDAA TV", CredentialId, "device-app"));
+
+        crypt_data cryptState{};
+        const char* encoded = crypt_r(
+            Secret.c_str(), "$6$rounds=10000$mu10dtestsalt000$",
+            &cryptState);
+        assert(encoded != nullptr);
+        const std::string hash(encoded);
+        assert(database.execute("BEGIN IMMEDIATE;"));
+        assert(verifiers.insertInActiveTransaction(
+            CredentialId, DeviceId, hash));
+        assert(database.execute("COMMIT;"));
+    }
+
+    SecurityGateDecision evaluate(
+        const std::string& target = "/api/v1",
+        const std::string& authorization = "",
+        const std::string& pairingToken = "") const
+    {
+        HttpServerRequest request;
+        request.method = "GET";
+        request.path = target;
+        request.headers["X-Request-ID"] = "mu10d-auth-test";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        if (!pairingToken.empty())
+            request.headers["X-VDR-Suite-Pairing-Token"] = pairingToken;
+        return gate.evaluate(request);
+    }
+
+    SecurityGateDecision evaluatePlayback(
+        const std::string& backend,
+        const std::string& authorization = "",
+        bool stop = false) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = stop
+            ? "/api/v1/recording-playback-sessions/"
+              "ms_0123456789abcdef0123456789abcdef/stop"
+            : "/api/v1/recording-playback-sessions";
+        request.body = stop
+            ? "{\"operation\":\"stop\",\"backendId\":\"" + backend +
+              "\",\"sessionId\":\"ms_0123456789abcdef0123456789abcdef\"}"
+            : "{\"backendId\":\"" + backend +
+              "\",\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
+        request.headers["X-Request-ID"] = "mu10d-device-playback-admission";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
+    SecurityGateDecision evaluateLive(
+        const std::string& backend,
+        const std::string& authorization = "",
+        bool stop = false) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = stop
+            ? "/api/v1/live-playback-sessions/"
+              "ms_0123456789abcdef0123456789abcdef/stop"
+            : "/api/v1/live-playback-sessions";
+        request.body = stop
+            ? "{\"operation\":\"stop\",\"resourceKind\":\"live-channel\","
+              "\"backendId\":\"" + backend +
+              "\",\"sessionId\":\"ms_0123456789abcdef0123456789abcdef\"}"
+            : "{\"resourceKind\":\"live-channel\",\"backendId\":\"" +
+              backend + "\",\"channelId\":\"S19.2E-1-100\"}";
+        request.headers["X-Request-ID"] = "mu10d-device-live-admission";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
+    SecurityGateDecision evaluateSearchTimerCreate(
+        const std::string& backend,
+        const std::string& authorization = "") const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/search-timers?backend=" + backend;
+        request.body =
+            R"({"name":"Terra X","query":"Terra X","confirmed":true})";
+        request.headers["Content-Type"] = "application/json";
+        request.headers["X-Request-ID"] = "mu10d-public-create";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
+    SecurityGateDecision evaluateEpgTimerIntentCreate(
+        const std::string& backend,
+        const std::string& authorization = "") const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/epg/timer-intents";
+        request.body = "{\"backendId\":\"" + backend +
+            "\",\"channelId\":\"S19.2E-1-100\",\"eventId\":\"81234\"}";
+        request.headers["Content-Type"] = "application/json";
+        request.headers["If-Match"] = "\"vsr-epg\"";
+        request.headers["Idempotency-Key"] = "idem-native-epg-device";
+        request.headers["X-Request-ID"] = "mu10d-public-native-epg-create";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
+    SecurityGateDecision evaluateLegacySearchTimerPost(
+        const std::string& target) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = target;
+        request.body = R"({"name":"test","query":"test"})";
+        request.headers["Authorization"] = validAuthorization();
+        request.headers["Content-Type"] = "application/json";
+        request.headers["X-Request-ID"] = "mu10d-device-legacy-searchtimer";
+        return gate.evaluate(request);
+    }
+
+    std::string validAuthorization() const
+    {
+        return std::string(DeviceCredentialAuthenticator::Scheme) +
+            CredentialId + "." + Secret;
+    }
+
+    Database database;
+    AccountabilityEventRepository accountability;
+    SecurityIdentityRepository identity;
+    SecurityIdentityProvisioningRepository provisioning;
+    DeviceCredentialVerifierRepository verifiers;
+    SecurityPermissionGrantRepository grants;
+    PersistentIdentityResolver resolver;
+    DeviceCredentialAuthenticator authenticator;
+    SecurityHttpGate gate;
+};
+}
+
+int main()
+{
+    {
+        Fixture fixture;
+        const auto authorized = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(authorized.allowed);
+        assert(authorized.deviceAuthenticated);
+        assert(authorized.context.authenticated());
+        assert(authorized.context.actor.actorId == ActorId);
+        assert(authorized.context.actor.type == ActorType::Service);
+        assert(authorized.context.device.has_value());
+        assert(authorized.context.device->deviceId == DeviceId);
+        assert(authorized.context.credential.has_value());
+        assert(authorized.context.credential->credentialId == CredentialId);
+        assert(!authorized.context.session.has_value());
+        assert(authorized.context.grants.empty());
+        assert(authorized.context.permissionGrantResolution ==
+            PermissionGrantResolutionState::Resolved);
+
+        // Native Timer v1 retains the strict device-only exact-grant path.
+        auto nativeTimer = [&](const std::string& method,
+                               const std::string& backend)
+        {
+            HttpServerRequest request;
+            request.method = method;
+            request.path =
+                "/api/v1/native-timers/C-1-1051-10301:0:1792447200:2100:2145";
+            if (method == "POST")
+                request.path += "/modifications";
+            request.path += "?backendId=" + backend;
+            request.headers["Authorization"] = fixture.validAuthorization();
+            if (method == "POST")
+            {
+                request.body = R"({"kind":"toggle","enabled":false})";
+                request.headers["Content-Type"] = "application/json";
+            }
+            return fixture.gate.evaluate(request);
+        };
+        assert(nativeTimer("GET", "default").rejection.statusCode == 403);
+        assert(nativeTimer("POST", "default").rejection.statusCode == 403);
+        assert(nativeTimer("DELETE", "default").rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.view", "default"));
+        assert(nativeTimer("GET", "default").allowed);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.modify", "default"));
+        const auto deviceModify = nativeTimer("POST", "default");
+        assert(deviceModify.allowed);
+        assert(deviceModify.deviceAuthenticated);
+        assert(deviceModify.protectedMutation);
+        assert(!nativeTimer("POST", "foreign").allowed);
+        assert(!nativeTimer("DELETE", "default").allowed);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.delete", "default"));
+        const auto deviceDelete = nativeTimer("DELETE", "default");
+        assert(deviceDelete.allowed);
+        assert(deviceDelete.deviceAuthenticated);
+        assert(deviceDelete.protectedMutation);
+        assert(!nativeTimer("DELETE", "foreign").allowed);
+        assert(fixture.grants.revokeGrant(ActorId, "timers.view", "default"));
+        assert(fixture.grants.revokeGrant(ActorId, "timers.modify", "default"));
+        assert(fixture.grants.revokeGrant(ActorId, "timers.delete", "default"));
+
+        // Pairing authenticates identity; it does not grant Recording access.
+        const auto recordingsDenied = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(!recordingsDenied.allowed);
+        assert(recordingsDenied.rejection.statusCode == 403);
+
+        assert(fixture.grants.ensureGrant(
+            ActorId, "recordings.view", "default"));
+        const auto recordingsAllowed = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(recordingsAllowed.allowed);
+        assert(recordingsAllowed.deviceAuthenticated);
+        assert(recordingsAllowed.authorizedBackendIds ==
+            (std::vector<std::string>{"default"}));
+
+        // Even a hand-inserted permission must not grant access to
+        // pre-v1 non-idempotent SearchTimer mutations.
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.create", "default"));
+        for (const std::string& target : {
+                 std::string("/api/searchtimers"),
+                 std::string("/api/vdr/searchtimers"),
+                 std::string("/api/searchtimers/update"),
+                 std::string("/api/vdr/searchtimers/delete"),
+                 std::string("/api/searchtimers/execute")})
+        {
+            const auto legacy = fixture.evaluateLegacySearchTimerPost(target);
+            assert(!legacy.allowed);
+            // DeviceCredentialAuthenticator rejects pre-v1 paths at
+            // authentication, before route-specific authorization.
+            assert(legacy.rejection.statusCode == 401);
+            assert(!legacy.deviceAuthenticated);
+        }
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.create", "default"));
+
+        // Public CREATE is a separate Device-only and exact-backend grant.
+        const auto anonymousCreate =
+            fixture.evaluateSearchTimerCreate("default");
+        assert(!anonymousCreate.allowed);
+        assert(anonymousCreate.rejection.statusCode == 401);
+        const auto missingCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(!missingCreate.allowed);
+        assert(missingCreate.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId,"searchtimers.view","default"));
+        const auto viewNotCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(!viewNotCreate.allowed);
+        assert(viewNotCreate.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId,"searchtimers.create","default"));
+        const auto grantedCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(grantedCreate.allowed);
+        assert(grantedCreate.deviceAuthenticated);
+        assert(grantedCreate.protectedMutation);
+        assert(grantedCreate.authorizationDecision.permission ==
+            "searchtimers.create");
+        assert(grantedCreate.authorizationDecision.backendId == "default");
+        const auto wrongCreate = fixture.evaluateSearchTimerCreate(
+            "foreign",fixture.validAuthorization());
+        assert(!wrongCreate.allowed);
+        assert(wrongCreate.rejection.statusCode == 403);
+        const auto badCreate = fixture.evaluateSearchTimerCreate(
+            "../other",fixture.validAuthorization());
+        assert(!badCreate.allowed);
+        assert(badCreate.rejection.statusCode == 400);
+        assert(fixture.grants.revokeGrant(
+            ActorId,"searchtimers.create","default"));
+        assert(fixture.grants.revokeGrant(
+            ActorId,"searchtimers.view","default"));
+
+        // SearchTimer list is a different, independently granted read-only
+        // resource. Neither EPG, recordings nor TimerAssignment grants
+        // permit SearchTimer enumeration on the device.
+        const std::string searchPath =
+            "/api/v1/search-timers?backend=default&limit=30";
+        const auto searchDenied = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(!searchDenied.allowed);
+        assert(searchDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto searchGranted = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(searchGranted.allowed);
+        assert(searchGranted.deviceAuthenticated);
+        assert(searchGranted.context.actor.type == ActorType::Service);
+        assert(searchGranted.authorizationDecision.permission ==
+            "searchtimers.view");
+        assert(searchGranted.authorizationDecision.backendId == "default");
+        assert(searchGranted.authorizationDecision.action ==
+            "searchtimers.view");
+
+        // Saved rule detail shares searchtimers.view, but not the
+        // independent epg.view requirement of a programme preview.
+        const std::string savedDetail =
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001?backend=default";
+        const auto detailGranted = fixture.evaluate(
+            savedDetail, fixture.validAuthorization());
+        assert(detailGranted.allowed);
+        assert(detailGranted.deviceAuthenticated);
+        assert(detailGranted.authorizationDecision.permission ==
+            "searchtimers.view");
+        const auto detailWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001?backend=foreign",
+            fixture.validAuthorization());
+        assert(!detailWrongBackend.allowed);
+        assert(detailWrongBackend.rejection.statusCode == 403);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto detailRevoked = fixture.evaluate(
+            savedDetail, fixture.validAuthorization());
+        assert(!detailRevoked.allowed);
+        assert(detailRevoked.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.view", "default"));
+
+        // Saved SearchTimer EPG preview also needs the independent EPG
+        // permission. A SearchTimer list grant alone is insufficient.
+        const std::string savedPreview =
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001/preview?backend=default";
+        const auto previewMissingEpg = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewMissingEpg.allowed);
+        assert(previewMissingEpg.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "epg.view", "default"));
+        const auto previewAllowed = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(previewAllowed.allowed);
+        assert(previewAllowed.deviceAuthenticated);
+        assert(previewAllowed.authorizationDecision.permission ==
+            "searchtimers.view");
+        const auto previewWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001/preview?backend=foreign",
+            fixture.validAuthorization());
+        assert(!previewWrongBackend.allowed);
+        assert(previewWrongBackend.rejection.statusCode == 403);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "epg.view", "default"));
+        const auto previewRevokedEpg = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewRevokedEpg.allowed);
+        assert(previewRevokedEpg.rejection.statusCode == 403);
+        // Live-TV on the same backend already includes EPG, including
+        // the SearchTimer match preview. SearchTimer view stays separate.
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.live.play", "default"));
+        const auto previewWithLive = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(previewWithLive.allowed);
+        assert(previewWithLive.deviceAuthenticated);
+        assert(previewWithLive.authorizationDecision.permission ==
+            "searchtimers.view");
+        assert(fixture.grants.revokeGrant(
+            ActorId, "media.live.play", "default"));
+        const auto previewNoLive = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewNoLive.allowed);
+        assert(previewNoLive.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "epg.view", "default"));
+
+        const auto searchWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers?backend=foreign",
+            fixture.validAuthorization());
+        assert(!searchWrongBackend.allowed);
+        assert(searchWrongBackend.rejection.statusCode == 403);
+        const auto searchInvalidBackend = fixture.evaluate(
+            "/api/v1/search-timers?backend=../private",
+            fixture.validAuthorization());
+        assert(!searchInvalidBackend.allowed);
+        assert(searchInvalidBackend.rejection.statusCode == 400);
+        const auto searchMissingBackend = fixture.evaluate(
+            "/api/v1/search-timers", fixture.validAuthorization());
+        assert(!searchMissingBackend.allowed);
+        assert(searchMissingBackend.rejection.statusCode == 400);
+        const auto searchAnonymous = fixture.evaluate(searchPath);
+        assert(!searchAnonymous.allowed);
+        assert(searchAnonymous.rejection.statusCode == 401);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto searchRevoked = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(!searchRevoked.allowed);
+        assert(searchRevoked.rejection.statusCode == 403);
+
+        // Device recording session control requires its own play grant.
+        // recordings.view alone is not sufficient and wrong backends fail.
+        const auto playbackDenied = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization());
+        assert(!playbackDenied.allowed);
+        assert(playbackDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.recording.play", "default"));
+        const auto playbackAllowed = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization());
+        assert(playbackAllowed.allowed);
+        assert(playbackAllowed.deviceAuthenticated);
+        assert(playbackAllowed.protectedMutation);
+        assert(playbackAllowed.context.device.has_value());
+        assert(playbackAllowed.context.credential.has_value());
+        assert(playbackAllowed.authorizationDecision.backendId == "default");
+        assert(playbackAllowed.authorizationDecision.permission ==
+            "media.recording.play");
+        const auto stopAllowed = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization(), true);
+        assert(stopAllowed.allowed);
+        assert(stopAllowed.deviceAuthenticated);
+        assert(stopAllowed.protectedMutation);
+        assert(stopAllowed.authorizationDecision.permission ==
+            "media.recording.play");
+        // Status GET is a Device-only Public-v1 read, not an unversioned
+        // browser or cookie-based session inspection shortcut.
+        const std::string statusPath =
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef";
+        const auto readAllowed = fixture.evaluate(
+            statusPath, fixture.validAuthorization());
+        assert(readAllowed.allowed);
+        assert(readAllowed.deviceAuthenticated);
+        const auto readAnonymous = fixture.evaluate(statusPath);
+        assert(!readAnonymous.allowed);
+        assert(readAnonymous.rejection.statusCode == 401);
+        const auto readWithPairingToken = fixture.evaluate(
+            statusPath, "", Secret);
+        assert(!readWithPairingToken.allowed);
+        assert(readWithPairingToken.rejection.statusCode == 401);
+
+        const auto stopWrongBackend = fixture.evaluatePlayback(
+            "foreign", fixture.validAuthorization(), true);
+        assert(!stopWrongBackend.allowed);
+        assert(stopWrongBackend.rejection.statusCode == 403);
+        const auto stopAnonymous = fixture.evaluatePlayback("default", "", true);
+        assert(!stopAnonymous.allowed);
+        assert(stopAnonymous.rejection.statusCode == 401);
+
+        const auto playbackWrongBackend = fixture.evaluatePlayback(
+            "foreign", fixture.validAuthorization());
+        assert(!playbackWrongBackend.allowed);
+        assert(playbackWrongBackend.rejection.statusCode == 403);
+        const auto playbackAnonymous = fixture.evaluatePlayback("default");
+        assert(!playbackAnonymous.allowed);
+        assert(playbackAnonymous.rejection.statusCode == 401);
+        const auto playbackInvalidBackend = fixture.evaluatePlayback(
+            "../private", fixture.validAuthorization());
+        assert(!playbackInvalidBackend.allowed);
+        assert(playbackInvalidBackend.rejection.statusCode == 400);
+
+        // Live control has a separate play grant: recording playback
+        // permission never grants live tuner ownership implicitly.
+        const auto liveDenied = fixture.evaluateLive(
+            "default", fixture.validAuthorization());
+        assert(!liveDenied.allowed);
+        assert(liveDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.live.play", "default"));
+        const auto liveAllowed = fixture.evaluateLive(
+            "default", fixture.validAuthorization());
+        assert(liveAllowed.allowed);
+        assert(liveAllowed.deviceAuthenticated);
+        assert(liveAllowed.protectedMutation);
+        assert(liveAllowed.authorizationDecision.permission == "media.live.play");
+        const auto liveStop = fixture.evaluateLive(
+            "default", fixture.validAuthorization(), true);
+        assert(liveStop.allowed);
+        assert(liveStop.protectedMutation);
+        const auto liveScopeDenied = fixture.evaluateLive(
+            "foreign", fixture.validAuthorization());
+        assert(!liveScopeDenied.allowed);
+        assert(liveScopeDenied.rejection.statusCode == 403);
+        const auto liveAnonymous = fixture.evaluateLive("default");
+        assert(!liveAnonymous.allowed);
+        assert(liveAnonymous.rejection.statusCode == 401);
+        const auto liveStatus = fixture.evaluate(
+            "/api/v1/live-playback-sessions/ms_0123456789abcdef0123456789abcdef",
+            fixture.validAuthorization());
+        assert(liveStatus.allowed);
+        const auto liveStatusAnonymous = fixture.evaluate(
+            "/api/v1/live-playback-sessions/ms_0123456789abcdef0123456789abcdef");
+        assert(!liveStatusAnonymous.allowed);
+        assert(liveStatusAnonymous.rejection.statusCode == 401);
+
+        // Device credentials must not authenticate legacy, unversioned
+        // endpoints (which have a different authorization contract).
+        const auto legacy = fixture.evaluate(
+            "/api/vdr/backends", fixture.validAuthorization());
+        assert(!legacy.allowed);
+        assert(legacy.rejection.statusCode == 401);
+
+        // Successful identity proof gives no administrative authorization.
+        const auto denied = fixture.evaluate(
+            "/api/v1/device-pairings", fixture.validAuthorization());
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.rejection.body.find(Secret) == std::string::npos);
+        assert(denied.rejection.body.find(CredentialId) == std::string::npos);
+
+        // The device cannot administer its own grant set merely by
+        // proving possession of the credential that receives the grants.
+        const auto selfAdmin = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/grants",
+            fixture.validAuthorization());
+        assert(!selfAdmin.allowed);
+        assert(selfAdmin.rejection.statusCode == 403);
+
+        // Possession of a device credential cannot revoke itself or a
+        // sibling credential; these routes are administrator-only.
+        const auto selfLifecycle = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/lifecycle",
+            fixture.validAuthorization());
+        assert(!selfLifecycle.allowed);
+        assert(selfLifecycle.rejection.statusCode == 403);
+        const auto selfCredentialLifecycle = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/credentials/" +
+                CredentialId + "/lifecycle",
+            fixture.validAuthorization());
+        assert(!selfCredentialLifecycle.allowed);
+        assert(selfCredentialLifecycle.rejection.statusCode == 403);
+
+        // The bootstrap pairing token cannot authenticate a device.
+        const auto pairing = fixture.evaluate(
+            "/api/v1/device-pairings", "", Secret);
+        assert(!pairing.allowed);
+        assert(pairing.rejection.statusCode == 401);
+
+        const auto badSecret = fixture.evaluate(
+            "/api/v1", std::string(DeviceCredentialAuthenticator::Scheme) +
+            CredentialId + ".AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        assert(!badSecret.allowed);
+        assert(badSecret.rejection.statusCode == 401);
+        assert(badSecret.rejection.body.find(Secret) == std::string::npos);
+        assert(!badSecret.context.authenticated());
+
+        const auto noSuchCredential = fixture.evaluate(
+            "/api/v1", std::string(DeviceCredentialAuthenticator::Scheme) +
+            "other-credential." + Secret);
+        assert(!noSuchCredential.allowed);
+        assert(noSuchCredential.rejection.statusCode == 401);
+
+        const auto malformed = fixture.evaluate(
+            "/api/v1", std::string(DeviceCredentialAuthenticator::Scheme) +
+            CredentialId + ".abc.");
+        assert(!malformed.allowed);
+        assert(malformed.rejection.statusCode == 401);
+
+        const auto missingSecret = fixture.evaluate(
+            "/api/v1", std::string(DeviceCredentialAuthenticator::Scheme) +
+            CredentialId + ".");
+        assert(!missingSecret.allowed);
+        assert(missingSecret.rejection.statusCode == 401);
+
+        const auto anonymous = fixture.evaluate();
+        assert(anonymous.allowed);
+        assert(!anonymous.context.authenticated());
+
+        // A valid cryptographic secret must not bypass the canonical
+        // credential expiry checks.
+        assert(fixture.identity.setCredentialExpiry(
+            CredentialId, "2000-01-01 00:00:00"));
+        const auto expired = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!expired.allowed);
+        assert(expired.rejection.statusCode == 401);
+        assert(expired.context.authenticationState ==
+            AuthenticationState::Expired);
+    }
+
+    {
+        Fixture fixture;
+        // A verifier-only row cannot authorize a different service actor.
+        assert(fixture.provisioning.ensureTechnicalIdentity(
+            "another-mu10d-actor", ActorType::Service, "Another device",
+            "another-mu10d-device", "Another device",
+            "another-mu10d-credential", "device-app"));
+        assert(fixture.database.execute(
+            "UPDATE security_device_credential_verifiers "
+            "SET device_id = 'another-mu10d-device' "
+            "WHERE credential_id = 'credential_device_mu10d';"));
+        const auto mismatched = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!mismatched.allowed);
+        assert(mismatched.rejection.statusCode == 401);
+    }
+
+    {
+        Fixture fixture;
+        // No permission persistence means no successful device login.
+        assert(fixture.database.execute(
+            "DROP TABLE security_actor_permission_grants;"));
+        const auto unavailable = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!unavailable.allowed);
+        assert(unavailable.rejection.statusCode == 503);
+    }
+
+    {
+        Fixture fixture;
+        assert(fixture.identity.revokeCredential(CredentialId));
+        const auto revoked = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!revoked.allowed);
+        assert(revoked.rejection.statusCode == 401);
+        assert(revoked.context.authenticationState ==
+            AuthenticationState::Revoked);
+    }
+
+    // The normal paired Device security path must accept a concrete
+    // timers.create grant, reject a foreign backend, and revoke cleanly.
+    {
+        Fixture fixture;
+        const auto anonymous = fixture.evaluateEpgTimerIntentCreate("default");
+        assert(!anonymous.allowed);
+        assert(anonymous.rejection.statusCode == 401);
+        const auto withoutGrant = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(!withoutGrant.allowed);
+        assert(withoutGrant.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.create", "default"));
+        const auto admitted = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(admitted.allowed);
+        assert(admitted.protectedMutation);
+        assert(admitted.deviceAuthenticated);
+        assert(admitted.authorizationDecision.permission == "timers.create");
+        assert(admitted.authorizationDecision.backendId == "default");
+        const auto foreign = fixture.evaluateEpgTimerIntentCreate(
+            "other", fixture.validAuthorization());
+        assert(!foreign.allowed);
+        assert(foreign.rejection.statusCode == 403);
+        const auto malformed = fixture.evaluateEpgTimerIntentCreate(
+            "../bad", fixture.validAuthorization());
+        assert(!malformed.allowed);
+        assert(malformed.rejection.statusCode == 400);
+        assert(fixture.grants.revokeGrant(ActorId, "timers.create", "default"));
+        const auto afterRevocation = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(!afterRevocation.allowed);
+        assert(afterRevocation.rejection.statusCode == 403);
+    }
+
+    {
+        Fixture fixture;
+        assert(fixture.identity.revokeDevice(DeviceId));
+        const auto revoked = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!revoked.allowed);
+        assert(revoked.rejection.statusCode == 401);
+    }
+
+    {
+        Fixture fixture;
+        assert(fixture.identity.revokeActor(ActorId));
+        const auto revoked = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!revoked.allowed);
+        assert(revoked.rejection.statusCode == 401);
+    }
+    return 0;
+}

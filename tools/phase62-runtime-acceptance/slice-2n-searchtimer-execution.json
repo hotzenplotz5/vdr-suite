@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2n-searchtimer-execution",
+  "title": "Phase 62 Slice 2N SearchTimer Execution",
+  "permission": "searchtimers.execute",
+  "action": "searchtimers.execute",
+  "backendId": "default",
+  "alternateBackendId": "phase62-slice2n-other",
+  "routes": [
+    "/api/searchtimers/execute",
+    "/api/vdr/searchtimers/execute",
+    "/api/searchtimers/real-test",
+    "/api/vdr/searchtimers/real-test"
+  ],
+  "querySuffix": "?source=browser",
+  "safeBody": {},
+  "expectedValidation": {
+    "status": 200,
+    "json": {
+      "success": false,
+      "executed": false,
+      "blocked": true,
+      "dispatchStage": "validation-blocked",
+      "operation": "unknown",
+      "message": "workflow plan is not executable",
+      "errors": [
+        "workflow plan is not executable"
+      ]
+    }
+  },
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/searchtimers?backend=default&limit=1000&offset=0"
+  }
+}
