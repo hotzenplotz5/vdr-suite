@@ -2747,28 +2747,35 @@ function renderEpgTimeView(channelData, eventData) {
   modeRow.appendChild(nextView);
   header.appendChild(modeRow);
 
-  const pager = document.createElement('div');
-  pager.className = 'epg-pager';
+  // Both navigation rows own the same page transition; the second row
+  // avoids scrolling back across fifteen programme cards on mobile.
+  const createEpgChannelPager = (atBottom = false) => {
+    const pager = document.createElement('div');
+    pager.className = 'epg-pager';
+    if (atBottom) pager.classList.add('epg-pager-bottom');
+    pager.hidden = channels.length <= limit;
 
-  const previous = document.createElement('button');
-  previous.type = 'button';
-  previous.textContent = '← Vorherige Sender';
-  previous.disabled = epgChannelOffset <= 0;
-  previous.addEventListener('click', () => {
-    moveEpgChannelWindow(-limit);
-  });
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.textContent = '← Vorherige Sender';
+    previous.disabled = epgChannelOffset <= 0;
+    previous.addEventListener('click', () => {
+      moveEpgChannelWindow(-limit);
+    });
 
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.textContent = 'Nächste Sender →';
-  next.disabled = epgChannelOffset + limit >= channels.length;
-  next.addEventListener('click', () => {
-    moveEpgChannelWindow(limit);
-  });
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.textContent = 'Nächste Sender →';
+    next.disabled = epgChannelOffset + limit >= channels.length;
+    next.addEventListener('click', () => {
+      moveEpgChannelWindow(limit);
+    });
 
-  pager.appendChild(previous);
-  pager.appendChild(next);
-  header.appendChild(pager);
+    pager.appendChild(previous);
+    pager.appendChild(next);
+    return pager;
+  };
+  header.appendChild(createEpgChannelPager());
 
   const timePager = document.createElement('div');
   timePager.className = 'epg-time-window-pager';
@@ -2816,6 +2823,7 @@ function renderEpgTimeView(channelData, eventData) {
       verticalWindow: true
     });
     list.appendChild(programGrid);
+    if (channels.length > limit) list.appendChild(createEpgChannelPager(true));
     renderEpgWorkbench(list, channelData, eventData);
     return;
   }
@@ -2823,6 +2831,7 @@ function renderEpgTimeView(channelData, eventData) {
   if (epgProgramView === 'vertical' || epgTimeAxisMode === 'vertical') {
     const verticalGrid = createEpgVerticalTimeGrid(visibleChannels, visibleEventIndex, bounds, nowSeconds);
     list.appendChild(verticalGrid);
+    if (channels.length > limit) list.appendChild(createEpgChannelPager(true));
     renderEpgWorkbench(list, channelData, eventData);
     return;
   }
@@ -2914,6 +2923,7 @@ function renderEpgTimeView(channelData, eventData) {
   });
 
   list.appendChild(grid);
+  if (channels.length > limit) list.appendChild(createEpgChannelPager(true));
   renderEpgWorkbench(list, channelData, eventData);
 }
 
