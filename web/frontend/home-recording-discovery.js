@@ -175,6 +175,11 @@
   function recordingPosterUrl(recording) {
     const meta = metadata(recording);
     const artwork = meta.artwork && typeof meta.artwork === 'object' ? meta.artwork : {};
+    const native = recording && (recording.nativeMetadata || recording.nativeCardMetadata);
+    // A settled negative native read is evidence that a synthetic preferred
+    // URL cannot resolve. Preserve cached legacy artwork and unknown states.
+    if (native && native.available === false && native.settled === true &&
+        artwork.available !== true) return '';
     return text(presentation(recording).posterUrl || artwork.preferredUrl);
   }
 
