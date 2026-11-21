@@ -580,11 +580,11 @@
     const artwork = target || doc.createElement('div');
     artwork.textContent = '';
     artwork.className = 'media-home-discovery-artwork';
-    const title = recordingTitle(recording);
     function showNoArtwork() {
       artwork.className = 'media-home-discovery-artwork no-artwork';
       artwork.textContent = 'No Artwork';
     }
+    const title = recordingTitle(recording);
     const poster = recordingPosterUrl(recording);
     if (!poster) {
       showNoArtwork();
@@ -594,7 +594,7 @@
     const helpers = global.VdrSuiteFrontendHelpers;
     const preview = helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
       ? helpers.homeArtworkPreviewUrl(poster) : poster;
-    image.alt = '';
+    image.alt = 'Poster zu ' + title;
     image.loading = 'lazy';
     image.decoding = 'async';
     const url = publicPath(preview);

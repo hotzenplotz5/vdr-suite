@@ -1686,3 +1686,649 @@ EPG- und Direkt-Artwork, Partitionwechsel und Logout. Browsermessung
 einschliesslich F5-Neustart bleibt als Laufzeitabnahme offen; diese
 Vereinfachung allein garantiert noch keine sofortige Bilddekodierung
 im DOM oder Treffer fuer bislang nicht gecachte Cover.
+
+## PWA.15.14 — Lookahead-Slots bei sichtbarem Artwork freigeben (2026-11-21)
+
+Die vorhandene Home-Priorisierung beschraenkt den spekulativen Artwork-Vorlauf
+auf maximal sechs gleichzeitig offene Bilder (maximal vier neue je Frame).
+Bei schnellen horizontalen Scrollbewegungen blieb ein aus dem Vorlauf in den
+sichtbaren Ausschnitt bewegtes Bild jedoch bis zu seinem `load`-/`error`-Event
+im Set `activeArtworkPrefetch`. Solange dessen Request noch lief, belegte
+es faelschlich weiterhin einen der sechs *spekulativen* Plaetze. Damit
+wurde das Voraussenden der naechsten Cover ausgebremst, obwohl die
+zuvor vorabgerufenen Bilder inzwischen echte sichtbare Nachfrage waren.
+
+Fix: Nach der bestehenden sichtbaren Rail-/Viewport-Ermittlung werden
+die jetzt sichtbaren Bilder aus der spekulativen Slot-Buchhaltung entfernt.
+Angefangene URLs, HTTP-Requests und Bildknoten bleiben unveraendert;
+neue Vorabrufe benutzen weiterhin denselben Rail-/rAF-Koordinator,
+vorhandene fetchPriority-/IntersectionObserver-Logik und dieselben Grenzen
+fuer *noch nicht sichtbare* spekulative Bilder. Kein neuer Request-Pfad,
+kein Cache-Clear, keine Aenderung an Service Worker, Grant-Partition,
+Preview-Cache, Daemon oder Metadatenzuordnung.
+
+Die produktionsnahe Regression `test_home_artwork_priority.js` reproduziert
+eine schnelle Scrollbewegung, waehrend niedriger priorisierte Vorabrufe
+noch nicht fertig sind. Vor dem Fix startete im Szenario nur ein neuer
+Offscreen-Vorabruf; danach vier. Sie prueft auch, dass die bereits
+gestarteten URLs nicht erneut zugewiesen werden. Das belegt den
+Frontend-Slot-Fehler, **nicht** die Ursache der gemessenen bis 11,243 s
+HTTP-Wartezeit. Browser-/Netzwerk-Queue, Service-Worker-Laufzeit und
+Server-Timing lassen sich aus den vorliegenden zusammengefassten Werten
+nicht eindeutig auseinanderhalten. PWA.15.12 und PWA.15.13 bleiben
+unveraendert. Echte Browser-/yaVDR-Abnahme und die Wirkung auf graue
+Kacheln stehen separat aus; die Interna der als Vergleich genannten
+IPTVnator-App sind nicht verifiziert.
+
+## PWA.15.15 — Scrollgeschwindigkeit und gestuftes Lookahead (2026-11-21)
+
+Die Browser-Abnahme von PWA.15.14 bestaetigt den installierten Frontend-Stand
+und den persistenten Cache (im zweiten Lauf 37 lokale Artwork-Treffer).
+Die scrollbezogene Bereitschaft der Cover bleibt bei etwa 46 Prozent;
+nicht fertige Cover benoetigten beim zweiten Lauf im Mittel noch 531 ms.
+Unterschiedliche Scrollwege verbieten einen kausalen Vergleich der beiden
+Messungen. Der aktuelle Frontend-Code erkannte schnelle Bewegung nur dann,
+wenn **ein einzelner** Scrollschritt mindestens eine halbe Rail-Breite
+erreichte. Gleichmaessige Touchpad-/Touch-Wischbewegungen mit vielen kleinen
+Schritten wurden deshalb nicht als schnell erkannt.
+
+Der vorhandene Rail-/rAF-Koordinator betrachtet nun neben grossen
+Scrollschritten auch die gemessene Bewegung pro Zeitintervall. Ab 1 Pixel
+pro Millisekunde in einem maximal 250-ms-Beobachtungsabstand gilt ein
+Scrollschritt als schnell. Ohne Scrollbewegung bleibt der kalte Vorlauf
+auf 1,5 sichtbare Rail-Breiten begrenzt; nach normalem Scrollen werden
+zwei Breiten und bei schnellen Wischbewegungen maximal drei Breiten
+(vorgegebenes Distanzlimit: 2000px) beruecksichtigt. Damit startet
+der Coordinator bei flussigen Wischbewegungen frueher Cover in deren
+Richtung. Die Gegenrichtung bleibt auf 0,35 Rail-Breiten bzw. 400px
+begrenzt. Pro Frame starten weiterhin maximal vier, gleichzeitig maximal
+sechs *spekulative* Bildanfragen. Sichtbare Anfragen haben Vorrang;
+der Kaltstart wartet wie zuvor auf die initial sichtbaren Bilder.
+
+Es gibt weder Timer/Polling noch neue Fetch-Routen, Cache-Loeschungen,
+Aenderungen an Worker, Berechtigungen, API oder Backend. Der gezielte
+Regressionstest prueft einen schnellen glatten Wischvorgang (18px in
+16ms), einen langsamen Scrollschritt (18px in 1000ms), unveraendertes
+Cold-Home-Verhalten, Richtungsvorlauf, begrenzte Requestzahl und
+Vermeidung doppelter src-Zuweisung. Eine tatsaechliche Verbesserung
+der Sichtbarkeitsquote bedarf noch einer vergleichbaren yaVDR-Messung.
+
+## PWA.15.16 — Messung der Service-Worker-Artwork-Wartephasen (2026-11-21)
+
+Die PWA.15.15-Browsermessung ergab 50,3 % beim Scroll-Eintritt
+bereits fertige Cover (168 von 334), im Mittel 1818 ms und maximal
+8734 ms nachtraegliche Bildwartezeit. Der Worker meldete 119 lokale
+Treffer, 89 Cache-Misses sowie 31 Hintergrundaktualisierungen.
+Eine Ressourcengruppe hatte bis zu 9311 ms Request-to-first-byte,
+aber nur 90 von 189 Bildressourcen dieser Gruppe zeigten Artwork-
+Server-Timing. Damit ist nicht bewiesen, ob sich Browser-Queue,
+Service-Worker-Cache-Storage, normale HTTP-Requests oder
+Hintergrundaktualisierungen gegenseitig verzoegern.
+
+Der bestehende, ausschliesslich angeforderte
+`vdr-suite-artwork-measurement`-Kanal liefert deshalb weitere
+aggregierte Werte je kontrolliertem Browser-Dokument:
+
+- `cacheLookupSamples/TotalMs/MaxMs`: Dauer der bestehenden
+  aktuellen, partitionierten Cache-Storage-Abfrage;
+- `cacheHitResolveSamples/TotalMs/MaxMs`: SW-Fetch-Handler-
+  Eintritt bis zum Rueckgabepunkt eines lokalen Cache-Treffers;
+- `foregroundHttpSamples/TotalMs/MaxMs`: SW-interner normaler
+  HTTP-Fetch bis zu seinen Response-Headern;
+- `backgroundHttpSamples/TotalMs/MaxMs`: entsprechende Dauer
+  eines zeitlich unabhaengigen stale-while-revalidate-Abrufs;
+- `foregroundHttpWhileBackgroundActive`: Start einer normalen
+  HTTP-Anfrage waehrend mindestens eines offenen Background-Fetches;
+- `maxImageHttpInFlight` und `maxBackgroundHttpInFlight`:
+  maximale zu einem Messzeitpunkt gleichzeitig im Worker offene
+  HTTP-Fetches.
+
+Die Dauer zaehlt **nicht** den Koerpertransfer, die Bilddekodierung
+oder Paint. Parallelitaet beweist nur Ueberlappung, keine ursachliche
+Beeintraechtigung. Zeitwerte bleiben im Arbeitsspeicher und werden
+nur mit der bereits vorhandenen per-Client-Diagnose abgefragt.
+Es werden weder URLs, Nutzer-IDs, Artwork-Hashes, Berechtigungs-
+Partitionen noch Response-Inhalte ausgegeben oder gespeichert.
+
+Keine Aenderung an Cache-Limit und -Freigaben, Refresh-Intervall,
+Anfragepriorisierung, Backend, Service-Worker-Routen oder Sicherheit.
+Der Regressionstest prueft getrennte HTTP-Zeitmessung, Cache-
+Messungen und einen real zeitgleich laufenden Hintergrund- und
+Vordergrund-HTTP-Abruf. Erst die naechste vergleichbare Messung
+kann entscheiden, ob Hintergrundrefreshs den sichtbaren Abruf
+ausbremsen oder ob die Wartezeit anderswo entsteht.
+
+## PWA.15.17 — Niedrig priorisierte, begrenzte Artwork-Revalidierung (2026-11-21)
+
+Die PWA.15.16-Laufzeitmessung mit rund 71 s und 353 sichtbaren
+Scroll-Eintritten ergab eine Trefferquote von 67,4 %, mittlere
+Nachladezeit 462 ms und maximale Nachladezeit 3994 ms. Der SW
+lieferte 145 lokale Cover in maximal 4 ms, aber HTTP-Bilder
+warteten bis zu 4234 ms auf Antwort-Header. Von 208 gestarteten
+Bild-HTTP-Anfragen waren 60 Hintergrundaktualisierungen; 24
+Vordergrundanfragen starteten waehrend noch laufendem Refresh.
+Dies zeigt Ueberlappung, **beweist keine verursachte Verlangsamung**.
+
+Die vorhandene stale-while-revalidate-Logik bleibt erhalten, aber
+laesst hoechstens **zwei statt vier** gleichzeitig laufende
+optionale Hintergrund-Refreshes zu. Ihr HTTP-Request erhaelt den
+Web-RequestInit-Hinweis `priority: 'low'`, sofern vom Browser
+unterstuetzt; sichtbare und andere Vordergrund-Bildabrufe behalten
+ihre urspruengliche Prioritaet. Bei bereits belegten Refresh-Slots
+bleibt die vorhandene lokale Antwort sofort verfuegbar; die
+ausgelassene Aktualisierung kann beim naechsten autorisierten
+Cache-Treffer erneut gestartet werden. Keine Timer, Warteschlangen,
+zusaetzlichen Requests oder neuen Sperren.
+
+Um die 50 `missingProof`-Ereignisse aus PWA.15.16 einzuordnen,
+liefert die **bestehende** rein optionale, pro kontrolliertem
+Dokument gehaltene Worker-Diagnose drei sich gegenseitig
+ausschliessende Unterzaehler:
+`missingProofBeforeAcceptedRead` (noch nie eine passende
+regulaere Server-Lesantwort bestaetigt),
+`missingProofOtherKind` (passender Backend-Proof, jedoch
+nur fuer die andere Artwork-Art: EPG vs. Recording) und
+`missingProofAfterAcceptedRead` (nach zuvor akzeptierter
+Leseantwort, ohne passenden aktuellen Proof). Der letzte
+Zaehler beweist weder eine Rechteaenderung noch einen Fehler:
+andere Backends oder ein regulaerer Sitzungs-/Proof-Reset sind
+moegliche Gruende. Leere clientId erhaelt wie zuvor keine
+Diagnose; keine Kennungen oder URL-Parameter werden exportiert.
+
+Unveraendert: normale HTTP-Antworten, Backend- und
+Client-Partitionierung, vorhandene Grants, lokaler Artwork-Cache,
+TTL/Refresh-Schwelle, 304-Verarbeitung, Fehlerbehandlung, Logout-
+Invalidierung. Eine erfolgreich abgeschlossene HTTP-Revalidierung
+kann weiterhin die unveraenderten Bildkoerper/-Header liefern.
+PWA.15.17 haengt weiterhin von der Browser-Unterstuetzung fuer
+HTTP-Prioritaets-Hints ab; reale Lastverbesserung ist durch
+Node-Vertragstests allein nicht nachgewiesen. Regressionen
+pruefen originale Vordergrund-Prioritaet, zwei statt vier
+gleichzeitig offene Hintergrund-HTTP-Abrufe, sofortige lokale
+Antwort auch bei voller Refresh-Kapazitaet, 304-Revalidierung,
+bestehende Proof-/Scope-Isolierung und diagnostische Unterzaehler.
+
+## PWA.15.18 — Begrenzter Cold-Rail-Vorlauf statt ungebremster IO-Starts (2026-11-21)
+
+Die zwei PWA.15.17-Browsercaptures isolieren den Unterschied zwischen
+warmem und geleertem PWA-Artwork-Cache. Beim Kalt-Test gab es 160
+Service-Worker-Cache-Misses, 160 normale Bild-HTTP-Anfragen, null
+Hintergrund-Refreshes und maximal 26 gleichzeitig offene SW-Bild-HTTP-
+Abrufe. Die mittlere Nachladezeit sichtbarer Cover lag bei 3791 ms,
+maximal 14262 ms. Eine Server-Antwort mit kleinen Preview-/Queue-Timings
+bei gleichzeitig langen Browser-HTTP-Phasen ist ein Hinweis auf
+Konkurrenz bzw. Wartezeit im Anforderungsweg, aber **kein isolierter
+kausaler Nachweis** fuer Browser-Scheduling oder eine bestimmte
+Server-Komponente.
+
+Die bestehende Home-Discovery-Komposition hatte zwei unterschiedliche
+Startpfade: Ein Rail-/rAF-Koordinator limitierte seine eigenen
+Vorausladungen auf maximal vier Starts pro Frame und sechs ausstehende
+spekulative Bilder. Ein `IntersectionObserver` mit 120px `rootMargin`
+wies zugleich auch allen im Vorlauf erkannten Bildern unmittelbar ihre
+`src` zu. Diese IO-Starts waren nicht Teil des gemeinsamen
+spekulativen Budgets. Bereits sichtbare Bilder wurden dabei korrekt
+bevorzugt, doch viele noch nicht sichtbare Bilder konnten parallel
+erstmalige Bild-HTTP-Requests ausloesen.
+
+PWA.15.18 laesst **tatsaechlich sichtbare** Bilder unveraendert
+sofort mit `fetchPriority='high'` starten. Im 120px-Randbereich
+erkannte Bilder bleiben dagegen zunaechst ohne `src` und werden
+ueber **denselben** begrenzten Rail-/rAF-Koordinator vorgeladen:
+maximal vier neue spekulative Starts pro Frame, insgesamt maximal
+sechs gleichzeitig ausstehende spekulative Bild-Elemente.
+Das schliesst auch nahe Bilder der naechsten **vertikalen** Rail ein.
+Bei noch ausstehenden sichtbaren Covern des unbewegten Cold Home
+bleibt die vorhandene Vordergrund-zuerst-Regel erhalten.
+
+Ein einmal im 120px-Randbereich erkanntes Bild erzeugt nicht
+automatisch ein weiteres IO-Ereignis, wenn es spaeter die tatsaechliche
+Viewport-Kante erreicht. Daher beobachtet ein zusaetzlicher,
+**ereignisgesteuerter** IO mit `rootMargin='0px'` nur die noch
+zurueckgestellten Bilder: Wird eines davon wirklich sichtbar, startet
+es unmittelbar mit hoher Prioritaet und wird aus dem
+Vorlauf-Budget entfernt. Diese Beobachtung ist weder Polling noch
+ein zweiter HTTP-Abrufpfad; `src` wird weiterhin genau einmal
+vergeben. `load`/`error` reaktivieren die vorhandene
+Koordination; unbekannte Geometrie und fehlende IO-Unterstuetzung
+verwenden weiterhin den bestehenden nativen Fallback.
+
+Produktionsnahe Regression prueft das initiale sichtbare Cover,
+mehrere nahe und vertikale IO-Treffer, fehlende spekulative Starts
+waehrend dessen Ladung, 4/6-Budget, spaetere echte
+Viewport-Sichtbarkeit auch bei vollem Vorlauf, Slotfreigabe und
+Einmaligkeit von `src`. Bestehende Richtungs-, Velocity-,
+Rail-/Cache- und Autorisierungsvertraege bleiben unveraendert.
+Der Service Worker, seine vorhandenen Grants, Home-API, Server und
+Daemon werden nicht geaendert.
+
+Abnahme: unveraenderter warmer Cache, sichtbare Covers ohne
+graue Kacheln in neu betretenen Rails soweit die HTTP-Latenz
+dies erlaubt, unveraenderter erster Home-Frame, und ein neuer
+kontrollierter Kalt-/Warm-Browservergleich. Die aktuelle Wirkung
+im echten Browser ist bis zu diesem Test **nicht verifiziert**.
+Kodi-/Plex-Interna zum vergleichbaren Artwork-Scheduling wurden
+nicht verifiziert; kein vermutetes Konkurrenzverhalten wird
+als Implementierungsvorgabe verwendet.
+
+## PWA.15.19 — Veraltete IO-Sichtbarkeit und HTTP-Prioritaetsdiagnose (2026-11-21)
+
+Der erste reale PWA.15.18-Kaltlauf zeigte eine deutlich geringere
+mittlere Nachladezeit sichtbarer Cover als PWA.15.17, aber weiterhin
+bis zu 23 gleichzeitig im Service Worker offene Bild-HTTP-Anfragen.
+Diese Spitze ist **kein Beweis** fuer 23 spekulative Requests:
+die bestehende Sechsergrenze betrifft nur aktiv vorabgerufene, noch
+unsichtbare `img`-Elemente. Sofort benoetigte, bereits sichtbare Bilder
+und aeltere, beim Scrollen noch laufende Abrufe sind davon ausgenommen.
+Ein globales HTTP-Limit wuerde die bislang priorisierten sichtbaren Cover
+selbst ausbremsen und wird nicht eingefuehrt.
+
+Ein konkreter unnoetiger Startpfad wurde im bestehenden Home-IO-Callback
+nachgewiesen: Ein verspätetes `isIntersecting`-Ereignis konnte ein
+zwischenzeitlich abgetrenntes Bild beziehungsweise ein Bild mit nicht
+mehr messbarer, versteckter Rail-Geometrie verarbeiten, obwohl
+`deferredArtworkDistance` bereits `Infinity` lieferte. Der Callback
+behandelte den Wert nicht als Abbruchgrund und vergab trotzdem `src`.
+Er startet nun nur bei **endlichem** Abstand. Sobald das Element wieder
+verbunden und tatsaechlich sichtbar ist, darf sein unveraenderter
+Observer-Pfad das Bild weiterhin sofort laden. Keine zusaetzlichen
+Berechtigungs-, HTTP-, Cache- oder Installationspruefungen.
+
+Zur klaren Abgrenzung einer noch offenen HTTP-Ursache exportiert der
+bereits vorhandene, optional abgefragte Service-Worker-Diagnosekanal
+vier rein aggregierte Zaehler fuer neu gestartete **normale**
+Bild-HTTP-Anfragen: `foregroundPriorityHigh`, `foregroundPriorityLow`,
+`foregroundPriorityAuto`, `foregroundPriorityUnknown`. Grundlage
+ist ausschliesslich die am **eingehenden** Browser-`Request`
+lesbare `priority`-Eigenschaft. Ist sie nicht verfuegbar oder nicht
+erkannt, zaehlt das Ergebnis ausdruecklich als `unknown`; es wird
+keine Prioritaet erfunden. Ein browserseitiger Prioritaets-Hinweis
+beweist weder die tatsaechliche Netzwerk-Reihenfolge noch, ob
+der Request heute sichtbar oder urspruenglich spekulativ war.
+Hintergrund-Revalidierungen werden weiter getrennt gezaehlt
+und nutzen unveraendert `priority: 'low'`.
+
+Die Zaehler enthalten keine URL, Recording-ID, Client-ID,
+Berechtigungspartition, ETag oder andere Kennungen und verlassen den
+Worker nur ueber den bereits autorisierten Diagnosekanal.
+Vorhandene Image-HTTP-/Concurrency-Zeiten, Cache-Lookups,
+Grants, Cache-/Scope-Schutz, Preisgabe- und Fehlerpfade sind unveraendert.
+Die lokale Home-Regression deckt unsichtbare/stale IO-Ereignisse,
+spaetere normale Sichtbarkeit und die etablierten 4/6-Vorlaufregeln
+ab; der SW-Vertragstest prueft alle vier Prioritaetsklassen
+einschliesslich fehlender Browser-Unterstuetzung und unveraenderten
+Hintergrund-Refresh. Reale Kaltstartwirkung und die Verteilung
+der Browser-Prioritaets-Hinweise bleiben bis zum naechsten
+vergleichbaren yaVDR-Browsertest offen. Weder eine weitere
+Vorauslade-Erhoehung noch ein globales HTTP-Gate wird daraus
+ohne konkrete Messung abgeleitet.
+
+## PWA.15.20 — Opt-in Ursachenmessung ohne Console-Spam (2026-11-21)
+
+PWA.15.19 ergab im Warm-Test eine subjektiv spuerbare und in den
+aggregierten Rails-Messwerten leichte Verschlechterung gegenueber
+PWA.15.18. Der Browser-Service-Worker meldete 42 Artwork-Anfragen
+ohne akzeptierten ersten Readback; die Browser-`Request.priority`
+wurde fuer alle erfassten Vordergrund-Anfragen als `unknown`
+exportiert. Daraus folgt weder eine bewiesene Ursache der warmen
+Verzoegerung noch eine Erlaubnis, bereits sichtbare Bilder zu bremsen.
+Sieben HTTP-404 betrafen Metadaten-Bild-URLs; das ist **nicht**
+gleichbedeutend mit sieben einzigartigen Aufnahmen. Ein vorhandener
+Poster-URL kann ohne tatsaechliche Serverdatei enden; im Frontend
+greift nach `img.error` bereits der Buchstaben-Fallback.
+
+Die bestehende SW-Messung erhaelt drei auf den **einmaligen**
+Diagnoseabruf begrenzte, rein numerische Zeitphasen:
+
+- `proofHttp*`: Dauer vom Start der vorhandenen autorisierten
+  Snapshot-/Recording-Readback-Anfrage bis zu deren HTTP-Headern;
+- `firstProofGap*`: Zeitraum von der ersten Bildanfrage eines
+  kontrollierten Dokuments **vor** dessen akzeptiertem Readback bis
+  zum ersten erfolgreichen Proof. Das misst die beobachtete
+  Zeitluecke, nicht eine eingefuehrte Sperre: die Bildanfrage
+  benutzt unveraendert den regulieren HTTP-Fallback. Der interne
+  Startzeitpunkt ist nicht enumerable und wird nicht exportiert;
+- `candidateLookup*`: Dauer der bereits vorhandenen optionalen
+  Suche nach Cache-Kandidaten vor normalen HTTP-Anfragen, falls
+  kein aktueller `scopedMiss` den Suchpfad ohnehin ausschliesst.
+  Enthaltene Cache-Storage-Zeiten werden dadurch beobachtbar,
+  nicht auf einen anderen Pfad umgeleitet.
+
+Alle Phasen exportieren nur Samples, kumulierte Dauer in Millisekunden
+und Maximum. Sie werden in derselben bereits autorisierten
+per-Client-Service-Worker-Diagnose abgefragt wie die frueheren
+`cacheLookup*`, `foregroundHttp*`, `backgroundHttp*` und
+`missingProof*`-Zaehler. Keine URL, Recording-ID, Client-ID,
+Partition, Session, ETag oder konkrete Bilddatei erscheint im Report.
+Kein neuer Fetch, kein Polling, kein neuer Wartemechanismus,
+kein Write-/Cache-/Grant- oder Auth-Verhalten.
+
+Nur der bereits vorhandene, explizit aufgerufene
+`browser-performance-diagnostics.html`-Bridge-Frame schreibt
+nach **Stop** genau einen aggregierten `console.info`-Eintrag
+`[VDR-Suite Artwork] Diagnose (nur nach Stop)` mit Warmstart,
+sichtbaren Scroll-Covern, Proof-Luecke, Cache-/HTTP-Phasen,
+maximaler Bild-HTTP-Parallelitaet und beobachteter Anzahl
+404-Antworten bei Bildern. Keine `console.log`-Zeile pro Bild
+oder waehrend des Scrollens. Die normale Home-Seite laedt
+weder den Bridge-Code noch dessen Console-Summary.
+
+Die 404-Zahl ist eine Anzahl von HTTP-Ressourceneintraegen,
+keine Liste eindeutig fehlender Aufnahmen. Fehlende URL-Werte
+zeigen schon vorher direkt den bestehenden Fallback; echte
+404-Antworten loesen weiterhin `img.error` aus. Eine neue
+dauerhafte Negativ-Cache-Sperre oder ein ungefragter
+Backend-/Metadaten-Umbau waere ohne Beleg nicht gerechtfertigt.
+
+Abnahme: gepruefte SW-Testregression fuer Proof-Gap,
+Proof-HTTP und Kandidatensuche, opt-in-Console-Regression,
+und ein vergleichbarer Warm- sowie Kalttest im Browser.
+Erst diese Messung soll entscheiden, ob Proof-Race,
+Cache-Kandidatensuche, eigentliche HTTP-Wartezeit oder
+Cover-Bereitschaft beim Scrollen die naechste konkrete
+Produktkorrektur rechtfertigt.
+
+## PWA.15.21 — Naechstes Cover innerhalb unveraendertem Vorlaufbudget (2026-11-21)
+
+Die PWA.15.20-Browsermessungen zeigten bei warmem und kaltem
+Home nur ungefaehr 50 % rechtzeitig fertige Scroll-Cover. Der direkte
+Cache-Zugriff war im Mittel unter 1 ms; `firstProofGap` war in beiden
+Laeufen 0. Die eigentlichen Bild-HTTP-Wartezeiten lagen hingegen bei
+hunderten Millisekunden und teilweise mehreren Sekunden. Diese Daten
+begrenzen den naechsten Slice auf die Priorisierung **bereits erlaubter**
+Artwork-Vorausladungen, ohne eine globale HTTP-Sperre einzufuehren.
+
+Zwei konkrete Coordinator-Eigenschaften begruendeten den Eingriff:
+
+1. `candidates.sort` zog bislang saemtliche Vorlaufkandidaten in
+   Scrollrichtung vor. Ein Cover 20px unterhalb des Viewports konnte
+   so hinter mehrere 200–600px entfernte horizontale Kandidaten
+   zurueckfallen, obwohl der vorhandene `IntersectionObserver`
+   dieses vertikal naechste Cover bereits gemeldet hatte.
+   Kandidaten im bisherigen 120px-Nahbereich erhalten nun zuerst
+   einen der **gleichen** maximal vier Starts pro Frame und sechs
+   ausstehenden spekulativen Slots. Erst dann entscheidet
+   Scrollrichtung vor Entfernung. Sichtbare Cover bleiben sofort
+   `high`; nahe spekulative Cover bleiben `low`.
+2. Der Zustand `motion.fast` blieb bei unveraenderter
+   Scrollposition dauerhaft gesetzt. Ein spaeteres `load` eines
+   Bildes aktivierte damit noch nach beendeter Wischbewegung
+   den weiten Vorlauf ueber drei Railbreiten. Nach mehr als
+   250 ms ohne Bewegung wird nur dieser Fast-Zustand beim
+   naechsten ohnehin stattfindenden Coordinator-Lauf
+   zurueckgenommen. Die bestehende normale Zwei-Railbreiten-
+   Vorschau nach realem Scrollen bleibt erhalten. Kein Timer,
+   Polling, neuer Event-Handler oder neuer HTTP-Pfad.
+
+Die produktionsnahen JavaScript-Regressionsfaelle pruefen:
+tatsaechliche sichtbare Cover zuerst, nahes vertikales
+Cover vor weiter entfernten horizontalen Kandidaten, dass
+insgesamt nicht mehr als vier spekulative Starts zugleich
+freigegeben werden, kein `src` doppelt gesetzt wird,
+und das Abklingen der Fast-Vorausschau nach Scrollstillstand.
+Aeltere PWA.3/14/15/15.8/15.10.1/15.11/15.14/15.15/15.18/15.19-
+Vertraege bleiben unveraendert. Der Service Worker, Cache,
+Proof-/Scope-Schutz, API, Backend und Daemon bleiben unberuehrt.
+
+Eine Verbesserung der gefuehlten Warm-/Kaltstartzeit im echten
+Browser muss weiterhin anhand vergleichbarer Navigations- und
+Scrollmessungen auf yaVDR nachgewiesen werden. Eine fehlende
+Cover-URL nutzt unveraendert den vorhandenen Ersatzbuchstaben.
+
+## PWA.15.22 — Bestehenden Home-Proof-Readback im Browser vorziehen (2026-11-21)
+
+PWA.15.21 lieferte deutlich mehr fertig geladene Cover beim
+Scrollen; im Warm-Lauf wurden aber 31 Bildanfragen vor dem ersten
+akzeptierten Recording-Artwork-Proof gezaehlt. Der aggregierte
+`firstProofGap` betrug 2373 ms. Das ist die Zeit zwischen der
+ersten unbewiesenen Bildanforderung und dem ersten akzeptierten
+Readback **in diesem Messdokument**; es ist keine pro-Bild-
+Wartezeit oder ein Beleg fuer eine geaenderte Berechtigung.
+Die beobachtete Verbesserung der Scroll-Cover bleibt erhalten.
+
+Der vorhandene Ablauf wurde quellseitig geprueft:
+`app.js::loadBackendDetails` dispatcht
+`fetchClientBackendSnapshot` bereits vor `openHome()` und vor
+Home-Resume-Lesern. Dieser kleine bestehende GET
+`/api/backends/{id}/snapshot` ist ein durch
+`HomeCacheScope.h` belegter regularer Scope-Readback und wird
+im Service Worker als Autorisierungskontext fuer Home-Cover
+verwendet. **Er wird nicht erneut angefordert, verdoppelt oder
+von der Coveranzeige abgewartet.**
+
+Die konkrete Luecke: `web/frontend/api/client-api.js::requestOptions`
+reichte keinen Fetch-Priority-Hinweis an den Browser weiter.
+`app.js::loadBackendDetails` kennzeichnet deshalb **seinen
+bereits vorhandenen** Home-Snapshot-Readback als
+`RequestInit.priority = 'high'`. `requestOptions` leitet
+den optionalen `priority`-Wert unveraendert durch; die
+`fetchClientBackendSnapshot`-Route und ihr bestehender
+Owner-Vertrag bleiben unveraendert. Der parallel angeforderte
+`/api/vdr/recordings/cache/status`-GET bleibt bei der
+normalen Browser-Prioritaet. Dies ist ein HTTP-
+Scheduling-*Hinweis*, keine Garantie einer Reihenfolge und
+keine beweisbare Erklaerung aller 31 fruehen Bildanfragen.
+Browser ohne Unterstuetzung ignorieren ihn.
+
+Keine weitere Request- oder Refresh-Schleife, kein Await
+fuer Bilder, kein neuer Grant/Auth-Gate, keine Aenderung der
+Cache-Scope-/Session-Logik und kein weiterer SW-Schreibpfad.
+Die funktionierenden 4/6-Vorlaufgrenzen aus PWA.15.21,
+auch unmittelbar sichtbare Cover, bleiben unveraendert.
+Die bestehende Phase-66-Home-Initialisierungstestdatei
+enthaelt einen fokussierten End-to-End-Client-API-Vertragstest:
+genau zwei vorhandene Requests, zuerst der kleine Snapshot mit
+`high`, danach normale Prioritaet fuer den Recording-Count,
+und die unveraenderte fruehe Callback-/Count-Komposition.
+
+Noch offen: gleicher realer yaVDR-Warm-/Kalttest.
+Sollten `missingProofBeforeAcceptedRead` und `firstProofGap`
+nicht sinken, muss der tatsaechliche Cache-Proof-Race mit
+Browsertiming/Service-Worker-Akzeptanz untersucht werden, statt
+eine weitere Prio-Vermutung oder restriktive Sperre einzubauen.
+
+## PWA.15.23 — Warmstart-Proof-/Worker-Lebenszyklus eindeutig messen (2026-11-21)
+
+PWA.15.22: Der warme Home-Snapshot war nach ca. 414 ms fertig,
+aber der Service Worker verzeichnete 72 Artwork-Anfragen
+`missingProofBeforeAcceptedRead` und einen Zeitraum von
+8512 ms vom ersten unbewiesenen Bild bis zum naechsten
+akzeptierten Proof. Der unmittelbar anschliessende Kalt-Test
+zeigte hingegen keine unbewiesenen Bildanfragen. Unterschiedliche
+Scrolllaeufe und ein moeglicher Service-Worker-Wechsel sind
+daraus **nicht** kausal bewiesen. Im Warmtest wurde die
+Doku-Rail mit den vier bekannten coverlosen Aufnahmen
+nicht besucht; die fehlenden 404 sind kein Beleg fuer
+deren Loesung.
+
+Die bereits vorhandene, explizit aktivierte Browser-Diagnose
+erfasst deshalb zusaetzlich und ohne HTTP-Anfragen:
+
+- `serviceWorkerLifecycle.controlledAtStart/Stop` und
+  `controllerChanges` im Diagnose-Home-Iframe. Der
+  `controllerchange`-Listener lebt nur waehrend eines
+  aktiven Tests und wird bei Stop entfernt; ohne Browser-
+  Unterstuetzung ist der Wert `null`, nicht `false`;
+- `snapshotProofReads` und `snapshotProofAccepted` im
+  kontrollierenden Worker, getrennt von
+  `otherProofReads`/`otherProofAccepted`: Gab es einen
+  tatsaechlich im SW beobachteten und akzeptierten
+  regulaeren Snapshot, oder wurde ein anderer bestehender
+  Scope-Readback erst spaeter akzeptiert?
+- `proofReadsAtFirstImage` und
+  `acceptedProofsAtFirstImage` als **einmaliger Snapshot
+  bei erster Artwork-Anfrage dieses Dokuments**. Damit
+  wird unterschieden, ob zum Bildstart im Worker bereits
+  irgendein akzeptierter regulaerer Proof vorlag;
+- `firstImageWorkerUptimeMs`,
+  `firstProofWorkerUptimeMs`,
+  `firstAcceptedProofWorkerUptimeMs` und
+  `workerUptimeMs`: relative Millisekunden seit
+  Start **dieser** Worker-Instanz. Sie sind keine
+  Navigationszeitpunkte und nur innerhalb derselben
+  Instanz vergleichbar. Kein absoluter Zeitstempel,
+  keine Request-URL, Client-ID, Recording-ID, Partition,
+  Berechtigung oder Session wird exportiert.
+
+Ein fehlender `snapshotProofReads`-Zaehler bei
+gleichzeitig frueh abgeschlossenem Browser-Snapshot
+waere ein Hinweis auf einen erst spaeter kontrollierenden
+Worker, einen Neustart oder getrennte Dokumente,
+aber noch kein eindeutiger Beweis **welcher** Fall
+vorliegt. Umgekehrt ist ein erfolgreicher Snapshot-
+Proof vor dem ersten Bild ein Befund gegen die
+hypothetische initiale Proof-Luecke. Die bestehende
+`firstProofGap`-Metrik bleibt unveraendert.
+
+Kein Worker-`claim`, kein automatischer Reload, keine
+neue Abfrage, kein neuer Polling-/Wartepfad, keine neue
+Sperre, kein Grant-/Scope-Verhalten, keine Cache-
+Inhalt-Aenderung. Der produktive Cover-Pfad behaelt
+den PWA.15.21-Vorlauf; das PWA.15.22-
+Snapshot-`priority: high` bleibt unveraendert.
+
+Regression: bestehende SW-Cachetests fuer
+normalen Snapshot-vor-Bild- und Bild-vor-Snapshot-
+Ablauf mit relativen Lebenszykluszaehlern; Opt-in-
+Browser-Diagnose fuer Controller-Event, einmalige
+Zusammenfassung, Listener-Abbau und keine URLs.
+Naechste reale Abnahme ist ein Warmstart ohne
+Installation unmittelbar vor der Messung und ohne
+Cache-Löschung. Erst anhand der tatsaechlichen
+Proof-/Controller-Reihenfolge entscheiden, ob
+ein Worker-Wechsel korrigiert werden muss.
+
+## PWA.15.24 — Authentifizierten Home-Proof bei echtem SW-Controllerwechsel wiederherstellen (2026-11-21)
+
+Der PWA.15.23-Warmtest ergab `controllerChanges=1`, den
+frueh abgeschlossenen Home-Snapshot (~417 ms), aber beim
+gemessenen Worker `snapshotProofReads=0`, sieben anfangs
+unbewiesene Bildanfragen und `firstProofGap=1942 ms`.
+Beim darauffolgenden Kaltstart ohne Controllerwechsel war
+`snapshotProofAccepted=1` und `missingProof=0`. Die
+zeitliche Koinzidenz stutzt die Worker-Wechsel-Hypothese,
+beweist fuer sich allein aber noch nicht die Ursache
+aller langen Bild-Ladezeiten.
+
+Der bestehende Service Worker erkennt bereits
+`/api/backends/{id}/snapshot` als regulaeren Aufnahme-
+und EPG-Scope-Readback. Kein neuer Proof-Endpunkt,
+kein persistierter Grant und kein geaenderter Scope
+ist erforderlich. Da der Proof nur im Arbeitsspeicher
+des jeweils kontrollierenden Workers existiert, kann
+dieser nach `controllerchange` den zuvor abgeschlossenen
+Home-Snapshot nicht rueckwirkend beobachten.
+
+Der vorhandene authentifizierte Home-Owner in `app.js`
+installiert jetzt **einen** `controllerchange`-Listener.
+Bei einem tatsaechlich geaenderten, vorhandenen
+Controller und nur solange die authentifizierte
+Home-Uebersicht mit ausgewaehltem Backend aktiv ist,
+sendet er einmalig den **gleichen** kleinen GET
+`/api/backends/{id}/snapshot` ueber
+`VdrSuiteClientApi.fetchClientBackendSnapshot` mit
+`cache:'no-store'` und `priority:'high'`.
+`artworkProofReadbackOnly:true` beschraenkt diesen
+gezielten API-Wrapper-Aufruf auf den vorhandenen
+Snapshot ohne den unabhaengigen Recording-Count-GET.
+Die normale `fetchClientBackendSnapshot`-Initialisierung,
+die Anzeige-/Zaehlerkomposition und die API-Owner-
+Route bleiben unveraendert.
+
+Kein Listener im Service Worker, keine weiteren
+automatischen Requests ohne Controllerwechsel,
+kein Reload, kein Polling, keine neue
+Berechtigungspruefung oder Verweigerung, keine
+Cache-Scope-Aenderung, kein `clients.claim()`,
+kein Verzogern sichtbarer Cover. Fehlende Session,
+fehlender Controller und andere Frontend-Tabs
+bewirken *nur das Ausbleiben dieses optionalen
+zusaetzlichen Refreshs*, nicht das Blockieren
+bestehender Zugriffe. Authentifizierung und
+Antwort-Scopes werden ausschliesslich vom
+bestehenden Backend/SW geprueft.
+
+Regression: Der bereits vorhandene
+`test_phase66_home_initial_load.js` fuehrt die
+echte `app.js`-Home-Initialisierung und
+Session-`restore()` im gleichen VM-Kontext aus
+und prueft den normalen Zwei-Request-Bootstrap,
+den einmaligen Scope-Readback bei tatsaechlich
+neuem Controller, keine Dublette bei gleichem
+Controller, Inaktivitaet bei anderem Tab und
+nach Sign-out sowie normalen Neuaufbau nach
+Re-Authentifizierung. Separat bestaetigt
+der API-Wrapper-Test, dass `artworkProofReadbackOnly`
+nur den einen GET startet. Bestehende SW-
+Proof-/Cache-Regressionsvertraege bleiben gueltig.
+
+Die echte yaVDR-Abnahme erfordert nach der
+Installation einen Warmstart *ohne* weitere
+Installation und ohne Cache-Loschung, die
+PWA.15.23-Metriken
+`controllerChanges`, `snapshotProofReads`,
+`snapshotProofAccepted`,
+`missingProofBeforeAcceptedRead` und
+`firstProofGap` sowie das subjektive Scrollen.
+Die vier Poster-404 der Doku-Rail und lange
+Kaltstart-HTTP-Wartezeiten sind getrennte Aufgaben.
+
+## PWA.15.25 — Schwarze No-Artwork-Kachel bei fehlendem Poster (2026-11-21)
+
+Die Realbrowser-Laeufe nach PWA.15.24 zeigten weiterhin
+Recording-Metadaten-Bildanfragen mit HTTP 404 (im
+Warmtest sieben Vorgaenge). Die vier bekannten Doku-
+Aufnahmen ohne Artwork sind ein naheliegender, jedoch
+mangels exportierter Recording-IDs nicht endgueltig
+zugeordneter Teil dieser Fehler. Ein leeres Bildfeld
+war bisher nur ein einzelner Titelanfangsbuchstabe
+auf dunkelblauem Hintergrund.
+
+Die bestehenden Home-Poster-Renderer zeigen jetzt
+denselben bewusst schlichten visuellen Fallback:
+
+- **Schwarze Kachel** mit dezenter grauer Aufschrift
+  **`No Artwork`** in der unveraenderten 2:3-
+  Poster-Geometrie. Das Hauptstylesheet
+  `web/frontend/style.css` setzt
+  `.media-home-discovery-artwork.no-artwork`,
+  mit hoehere Spezifitaet als die bisherigen
+  dynamischen Discovery-Styles.
+- Bei **leerer Cover-URL** entsteht sofort die
+  Fallback-Kachel, ohne `img` oder Bild-HTTP.
+- Bei einem **fehlerhaften Bildabruf** tauscht
+  der einzelne betroffene Renderer das kaputte
+  `img` gegen denselben sichtbaren Fallback
+  aus. Das native `error`-Event unterscheidet
+  **nicht** zwischen HTTP 404 und temporaeren
+  Transportfehlern. Darum wird das Fehlen
+  weder persistiert noch negativ gecacht;
+  regulaeres Neurendern bzw. Wiederoeffnen
+  versucht die Bild-URL erneut.
+- Die Renderpfade in `home-recording-discovery.js`,
+  `home-recording-discovery-bootstrap.js` und
+  `home-recently-watched.js` (beide Home-Rails)
+  haben identische Ausgabe, ohne weitere
+  Netzwerkabrufe, Retry-Schleifen, Berechtigungs-
+  aenderungen oder ein neues Artwork-Subsystem.
+
+Der vorhandene Regressionstest
+`test_home_artwork_priority.js` prueft in allen
+vier realen Renderer-Funktionen die leere URL
+ohne Bildanforderung, den normalen Poster-Pfad,
+den Fehler-Fallback, einen erneuten Bildversuch
+bei spaeterem Rendern sowie die schwarze
+CSS-Klasse. Das Vermeiden bereits **generierter**
+gueltig aussehender, aber auf dem Backend
+nicht vorhandener Poster-URLs verlangt
+separat belastbare Metadaten-Signale; dieser
+Slice fuehrt bewusst keine spekulative
+Negativklassifikation ein.
+
+Browser-Abnahme: Doku-Rail aufrufen, vier
+bekannte fehlende Cover auf schwarze Kacheln
+pruefen; vorhandene echte Cover duerfen
+sich nicht veraendern. Die Anzahl HTTP-404
+muss durch die rein visuelle Fallback-
+Aenderung nicht sinken. Kaltstart-HTTP-
+Wartezeiten bleiben eigenstaendig.

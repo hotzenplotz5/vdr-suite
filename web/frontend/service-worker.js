@@ -172,19 +172,40 @@ const artworkProofs = new Map();
 let artworkProofEpoch = 0, artworkProofSequence = 0;
 const artworkRefreshing = new Set();
 const artworkInFlight = new Map();
+let artworkHttpInFlight = 0, artworkBackgroundHttpInFlight = 0;
 
 // Diagnostic counters are deliberately per controlled document and in memory.
 // No recording identifiers, URL, account, scope or credential is exported.
 const artworkMeasurements = new Map();
+// Per-worker uptime, never absolute timestamps or a persistent authorization.
+const artworkWorkerStartedAt = Date.now();
 function artworkMeasurement(event) {
   if (!event.clientId) return null;
   let value = artworkMeasurements.get(event.clientId);
   if (!value) {
     value = {requests: 0, localHits: 0, revalidatedHits: 0, imageHttpRequests: 0, coalescedRequests: 0,
       serverImages: 0, serverOther: 0, networkErrors: 0, missingProof: 0,
+      missingProofBeforeAcceptedRead: 0, missingProofOtherKind: 0,
+      missingProofAfterAcceptedRead: 0,
       expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
       backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
-      proofReads: 0, acceptedProofs: 0};
+      proofReads: 0, acceptedProofs: 0,
+      snapshotProofReads: 0, snapshotProofAccepted: 0,
+      otherProofReads: 0, otherProofAccepted: 0,
+      proofReadsAtFirstImage: null, acceptedProofsAtFirstImage: null,
+      firstImageWorkerUptimeMs: null, firstProofWorkerUptimeMs: null,
+      firstAcceptedProofWorkerUptimeMs: null,
+      proofHttpSamples: 0, proofHttpTotalMs: 0, proofHttpMaxMs: 0,
+      firstProofGapSamples: 0, firstProofGapTotalMs: 0, firstProofGapMaxMs: 0,
+      candidateLookupSamples: 0, candidateLookupTotalMs: 0, candidateLookupMaxMs: 0,
+      cacheLookupSamples: 0, cacheLookupTotalMs: 0, cacheLookupMaxMs: 0,
+      cacheHitResolveSamples: 0, cacheHitResolveTotalMs: 0, cacheHitResolveMaxMs: 0,
+      foregroundHttpSamples: 0, foregroundHttpTotalMs: 0, foregroundHttpMaxMs: 0,
+      backgroundHttpSamples: 0, backgroundHttpTotalMs: 0, backgroundHttpMaxMs: 0,
+      foregroundHttpWhileBackgroundActive: 0,
+      foregroundPriorityHigh: 0, foregroundPriorityLow: 0,
+      foregroundPriorityAuto: 0, foregroundPriorityUnknown: 0,
+      maxImageHttpInFlight: 0, maxBackgroundHttpInFlight: 0};
     artworkMeasurements.set(event.clientId, value);
     while (artworkMeasurements.size > 128) artworkMeasurements.delete(artworkMeasurements.keys().next().value);
   }
@@ -193,6 +214,16 @@ function artworkMeasurement(event) {
 function countArtwork(event, field) {
   const measurement = artworkMeasurement(event);
   if (measurement) measurement[field]++;
+}
+// PWA.15.16: aggregate service-worker timings without URLs, tags, scopes or IDs.
+function timeArtwork(event, phase, started) {
+  const elapsed = Date.now() - started;
+  if (!Number.isFinite(elapsed) || elapsed < 0) return;
+  const measurement = artworkMeasurement(event);
+  if (!measurement) return;
+  measurement[phase + 'Samples']++;
+  measurement[phase + 'TotalMs'] += elapsed;
+  measurement[phase + 'MaxMs'] = Math.max(measurement[phase + 'MaxMs'], elapsed);
 }
 
 function forgetArtworkProofs() {
@@ -285,9 +316,19 @@ async function observeArtworkProof(event, backend) {
   const kinds = proofKinds(event.request);
   const key = kind => proofKey(event.clientId, backend, kind);
   countArtwork(event, 'proofReads');
+  const proofStarted = Date.now();
+  const measurement = artworkMeasurement(event);
+  const snapshotRead = /^\/api\/backends\/[^/]+\/snapshot$/.test(
+    new URL(event.request.url).pathname.slice(installationPath.length));
+  if (measurement) {
+    measurement[snapshotRead ? 'snapshotProofReads' : 'otherProofReads']++;
+    if (measurement.firstProofWorkerUptimeMs === null)
+      measurement.firstProofWorkerUptimeMs = proofStarted - artworkWorkerStartedAt;
+  }
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
   catch (error) { forgetArtworkProofs(); throw error; }
+  finally { timeArtwork(event, 'proofHttp', proofStarted); }
   if (epoch !== artworkProofEpoch || artworkSessionMutations) return response;
   const prior = ['recording', 'epg'].map(kind => artworkProofs.get(key(kind))).filter(Boolean);
   if (prior.some(proof => proof.sequence > sequence)) return response;
@@ -319,6 +360,18 @@ async function observeArtworkProof(event, backend) {
   for (const [kind, value] of admitted)
     artworkProofs.set(key(kind), {partition:value, sequence});
   countArtwork(event, 'acceptedProofs');
+  if (measurement) {
+    measurement[snapshotRead ? 'snapshotProofAccepted' : 'otherProofAccepted']++;
+    if (measurement.firstAcceptedProofWorkerUptimeMs === null)
+      measurement.firstAcceptedProofWorkerUptimeMs = Date.now() - artworkWorkerStartedAt;
+  }
+  // Measure only the first missed-proof -> accepted-proof gap for this
+  // document. The internal start timestamp is deliberately not enumerable,
+  // so diagnostic exports include durations, never wall-clock timestamps.
+  if (measurement && Number.isFinite(measurement.__firstUnprovenArtworkAt)) {
+    timeArtwork(event, 'firstProofGap', measurement.__firstUnprovenArtworkAt);
+    measurement.__firstUnprovenArtworkAt = undefined;
+  }
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
 }
@@ -446,14 +499,46 @@ async function artworkCandidates(base, maxBytes) {
   } catch (error) { return []; }
 }
 
-function artworkFetch(event, tags) {
+async function artworkFetch(event, tags, background = false) {
   const request = event.request;
-  countArtwork(event, 'imageHttpRequests');
   const headers = new Headers(request.headers);
   headers.delete('If-None-Match');
   headers.delete('If-Modified-Since');
   if (tags.length) headers.set('If-None-Match', tags.join(', '));
-  return fetch(new Request(request, {headers, mode: 'same-origin', cache: 'no-store'}));
+  // Background revalidations may run beside visible image requests.
+  // Hint low priority only for those optional HTTP refreshes; keep the
+  // normal request's browser priority and all credentials unchanged.
+  const networkRequest = new Request(request, {headers, mode: 'same-origin',
+    cache: 'no-store', ...(background ? {priority: 'low'} : {})});
+  const started = Date.now();
+  countArtwork(event, 'imageHttpRequests');
+  // Classify the *incoming* browser image request, not the constructed
+  // HTTP Request: browsers may omit Request.priority in service workers.
+  // These are exposed hints, not proof of actual network scheduling.
+  if (!background) {
+    const priority = request.priority;
+    countArtwork(event, priority === 'high' ? 'foregroundPriorityHigh' :
+      priority === 'low' ? 'foregroundPriorityLow' :
+      priority === 'auto' ? 'foregroundPriorityAuto' : 'foregroundPriorityUnknown');
+  }
+  if (!background && artworkBackgroundHttpInFlight > 0)
+    countArtwork(event, 'foregroundHttpWhileBackgroundActive');
+  artworkHttpInFlight++;
+  if (background) artworkBackgroundHttpInFlight++;
+  const measurement = artworkMeasurement(event);
+  if (measurement) {
+    measurement.maxImageHttpInFlight = Math.max(measurement.maxImageHttpInFlight, artworkHttpInFlight);
+    measurement.maxBackgroundHttpInFlight = Math.max(
+      measurement.maxBackgroundHttpInFlight, artworkBackgroundHttpInFlight);
+  }
+  try {
+    // Time only to HTTP headers, not transfer, image decode or paint.
+    return await fetch(networkRequest);
+  } finally {
+    timeArtwork(event, background ? 'backgroundHttp' : 'foregroundHttp', started);
+    artworkHttpInFlight--;
+    if (background) artworkBackgroundHttpInFlight--;
+  }
 }
 
 function storeArtwork(base, response, generation, event) {
@@ -529,6 +614,13 @@ function revalidateSharedArtwork(event, proof, generation, scopedMiss) {
 
 async function handleArtwork(event) {
   countArtwork(event, 'requests');
+  const decisionStarted = Date.now();
+  const measurement = artworkMeasurement(event);
+  if (measurement && measurement.firstImageWorkerUptimeMs === null) {
+    measurement.firstImageWorkerUptimeMs = decisionStarted - artworkWorkerStartedAt;
+    measurement.proofReadsAtFirstImage = measurement.proofReads;
+    measurement.acceptedProofsAtFirstImage = measurement.acceptedProofs;
+  }
   const generation = artworkGeneration;
   const proof = currentArtworkProof(event);
   let scopedMiss = false;
@@ -539,11 +631,26 @@ async function handleArtwork(event) {
     if (!backend) countArtwork(event, 'otherArtworkRoute');
     else {
       countArtwork(event, 'missingProof');
+      // Distinguish first-use/proof-ordering from a missing kind or an
+      // invalidated/different grant. This never changes authorization.
+      if (measurement) {
+        const otherKind = epg ? 'recording' : 'epg';
+        if (artworkProofs.has(proofKey(event.clientId, backend, otherKind)))
+          measurement.missingProofOtherKind++;
+        else if (!measurement.acceptedProofs) {
+          measurement.missingProofBeforeAcceptedRead++;
+          if (!Number.isFinite(measurement.__firstUnprovenArtworkAt))
+            Object.defineProperty(measurement, '__firstUnprovenArtworkAt',
+              {value: Date.now(), writable: true, configurable: true});
+        } else measurement.missingProofAfterAcceptedRead++;
+      }
     }
   }
   if (proof) {
     const base = artworkBase(event.request);
+    const lookupStarted = Date.now();
     const candidate = await scopedArtwork(base, proof.partition, artworkByteLimit(event.request));
+    timeArtwork(event, 'cacheLookup', lookupStarted);
     if (!candidate) { countArtwork(event, 'cacheMiss'); scopedMiss = true; }
     // Recheck after asynchronous storage access; logout or grant drift may
     // have happened while the cache was being read.
@@ -557,12 +664,15 @@ async function handleArtwork(event) {
           const key = base + '?scope=' + proof.partition;
           // A stale image can paint now; keep network refresh optional,
           // deduplicated and bounded, never a barrier to visible covers.
-          if (artworkRefreshing.size < 4 && !artworkRefreshing.has(key)) {
+          // Two low-priority validations leave more HTTP capacity for
+          // immediately requested covers. Saturated refreshes remain
+          // optional and retry on the next authorized cache use.
+          if (artworkRefreshing.size < 2 && !artworkRefreshing.has(key)) {
             artworkRefreshing.add(key);
             countArtwork(event, 'backgroundRefreshes');
             // Independently read the cached candidate for background validation:
             // its body must never share the foreground response's readable stream.
-            const refresh = revalidateArtwork(event).then(response => {
+            const refresh = revalidateArtwork(event, false, true).then(response => {
               if (response.body) response.body.cancel().catch(() => {});
             }).catch(() => {}).finally(() => artworkRefreshing.delete(key));
             event.waitUntil(refresh);
@@ -571,6 +681,7 @@ async function handleArtwork(event) {
         const headers = new Headers(candidate.response.headers);
         headers.set('X-VDR-Suite-Artwork-Cache', 'local');
         countArtwork(event, 'localHits');
+        timeArtwork(event, 'cacheHitResolve', decisionStarted);
         return new Response(candidate.response.body, {headers});
       }
       countArtwork(event, 'outdatedEntry');
@@ -579,19 +690,21 @@ async function handleArtwork(event) {
   return revalidateSharedArtwork(event, proof, generation, scopedMiss);
 }
 
-async function revalidateArtwork(event, scopedMiss = false) {
+async function revalidateArtwork(event, scopedMiss = false, background = false) {
   const request = event.request;
-  if (artworkSessionMutations) return artworkFetch(event, []);
+  if (artworkSessionMutations) return artworkFetch(event, [], background);
   const generation = artworkGeneration;
   const base = artworkBase(request);
   // An exact current-scope miss cannot reuse validators from a different
   // authorization partition. Avoid enumerating other cached partitions.
+  const candidateStarted = Date.now();
   const candidates = scopedMiss ? [] : await artworkCandidates(base, artworkByteLimit(request));
+  if (!background && !scopedMiss) timeArtwork(event, 'candidateLookup', candidateStarted);
   let response;
   try {
-    response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
+    response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : [], background);
   } catch (error) { forgetArtworkProofs(); countArtwork(event, 'networkErrors'); throw error; }
-  if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(event, []);
+  if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(event, [], background);
   if (response.status === 304) {
     const match = candidates.find(c => c.tag === response.headers.get('ETag') &&
       c.partition === response.headers.get('X-VDR-Suite-Artwork-Scope') &&
@@ -603,7 +716,7 @@ async function revalidateArtwork(event, scopedMiss = false) {
       if (!match.validatedAt || age < 0 || age > artworkFreshMs) event.waitUntil(storeArtwork(base, match.response, generation, event));
       return match.response;
     }
-    response = await artworkFetch(event, []);
+    response = await artworkFetch(event, [], background);
   }
   if (generation !== artworkGeneration || artworkSessionMutations) return response;
   countArtwork(event, response.status === 200 ? 'serverImages' : 'serverOther');
@@ -640,7 +753,8 @@ self.addEventListener('message', event => {
       event.source && event.source.id && event.ports && event.ports[0]) {
     const measurement = artworkMeasurements.get(event.source.id);
     event.ports[0].postMessage({schema: 1, capacity: artworkLimit, maxPreviewBytes: artworkBytes, maxEpgArtworkBytes: epgArtworkBytes,
-      counters: measurement ? {...measurement} : null});
+      counters: measurement ? {...measurement} : null,
+      workerUptimeMs: Date.now() - artworkWorkerStartedAt});
   }
 });
 

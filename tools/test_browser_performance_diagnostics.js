@@ -30,7 +30,7 @@ async function main() {
     for (const id of ['home', 'cold', 'clean', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) assert.ok(page.includes('id="' + id + '"'));
 
     const listeners = {};
-    const sent = [];
+    const sent = [], consoleSummaries = [];
     const frame = { attributes: {}, hasAttribute(name) { return name in this.attributes; }, getAttribute(name) { return this.attributes[name]; } };
     frame.attributes['data-vdr-suite-diagnostics'] = 'test-token';
     const parent = { postMessage(message, origin) { sent.push({ message, origin }); } };
@@ -40,7 +40,8 @@ async function main() {
       stop() { calls.push(['stop']); return { label: 'initial-home', metrics: { resourceRequests: 2 } }; },
       inspectHeaders() { calls.push(['headers']); return Promise.resolve({ status: 200, headers: {} }); }
     };
-    const child = { frameElement: frame, parent, VdrSuiteArtworkProbe: probe, location: { origin: 'https://example.test' }, addEventListener(type, fn) { listeners[type] = fn; }, Promise };
+    const child = { frameElement: frame, parent, VdrSuiteArtworkProbe: probe, location: { origin: 'https://example.test' }, addEventListener(type, fn) { listeners[type] = fn; },
+      console:{info(label, result) {consoleSummaries.push({label,result});}}, Promise };
     run('browser-performance-bridge.js', { window: child, Promise });
     assert.equal(calls[0][1], 'initial-home');
     assert.equal(calls[0][2].buffered, true);
@@ -57,10 +58,21 @@ async function main() {
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.at(-1).message.type, 'headers');
     assert.equal(calls.at(-1)[0], 'headers');
-    child.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+    const controllerEvents = new Map();
+    const measuredController = {postMessage(data, ports) {
       assert.equal(data.type,'vdr-suite-artwork-measurement');
-      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,counters:{localHits:7,imageHttpRequests:2}});
-    }}}};
+      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,
+        workerUptimeMs:3500,
+        counters:{localHits:7,imageHttpRequests:2,snapshotProofReads:1,
+          snapshotProofAccepted:1,proofReadsAtFirstImage:0,
+          acceptedProofsAtFirstImage:0,firstImageWorkerUptimeMs:500}});
+    }};
+    child.navigator = {serviceWorker:{controller:measuredController,
+      addEventListener(type, fn) {controllerEvents.set(type,fn);},
+      removeEventListener(type, fn) {
+        assert.equal(controllerEvents.get(type),fn);
+        controllerEvents.delete(type);
+      }}};
     child.MessageChannel = class {
       constructor() {
         this.port1 = {close() {}};
@@ -70,11 +82,32 @@ async function main() {
     child.setTimeout = setTimeout;
     child.clearTimeout = clearTimeout;
     message('start',{label:'measurement'});
+    assert.equal(typeof controllerEvents.get('controllerchange'),'function');
+    controllerEvents.get('controllerchange')();
     message('stop');
     await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(controllerEvents.size,0, 'controller events are observed only while capturing');
     assert.equal(sent.at(-1).message.type,'result');
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
+    const lifecycle = sent.at(-1).message.value.serviceWorkerLifecycle;
+    assert.equal(lifecycle.controlledAtStart,true);
+    assert.equal(lifecycle.controlledAtStop,true);
+    assert.equal(lifecycle.controllerChanges,1);
+    assert.equal(consoleSummaries.at(-1).result.snapshotProofReads,1);
+    assert.equal(consoleSummaries.at(-1).result.snapshotProofAccepted,1);
+    assert.equal(consoleSummaries.at(-1).result.proofReadsAtFirstImage,0);
+    assert.equal(consoleSummaries.at(-1).result.firstImageWorkerUptimeMs,500);
+    assert.equal(consoleSummaries.at(-1).result.workerUptimeMs,3500);
+    assert.equal(consoleSummaries.at(-1).result.controllerLifecycle.controllerChanges,1);
+    assert.equal(consoleSummaries.length,3,
+      'the opt-in diagnostic iframe writes one aggregate summary per stopped capture');
+    assert.equal(consoleSummaries.at(-1).result.localCacheHits,7);
+    assert.equal(consoleSummaries.at(-1).result.firstProofGap.samples,0,
+      'unavailable phases remain explicitly unmeasured');
+    assert.equal(consoleSummaries.at(-1).result.parallelImageHttpPeak,null);
+    assert(!JSON.stringify(consoleSummaries).includes('https://'),
+      'console output must not contain request URLs or authorization data');
 
     const handlers = {};
     const elements = {};

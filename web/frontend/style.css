@@ -5472,8 +5472,8 @@ body.channel-sorter-dragging * {
   flex: 0 0 auto;
 }
 
-/* No Artwork applies only to an empty poster URL or a failed request.
-   Pending real posters retain the original gray loading tile. */
+/* PWA.15.25: uniform poster fallback; a failed request is never
+   stored as a permanent negative artwork cache entry. */
 .media-home-discovery-artwork.no-artwork {
   background: #050505;
   color: #b9c0c8;
