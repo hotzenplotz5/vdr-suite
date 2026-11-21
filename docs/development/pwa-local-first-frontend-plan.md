@@ -1589,3 +1589,60 @@ for far cards, and user scroll lookahead beyond the first cohort. The
 initial visible images ready by 3284.3ms and server artwork queue
 maximum 5.4ms; the gray-card issue was a missing prefetch trigger,
 not proven server image-worker saturation.
+
+
+## PWA.15.11 — scroll-direction prefetch and oversized Home previews (2026-11-21)
+
+Browser acceptance target: horizontal Home swipes should reach posters that
+are already loaded, without regressing the first Home frame. The 2026-11-20
+22:28 cold PWA artwork measurement (Home frame 322.8ms; six initial posters
+ready at 3137.5ms; 186 worker misses, 164 writes) is the **pre-change**
+reference, not a PWA.15.11 result.
+
+- The existing Recording Discovery coordinator now derives rail direction and
+  swipe distance from real `scrollLeft` on its existing scroll/rAF path.
+  The forward window covers approximately 1.5 rail widths, up to two widths
+  for a fast swipe (maximum 1600px); the reverse side stays within 0.35
+  widths (maximum 400px). Visible requests are promoted and assigned `src`
+  before any speculative load. An untouched cold Home still waits for its
+  first visible images before speculative eager requests; a genuine swipe
+  may start forward previews while other visible artwork remains pending.
+- Speculative image requests use the existing `img.src`, IntersectionObserver,
+  browser cache and scoped PWA Service Worker. At most four are introduced in
+  a frame and at most six speculative image elements are outstanding
+  across rails. Completion/error releases those slots through the existing
+  one-shot image events; already assigned URLs are never assigned again.
+  All farther cards remain deferred. The document's existing scroll owner
+  continues to schedule the coordinator: there is no new polling or fetch
+  transport.
+- The opt-in browser JSON now exports `railArtworkPrefetch`: cover readiness
+  on observed viewport entry, pending and completed-after-entry counters,
+  ready-delay distribution, fraction ready on entry, request lead, maximum
+  incomplete-image count and left/right scroll samples. These are sampled at
+  animation frames, **not** exact decoded paint or network socket counts.
+  The so-called prefetch-hit rate includes images already warm from caches
+  and therefore must not be represented as verified speculative network
+  successes. Recording IDs and URLs remain excluded.
+- `ArtworkPreviewCache` previously returned **every** image at most
+  400 × 600 pixels as its original bytes, even if a noisy small PNG greatly
+  exceeded the 256-KiB recording-artwork SW admission threshold. Small
+  originals already at or below that byte limit still pass through without
+  re-encoding; larger small images now enter the existing FFmpeg JPEG
+  conversion without upscaling. Converted previews are bounded at 256 KiB
+  and use quality level 6. Failure or an unsuitable format still returns
+  the original via the existing HTTP fallback. The SW's 256-KiB policy,
+  authorization, cache scope and API response rules are unchanged.
+- Large Home originals can **also** result from unsupported dimensions or
+  formats, encoder failure, the nonblocking conversion lock and other
+  existing fallback cases. This change proves and repairs the oversized
+  *small-image* bypass, but cannot attribute all 22 previously observed
+  uncached responses to that path without actual response-level evidence.
+  No claim about actual cache-hit gains or gray-tile reduction is made until
+  a comparative browser capture on yaVDR.
+
+Focused regression coverage: the preexisting Home priority tests plus rapid
+rightward scrolling, leftward reversal, bounded distance and duplicate-source
+avoidance; a diagnostics synthetic viewport-entry test with privacy assertion;
+and a noisy 400 × 600 PNG preview fixture plus persistent preview reuse. The
+live browser measurement and yaVDR incremental C++ compilation remain
+acceptance checks, not results established by the source change alone.
