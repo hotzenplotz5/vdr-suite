@@ -15,7 +15,8 @@
 
 namespace {
 constexpr std::size_t MaxInput = 16 * 1024 * 1024;
-constexpr std::size_t MaxOutput = 512 * 1024;
+// Match the existing Recording-artwork Service Worker cache admission limit.
+constexpr std::size_t MaxOutput = 256 * 1024;
 constexpr std::size_t MaxCache = 32 * 1024 * 1024;
 constexpr std::size_t MaxEntries = 256;
 struct Fd {
@@ -183,7 +184,9 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
     const Dimensions size = dimensions(source, type);
     if (!size.width || !size.height || size.width > 16384 || size.height > 16384 ||
         static_cast<std::uint64_t>(size.width) * size.height > 40000000 ||
-        (size.width <= 400 && size.height <= 600)) return {};
+        (size.width <= 400 && size.height <= 600 && source.size() <= MaxOutput)) return {};
+    // A small but uncompressed/noisy PNG can exceed 1 MiB. Preserve small
+    // efficient originals; recompress only oversized Home bytes, without upscaling.
     // The transform is a pure function of format and exact original bytes.
     // Only this private derivative is shared; the HTTP boundary must still
     // resolve/authorize the original and derive its own scoped validator.
@@ -235,7 +238,7 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
     if (input.value < 0) return fail();
     ::unlinkat(directory.value, ".input", 0);
     if (!writeAll(input.value, source)) return fail();
-    const double scale = std::min(400.0 / size.width, 600.0 / size.height);
+    const double scale = std::min(1.0, std::min(400.0 / size.width, 600.0 / size.height));
     const unsigned width = std::max(1u, static_cast<unsigned>(size.width * scale));
     const unsigned height = std::max(1u, static_cast<unsigned>(size.height * scale));
     const std::string format = type == "image/jpeg" ? "jpeg_pipe" : type == "image/png" ? "png_pipe" : "webp_pipe";
@@ -246,7 +249,7 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
         "/proc/" + std::to_string(::getpid()) + "/fd/" + std::to_string(input.value),
         "-map", "0:v:0", "-frames:v", "1", "-an", "-sn", "-dn", "-map_metadata", "-1",
         "-vf", "scale=" + std::to_string(width) + ":" + std::to_string(height) + ",setsar=1",
-        "-threads", "1", "-c:v", "mjpeg", "-q:v", "4", "-pix_fmt", "yuvj420p",
+        "-threads", "1", "-c:v", "mjpeg", "-q:v", "6", "-pix_fmt", "yuvj420p",
         "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(3), MaxOutput,
         {768 * 1024 * 1024, 2, background ? 10 : 0});
     const auto outputSize = dimensions(result.output, "image/jpeg");
