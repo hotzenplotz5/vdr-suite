@@ -1977,3 +1977,44 @@ PWA.15.21-Dateibaum. Weder die schnelle PWA.15.17-IO-Logik
 noch der Service Worker, API, Berechtigungen, Daemon und
 No-Artwork-Fallback werden geaendert. Eine reale Browserabnahme
 muss vor dem naechsten Slice bestaetigt werden.
+
+## PWA.15.23 kompatibel — optionale SW-/Proof-Lebenszyklusdiagnose (2026-11-21)
+
+Das auf dem yaVDR bestaetigte PWA.15.21 bleibt die vollstaendige
+produktive Basis, einschliesslich des schwarzen No-Artwork-Fallbacks,
+der PWA.15.19-kompatiblen Zaehler und der PWA.15.20-Messung.
+Die nach realem Browserfeedback wieder verworfenen Versionen
+PWA.15.18 und PWA.15.22 werden nicht uebernommen.
+
+Die originalen PWA.15.23-Dateien der beiden historischen Commits
+bauen byteidentisch auf dem hier vorhandenen Stand der vier
+betroffenen Diagnose-/Testdateien auf. Deshalb werden
+`web/frontend/service-worker.js`,
+`web/frontend/browser-performance-bridge.js`,
+`web/frontend/tests/test_pwa_artwork_cache.js` und
+`tools/test_browser_performance_diagnostics.js`
+unveraendert aus dem abschliessenden historischen Commit
+`7fe5d0186445415e44d934993a4f09b183ca8499`
+uebernommen.
+
+Der Worker zaehlt, ob das erste Bild schon bei einem akzeptierten
+Proof ankommt, trennt den vorhandenen Snapshot-Readback von
+anderen regulaeren Proof-Readbacks und exportiert ausschliesslich
+relative Worker-Laufzeitwerte. Die nur auf ausdruecklichen Start
+geladene Browser-Diagnose-Bridge erfasst, ob ein Service-Worker-
+Controller beim Start/Stop vorhanden ist und ob waehrend
+der Messung `controllerchange` ausgeloest wird. Sie entfernt
+ihren Listener bei Stop und fuehrt weder einen Reload noch
+einen weiteren Netzwerkaufruf aus. Keine URLs, IDs, Grants,
+Cache-Inhalte oder absolute Zeitstempel werden exportiert.
+
+Die originale zusaetzliche Testkorrektur fuer Cross-Realm-
+Controller-Felder ist ebenfalls enthalten. Die produktiven
+Home-Renderer, die Bild-Vorlaufkoordination, Request-Prioritaeten,
+`app.js`, die Client-API, das CSS und der No-Artwork-Fallback
+bleiben bytegenau auf dem zuvor bestaetigten PWA.15.21-Stand.
+Keine Service-Worker-Claims, Wartegates oder neuen HTTP-Pfade.
+
+Die browserseitige Performance und die Fehlerfreiheit der
+Artwork-Anzeige sind trotz gruenem Unit-Test erst nach realer
+yaVDR-Abnahme bestaetigt.

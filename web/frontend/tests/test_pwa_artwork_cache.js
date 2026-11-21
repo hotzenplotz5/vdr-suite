@@ -480,6 +480,32 @@ async function run(prefix) {
     'internal first-miss timestamp must not be exported');
   assert.equal((await image(unprovenUrl,'timing-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),
     'local', 'normal authorized cache behavior remains unchanged');
+  // PWA.15.23: distinguish a snapshot that the controlling worker actually
+  // observed from one that was already completed before the worker's first
+  // image event. Uptime is relative only; no absolute timestamps or IDs.
+  const firstUnprovenState = measurement('timing-tab').counters;
+  assert.equal(firstUnprovenState.proofReadsAtFirstImage,0);
+  assert.equal(firstUnprovenState.acceptedProofsAtFirstImage,0);
+  assert.equal(firstUnprovenState.snapshotProofReads,1);
+  assert.equal(firstUnprovenState.snapshotProofAccepted,1);
+  assert.equal(firstUnprovenState.otherProofReads,0);
+  assert(firstUnprovenState.firstImageWorkerUptimeMs >= 0);
+  assert(firstUnprovenState.firstProofWorkerUptimeMs >= firstUnprovenState.firstImageWorkerUptimeMs);
+  assert(firstUnprovenState.firstAcceptedProofWorkerUptimeMs >= firstUnprovenState.firstProofWorkerUptimeMs);
+  await proof('proof-first-tab');
+  const proofFirstUrl = url.replace('recordingId=7','recordingId=901106');
+  await image(proofFirstUrl,'proof-first-tab');
+  const proofFirst = measurement('proof-first-tab').counters;
+  assert.equal(proofFirst.proofReadsAtFirstImage,1);
+  assert.equal(proofFirst.acceptedProofsAtFirstImage,1);
+  assert.equal(proofFirst.snapshotProofReads,1);
+  assert.equal(proofFirst.snapshotProofAccepted,1);
+  assert.equal(proofFirst.missingProofBeforeAcceptedRead,0);
+  assert(!Object.keys(proofFirst).some(key => /At$|Url|clientId|partition/i.test(key)),
+    'export only relative uptime durations and route-level counters');
+  assert(!JSON.stringify(proofFirst).includes('https://'));
+  console.log('PWA.15.23 worker proof ordering and relative lifetime counters PASS');
+
   console.log('PWA.15.20 proof readback and candidate lookup phases PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

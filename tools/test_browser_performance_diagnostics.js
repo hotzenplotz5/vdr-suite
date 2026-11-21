@@ -58,10 +58,21 @@ async function main() {
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.at(-1).message.type, 'headers');
     assert.equal(calls.at(-1)[0], 'headers');
-    child.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+    const controllerEvents = new Map();
+    const measuredController = {postMessage(data, ports) {
       assert.equal(data.type,'vdr-suite-artwork-measurement');
-      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,counters:{localHits:7,imageHttpRequests:2}});
-    }}}};
+      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,
+        workerUptimeMs:3500,
+        counters:{localHits:7,imageHttpRequests:2,snapshotProofReads:1,
+          snapshotProofAccepted:1,proofReadsAtFirstImage:0,
+          acceptedProofsAtFirstImage:0,firstImageWorkerUptimeMs:500}});
+    }};
+    child.navigator = {serviceWorker:{controller:measuredController,
+      addEventListener(type, fn) {controllerEvents.set(type,fn);},
+      removeEventListener(type, fn) {
+        assert.equal(controllerEvents.get(type),fn);
+        controllerEvents.delete(type);
+      }}};
     child.MessageChannel = class {
       constructor() {
         this.port1 = {close() {}};
@@ -71,11 +82,24 @@ async function main() {
     child.setTimeout = setTimeout;
     child.clearTimeout = clearTimeout;
     message('start',{label:'measurement'});
+    assert.equal(typeof controllerEvents.get('controllerchange'),'function');
+    controllerEvents.get('controllerchange')();
     message('stop');
     await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(controllerEvents.size,0, 'controller events are observed only while capturing');
     assert.equal(sent.at(-1).message.type,'result');
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
+    const lifecycle = sent.at(-1).message.value.serviceWorkerLifecycle;
+    assert.equal(lifecycle.controlledAtStart,true);
+    assert.equal(lifecycle.controlledAtStop,true);
+    assert.equal(lifecycle.controllerChanges,1);
+    assert.equal(consoleSummaries.at(-1).result.snapshotProofReads,1);
+    assert.equal(consoleSummaries.at(-1).result.snapshotProofAccepted,1);
+    assert.equal(consoleSummaries.at(-1).result.proofReadsAtFirstImage,0);
+    assert.equal(consoleSummaries.at(-1).result.firstImageWorkerUptimeMs,500);
+    assert.equal(consoleSummaries.at(-1).result.workerUptimeMs,3500);
+    assert.equal(consoleSummaries.at(-1).result.controllerLifecycle.controllerChanges,1);
     assert.equal(consoleSummaries.length,3,
       'the opt-in diagnostic iframe writes one aggregate summary per stopped capture');
     assert.equal(consoleSummaries.at(-1).result.localCacheHits,7);
