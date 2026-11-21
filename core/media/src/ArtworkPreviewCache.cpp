@@ -21,6 +21,7 @@ constexpr std::size_t MaxOutput = 256 * 1024;
 // cache byte-bounded, but allow its small, frequently used derivatives to stay.
 constexpr std::size_t MaxCache = 64 * 1024 * 1024;
 constexpr std::size_t MaxEntries = 1024;
+constexpr std::size_t MaxFailures = 256; // Preserve the independent retry-cooldown bound.
 struct Fd {
     int value;
     explicit Fd(int fd) : value(fd) {}
@@ -229,7 +230,7 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
     const auto failed = failures_.find(key);
     if (failed != failures_.end() && failed->second > now) return {};
     auto fail = [&]() -> std::string {
-        if (failures_.size() >= MaxEntries) failures_.erase(failures_.begin());
+        if (failures_.size() >= MaxFailures) failures_.erase(failures_.begin());
         failures_[key] = now + std::chrono::seconds(30);
         return {};
     };
