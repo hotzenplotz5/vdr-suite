@@ -2,6 +2,7 @@
 
 #include "BackendRegistryService.h"
 #include "GenreIndexRepository.h"
+#include "VdrRecordingMetadataCacheCodec.h"
 
 #include <algorithm>
 #include <chrono>
@@ -189,6 +190,13 @@ int placeholderVariant(const std::string& value)
 std::string recordingPosterUrl(const GenreRecordingItem& recording)
 {
     if (recording.backendNativeId.empty()) return {};
+    // A native ID alone is not evidence for an image. Older genre pages
+    // fabricated poster URLs for every Recording and caused 404s for items
+    // without any artwork. Reuse the two existing page-scoped cache signals;
+    // do not add metadata HTTP reads or a persistent negative cache.
+    if (!recording.seriesArtworkAvailable &&
+        !VdrRecordingMetadataCacheCodec::decode(recording.metadataPayload).hasArtwork())
+        return {};
     return "/api/recordings/metadata/image?backend=" +
         percentEncode(recording.backendId) +
         "&backendNativeId=" + percentEncode(recording.backendNativeId) +

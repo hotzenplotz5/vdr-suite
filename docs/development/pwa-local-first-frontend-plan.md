@@ -2332,3 +2332,66 @@ sich nicht veraendern. Die Anzahl HTTP-404
 muss durch die rein visuelle Fallback-
 Aenderung nicht sinken. Kaltstart-HTTP-
 Wartezeiten bleiben eigenstaendig.
+
+## PWA.15.26 — Nur belegte Recording-Poster-URLs im Genre-Page-Payload (2026-11-21)
+
+Nach der schwarzen `No Artwork`-Darstellung (PWA.15.25) meldete
+DevTools weiterhin sieben 404 an
+`/api/vdr/recordings/metadata/image`. Ein visuelles
+Fallback verhindert keinen HTTP-Request. Die DevTools-Zeilen
+enthalten jedoch keine vollstaendigen Query-Parameter,
+daher kann **noch nicht** festgestellt werden, welche
+Artwork-Identitaet jeweils fehlt.
+
+Eine unabhaengig davon nachvollzogene, konkrete Quelle
+unbegruendeter Bild-GETs liegt im bestehenden
+`GenreBrowserController::recordingPosterUrl()`: der
+Genre-Page-Response generierte bisher fuer **jede**
+Aufnahme mit `backendNativeId` eine
+`/api/recordings/metadata/image?...kind=poster&index=0`-
+URL, auch ohne einen einzigen Artwork-Nachweis. Diese
+Route liefert bei tatsaechlich fehlendem Bild korrekt
+404. Die neue Regel nutzt ausschliesslich die bereits
+im selben Genre-Page-Read vorhandenen Felder:
+
+- Native oder manuelle Poster-/Gallery-Nachweise:
+  `seriesArtworkAvailable` aus dem vorhandenen
+  Cache-Only-Summary beibehalten;
+- bereits im Recording-Cache vorhandene Legacy-
+  Artwork-Nachweise: den persistierten `VRM1`-
+  `metadataPayload` mit dem bestehenden
+  `VdrRecordingMetadataCacheCodec` dekodieren und
+  `hasArtwork()` pruefen;
+- **kein** Native-/Manual-/Legacy-Nachweis:
+  `posterUrl`/Metadata-`preferredUrl` sind leer,
+  der Frontend-Renderer zeigt sofort `No Artwork`
+  ohne den spekulativen GET.
+
+Diese Regel **wertet nur vorhandene positive Belege
+aus**, fuehrt keine zusaetzlichen HTTP-/Datenbank-
+Abfragen, kein Persistieren von negativen Ergebnissen
+und keine neuen Berechtigungs- oder UI-Gates ein.
+Der normale spaetere Metadaten-Readback kann neue
+Artwork-Belege weiterhin anzeigen.
+
+Die Regression `test_genre_browser_controller`
+deckt ab: Aufnahme ohne Artwork ergibt keine URL,
+native Portrait-Aufnahme behaelt `kind=poster`,
+persistiertes Legacy-Artwork behaelt die bisherige
+URL. `mk/genre-browser.mk` verlinkt fuer diesen
+Test den bereits im Daemon eingesetzten Codec.
+
+**Grenze**: Das ist der Fix fuer *synthetische Genre-
+Poster-URLs* (`/api/recordings/metadata/image`).
+Die sieben vom Benutzer gemeldeten 404 betreffen
+laut Screenshot den anderen Pfad
+`/api/vdr/recordings/metadata/image` und sind
+dadurch **nicht als behoben belegt**. Fuer diese
+Quelle muss der konkrete `kind`-/Index-Parameter
+gegen den bereits vorhandenen nativen Metadaten-
+und Datei-Owner geprueft werden. Der neue
+Daemonaenderungsstand muss gebaut, nach dem
+bestehenden Staging-/Deployment-Vertrag
+installiert und anschliessend in Doku real
+abgenommen werden; reine Frontend-Kopien
+koennen diese Aenderung nicht aktivieren.
