@@ -11,7 +11,8 @@ original representation. Other variant values return 400 with no-store.
 
 The fixed variant fits within 400 x 600 pixels, preserves aspect ratio to integer
 pixel rounding and never enlarges an image. JPEG, PNG and static WebP are supported;
-small images are passed through unchanged. Output is JPEG at FFmpeg quality 4;
+small images already within 256 KiB are passed through unchanged. Larger small
+images are recompressed. Output is JPEG at FFmpeg quality 6;
 transparency is flattened. Unsupported, oversized, malformed or unhelpful output
 (not smaller than the source) falls back to the original. Rotated images whose
 decoded dimensions do not match the inspected dimensions also fall back.
@@ -33,16 +34,16 @@ and assignment revision semantics are retained; transformed responses discard
 the original content length, ETag and Last-Modified.
 
 Resource limits: 16 MiB input, 40 million source pixels, 16384 pixels per source
-dimension, 512 KiB output, 768 MiB decoder address space, two CPU seconds and three
+dimension, 256 KiB output, 768 MiB decoder address space, two CPU seconds and three
 wall seconds. Decode is single-threaded, uses a forced image demuxer and a local
 file/pipe protocol allowlist. Existing valid cache hits are served before converter locking. On a cache miss,
 there is at most one active conversion per cache directory; contention still
 returns the original without queuing. Failed conversions
-have a bounded 256-entry, 30-second retry cooldown in each daemon instance.
+have a bounded 1024-entry, 30-second retry cooldown in each daemon instance.
 
-The persistent cache retains at most 256 previews and 32 MiB, evicting oldest
+The persistent cache retains at most 1024 previews and 64 MiB, evicting oldest
 published files before atomic publication. One input (up to 16 MiB) and one output
-(up to 512 KiB) may exist transiently in addition to the retained cache. Directory
+(up to 256 KiB) may exist transiently in addition to the retained cache. Directory
 scans are bounded; an unexpectedly overfilled directory disables new publication.
 Directory and file descriptors reject symlinks; an advisory directory lock also
 serializes independent daemon instances. Cache hits survive daemon restarts.
@@ -88,3 +89,17 @@ test fixtures, **not** a real yaVDR cold-start performance measurement.
 Use new operator browser captures to compare first-byte timings, listener
 stall diagnostics, total artwork time and Service Worker cache-miss causes.
 Session isolation and SW authorization remain unchanged.
+
+## PWA.15.13 — mehr persistente Home-Previews (2026-11-21)
+
+Ein yaVDR-Lauf zeigte 256 Cache-Dateien bei nur 8,28 MiB auf Festplatte;
+alle gespeicherten Previews lagen unter 256 KiB (groesstes 69.956 Byte).
+Die Dateianzahl, nicht der Bytebedarf, erreichte damit die alte Grenze.
+Der persistente serverseitige Preview-Cache nimmt jetzt hoechstens 1024 Dateien
+und 64 MiB auf. Bestehende Dateien bleiben erhalten und sind weiterhin nach
+Originalinhalt adressiert. Die Web-PWA-Grenze von 1024 Eintraegen und 256 KiB
+pro Recording-Home-Cover bleibt unveraendert. Die bisherige
+Nur-eine-Umwandlung-Regel und Original-Fallbacks bleiben ebenfalls erhalten.
+Die Kapazitaetserweiterung allein beweist nicht, dass alle HTTP-Bilder
+aus der Preview-Variante kommen; fuer Restfaelle sind die vorhandenen
+Browser-Header- und Groessenmessungen massgeblich.
