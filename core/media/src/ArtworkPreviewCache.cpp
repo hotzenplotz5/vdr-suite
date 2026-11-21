@@ -17,8 +17,10 @@ namespace {
 constexpr std::size_t MaxInput = 16 * 1024 * 1024;
 // Match the existing Recording-artwork Service Worker cache admission limit.
 constexpr std::size_t MaxOutput = 256 * 1024;
-constexpr std::size_t MaxCache = 32 * 1024 * 1024;
-constexpr std::size_t MaxEntries = 256;
+// A recording library easily exceeds 256 posters; keep the private preview
+// cache byte-bounded, but allow its small, frequently used derivatives to stay.
+constexpr std::size_t MaxCache = 64 * 1024 * 1024;
+constexpr std::size_t MaxEntries = 1024;
 struct Fd {
     int value;
     explicit Fd(int fd) : value(fd) {}
