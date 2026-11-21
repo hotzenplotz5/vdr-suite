@@ -934,10 +934,13 @@
   }
 
 
-  // One layout pass per frame. Inline folder demand takes precedence over
-  // other new artwork; a small adjacent window warms the existing image path.
+  // PWA.15.11: one request-time coordinator for viewport demand and a
+  // direction-aware, bounded lookahead. The existing Home scroll owner calls
+  // prioritizeInlineRailArtwork; no second scroll observer or fetch path.
   const pendingArtworkPriority = new Set();
   const pendingArtworkRails = new Set();
+  const activeArtworkPrefetch = new Set();
+  const railArtworkMotion = new WeakMap();
   let artworkPriorityFrame = false;
 
   function artworkBounds(rail) {
@@ -958,6 +961,33 @@
     return Math.max(bounds.left - r.right, r.left - bounds.right, 1);
   }
 
+  function motionForRail(rail) {
+    const position = Number(rail.scrollLeft) || 0;
+    let motion = railArtworkMotion.get(rail);
+    if (!motion) {
+      motion = {position: position, direction: 1, moved: false, fast: false};
+      railArtworkMotion.set(rail, motion);
+    } else if (position !== motion.position) {
+      const delta = position - motion.position;
+      motion.direction = delta > 0 ? 1 : -1;
+      motion.fast = Math.abs(delta) >= Math.max(120, (Number(rail.clientWidth) || 400) / 2);
+      motion.moved = true;
+      motion.position = position;
+    }
+    return motion;
+  }
+
+  function startDeferredArtwork(image, priority) {
+    const pending = image && image.__vdrSuiteDeferredArtworkUrl;
+    if (!pending) return false; // A src already started is never assigned twice.
+    if (deferredArtworkObserver) deferredArtworkObserver.unobserve(image);
+    image.fetchPriority = priority;
+    image.loading = 'eager';
+    image.__vdrSuiteDeferredArtworkUrl = '';
+    image.src = pending;
+    return true;
+  }
+
   function armArtworkPriority() {
     if (artworkPriorityFrame || typeof global.requestAnimationFrame !== 'function') return;
     artworkPriorityFrame = true;
@@ -967,19 +997,31 @@
       const rails = Array.from(pendingArtworkRails);
       pendingArtworkPriority.clear();
       pendingArtworkRails.clear();
-      const visible = new Set();
-      const adjacent = new Map();
-      const handled = new Set();
+      for (const image of activeArtworkPrefetch) {
+        if (!image.isConnected || image.complete) activeArtworkPrefetch.delete(image);
+      }
+      const visible = new Set(), candidates = [], handled = new Set();
+      let userScrolled = false;
       for (const rail of rails) {
         if (!rail.isConnected || typeof rail.querySelectorAll !== 'function') continue;
         const bounds = artworkBounds(rail);
-        const lookahead = Math.min(1200, Math.max(0, bounds.right - bounds.left));
+        const width = Math.max(0, bounds.right - bounds.left);
+        const motion = motionForRail(rail);
+        userScrolled = userScrolled || motion.moved;
+        // Normal swipes stay about 1.5 rail widths ahead; a rapid swipe
+        // extends to two, with only a short trailing window on reversal.
+        const ahead = Math.min(1600, width * (motion.fast ? 2 : 1.5));
+        const behind = Math.min(400, width * 0.35);
         for (const image of rail.querySelectorAll('img')) {
           handled.add(image);
           const distance = artworkDistance(image, bounds);
-          if (distance === 0) visible.add(image);
-          else if (distance <= lookahead && image.loading === 'lazy')
-            adjacent.set(image, distance);
+          if (distance === 0) { visible.add(image); continue; }
+          if (!Number.isFinite(distance) || distance > ahead) continue;
+          const rect = image.getBoundingClientRect();
+          const side = rect.left >= bounds.right ? 1 : -1;
+          const forward = side === motion.direction;
+          if (distance <= (forward ? ahead : behind) && image.loading === 'lazy')
+            candidates.push({image: image, distance: distance, forward: forward});
         }
       }
       for (const image of images) {
@@ -987,44 +1029,45 @@
         const rail = typeof image.closest === 'function' ? image.closest('.media-home-discovery-rail') : null;
         if (artworkDistance(image, artworkBounds(rail)) === 0) visible.add(image);
       }
-      let remaining = 12;
+      let high = 12;
       for (const image of visible) {
-        if (remaining <= 0) break;
-        if (image.loading === 'eager' && image.fetchPriority === 'high') continue;
+        if (high <= 0) break;
         image.fetchPriority = 'high';
         image.loading = 'eager';
-        remaining--;
+        startDeferredArtwork(image, 'high');
+        high--;
       }
-      // A cold Home may have many visible posters waiting for their first
-      // bytes. Do not issue *extra* speculative eager loads while any of
-      // those real viewport requests is unresolved: the listener prepares
-      // authorized image sources serially before its image writer pool.
-      // Never defer actual visibility/IO demand, and keep the normal
-      // near-rail warmup once the visible images have settled.
-      if (Array.from(visible).some(function (image) {
+      // Keep cold Home first-screen traffic isolated. During a real scroll,
+      // however, waiting for unrelated visible covers causes gray tiles.
+      const visiblePending = Array.from(visible).some(function (image) {
         return image.complete === false || Boolean(image.__vdrSuiteDeferredArtworkUrl);
-      })) return;
-      // Demand is always allowed. Speculation stays bounded and respects
-      // the existing Home policy for constrained connections.
+      });
+      if (visiblePending && !userScrolled) return;
       const net = global.navigator && global.navigator.connection;
       if ((doc && doc.hidden) || (global.navigator && global.navigator.onLine === false) ||
           (net && (net.saveData || ['slow-2g', '2g'].includes(net.effectiveType)))) return;
-      let nearby = 4;
-      for (const [image] of Array.from(adjacent).sort((a,b) => a[1] - b[1])) {
-        if (nearby <= 0) break;
+      let budget = Math.min(4, Math.max(0, 6 - activeArtworkPrefetch.size));
+      // Forward candidates win regardless of which rail happens to be first
+      // in the DOM. Each completed request re-arms this same rAF coordinator.
+      candidates.sort(function (a,b) {
+        return Number(b.forward) - Number(a.forward) || a.distance - b.distance;
+      });
+      for (const item of candidates) {
+        if (budget <= 0) break;
+        const image = item.image;
         if (image.loading !== 'lazy') continue;
+        // Existing src/requests must not be restarted.
+        if (image.src && !image.__vdrSuiteDeferredArtworkUrl) continue;
         image.fetchPriority = 'low';
         image.loading = 'eager';
-        // Deferred cards have deliberately no src. Promoting loading alone
-        // never starts a request: give only these adjacent cards their src
-        // after the current viewport has settled. Far cards stay deferred.
-        const pending = image.__vdrSuiteDeferredArtworkUrl;
-        if (pending) {
-          if (deferredArtworkObserver) deferredArtworkObserver.unobserve(image);
-          image.__vdrSuiteDeferredArtworkUrl = '';
-          image.src = pending;
+        if (image.__vdrSuiteDeferredArtworkUrl) {
+          if (global.performance && typeof global.performance.now === 'function') {
+            image.__vdrSuiteArtworkPrefetchStartedAt = global.performance.now();
+            image.__vdrSuiteArtworkPrefetchDirection = item.forward ? 'forward' : 'reverse';
+          }
+          if (startDeferredArtwork(image, 'low')) activeArtworkPrefetch.add(image);
         }
-        nearby--;
+        budget--;
       }
     });
   }
@@ -1111,6 +1154,7 @@
     // without polling or new background HTTP work.
     if (typeof image.addEventListener === 'function') {
       const resumeRailWarmup = function () {
+        activeArtworkPrefetch.delete(image);
         const rail = typeof image.closest === 'function'
           ? image.closest('.media-home-discovery-rail') : null;
         if (rail) prioritizeInlineRailArtwork(rail);
