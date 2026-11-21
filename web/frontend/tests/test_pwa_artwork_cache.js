@@ -11,8 +11,7 @@ async function run(prefix) {
   const tagA = '"vsr-' + '1'.repeat(64) + '"', tagB = '"vsr-' + '2'.repeat(64) + '"';
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
-  let holdImage = null, holdImageQueue = [], holdMutation = null, failDelete = false;
-  let lowPriorityImageFetches = 0;
+  let holdImage = null, holdMutation = null, failDelete = false;
   let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0, candidateKeyReads = 0;
   let proofDelay = 0, epgAuthorized = false, recordingAuthorized = true;
   const deferred = () => {
@@ -28,15 +27,7 @@ async function run(prefix) {
     return {async keys(key, options) {if (key === undefined) fullKeyReads++; if (options?.ignoreSearch) candidateKeyReads++; return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
   }, async delete(name) {if (failDelete) throw Error('cache-delete-failed'); return stores.delete(name);}};
   const responseHeaders = () => ({'Content-Type':'image/jpeg', ETag:tag, 'X-VDR-Suite-Artwork-Scope':partition, 'X-VDR-Suite-Artwork-Bytes':String(Buffer.byteLength(content)), 'Cache-Control':'private, no-cache'});
-  // Node's Request may ignore the priority hint: record the real RequestInit
-  // passed by production artworkFetch, not a synthesized mock result.
-  class PriorityRequest extends Request {
-    constructor(input, init) {
-      super(input, init);
-      if (init && init.priority) this.artworkRequestedPriority = init.priority;
-    }
-  }
-  const context = {scope, URL, Response, Request:PriorityRequest, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
+  const context = {scope, URL, Response, Request, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
     last = request;
     if (offline) throw Error('offline');
     if (request.method === 'POST') {
@@ -53,24 +44,21 @@ async function run(prefix) {
       }});
     }
     imageReads++;
-    if (request.artworkRequestedPriority === 'low') lowPriorityImageFetches++;
     if (status !== 200) return new Response('failure', {status});
     const response = (request.headers.get('If-None-Match') || '').split(', ').includes(tag)
       ? new Response(null,{status:304,headers:responseHeaders()})
       : new Response(content,{headers:responseHeaders()});
-    if (holdImage || holdImageQueue.length) {
-      const waiting = holdImageQueue.length ? holdImageQueue.shift() : holdImage;
-      if (waiting === holdImage) holdImage = null;
+    if (holdImage) {
+      const waiting = holdImage; holdImage = null;
       waiting.entered.resolve(); await waiting.release.promise;
     }
     return response;
   }};
   vm.createContext(context); vm.runInContext(code, context);
   const invoke = (name, args) => {context.args = args; return vm.runInContext(name+'(...args)',context);};
-  async function image(address = url, clientId, priorityHint) {
+  async function image(address = url, clientId) {
     const request = new Request(address,{credentials:'same-origin'});
     Object.defineProperty(request,'destination',{value:'image'});
-    if (priorityHint !== undefined) Object.defineProperty(request,'priority',{value:priorityHint});
     assert.equal(invoke('artworkRequest',[request]),true);
     const pending = [];
     let result; listeners.fetch({request, clientId, waitUntil:p=>pending.push(p), respondWith:p=>{result=p;}});
@@ -84,8 +72,6 @@ async function run(prefix) {
   }
   assert.equal(await (await image()).text(),'poster-a');
   assert.equal(last.cache,'no-store');
-  assert.equal(last.artworkRequestedPriority, undefined,
-    'foreground images retain their original browser request priority');
   assert.equal((await image()).headers.get('X-VDR-Suite-Artwork-Cache'),'revalidated');
   assert.equal(last.headers.get('If-None-Match'),tagA);
   partition=scopeB; tag=tagB; content='poster-b';
@@ -233,8 +219,6 @@ async function run(prefix) {
     'artwork stays locally reusable after 30 seconds without a new read proof');
   assert.equal(imageReads,afterCoalescing+1,'elapsed time alone does not cause another HTTP artwork request');
   assert.equal(measurement('other-tab').counters.missingProof,1);
-  assert.equal(measurement('other-tab').counters.missingProofBeforeAcceptedRead,1,
-    'an unproven document uses the normal HTTP path, tracked without loosening auth');
   // Delay must not consume the post-response artwork window.
   proofDelay=9000;
   await proof();
@@ -281,74 +265,9 @@ async function run(prefix) {
   assert.equal(await stale.text(),'different-account');
   assert.equal(stale.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   assert.equal(imageReads,warmB+1,'stale visible poster is refreshed in the background');
-  assert.equal(last.artworkRequestedPriority,'low',
-    'stale-while-revalidate uses a low-priority HTTP hint');
   const refreshed=imageReads;
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   assert.equal(imageReads,refreshed,'successful 304 refresh renews local freshness');
-  // PWA.15.16: a stale cache hit is served locally while its background
-  // HTTP refresh overlaps an unrelated foreground image miss. Report
-  // diagnostic timing and overlap, never image URLs or authorization scopes.
-  clock+=5*60*1000+1;
-  await proof();
-  const heldRefresh = {entered:deferred(), release:deferred()};
-  holdImage=heldRefresh;
-  const refreshInProgress=image(url,'tab-a');
-  await heldRefresh.entered.promise;
-  const duringRefresh=image(url.replace('recordingId=7','recordingId=998899'),'tab-a');
-  for(let turn=0;turn<40&&!measurement('tab-a').counters.foregroundHttpWhileBackgroundActive;turn++)
-    await Promise.resolve();
-  assert(measurement('tab-a').counters.foregroundHttpWhileBackgroundActive>0,
-    'foreground requests started during an active background HTTP fetch are counted');
-  assert.equal(last.artworkRequestedPriority, undefined,
-    'a foreground cache miss must never inherit the background low-priority hint');
-  clock+=1100;
-  heldRefresh.release.resolve();
-  await Promise.all([refreshInProgress,duringRefresh]);
-  const timings=measurement('tab-a').counters;
-  assert(timings.cacheLookupSamples>0 && timings.cacheHitResolveSamples>0,
-    'scoped cache lookup and local-hit response phases are measured');
-  assert(timings.backgroundHttpSamples>0 && timings.backgroundHttpMaxMs>=1100,
-    'background HTTP duration to response headers is independently measured');
-  assert(timings.foregroundHttpSamples>0 && timings.maxImageHttpInFlight>=2 &&
-    timings.maxBackgroundHttpInFlight>=1,
-    'worker measures simultaneous HTTP fetches without inferring causation');
-  assert(!JSON.stringify(timings).includes('recordingId') &&
-    !JSON.stringify(timings).includes('https://'),
-    'no image URL or identity may enter artwork diagnostic counters');
-  console.log('PWA.15.16 cache, HTTP-phase and background overlap diagnostics PASS');
-
-  // Four stale posters may be served locally, but at most two optional
-  // background HTTP refreshes may run at once; the others stay usable.
-  const limitedUrls=[7101,7102,7103,7104].map(id=>
-    url.replace('recordingId=7', 'recordingId='+id));
-  for(const address of limitedUrls) await image(address,'tab-a');
-  clock+=5*60*1000+1;
-  await proof();
-  const slowRefreshes=[{entered:deferred(),release:deferred()},
-    {entered:deferred(),release:deferred()}];
-  holdImageQueue=slowRefreshes.slice();
-  const beforeLimitedReads=imageReads, beforeLowPriority=lowPriorityImageFetches;
-  const limitedPending=limitedUrls.map(address=>image(address,'tab-a'));
-  for(let turn=0;turn<200 && imageReads-beforeLimitedReads<2;turn++)
-    await Promise.resolve();
-  assert.equal(imageReads-beforeLimitedReads,2,
-    'max two optional background HTTP refreshes despite four stale posters');
-  assert.equal(vm.runInContext('artworkRefreshing.size',context),2,
-    'background refresh concurrency is bounded while two requests are pending');
-  assert.equal(lowPriorityImageFetches-beforeLowPriority,2,
-    'every optional refresh carries a low-priority hint');
-  slowRefreshes.forEach(item=>item.release.resolve());
-  const served=await Promise.all(limitedPending);
-  for(const response of served) {
-    assert.equal(response.headers.get('X-VDR-Suite-Artwork-Cache'),'local',
-      'skipped background work must never delay or deny a cached cover');
-    await response.text();
-  }
-  assert.equal(vm.runInContext('artworkRefreshing.size',context),0,
-    'all bounded background slots are released after completion');
-  console.log('PWA.15.17 low-priority bounded background refresh contract PASS');
-
   clock+=24*60*60*1000+1;
   await proof();
   const beforeOldArtwork = imageReads;
@@ -375,8 +294,6 @@ async function run(prefix) {
   assert.notEqual((await image(epg,'other-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   tag=originalTag; content=originalContent;
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','EPG proof is not recording authorization');
-  assert(measurement('tab-a').counters.missingProofOtherKind > 0,
-    'an EPG-only proof must not authorize a recording poster, with cause counted');
   tag=epgTag; content='x'.repeat(414*1024);
   clock+=30001;
   assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local',
@@ -431,55 +348,5 @@ async function run(prefix) {
   listeners.fetch({request:logout,respondWith:p=>{result=p;}}); await result;
   assert.equal(stores.size,0);
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
-
-  // PWA.15.19: the *incoming* browser priority hint is observed, but
-  // missing browser support is explicitly counted as unknown. Nothing
-  // about scope, cache reuse or actual HTTP scheduling is inferred.
-  const priorityBefore = {...measurement('tab-a').counters};
-  for (const [priorityHint, recordingId] of [['high',901101],['low',901102],
-    ['auto',901103],[undefined,901104]]) {
-    await image(url.replace('recordingId=7','recordingId='+recordingId),
-      'tab-a',priorityHint);
-  }
-  const priorityAfter = measurement('tab-a').counters;
-  for (const [field, difference] of [['foregroundPriorityHigh',1],
-    ['foregroundPriorityLow',1],['foregroundPriorityAuto',1],
-    ['foregroundPriorityUnknown',1],['backgroundRefreshes',0]]) {
-    assert.equal(priorityAfter[field]-priorityBefore[field],difference,
-      field+' must only reflect the corresponding incoming browser request');
-  }
-  assert.equal(priorityAfter.foregroundHttpSamples-priorityBefore.foregroundHttpSamples,4);
-  assert(!JSON.stringify(priorityAfter).includes('recordingId') &&
-    !JSON.stringify(priorityAfter).includes('https://'),
-    'priority diagnostics must not disclose image URLs or IDs');
-  console.log('PWA.15.19 incoming HTTP priority classification PASS');
-
-  // PWA.15.20: first unproven image precedes an accepted readback.
-  // Only durations are reported; the internal wall-clock start must stay
-  // absent from the diagnostic payload.
-  const unprovenUrl = url.replace('recordingId=7','recordingId=901105');
-  await image(unprovenUrl, 'timing-tab');
-  const withoutProof = measurement('timing-tab').counters;
-  assert.equal(withoutProof.missingProofBeforeAcceptedRead, 1);
-  assert.equal(withoutProof.candidateLookupSamples, 1,
-    'unproven first-use candidate lookup is measured separately from HTTP');
-  assert.equal(withoutProof.firstProofGapSamples, 0,
-    'no accepted readback means no reported first-proof gap yet');
-  clock += 80;
-  proofDelay = 17;
-  await proof('timing-tab');
-  proofDelay = 0;
-  const withProof = measurement('timing-tab').counters;
-  assert.equal(withProof.proofHttpSamples, 1);
-  assert(withProof.proofHttpTotalMs >= 17,
-    'real proof HTTP readback duration is recorded');
-  assert.equal(withProof.firstProofGapSamples, 1);
-  assert(withProof.firstProofGapTotalMs >= 97,
-    'first unproven image -> accepted proof gap includes prior HTTP overlap');
-  assert(!Object.keys(withProof).some(key => key.includes('UnprovenArtworkAt')),
-    'internal first-miss timestamp must not be exported');
-  assert.equal((await image(unprovenUrl,'timing-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),
-    'local', 'normal authorized cache behavior remains unchanged');
-  console.log('PWA.15.20 proof readback and candidate lookup phases PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

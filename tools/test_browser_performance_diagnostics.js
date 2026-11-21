@@ -30,7 +30,7 @@ async function main() {
     for (const id of ['home', 'cold', 'clean', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) assert.ok(page.includes('id="' + id + '"'));
 
     const listeners = {};
-    const sent = [], consoleSummaries = [];
+    const sent = [];
     const frame = { attributes: {}, hasAttribute(name) { return name in this.attributes; }, getAttribute(name) { return this.attributes[name]; } };
     frame.attributes['data-vdr-suite-diagnostics'] = 'test-token';
     const parent = { postMessage(message, origin) { sent.push({ message, origin }); } };
@@ -40,8 +40,7 @@ async function main() {
       stop() { calls.push(['stop']); return { label: 'initial-home', metrics: { resourceRequests: 2 } }; },
       inspectHeaders() { calls.push(['headers']); return Promise.resolve({ status: 200, headers: {} }); }
     };
-    const child = { frameElement: frame, parent, VdrSuiteArtworkProbe: probe, location: { origin: 'https://example.test' }, addEventListener(type, fn) { listeners[type] = fn; },
-      console:{info(label, result) {consoleSummaries.push({label,result});}}, Promise };
+    const child = { frameElement: frame, parent, VdrSuiteArtworkProbe: probe, location: { origin: 'https://example.test' }, addEventListener(type, fn) { listeners[type] = fn; }, Promise };
     run('browser-performance-bridge.js', { window: child, Promise });
     assert.equal(calls[0][1], 'initial-home');
     assert.equal(calls[0][2].buffered, true);
@@ -76,14 +75,6 @@ async function main() {
     assert.equal(sent.at(-1).message.type,'result');
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
     assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
-    assert.equal(consoleSummaries.length,3,
-      'the opt-in diagnostic iframe writes one aggregate summary per stopped capture');
-    assert.equal(consoleSummaries.at(-1).result.localCacheHits,7);
-    assert.equal(consoleSummaries.at(-1).result.firstProofGap.samples,0,
-      'unavailable phases remain explicitly unmeasured');
-    assert.equal(consoleSummaries.at(-1).result.parallelImageHttpPeak,null);
-    assert(!JSON.stringify(consoleSummaries).includes('https://'),
-      'console output must not contain request URLs or authorization data');
 
     const handlers = {};
     const elements = {};

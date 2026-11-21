@@ -939,7 +939,6 @@
   // prioritizeInlineRailArtwork; no second scroll observer or fetch path.
   const pendingArtworkPriority = new Set();
   const pendingArtworkRails = new Set();
-  const pendingArtworkLookahead = new Set();
   const activeArtworkPrefetch = new Set();
   const railArtworkMotion = new WeakMap();
   let artworkPriorityFrame = false;
@@ -964,29 +963,16 @@
 
   function motionForRail(rail) {
     const position = Number(rail.scrollLeft) || 0;
-    const now = global.performance && typeof global.performance.now === 'function'
-      ? global.performance.now() : null;
     let motion = railArtworkMotion.get(rail);
     if (!motion) {
-      motion = {position: position, direction: 1, moved: false, fast: false, sampledAt: now};
+      motion = {position: position, direction: 1, moved: false, fast: false};
       railArtworkMotion.set(rail, motion);
     } else if (position !== motion.position) {
       const delta = position - motion.position;
-      const elapsed = Number.isFinite(now) && Number.isFinite(motion.sampledAt)
-        ? now - motion.sampledAt : 0;
       motion.direction = delta > 0 ? 1 : -1;
-      // Smooth touchpad/swipe motion advances only a few pixels per frame.
-      // Detect its speed as well as large single-frame scroll jumps.
-      motion.fast = Math.abs(delta) >= Math.max(120, (Number(rail.clientWidth) || 400) / 2) ||
-        (elapsed > 0 && elapsed <= 250 && Math.abs(delta) / elapsed >= 1);
+      motion.fast = Math.abs(delta) >= Math.max(120, (Number(rail.clientWidth) || 400) / 2);
       motion.moved = true;
       motion.position = position;
-      motion.sampledAt = now;
-    } else if (motion.fast && Number.isFinite(now) && Number.isFinite(motion.sampledAt) &&
-               now - motion.sampledAt > 250) {
-      // After a swipe stops, a later image load can re-arm this coordinator.
-      // Do not keep the former fast-swipe three-width window indefinitely.
-      motion.fast = false;
     }
     return motion;
   }
@@ -995,8 +981,6 @@
     const pending = image && image.__vdrSuiteDeferredArtworkUrl;
     if (!pending) return false; // A src already started is never assigned twice.
     if (deferredArtworkObserver) deferredArtworkObserver.unobserve(image);
-    if (visibleArtworkObserver) visibleArtworkObserver.unobserve(image);
-    pendingArtworkLookahead.delete(image);
     image.fetchPriority = priority;
     image.loading = 'eager';
     image.__vdrSuiteDeferredArtworkUrl = '';
@@ -1026,9 +1010,7 @@
         userScrolled = userScrolled || motion.moved;
         // Normal swipes stay about 1.5 rail widths ahead; a rapid swipe
         // extends to two, with only a short trailing window on reversal.
-        // Preserve cold-Home restraint; warm farther ahead only after real
-        // movement, with the strongest lookahead during a fast swipe.
-        const ahead = Math.min(2000, width * (motion.fast ? 3 : motion.moved ? 2 : 1.5));
+        const ahead = Math.min(1600, width * (motion.fast ? 2 : 1.5));
         const behind = Math.min(400, width * 0.35);
         for (const image of rail.querySelectorAll('img')) {
           handled.add(image);
@@ -1047,24 +1029,6 @@
         const rail = typeof image.closest === 'function' ? image.closest('.media-home-discovery-rail') : null;
         if (artworkDistance(image, artworkBounds(rail)) === 0) visible.add(image);
       }
-      // IntersectionObserver's 120px margin is a hint, not permission to
-      // bypass the shared six-slot speculative budget. It also observes
-      // vertically adjacent rails not handled by horizontal rail geometry.
-      for (const image of pendingArtworkLookahead) {
-        if (!image.isConnected || !image.__vdrSuiteDeferredArtworkUrl) {
-          pendingArtworkLookahead.delete(image);
-          continue;
-        }
-        const distance = deferredArtworkDistance(image);
-        if (distance === 0) {
-          visible.add(image);
-        } else if (distance > 0 && distance <= 120 && image.loading === 'lazy') {
-          candidates.push({image: image, distance: distance, forward: false});
-        }
-      }
-      // A prefetched poster that scrolls into view is now viewport demand.
-      // Free its speculative slot even if the original request is pending.
-      for (const image of visible) activeArtworkPrefetch.delete(image);
       let high = 12;
       for (const image of visible) {
         if (high <= 0) break;
@@ -1083,13 +1047,10 @@
       if ((doc && doc.hidden) || (global.navigator && global.navigator.onLine === false) ||
           (net && (net.saveData || ['slow-2g', '2g'].includes(net.effectiveType)))) return;
       let budget = Math.min(4, Math.max(0, 6 - activeArtworkPrefetch.size));
-      // A poster within the observer's actual 120px lookahead (including
-      // the next vertical rail) must not wait behind a much farther
-      // directional candidate. Reuse the same 4/6 speculative budget:
-      // nearby demand first, then direction and distance. No extra starts.
+      // Forward candidates win regardless of which rail happens to be first
+      // in the DOM. Each completed request re-arms this same rAF coordinator.
       candidates.sort(function (a,b) {
-        return Number(a.distance > 120) - Number(b.distance > 120) ||
-          Number(b.forward) - Number(a.forward) || a.distance - b.distance;
+        return Number(b.forward) - Number(a.forward) || a.distance - b.distance;
       });
       for (const item of candidates) {
         if (budget <= 0) break;
@@ -1130,7 +1091,6 @@
   // presentation-only: authorization and cache partitioning stay in the
   // existing API and Service Worker. Unsupported observers use native loading.
   let deferredArtworkObserver = null;
-  let visibleArtworkObserver = null;
   function deferredArtworkDistance(image) {
     // IO includes a 120px lookahead. Measure the real clipped viewport
     // rather than treating near-viewport or horizontally hidden cards as
@@ -1148,24 +1108,6 @@
       bounds.top - r.bottom, r.top - bounds.bottom);
   }
 
-  // The 120px margin fires only once when a poster enters the margin.
-  // A second, zero-margin IO is needed to promote that same still-deferred
-  // poster when it later actually enters the clipped viewport. No polling,
-  // duplicate src, network path or extra request is introduced.
-  function observeActualArtworkDemand(image) {
-    if (!visibleArtworkObserver) {
-      visibleArtworkObserver = new global.IntersectionObserver(function (entries) {
-        for (const entry of entries) {
-          if (!entry.isIntersecting || !entry.target.__vdrSuiteDeferredArtworkUrl ||
-              deferredArtworkDistance(entry.target) !== 0) continue;
-          if (startDeferredArtwork(entry.target, 'high'))
-            prioritizeVisibleArtwork(entry.target);
-        }
-      }, {rootMargin: '0px'});
-    }
-    visibleArtworkObserver.observe(image);
-  }
-
   function deferHomeArtworkImage(image, url) {
     if (!image || !url) return image;
     if (typeof global.IntersectionObserver !== 'function' ||
@@ -1175,12 +1117,6 @@
     }
     if (!deferredArtworkObserver) {
       deferredArtworkObserver = new global.IntersectionObserver(function (entries) {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            pendingArtworkLookahead.delete(entry.target);
-            if (visibleArtworkObserver) visibleArtworkObserver.unobserve(entry.target);
-          }
-        }
         // fetchPriority must be set BEFORE src: rAF promotion after assigning
         // src cannot reliably reprioritize a cold request already in flight.
         // Process actual viewport demand before the 120px lookahead, even if
@@ -1194,27 +1130,15 @@
         let visiblePromotions = 12;
         demands.forEach(function (demand) {
           const target = demand.image;
-          const pending = target.__vdrSuiteDeferredArtworkUrl;
-          // A queued IO entry can outlive its rail or be reported after
-          // the element was detached. An unmeasurable image is NOT visible.
-          // Do not assign src until the real geometry becomes valid again.
-          if (!pending || !Number.isFinite(demand.distance)) return;
-          if (demand.distance > 0) {
-            // Nearby but clipped posters stay deferred until the same
-            // coordinator that handles rail warmup has capacity. A separate
-            // IO callback must not start unbounded low-priority HTTP work.
-            pendingArtworkLookahead.add(target);
-            observeActualArtworkDemand(target);
-            armArtworkPriority();
-            return;
-          }
           deferredArtworkObserver.unobserve(target);
-          if (visibleArtworkObserver) visibleArtworkObserver.unobserve(target);
-          pendingArtworkLookahead.delete(target);
+          const pending = target.__vdrSuiteDeferredArtworkUrl;
+          if (!pending) return;
           if (demand.distance === 0 && visiblePromotions > 0) {
             target.fetchPriority = 'high';
             target.loading = 'eager';
             visiblePromotions--;
+          } else if (Number.isFinite(demand.distance) && demand.distance > 0) {
+            target.fetchPriority = 'low';
           }
           target.__vdrSuiteDeferredArtworkUrl = '';
           target.src = pending;
@@ -1234,7 +1158,6 @@
         const rail = typeof image.closest === 'function'
           ? image.closest('.media-home-discovery-rail') : null;
         if (rail) prioritizeInlineRailArtwork(rail);
-        else armArtworkPriority();
       };
       image.addEventListener('load', resumeRailWarmup, {once: true});
       image.addEventListener('error', resumeRailWarmup, {once: true});

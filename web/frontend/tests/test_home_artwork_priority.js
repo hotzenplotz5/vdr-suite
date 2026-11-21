@@ -69,11 +69,11 @@ class FakeArtworkIntersectionObserver {
     this.callback([{target, isIntersecting}]);
   }
 }
-const deferredWindow = {innerWidth:800,innerHeight:600,IntersectionObserver: FakeArtworkIntersectionObserver};
+const deferredWindow = {IntersectionObserver: FakeArtworkIntersectionObserver};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:deferredWindow});
 const assignArtwork = deferredWindow.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage;
-const deferredFirst = {isConnected:true,src:'',loading:'lazy',getBoundingClientRect(){ return {left:0,right:100,top:0,bottom:100}; }};
-const deferredSecond = {isConnected:true,src:'',loading:'lazy',getBoundingClientRect(){ return {left:100,right:200,top:0,bottom:100}; }};
+const deferredFirst = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:0,right:100,top:0,bottom:100}; }};
+const deferredSecond = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:100,right:200,top:0,bottom:100}; }};
 assignArtwork(deferredFirst, '/api/cover-one?variant=home');
 assignArtwork(deferredSecond, '/api/cover-two?variant=home');
 assert.equal(deferred.length, 1, 'one shared IntersectionObserver per Home document');
@@ -108,9 +108,7 @@ console.log('PWA.15 cold Home artwork demand-first contract PASS');
 // The IO lookahead can report near images before visible ones; clipped
 // images must not compete at high priority with the first visible posters.
 const started = [];
-const priorityFrames = [];
 let demandObserver;
-let actualVisibleObserver;
 class DemandObserver {
   constructor(callback, options) { this.callback = callback; this.options = options; }
   observe() {}
@@ -119,12 +117,10 @@ class DemandObserver {
 }
 const priorityWindow = {
   innerWidth: 800, innerHeight: 600,
-  requestAnimationFrame(fn) {priorityFrames.push(fn);},
+  requestAnimationFrame() {},
   IntersectionObserver: class extends DemandObserver {
     constructor(callback, options) {
-      super(callback, options);
-      if (options.rootMargin === '120px 0px') demandObserver = this;
-      else if (options.rootMargin === '0px') actualVisibleObserver = this;
+      super(callback, options); demandObserver = this;
     }
   }
 };
@@ -135,11 +131,8 @@ const clippedRail = {
   getBoundingClientRect() { return {left:100,top:0,right:500,bottom:400}; }
 };
 function pendingPoster(id, left, top, rail) {
-  const callbacks = {};
   const node = {
     isConnected: true, complete: false, loading:'lazy',
-    addEventListener(type, callback) {callbacks[type] = callback;},
-    finish() {this.complete = true; if (callbacks.load) callbacks.load();},
     closest() { return rail || null; },
     getBoundingClientRect() {
       return {left,top,right:left+100,bottom:top+150,width:100,height:150};
@@ -167,109 +160,17 @@ demandObserver.notify([
   {target:notIntersecting,isIntersecting:false},
   {target:firstVisible,isIntersecting:true}
 ]);
-assert.deepEqual(started.map(entry => entry.id), ['visible'],
-  'cold Home must start only the actual visible poster until it finishes');
-assert.equal(started[0].priority, 'high',
-  'the actual visible poster must start with high priority');
+assert.deepEqual(started.map(entry => entry.id), ['visible','near','below'],
+  'real viewport request must be initiated before horizontal and vertical lookahead');
+assert.deepEqual(started.map(entry => entry.priority), ['high','low','low'],
+  'clipped and below-viewport artwork must not use high request priority');
 assert.equal(started[0].loading, 'eager',
   'first visible img must be eager before the browser sees its src');
-assert.equal(nearFirst.src, '');
-assert.equal(belowViewport.src, '',
-  'IO margin must not bypass the bounded speculative queue');
-while (priorityFrames.length) priorityFrames.shift()();
-assert.equal(started.length, 1,
-  'an unfinished visible cover prevents new speculative starts on cold Home');
-firstVisible.finish();
-while (priorityFrames.length) priorityFrames.shift()();
-assert.deepEqual(started.map(entry => entry.id), ['visible','near','below'],
-  'after visible completion the shared coordinator starts adjacent covers');
-assert.deepEqual(started.map(entry => entry.priority), ['high','low','low'],
-  'nearby posters remain low priority even after queued warmup');
-assert(started.slice(1).every(entry => entry.loading === 'eager'),
-  'bounded coordinator starts deferred nearby posters only when allowed');
+assert.equal(started[1].loading, 'lazy', 'lookahead retains normal lazy loading');
 assert.equal(notIntersecting.src, '', 'nonintersecting artwork remains unrequested');
 assert.equal(firstVisible.src, '/art/visible?variant=home');
 assert.equal(demandObserver.options.rootMargin, '120px 0px');
 console.log('PWA.15.8 cold Home request-time artwork priority contract PASS');
-
-// PWA.15.18: twenty near-rail and below-viewport IO reports must not
-// start twenty simultaneous HTTP requests; visible demand stays immediate.
-nearFirst.finish();
-belowViewport.finish();
-while (priorityFrames.length) priorityFrames.shift()();
-const burst = Array.from({length:20}, (_, index) =>
-  pendingPoster('cold-near-'+index, 515, 10, clippedRail));
-demandObserver.notify(burst.map(target => ({target, isIntersecting:true})));
-assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 0,
-  'IO must defer nearby requests to shared scheduling rather than start at notification');
-while (priorityFrames.length) priorityFrames.shift()();
-assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 4,
-  'no more than four IO speculative starts per animation frame');
-priorityWindow.VdrSuiteHomeRecordingDiscovery.prioritizeVisibleArtwork(firstVisible);
-while (priorityFrames.length) priorityFrames.shift()();
-assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 6,
-  'six total pending IO speculative loads are the same global rail budget');
-// An earlier root-margin event will not fire again merely because an image
-// crosses the actual viewport edge. A separate zero-margin event must
-// promote a previously deferred request even with no spare warmup slot.
-assert(actualVisibleObserver && actualVisibleObserver.options.rootMargin === '0px',
-  'cold lookahead tracks later viewport entry without polling');
-const promotedNear = burst[8];
-promotedNear.getBoundingClientRect = () =>
-  ({left:200,right:300,top:10,bottom:160,width:100,height:150});
-actualVisibleObserver.notify([{target:promotedNear,isIntersecting:true}]);
-assert.equal(started.at(-1).id, 'cold-near-8',
-  'pending near-rail poster starts on actual visibility without new scroll events');
-assert.equal(started.at(-1).priority, 'high',
-  'actual demand keeps high HTTP priority even when speculative slots are full');
-const newlyVisible = pendingPoster('cold-visible', 180, 10, clippedRail);
-demandObserver.notify([{target:newlyVisible, isIntersecting:true}]);
-assert.equal(started.at(-1).id, 'cold-visible',
-  'a newly visible cold poster must start immediately, even with all speculative slots full');
-assert.equal(started.at(-1).priority, 'high');
-burst[0].finish();
-while (priorityFrames.length) priorityFrames.shift()();
-assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 7,
-  'a new visible cold image still takes precedence after a speculative slot frees');
-newlyVisible.finish();
-promotedNear.finish();
-while (priorityFrames.length) priorityFrames.shift()();
-assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 8,
-  'one completed low-priority load releases one speculative slot after visible demand settles');
-assert.equal(new Set(started.map(entry => entry.id)).size, started.length,
-  'IO and rail coordinator must not assign image src twice');
-console.log('PWA.15.18 bounded IO lookahead and visible-demand priority PASS');
-
-// PWA.15.19: a stale 120px IO entry can arrive after a rail is detached
-// or hidden. Its unmeasurable geometry must never initiate an HTTP image.
-const detachedPoster = pendingPoster('stale-detached', 170, 10, clippedRail);
-detachedPoster.isConnected = false;
-const hiddenRail = {getBoundingClientRect() {
-  return {left:100,right:100,top:0,bottom:400};
-}};
-const hiddenPoster = pendingPoster('stale-hidden', 170, 10, hiddenRail);
-const beforeStale = started.length;
-demandObserver.notify([
-  {target:detachedPoster,isIntersecting:true},
-  {target:hiddenPoster,isIntersecting:true}
-]);
-assert.equal(started.length,beforeStale,
-  'stale IO intersection must not start detached or hidden artwork requests');
-assert.equal(detachedPoster.src,'');
-assert.equal(hiddenPoster.src,'');
-detachedPoster.isConnected = true;
-hiddenPoster.closest = () => clippedRail;
-demandObserver.notify([
-  {target:detachedPoster,isIntersecting:true},
-  {target:hiddenPoster,isIntersecting:true}
-]);
-assert.equal(started.at(-2).id,'stale-detached');
-assert.equal(started.at(-1).id,'stale-hidden');
-assert(started.slice(-2).every(entry => entry.priority === 'high'),
-  'reconnected, genuinely visible covers retain normal high-priority demand');
-assert.equal(new Set(started.map(entry => entry.id)).size,started.length,
-  'recovered IO artwork must not reassign earlier URLs');
-console.log('PWA.15.19 stale IO geometry and recovery contract PASS');
 
 // PWA.15.10.1: deferred near-rail artwork has no src. When visible covers
 // complete, the existing rAF rail owner must actually start low-priority
@@ -337,11 +238,10 @@ console.log('PWA.15.10.1 bounded near-rail src prewarm after visible load contra
 // coordinator and actual scroll geometry, including pending deferred src.
 function scrollScene(initial){
   const frames=[],starts=[];
-  let clock=50;
   const rail={isConnected:true,scrollLeft:initial,clientWidth:400,
     getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
     querySelectorAll(){return posters;}};
-  const env={innerWidth:800,innerHeight:600,performance:{now(){return clock;}},
+  const env={innerWidth:800,innerHeight:600,performance:{now(){return 50;}},
     requestAnimationFrame(fn){frames.push(fn);},
     IntersectionObserver:class{observe(){} unobserve(){}}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:env});
@@ -369,7 +269,7 @@ function scrollScene(initial){
     drain();
   };
   const schedule=()=>{discovery.prioritizeInlineRailArtwork(rail);drain();};
-  return {rail,starts,posters,schedule,drain,completeOutstanding,advance(ms){clock+=ms;}};
+  return {rail,starts,posters,schedule,drain,completeOutstanding};
 }
 const rightScene=scrollScene(0);
 rightScene.schedule();
@@ -403,132 +303,3 @@ assert(leftScene.starts.some(x=>x.index===3 && x.priority==='low'),
 assert.equal(leftScene.posters[25].src,'','left lookahead stays bounded');
 assert.equal(new Set(leftScene.starts.map(x=>x.index)).size,leftScene.starts.length);
 console.log('PWA.15.11 directional, rapid scroll, request reuse and bounded prefetch PASS');
-
-// PWA.15.14: pending lookahead images that become visible must no longer
-// occupy speculative slots while the user scrolls toward the next covers.
-const demandScene = scrollScene(0);
-demandScene.schedule();
-demandScene.completeOutstanding(); // first viewport finishes; adjacent warmup begins
-demandScene.schedule(); // fill another speculative slot, leave requests pending
-const beforeDemandScroll = demandScene.starts.length;
-assert(demandScene.starts.some(x => x.index === 4 && x.priority === 'low'));
-assert.equal(demandScene.posters[4].complete, false);
-demandScene.rail.scrollLeft = 500;
-demandScene.schedule();
-const demandAhead = demandScene.starts.slice(beforeDemandScroll)
-  .filter(x => x.index >= 9 && x.priority === 'low');
-assert(demandAhead.length >= 3,
-  'visible pending prefetch must release lookahead slots for the next low-priority posters');
-assert.equal(new Set(demandScene.starts.map(x => x.index)).size, demandScene.starts.length,
-  'promoting a prefetched image must never assign the same src again');
-console.log('PWA.15.14 scroll-demand prefetch budget release PASS');
-
-// PWA.15.15: a smooth swipe has small per-frame distances but high
-// velocity. Prewarm farther down its direction, using the same bounded
-// coordinator and never loading the entire collection.
-function settleInitial(scene) {
-  scene.schedule();
-  scene.completeOutstanding(); // initial viewport
-  scene.completeOutstanding(); // first near-rail prefetch batch
-  scene.completeOutstanding(); // remaining cold 1.5-width lookahead
-}
-const smoothScene=scrollScene(0);
-settleInitial(smoothScene);
-assert.equal(smoothScene.posters[12].src,'',
-  'an untouched cold Home must not prefetch three screens ahead');
-const beforeSmooth=smoothScene.starts.length;
-smoothScene.advance(16);
-smoothScene.rail.scrollLeft=18; // 1125px/s, but < half a rail width per frame
-smoothScene.schedule();
-const smoothStarts=smoothScene.starts.slice(beforeSmooth);
-assert(smoothStarts.some(x=>x.index>=12 && x.priority==='low'),
-  'a fast smooth swipe must begin covers beyond the previous 2-width bound');
-assert(smoothStarts.length<=4,'no more than four new speculative starts per frame');
-assert(smoothScene.starts.filter(x=>!smoothScene.posters[x.index].complete).length<=6,
-  'no more than six outstanding speculative image requests');
-assert.equal(smoothScene.posters[25].src,'',
-  'even a fast swipe does not request distant posters');
-const slowScene=scrollScene(0);
-settleInitial(slowScene);
-const beforeSlow=slowScene.starts.length;
-slowScene.advance(1000);
-slowScene.rail.scrollLeft=18;
-slowScene.schedule();
-const slowStarts=slowScene.starts.slice(beforeSlow);
-assert(slowStarts.some(x=>x.index===9 && x.priority==='low'),
-  'ordinary scrolling should start the next 2-width window');
-assert.equal(slowScene.posters[12].src,'',
-  'ordinary scrolling retains the smaller lookahead window');
-assert.equal(new Set(smoothScene.starts.map(x=>x.index)).size,smoothScene.starts.length,
-  'smooth scroll must never restart an assigned src');
-console.log('PWA.15.15 velocity-aware, bounded directional prewarm PASS');
-
-
-// PWA.15.21: nearby vertical-rail artwork must receive the *existing*
-// speculative slots before farther directional candidates. A load event
-// triggers the same coordinator, with no extra HTTP start owner.
-const nearFrames=[], nearStarts=[];
-let nearObserver;
-const nearWindow={innerWidth:800,innerHeight:600,
-  requestAnimationFrame(fn){nearFrames.push(fn);},
-  IntersectionObserver:class{
-    constructor(callback,options){this.callback=callback;this.options=options;
-      if(options.rootMargin==='120px 0px')nearObserver=this;}
-    observe(){}unobserve(){}
-    notify(entries){this.callback(entries);}
-  }};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:nearWindow});
-const nearDiscovery=nearWindow.VdrSuiteHomeRecordingDiscovery;
-const nearRail={isConnected:true,scrollLeft:0,clientWidth:400,
-  getBoundingClientRect(){return {left:100,right:500,top:0,bottom:350};},
-  querySelectorAll(){return [nearVisible,...nearFar];}};
-function nearImage(id,left,top,rail){
-  let src='';const callbacks={};
-  const img={isConnected:true,complete:false,naturalWidth:0,loading:'lazy',
-    closest(){return rail||null;},
-    addEventListener(type,fn){callbacks[type]=fn;},
-    getBoundingClientRect(){return {left,right:left+100,top,bottom:top+150,width:100,height:150};},
-    finish(){this.complete=true;this.naturalWidth=100;if(callbacks.load)callbacks.load();}};
-  Object.defineProperty(img,'src',{get(){return src;},set(url){
-    assert.equal(src,'','never reassign near-rail src');
-    src=url;nearStarts.push({id,priority:this.fetchPriority});
-  }});
-  nearDiscovery.deferHomeArtworkImage(img,'/art/'+id+'?variant=home');
-  return img;
-}
-const nearVisible=nearImage('visible',140,20,nearRail);
-const nearFar=Array.from({length:5},(_,i)=>nearImage('far-'+i,710+100*i,20,nearRail));
-const nearBelow=nearImage('near-below',180,620,null);
-nearObserver.notify([{target:nearVisible,isIntersecting:true},
-  {target:nearBelow,isIntersecting:true}]);
-while(nearFrames.length)nearFrames.shift()();
-assert.deepEqual(nearStarts.map(x=>x.id),['visible'],
-  'cold Home still isolates first visible image from all speculative starts');
-nearVisible.finish();
-while(nearFrames.length)nearFrames.shift()();
-assert.equal(nearStarts[1].id,'near-below',
-  '20px below viewport must outrank >200px forward rail art within the same budget');
-assert.equal(nearStarts[1].priority,'low',
-  'nearby speculation remains low priority');
-assert(nearStarts.length<=5,'only four speculative starts plus visible demand');
-assert.equal(new Set(nearStarts.map(x=>x.id)).size,nearStarts.length,
-  'nearby-first sorting must not start duplicate requests');
-console.log('PWA.15.21 near-demand priority within unchanged 4/6 budget PASS');
-
-// A fast swipe must stop using its three-width prewarm window after
-// movement has ceased. Completion events must not keep it active forever.
-const pausedScene=scrollScene(0);
-settleInitial(pausedScene);
-pausedScene.advance(16);
-pausedScene.rail.scrollLeft=18;
-pausedScene.schedule();
-const beforePause=pausedScene.starts.length;
-assert(pausedScene.starts.slice(beforePause-4).some(x=>x.index>=12),
-  'rapid swipe still uses its original predictive lookahead');
-pausedScene.advance(300);
-pausedScene.completeOutstanding();
-pausedScene.schedule();
-assert(pausedScene.starts.slice(beforePause).every(x=>x.index<12),
-  'after 300ms idle, no further three-width speculative starts');
-assert.equal(new Set(pausedScene.starts.map(x=>x.index)).size,pausedScene.starts.length);
-console.log('PWA.15.21 stopped-swipe lookahead decay PASS');
