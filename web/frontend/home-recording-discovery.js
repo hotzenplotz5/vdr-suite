@@ -172,15 +172,27 @@
     );
   }
 
-  function recordingPosterUrl(recording) {
+  function recordingPosterUrl(recording, richMetadata) {
     const meta = metadata(recording);
     const artwork = meta.artwork && typeof meta.artwork === 'object' ? meta.artwork : {};
-    const native = recording && (recording.nativeMetadata || recording.nativeCardMetadata);
-    // A settled negative native read is evidence that a synthetic preferred
-    // URL cannot resolve. Preserve cached legacy artwork and unknown states.
-    if (native && native.available === false && native.settled === true &&
-        artwork.available !== true) return '';
-    return text(presentation(recording).posterUrl || artwork.preferredUrl);
+    const url = text(presentation(recording).posterUrl || artwork.preferredUrl);
+    const native = richMetadata && typeof richMetadata === 'object'
+      ? richMetadata
+      : recording && (recording.nativeMetadata || recording.nativeCardMetadata);
+    // The cached Recording serializer may expose a speculative preferred URL
+    // without knowing the native provider's artwork state. Once the existing
+    // native read confirms no image, do not attempt that request again.
+    // Keep explicit manual revisions, legacy assets and unknown native states.
+    const syntheticPreferred = /^\/api\/(?:vdr\/)?recordings\/metadata\/image\?/.test(url) &&
+      /[?&]kind=preferred(?:&|$)/.test(url) &&
+      !/[?&]assignmentRevision=/.test(url);
+    const settledMissing = native && native.available === false && native.settled === true;
+    const readyWithoutArtwork = native && native.available === true &&
+      native.preferredArtwork && native.preferredArtwork.available === false &&
+      !recordingMetadataPosterUrl(native);
+    if (syntheticPreferred && artwork.available !== true &&
+        (settledMissing || readyWithoutArtwork)) return '';
+    return url;
   }
 
   function recordingMetadataPosterUrl(value) {
@@ -662,7 +674,7 @@
       ? richTitle
       : fallbackTitle;
     const nativePoster = recordingMetadataPosterUrl(rich);
-    let posterUrl = nativePoster || recordingPosterUrl(recording);
+    let posterUrl = nativePoster || recordingPosterUrl(recording, richMetadata);
     if (useSeriesCover === true) {
       // The Recording read and the later native-metadata read can yield
       // different grouping keys (e.g. an embedded manual episode uses the
@@ -1899,7 +1911,7 @@
     );
     const metadataPosterUrl = recordingMetadataPosterUrl(rich);
     const nativeArtworkAvailable = rich.available === true && Boolean(metadataPosterUrl);
-    const posterUrl = metadataPosterUrl || recordingPosterUrl(recording);
+    const posterUrl = metadataPosterUrl || recordingPosterUrl(recording, rich);
     const episodeTitle = text(
       hierarchyMetadata.episodeName ||
       rich.episodeName ||
