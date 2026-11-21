@@ -1879,3 +1879,29 @@ Abnahme: gezielter Node-Service-Worker-Vertragstest, Frontend-CI und
 realer Home-Erstaufruf ohne Scrollen. Erst nach Browser-PASS weitere
 PWA-Aenderungen uebernehmen. Dieser Zwischenstand ist explizit
 **PWA.15.17 + unabhaengige PWA.15.19-Diagnose**, nicht PWA.15.19.
+
+## PWA.15.25 No-Artwork-Fallback, kompatibel mit schnellem PWA.15.17 (2026-11-21)
+
+PWA.15.18 wurde auf dem realen yaVDR wegen einer massiven
+Verlangsamung wieder zurueckgenommen. Der Anwender bestaetigte
+danach den vollstaendigen PWA.15.17-Stand als wesentlich schneller.
+Der kompatible PWA.15.19-Diagnose-Slice belaesst das Home-Rendering
+unveraendert.
+
+Der unabhaengige visuelle Fallback aus PWA.15.25 wird hier
+gezielt auf die vier vorhandenen Home-Poster-Renderer zurueckportiert.
+Leere URL ergibt sofort eine schwarze `No Artwork`-Kachel
+ohne Image-Request; bei einem Image-error entsteht dieselbe
+Darstellung. Fehler werden weder persistiert noch negativ gecacht:
+Bei einem spaeteren Rendering darf der existierende Request erneut
+versucht werden. Die Filmkarten-Aktualisierung laesst die schwarze
+No-Artwork-Kachel bestehen, statt sie mit einem Titelbuchstaben zu
+ueberschreiben.
+
+Keine Aenderungen an IO-Beobachtern, Rail-Koordinator, Request-
+Prioritaeten, Cover-URLs, Service Worker, Grants, Backend oder
+Daemon. Der historisch produktionsnahe Test aus PWA.15.25 ist
+uebernommen und um die Filmkarten-Aktualisierung erweitert.
+Ein echter Browser-Test bleibt fuer die Freigabe erforderlich.
+Ein weiterhin vom Backend gemeldeter 404 ist durch die
+rein visuelle Korrektur nicht beseitigt.

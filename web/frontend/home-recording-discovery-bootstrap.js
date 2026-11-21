@@ -580,10 +580,14 @@
     const artwork = target || doc.createElement('div');
     artwork.textContent = '';
     artwork.className = 'media-home-discovery-artwork';
+    function showNoArtwork() {
+      artwork.className = 'media-home-discovery-artwork no-artwork';
+      artwork.textContent = 'No Artwork';
+    }
     const title = recordingTitle(recording);
     const poster = recordingPosterUrl(recording);
     if (!poster) {
-      artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
+      showNoArtwork();
       return artwork;
     }
     const image = doc.createElement('img');
@@ -600,7 +604,7 @@
     else image.src = url;
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
+      showNoArtwork();
     });
     artwork.appendChild(image);
     if (discovery && typeof discovery.prioritizeVisibleArtwork === 'function') discovery.prioritizeVisibleArtwork(image);

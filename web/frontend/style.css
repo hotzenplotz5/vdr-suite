@@ -5471,3 +5471,15 @@ body.channel-sorter-dragging * {
   height: 2rem;
   flex: 0 0 auto;
 }
+
+/* PWA.15.25 visual-only fallback; errors are not stored as missing artwork. */
+.media-home-discovery-artwork.no-artwork {
+  background: #050505;
+  color: #b9c0c8;
+  font-size: .84rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-align: center;
+  padding: .75rem;
+  box-sizing: border-box;
+}
