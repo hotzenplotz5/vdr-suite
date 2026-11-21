@@ -1910,3 +1910,55 @@ im echten Browser ist bis zu diesem Test **nicht verifiziert**.
 Kodi-/Plex-Interna zum vergleichbaren Artwork-Scheduling wurden
 nicht verifiziert; kein vermutetes Konkurrenzverhalten wird
 als Implementierungsvorgabe verwendet.
+
+## PWA.15.19 — Veraltete IO-Sichtbarkeit und HTTP-Prioritaetsdiagnose (2026-11-21)
+
+Der erste reale PWA.15.18-Kaltlauf zeigte eine deutlich geringere
+mittlere Nachladezeit sichtbarer Cover als PWA.15.17, aber weiterhin
+bis zu 23 gleichzeitig im Service Worker offene Bild-HTTP-Anfragen.
+Diese Spitze ist **kein Beweis** fuer 23 spekulative Requests:
+die bestehende Sechsergrenze betrifft nur aktiv vorabgerufene, noch
+unsichtbare `img`-Elemente. Sofort benoetigte, bereits sichtbare Bilder
+und aeltere, beim Scrollen noch laufende Abrufe sind davon ausgenommen.
+Ein globales HTTP-Limit wuerde die bislang priorisierten sichtbaren Cover
+selbst ausbremsen und wird nicht eingefuehrt.
+
+Ein konkreter unnoetiger Startpfad wurde im bestehenden Home-IO-Callback
+nachgewiesen: Ein verspätetes `isIntersecting`-Ereignis konnte ein
+zwischenzeitlich abgetrenntes Bild beziehungsweise ein Bild mit nicht
+mehr messbarer, versteckter Rail-Geometrie verarbeiten, obwohl
+`deferredArtworkDistance` bereits `Infinity` lieferte. Der Callback
+behandelte den Wert nicht als Abbruchgrund und vergab trotzdem `src`.
+Er startet nun nur bei **endlichem** Abstand. Sobald das Element wieder
+verbunden und tatsaechlich sichtbar ist, darf sein unveraenderter
+Observer-Pfad das Bild weiterhin sofort laden. Keine zusaetzlichen
+Berechtigungs-, HTTP-, Cache- oder Installationspruefungen.
+
+Zur klaren Abgrenzung einer noch offenen HTTP-Ursache exportiert der
+bereits vorhandene, optional abgefragte Service-Worker-Diagnosekanal
+vier rein aggregierte Zaehler fuer neu gestartete **normale**
+Bild-HTTP-Anfragen: `foregroundPriorityHigh`, `foregroundPriorityLow`,
+`foregroundPriorityAuto`, `foregroundPriorityUnknown`. Grundlage
+ist ausschliesslich die am **eingehenden** Browser-`Request`
+lesbare `priority`-Eigenschaft. Ist sie nicht verfuegbar oder nicht
+erkannt, zaehlt das Ergebnis ausdruecklich als `unknown`; es wird
+keine Prioritaet erfunden. Ein browserseitiger Prioritaets-Hinweis
+beweist weder die tatsaechliche Netzwerk-Reihenfolge noch, ob
+der Request heute sichtbar oder urspruenglich spekulativ war.
+Hintergrund-Revalidierungen werden weiter getrennt gezaehlt
+und nutzen unveraendert `priority: 'low'`.
+
+Die Zaehler enthalten keine URL, Recording-ID, Client-ID,
+Berechtigungspartition, ETag oder andere Kennungen und verlassen den
+Worker nur ueber den bereits autorisierten Diagnosekanal.
+Vorhandene Image-HTTP-/Concurrency-Zeiten, Cache-Lookups,
+Grants, Cache-/Scope-Schutz, Preisgabe- und Fehlerpfade sind unveraendert.
+Die lokale Home-Regression deckt unsichtbare/stale IO-Ereignisse,
+spaetere normale Sichtbarkeit und die etablierten 4/6-Vorlaufregeln
+ab; der SW-Vertragstest prueft alle vier Prioritaetsklassen
+einschliesslich fehlender Browser-Unterstuetzung und unveraenderten
+Hintergrund-Refresh. Reale Kaltstartwirkung und die Verteilung
+der Browser-Prioritaets-Hinweise bleiben bis zum naechsten
+vergleichbaren yaVDR-Browsertest offen. Weder eine weitere
+Vorauslade-Erhoehung noch ein globales HTTP-Gate wird daraus
+ohne konkrete Messung abgeleitet.

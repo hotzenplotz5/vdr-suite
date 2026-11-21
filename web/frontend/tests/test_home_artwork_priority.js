@@ -69,11 +69,11 @@ class FakeArtworkIntersectionObserver {
     this.callback([{target, isIntersecting}]);
   }
 }
-const deferredWindow = {IntersectionObserver: FakeArtworkIntersectionObserver};
+const deferredWindow = {innerWidth:800,innerHeight:600,IntersectionObserver: FakeArtworkIntersectionObserver};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:deferredWindow});
 const assignArtwork = deferredWindow.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage;
-const deferredFirst = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:0,right:100,top:0,bottom:100}; }};
-const deferredSecond = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:100,right:200,top:0,bottom:100}; }};
+const deferredFirst = {isConnected:true,src:'',loading:'lazy',getBoundingClientRect(){ return {left:0,right:100,top:0,bottom:100}; }};
+const deferredSecond = {isConnected:true,src:'',loading:'lazy',getBoundingClientRect(){ return {left:100,right:200,top:0,bottom:100}; }};
 assignArtwork(deferredFirst, '/api/cover-one?variant=home');
 assignArtwork(deferredSecond, '/api/cover-two?variant=home');
 assert.equal(deferred.length, 1, 'one shared IntersectionObserver per Home document');
@@ -239,6 +239,37 @@ assert.equal(started.filter(entry => entry.id.startsWith('cold-near-')).length, 
 assert.equal(new Set(started.map(entry => entry.id)).size, started.length,
   'IO and rail coordinator must not assign image src twice');
 console.log('PWA.15.18 bounded IO lookahead and visible-demand priority PASS');
+
+// PWA.15.19: a stale 120px IO entry can arrive after a rail is detached
+// or hidden. Its unmeasurable geometry must never initiate an HTTP image.
+const detachedPoster = pendingPoster('stale-detached', 170, 10, clippedRail);
+detachedPoster.isConnected = false;
+const hiddenRail = {getBoundingClientRect() {
+  return {left:100,right:100,top:0,bottom:400};
+}};
+const hiddenPoster = pendingPoster('stale-hidden', 170, 10, hiddenRail);
+const beforeStale = started.length;
+demandObserver.notify([
+  {target:detachedPoster,isIntersecting:true},
+  {target:hiddenPoster,isIntersecting:true}
+]);
+assert.equal(started.length,beforeStale,
+  'stale IO intersection must not start detached or hidden artwork requests');
+assert.equal(detachedPoster.src,'');
+assert.equal(hiddenPoster.src,'');
+detachedPoster.isConnected = true;
+hiddenPoster.closest = () => clippedRail;
+demandObserver.notify([
+  {target:detachedPoster,isIntersecting:true},
+  {target:hiddenPoster,isIntersecting:true}
+]);
+assert.equal(started.at(-2).id,'stale-detached');
+assert.equal(started.at(-1).id,'stale-hidden');
+assert(started.slice(-2).every(entry => entry.priority === 'high'),
+  'reconnected, genuinely visible covers retain normal high-priority demand');
+assert.equal(new Set(started.map(entry => entry.id)).size,started.length,
+  'recovered IO artwork must not reassign earlier URLs');
+console.log('PWA.15.19 stale IO geometry and recovery contract PASS');
 
 // PWA.15.10.1: deferred near-rail artwork has no src. When visible covers
 // complete, the existing rAF rail owner must actually start low-priority

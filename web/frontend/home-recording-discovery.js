@@ -1187,8 +1187,11 @@
         demands.forEach(function (demand) {
           const target = demand.image;
           const pending = target.__vdrSuiteDeferredArtworkUrl;
-          if (!pending) return;
-          if (Number.isFinite(demand.distance) && demand.distance > 0) {
+          // A queued IO entry can outlive its rail or be reported after
+          // the element was detached. An unmeasurable image is NOT visible.
+          // Do not assign src until the real geometry becomes valid again.
+          if (!pending || !Number.isFinite(demand.distance)) return;
+          if (demand.distance > 0) {
             // Nearby but clipped posters stay deferred until the same
             // coordinator that handles rail warmup has capacity. A separate
             // IO callback must not start unbounded low-priority HTTP work.
