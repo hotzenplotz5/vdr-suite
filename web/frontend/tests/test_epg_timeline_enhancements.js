@@ -412,6 +412,90 @@ assert.ok(!source.includes('appendEpgVerticalTimelineTicks = function'));
 assert.ok(!source.includes('TIMELINE_QUARTER_SECONDS'));
 assert.ok(!source.includes('MutationObserver'));
 
+// Exercise the real production EPG renderer, not only the lightweight
+// filtered-channel test double above. Both controls must drive one offset.
+const actualRenderSource = functionSlice('renderEpgTimeView', 'renderEpgTimelineModePlaceholder');
+const actualRenderContext = vm.createContext({document, Date, Math, Map});
+vm.runInContext(`
+  const detailDataElement = document.createElement('section');
+  const EPG_VISIBLE_CHANNEL_LIMIT = 15;
+  const epgWarmCacheStatus = '';
+  let epgChannelOffset = 0;
+  let selectedEpgDetail = {id:'previous-selection'};
+  let epgProgramView = 'live';
+  let epgTimeAxisMode = 'horizontal';
+  let epgTimelineMode = 'time';
+  let epgTimeWindowPageOffset = 0;
+  let currentChannels = null;
+  let currentEvents = null;
+  let loadCount = 0;
+  function epgIsMobileViewport() { return false; }
+  function epgTimeAxisViewIsSelected() { return false; }
+  function isMobileEpgLayout() { return false; }
+  function listFromResponse(data, key) { return data[key] || []; }
+  function addText(element, value) { element.textContent = String(value); return element; }
+  function epgChannelPageOffset(size, offset, pageSize) {
+    return Math.max(0, Math.min(Math.floor(Math.max(0, offset) / pageSize) * pageSize,
+      Math.max(0, Math.ceil(size / pageSize) - 1) * pageSize));
+  }
+  function epgTimelineDisplayBounds(now) { return {start:now, end:now + 3600}; }
+  function epgTimelineCurrentWindowEvents() { return []; }
+  function buildEpgVisibleEventIndex() { return new Map(); }
+  function formatEpgClockFromEpoch() { return '12:00'; }
+  function loadEpgTimeline() { loadCount += 1; }
+  function renderEpgWorkbench(list) { detailDataElement.appendChild(list); }
+  function createEpgProgramViewGrid() {
+    const grid = document.createElement('div'); grid.className = 'epg-program-grid'; return grid;
+  }
+  function createEpgVerticalTimeGrid() {
+    const grid = document.createElement('div'); grid.className = 'epg-vertical-time-grid'; return grid;
+  }
+  function epgChannelTitle() { return 'Sender'; }
+  function firstValue(object, keys, fallback) {
+    for (const key of keys) if (object[key] !== undefined) return object[key];
+    return fallback;
+  }
+  function epgIndexedEventsForChannel() { return []; }
+  function appendEpgTimelineTicks() {}
+  function appendEpgNowLine() {}
+  function enableEpgDragPan() {}
+`, actualRenderContext);
+vm.runInContext(actualRenderSource, actualRenderContext);
+actualRenderContext.catalog = {channels:Array.from({length:32}, (_, index) => ({
+  id:'sender-' + String(index + 1)
+}))};
+const actualRender = () => vm.runInContext('renderEpgTimeView(catalog, {events:[]})', actualRenderContext);
+const actualPagers = () => vm.runInContext('detailDataElement.querySelectorAll(".epg-pager")', actualRenderContext);
+
+for (const view of ['live', 'vertical', 'horizontal']) {
+  vm.runInContext(`epgProgramView='${view}'; epgTimeAxisMode='horizontal'; epgChannelOffset=0;`, actualRenderContext);
+  actualRender();
+  const rows = actualPagers();
+  assert.strictEqual(rows.length, 2, 'top and bottom navigation in ' + view);
+  assert.strictEqual(rows[1].classList.contains('epg-pager-bottom'), true);
+  assert.deepStrictEqual(rows.map(row => row.children.map(button => button.disabled)), [[true,false],[true,false]]);
+}
+vm.runInContext("epgProgramView='live'; epgChannelOffset=0; selectedEpgDetail={id:'old'};", actualRenderContext);
+actualRender();
+actualPagers()[1].children[1].dispatch('click');
+assert.strictEqual(vm.runInContext('epgChannelOffset', actualRenderContext), 15);
+assert.strictEqual(vm.runInContext('selectedEpgDetail', actualRenderContext), null);
+assert.strictEqual(vm.runInContext('loadCount', actualRenderContext), 1);
+actualRender();
+assert.deepStrictEqual(actualPagers().map(row => row.children.map(button => button.disabled)), [[false,false],[false,false]]);
+actualPagers()[1].children[1].dispatch('click');
+actualRender();
+assert.strictEqual(vm.runInContext('epgChannelOffset', actualRenderContext), 30);
+assert.deepStrictEqual(actualPagers().map(row => row.children.map(button => button.disabled)), [[false,true],[false,true]]);
+actualPagers()[1].children[0].dispatch('click');
+assert.strictEqual(vm.runInContext('epgChannelOffset', actualRenderContext), 15);
+assert.strictEqual(vm.runInContext('loadCount', actualRenderContext), 3);
+actualRenderContext.catalog = {channels:Array.from({length:15}, (_, i) => ({id:'s' + i}))};
+vm.runInContext('epgChannelOffset=0;', actualRenderContext);
+actualRender();
+assert.strictEqual(actualPagers().length, 1, 'single-page catalogue has no redundant bottom pager');
+assert.strictEqual(actualPagers()[0].hidden, true);
+
 Promise.resolve().then(() => {
   assert.strictEqual(channelBrand.children[0].dataset.channelId,'C-1');
   assert.strictEqual(channelBrand.children[0].dataset.title,'Das Erste HD');
