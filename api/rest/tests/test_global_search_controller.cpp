@@ -5,6 +5,7 @@
 #include "GlobalSearchController.h"
 #include "GlobalSearchRepository.h"
 #include "GlobalSearchService.h"
+#include "VdrRecordingMetadataCacheCodec.h"
 
 #include <cassert>
 #include <cstdio>
@@ -108,6 +109,44 @@ int main()
         portraitUrl + "\"}") != std::string::npos);
     assert(response.body.find("/var/cache/") == std::string::npos);
     assert(response.body.find("image.tmdb.org") == std::string::npos);
+    // Positive native artwork is preserved; when its only path disappears,
+    // the generic search must stop emitting a preferred image URL.
+    assert(database.execute(
+        "UPDATE vdr_recording_native_metadata SET preferred_artwork_path='' "
+        "WHERE backend_id='default' AND backend_native_id='native-1';"));
+    response = controller.search("default", "John Travolta",
+        1785000000, 1785400000, 1, 0);
+    assert(response.body.find(
+        "\"artwork\":{\"available\":false,\"url\":\"\"}") !=
+        std::string::npos);
+    assert(response.body.find(
+        "\"metadata\":{\"presentation\":{\"posterUrl\":\"\"}") !=
+        std::string::npos);
+    assert(response.body.find(recordingArtworkUrl) == std::string::npos);
+
+    // A legacy-only poster stays visible through the opaque artwork owner.
+    VdrRecordingMetadata legacyMetadata;
+    VdrRecordingArtworkRef cachedPoster;
+    cachedPoster.kind = VdrRecordingArtworkKind::Poster;
+    cachedPoster.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    cachedPoster.reference = "/var/cache/vdr/plugins/tvscraper/legacy-poster.jpg";
+    legacyMetadata.artwork.push_back(cachedPoster);
+    const std::string cachedPayload =
+        VdrRecordingMetadataCacheCodec::encode(legacyMetadata);
+    assert(database.execute(
+        "UPDATE vdr_recording_cache SET metadata_payload='" +
+        cachedPayload + "' WHERE backend_id='default' AND cache_key='r1';"));
+    response = controller.search("default", "John Travolta",
+        1785000000, 1785400000, 1, 0);
+    assert(response.body.find(
+        "\"artwork\":{\"available\":true,\"url\":\"/recording-artwork/default/") !=
+        std::string::npos);
+    assert(response.body.find(
+        "\"metadata\":{\"presentation\":{\"posterUrl\":\"/recording-artwork/default/") !=
+        std::string::npos);
+    assert(response.body.find(recordingArtworkUrl) == std::string::npos);
+
 
     response = controller.search("default", "Kein Treffer", 1785000000, 1785400000, 20, 0);
     assert(response.statusCode == 200);

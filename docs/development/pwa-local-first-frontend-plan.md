@@ -2405,3 +2405,38 @@ bestehenden Staging-/Deployment-Vertrag
 installiert und anschliessend in Doku real
 abgenommen werden; reine Frontend-Kopien
 koennen diese Aenderung nicht aktivieren.
+
+
+### PWA.15.26 – Kein synthetisches Recording-Artwork mehr (2026-11-21)
+
+Die Browser-Abnahme nach dem ersten rein frontendseitigen Fix zeigte
+weiterhin 404 fuer weitere, bisher nicht einzeln behandelte Aufnahmen.
+Die gemeinsame Ursache war eine unbedingte URL-Erzeugung im
+`VdrRecordingMetadataJsonSerializer::preferredArtworkUrl()`: eine
+`backendNativeId` wurde faelschlich als Nachweis fuer
+`/api/vdr/recordings/metadata/image?...kind=preferred` behandelt.
+
+**Generischer Fix an den vorhandenen Ownership-Grenzen:**
+- Recording-Serializer (Recording Query, Folder, Recently/Continue Watching):
+  Nur gueltiges persistiertes Legacy-Artwork erzeugt sofort eine opaque
+  `/recording-artwork/`-URL; die bestehende native Metadaten-API liefert
+  verifizierte native Preferred-/Gallery-Bilder bei spaeterer Anreicherung.
+- Genre-Page: Eine explizit positive Native-/Manual-Summary liefert
+  eine native Poster-URL; gespeichertes Legacy-Artwork verwendet den
+  bestehenden opaque Besitzer. Unbekannter Zustand erzeugt kein Bild-GET.
+- Globale Suche: Native oder manuelle `preferred_artwork_path`-Nachweise
+  bleiben erhalten. Ohne diese hat vorhandenes Legacy-Artwork Vorrang auf
+  seinen eigenen opaque Besitzer. Keine Belege => keine Poster-URL.
+
+Die Aenderungen betreffen **alle Recording-IDs**, nicht bestimmte Titel.
+Es wurden keine zusaetzlichen HTTP-/Datenbank-Reads, Berechtigungen,
+Permanenzsperren, Retry-/Polling-Loops oder Negativ-Caches eingefuehrt.
+Die schwarze `No Artwork`-Kachel bleibt unveraendert. Tests pruefen
+unbekannte/nativ nachgewiesene/legacy-only Metadaten und die produktiven
+Search-/Genre-/Recording-Serialisierungen.
+
+**Abnahmegrenze:** Der generische Fix wirkt erst nach kontrolliertem
+Daemon-Build und Deployment des neuen C++-Backends. Ein zuvor per
+Frontend-Installationsblock installierter JS-Stand aktiviert ihn nicht.
+Fehlende/zwischenzeitlich geloeschte tatsaechliche Dateien und gesonderte
+EPG-Artwork-404 sind davon nicht grundsaetzlich ausgeschlossen.
