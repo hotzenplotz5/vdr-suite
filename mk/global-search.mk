@@ -8,7 +8,6 @@ GLOBAL_SEARCH_SRC := \
 GLOBAL_SEARCH_TEST_SUPPORT_SRC := \
 	$(SQLITE_SRC) \
 	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
-	core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 	core/vdr/src/VdrConfig.cpp \
 	core/vdr/src/GlobalSearchRepository.cpp \
 	core/vdr/src/GlobalSearchPersonPortraitRepository.cpp \
@@ -25,7 +24,6 @@ test-global-search-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
-		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 		core/vdr/src/GlobalSearchRepository.cpp \
 		core/vdr/tests/test_global_search_repository.cpp \
 		$(LDFLAGS) \

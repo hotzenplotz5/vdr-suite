@@ -11,33 +11,12 @@
   if (!probe || !token) return;
   let active = false;
   let checking = false;
-  let controllerAtStart = null;
-  let controllerChanges = 0;
-  let listeningToController = null;
-  function serviceWorker() {
-    return root.navigator && root.navigator.serviceWorker || null;
-  }
-  function onControllerChange() {
-    if (active) controllerChanges++;
-  }
-  function stopControllerTracking() {
-    if (listeningToController && typeof listeningToController.removeEventListener === 'function')
-      listeningToController.removeEventListener('controllerchange', onControllerChange);
-    listeningToController = null;
-  }
   function send(type, value) {
     parent.postMessage({ channel: channel, token: token, type: type, value: value }, origin);
   }
   function start(label, initial) {
     if (active || checking) return;
     probe.start(label, { buffered: Boolean(initial) });
-    const sw = serviceWorker();
-    controllerAtStart = sw ? Boolean(sw.controller) : null;
-    controllerChanges = 0;
-    if (sw && typeof sw.addEventListener === 'function') {
-      sw.addEventListener('controllerchange', onControllerChange);
-      listeningToController = sw;
-    }
     active = true;
     send('started', label);
   }
@@ -58,65 +37,13 @@
       catch (_) { finish(null); }
     });
   }
-  // Console output belongs only to this opt-in diagnostic iframe.
-  // One aggregate object per completed capture, never per-image logging.
-  function logArtworkSummary(report) {
-    if (!root.console || typeof root.console.info !== 'function') return;
-    const metrics = report.metrics || {};
-    const worker = metrics.artworkWorker && metrics.artworkWorker.counters || {};
-    const rails = report.railArtworkPrefetch || {};
-    const rows = metrics.resourceDiagnostics && metrics.resourceDiagnostics.rows || [];
-    const phase = function (name) {
-      const samples = Number(worker[name + 'Samples']) || 0;
-      return {samples: samples, meanMs: samples
-        ? Math.round(Number(worker[name + 'TotalMs']) / samples * 10) / 10 : null,
-      maxMs: samples ? Number(worker[name + 'MaxMs']) : null};
-    };
-    root.console.info('[VDR-Suite Artwork] Diagnose (nur nach Stop)', {
-      homeFrameMs: report.startupTiming && report.startupTiming.homeFrameMs || null,
-      scrollReadyPercent: rails.scrollPrefetchHitRatePercent ?? null,
-      afterEntryMeanMs: rails.meanReadyDelayMs ?? null,
-      afterEntryMaxMs: rails.delayMaxMs ?? null,
-      image404: rows.filter(row => row.initiator === 'img' && row.status === '404')
-        .reduce((total, row) => total + (Number(row.count) || 0), 0),
-      missingProofBeforeRead: worker.missingProofBeforeAcceptedRead ?? null,
-      localCacheHits: worker.localHits ?? null,
-      cacheMisses: worker.cacheMiss ?? null,
-      parallelImageHttpPeak: worker.maxImageHttpInFlight ?? null,
-      firstProofGap: phase('firstProofGap'),
-      proofHttp: phase('proofHttp'),
-      cacheLookup: phase('cacheLookup'),
-      candidateLookup: phase('candidateLookup'),
-      foregroundHttp: phase('foregroundHttp'),
-      foregroundPriorityUnknown: worker.foregroundPriorityUnknown ?? null,
-      snapshotProofReads: worker.snapshotProofReads ?? null,
-      snapshotProofAccepted: worker.snapshotProofAccepted ?? null,
-      otherProofReads: worker.otherProofReads ?? null,
-      otherProofAccepted: worker.otherProofAccepted ?? null,
-      proofReadsAtFirstImage: worker.proofReadsAtFirstImage ?? null,
-      acceptedProofsAtFirstImage: worker.acceptedProofsAtFirstImage ?? null,
-      firstImageWorkerUptimeMs: worker.firstImageWorkerUptimeMs ?? null,
-      firstProofWorkerUptimeMs: worker.firstProofWorkerUptimeMs ?? null,
-      firstAcceptedProofWorkerUptimeMs: worker.firstAcceptedProofWorkerUptimeMs ?? null,
-      workerUptimeMs: (metrics.artworkWorker && metrics.artworkWorker.workerUptimeMs) ?? null,
-      controllerLifecycle: report.serviceWorkerLifecycle || null
-    });
-  }
   function stop(includeCache) {
     if (!active) return;
     active = false;
     const report = probe.stop();
-    const sw = serviceWorker();
-    report.serviceWorkerLifecycle = {
-      controlledAtStart: controllerAtStart,
-      controlledAtStop: sw ? Boolean(sw.controller) : null,
-      controllerChanges: controllerChanges
-    };
-    stopControllerTracking();
     const measurement = includeCache !== false && readArtworkMeasurement();
     if (!measurement) {
       report.metrics.artworkWorker = {available:false};
-      logArtworkSummary(report);
       send('result', report);
       return;
     }
@@ -125,7 +52,6 @@
       report.metrics.artworkWorker = value && value.schema === 1
         ? {available:true, ...value, interval:'controlled document since worker start; cumulative'}
         : {available:false};
-      logArtworkSummary(report);
       send('result', report);
     }).finally(function () { checking = false; });
   }

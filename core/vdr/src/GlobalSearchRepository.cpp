@@ -2,7 +2,6 @@
 
 #include "Database.h"
 #include "VdrRecordingMetadataCacheCodec.h"
-#include "VdrRecordingMetadataJsonSerializer.h"
 
 #include <sqlite3.h>
 
@@ -504,24 +503,8 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
         item.subtitle = metadata.provider.episodeTitle;
         if (item.subtitle.empty()) item.subtitle = metadata.native.shortText;
         if (item.subtitle.empty()) item.subtitle = columnText(statement, 9);
-        if (!columnText(statement, 10).empty())
-        {
-            // An actual native or selected manual poster path is known.
-            item.artworkAvailable = true;
-        }
-        else if (metadata.hasArtwork())
-        {
-            // Cached legacy artwork cannot be served through native metadata.
-            VdrRecording cached;
-            cached.id = item.id;
-            cached.backendId = item.backendId;
-            cached.backendNativeId = item.backendNativeId;
-            cached.path = item.path;
-            cached.metadata = metadata;
-            item.artworkUrl =
-                VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(cached);
-            item.artworkAvailable = !item.artworkUrl.empty();
-        }
+        item.artworkAvailable = !columnText(statement, 10).empty() ||
+            !metadata.artwork.empty();
         item.matchedPerson = columnText(statement, 11);
         item.matchedRole = columnText(statement, 12);
         const bool titleHit = sqlite3_column_int(statement, 13) != 0;

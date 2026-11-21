@@ -580,14 +580,10 @@
     const artwork = target || doc.createElement('div');
     artwork.textContent = '';
     artwork.className = 'media-home-discovery-artwork';
-    function showNoArtwork() {
-      artwork.className = 'media-home-discovery-artwork no-artwork';
-      artwork.textContent = 'No Artwork';
-    }
     const title = recordingTitle(recording);
     const poster = recordingPosterUrl(recording);
     if (!poster) {
-      showNoArtwork();
+      artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
       return artwork;
     }
     const image = doc.createElement('img');
@@ -604,7 +600,7 @@
     else image.src = url;
     image.addEventListener('error', function () {
       image.remove();
-      showNoArtwork();
+      artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
     });
     artwork.appendChild(image);
     if (discovery && typeof discovery.prioritizeVisibleArtwork === 'function') discovery.prioritizeVisibleArtwork(image);
@@ -921,7 +917,6 @@
       recordings.forEach(function (recording) {
         rail.appendChild(createInlineRecordingCard(recording, backendId));
       });
-      prioritizeFolderRail(rail);
       return Promise.resolve(true);
     }
 
@@ -942,7 +937,6 @@
 
     function publishReady() {
       if (!stillCurrent()) return;
-      const previous = published;
       while (published < recordings.length && settled[published] !== undefined) {
         const original = recordings[published];
         const rich = settled[published];
@@ -950,8 +944,6 @@
         rail.appendChild(createInlineRecordingCard(projected, backendId, original));
         published += 1;
       }
-      // Re-arm only when newly attached cards need an initial visible read.
-      if (published > previous) prioritizeFolderRail(rail);
     }
 
     function worker() {

@@ -173,13 +173,10 @@
   function createArtwork(item) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    function showNoArtwork() {
-      artwork.className = 'media-home-discovery-artwork no-artwork';
-      artwork.textContent = 'No Artwork';
-    }
+    const fallback = title(item).slice(0, 1).toUpperCase() || '▶';
     const url = posterUrl(item);
     if (!url) {
-      showNoArtwork();
+      artwork.textContent = fallback;
       return artwork;
     }
     const image = doc.createElement('img');
@@ -192,7 +189,7 @@
     image.loading = 'lazy';
     image.addEventListener('error', function () {
       image.remove();
-      showNoArtwork();
+      artwork.textContent = fallback;
     });
     artwork.appendChild(image);
     return artwork;
@@ -273,9 +270,6 @@
     target.appendChild(rail);
     const owner = host();
     if (owner && owner.lastElementChild !== target) owner.appendChild(target);
-    const discovery = global.VdrSuiteHomeRecordingDiscovery;
-    if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
-      discovery.prioritizeInlineRailArtwork(rail);
     return true;
   }
   function refresh(options) {
@@ -632,13 +626,10 @@
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
     const title = recordingTitle(recording);
-    function showNoArtwork() {
-      artwork.className = 'media-home-discovery-artwork no-artwork';
-      artwork.textContent = 'No Artwork';
-    }
+    const fallback = title.slice(0, 1).toUpperCase() || '▶';
     const url = posterUrl(recording);
     if (!url) {
-      showNoArtwork();
+      artwork.textContent = fallback;
       return artwork;
     }
     const image = doc.createElement('img');
@@ -653,7 +644,7 @@
     image.fetchPriority = 'low';
     image.addEventListener('error', function () {
       image.remove();
-      showNoArtwork();
+      artwork.textContent = fallback;
     });
     artwork.appendChild(image);
     return artwork;
@@ -772,9 +763,6 @@
     }
     state.moreButton = more;
     positionBeforeSeries();
-    const discovery = global.VdrSuiteHomeRecordingDiscovery;
-    if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
-      discovery.prioritizeInlineRailArtwork(rail);
     return true;
   }
 
@@ -969,9 +957,6 @@
         rail.appendChild(createMovieCard(recording, state.backendId));
       });
       positionBeforeSeries();
-      const discovery = global.VdrSuiteHomeRecordingDiscovery;
-      if (discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
-        discovery.prioritizeInlineRailArtwork(rail);
       return true;
     }).catch(function () {
       // Preserve the visible rail and offset. A subsequent scroll can retry.

@@ -94,6 +94,10 @@ int main()
         "/srv/vdr/video/Serien/Band of Brothers/01 Currahee/2016.rec";
     nativeFallback.title = "01 Currahee";
 
+    const std::string nativeFallbackUrl =
+        "/api/vdr/recordings/metadata/image?backend=living%20room"
+        "&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2FSerien%2FBand%20of%20Brothers%2F01%20Currahee%2F2016.rec"
+        "&kind=preferred&index=0";
     const std::string nativeFallbackJson =
         VdrRecordingMetadataJsonSerializer::serialize(nativeFallback);
 
@@ -101,13 +105,11 @@ int main()
         std::string::npos);
     assert(nativeFallbackJson.find("\"posterAvailable\":false") !=
         std::string::npos);
-    assert(nativeFallbackJson.find("\"preferredUrl\":\"\"") !=
+    assert(nativeFallbackJson.find(
+        "\"preferredUrl\":\"" + nativeFallbackUrl + "\"") !=
         std::string::npos);
-    assert(nativeFallbackJson.find("\"posterUrl\":\"\"") !=
-        std::string::npos);
-    assert(VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
-        nativeFallback).empty());
-    assert(nativeFallbackJson.find("/api/vdr/recordings/metadata/image") ==
+    assert(nativeFallbackJson.find(
+        "\"posterUrl\":\"" + nativeFallbackUrl + "\"") !=
         std::string::npos);
 
     VdrRecording fallback;

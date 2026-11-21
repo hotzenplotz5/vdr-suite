@@ -9,8 +9,6 @@ GENRE_BROWSER_REST_SRC := \
 GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	$(SQLITE_SRC) \
 	$(GENRE_BROWSER_REST_SRC) \
-	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
-	core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 	api/rest/src/RestQueryParameters.cpp \
 	core/vdr/src/VdrConfig.cpp \
 	core/vdr/src/BackendRegistry.cpp \

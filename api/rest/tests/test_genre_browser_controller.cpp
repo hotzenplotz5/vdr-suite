@@ -5,7 +5,6 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
-#include "VdrRecordingMetadataCacheCodec.h"
 #include "IEpgScraperMetadataResolver.h"
 
 #include <cassert>
@@ -262,28 +261,8 @@ int main()
     // Legacy schema remains usable; native summaries are an additive cache read.
     const ApiResponse legacyRecordings = controller.getRecordings("default", "science-fiction", 10, 0);
     assert(legacyRecordings.statusCode == 200);
-    // Unknown image state never warrants a speculative metadata image GET.
-    assert(contains(legacyRecordings, "\"posterUrl\":\"\""));
-    assert(!contains(legacyRecordings, "&kind=poster&index=0"));
+    assert(contains(legacyRecordings, "&kind=poster&index=0"));
     assert(!contains(legacyRecordings, "&kind=preferred&index=0"));
-    // Native ID without any artwork in either cache must not fabricate an
-    // image URL that can only lead to HTTP 404.
-    VdrRecordingMetadata cachedArtworkMetadata;
-    VdrRecordingArtworkRef cachedPoster;
-    cachedPoster.kind = VdrRecordingArtworkKind::Poster;
-    cachedPoster.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
-    cachedPoster.reference = "/tmp/cached-legacy-poster.jpg";
-    cachedArtworkMetadata.artwork.push_back(cachedPoster);
-    const std::string encoded = VdrRecordingMetadataCacheCodec::encode(cachedArtworkMetadata);
-    assert(!encoded.empty());
-    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='" +
-        encoded + "' WHERE backend_id='default' AND cache_key='recording-1';"));
-    const ApiResponse cachedLegacyRecording =
-        controller.getRecordings("default", "science-fiction", 10, 0);
-    assert(contains(cachedLegacyRecording, "/recording-artwork/default/"));
-    assert(!contains(cachedLegacyRecording, "&kind=poster&index=0"));
-    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='' "
-        "WHERE backend_id='default' AND cache_key='recording-1';"));
     assert(!contains(legacyRecordings, "seriesMetadata"));
     assert(!contains(legacyRecordings, "nativeCardMetadata"));
     assert(database.execute(
@@ -304,28 +283,7 @@ int main()
     assert(contains(seriesSummary, "\"seasonNumber\":2,\"episodeNumber\":7"));
     assert(contains(seriesSummary, "\"title\":\"Testserie\""));
     assert(contains(seriesSummary, "&kind=gallery&index=3"));
-    assert(contains(seriesSummary, "&kind=poster&index=0"));
     assert(!contains(seriesSummary, "/private/poster.jpg"));
-    // A successfully read native metadata record with no native/legacy
-    // artwork is *known* to lack a poster; do not fabricate a GET.
-    assert(database.execute(
-        "DELETE FROM vdr_recording_native_artwork "
-        "WHERE backend_id='default' AND recording_key='recording-1';"));
-    const ApiResponse knownMissingPoster =
-        controller.getRecordings("default", "science-fiction", 10, 0);
-    assert(knownMissingPoster.statusCode == 200);
-    assert(contains(knownMissingPoster, "\"posterUrl\":\"\""));
-    assert(!contains(knownMissingPoster, "&kind=poster&index=0"));
-    assert(contains(knownMissingPoster, "\"preferredArtwork\":{\"available\":false"));
-    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='" +
-        encoded + "' WHERE backend_id='default' AND cache_key='recording-1';"));
-    const ApiResponse nativeWithLegacyPoster =
-        controller.getRecordings("default", "science-fiction", 10, 0);
-    assert(contains(nativeWithLegacyPoster, "/recording-artwork/default/"));
-    assert(!contains(nativeWithLegacyPoster, "&kind=poster&index=0"));
-    assert(database.execute("UPDATE vdr_recording_cache SET metadata_payload='' "
-        "WHERE backend_id='default' AND cache_key='recording-1';"));
-
     assert(contains(seriesSummary, "\"nativeCardMetadata\":{\"available\":true,\"mediaType\":\"series\",\"title\":\"Testserie\""));
     assert(database.execute(
         "UPDATE vdr_recording_native_metadata SET media_type='movie',title='Film aus Cache',"
