@@ -584,17 +584,14 @@
     const id = backendId ? String(backendId) : 'default';
     const snapshotRequest = requestJson(
       '/api/backends/' + encodeURIComponent(id) + '/snapshot',
-      // This is the existing tiny authorization readback for Home artwork.
-      // Send it with high browser fetch priority before discovery images can
-      // crowd it out; the independent recording-count read keeps its default.
-      Object.assign({}, normalizeOptions(options), {priority: 'high'})
+      options
     ).then(function (snapshot) {
       // Optional early delivery; the returned Promise retains count composition.
       if (typeof onSnapshot === 'function') onSnapshot(snapshot);
       return snapshot;
     });
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
-      Object.assign({}, normalizeOptions(options), {backendId: id})
+      Object.assign({}, normalizeOptions(options), {backendId: id, priority: undefined})
     ).catch(function () {
       return null;
     });

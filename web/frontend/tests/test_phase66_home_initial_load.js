@@ -32,6 +32,8 @@ assert(loadStart > markEnd && loadEnd > loadStart);
 const markSelectedSource = appSource.slice(markStart, markEnd);
 const loadBackendDetailsSource = appSource.slice(loadStart, loadEnd);
 assert(loadBackendDetailsSource.includes('markSelected(backendId);'));
+assert(loadBackendDetailsSource.includes("cache: 'no-store', priority: 'high'"),
+  'the real Home bootstrap assigns high priority to its existing small scope readback');
 assert(
   loadBackendDetailsSource.indexOf('markSelected(backendId);') <
   loadBackendDetailsSource.indexOf("selectModule('overview');"),
@@ -210,7 +212,7 @@ async function main() {
   }, {filename:'web/frontend/api/client-api.js'});
   let earlySnapshot;
   const snapshotResult = await clientWindow.VdrSuiteClientApi.fetchClientBackendSnapshot(
-    'backend-a', {cache:'no-store'}, value => {earlySnapshot = value; });
+    'backend-a', {cache:'no-store',priority:'high'}, value => {earlySnapshot = value; });
   assert.strictEqual(snapshotRequests.length,2,
     'the normal snapshot plus recording-count read; no extra HTTP readback');
   assert.strictEqual(snapshotRequests[0].url,'/api/backends/backend-a/snapshot');

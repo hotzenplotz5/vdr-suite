@@ -2098,12 +2098,14 @@ von der Coveranzeige abgewartet.**
 
 Die konkrete Luecke: `web/frontend/api/client-api.js::requestOptions`
 reichte keinen Fetch-Priority-Hinweis an den Browser weiter.
-`fetchClientBackendSnapshot` versieht deshalb ausschliesslich
-den bestehenden Snapshot-GET mit
-`RequestInit.priority = 'high'`; der parallele
-`/api/vdr/recordings/cache/status`-GET bleibt bei der normalen
-Browser-Prioritaet. `requestOptions` leitet den optionalen
-`priority`-Wert unveraendert durch. Dies ist ein HTTP-
+`app.js::loadBackendDetails` kennzeichnet deshalb **seinen
+bereits vorhandenen** Home-Snapshot-Readback als
+`RequestInit.priority = 'high'`. `requestOptions` leitet
+den optionalen `priority`-Wert unveraendert durch; die
+`fetchClientBackendSnapshot`-Route und ihr bestehender
+Owner-Vertrag bleiben unveraendert. Der parallel angeforderte
+`/api/vdr/recordings/cache/status`-GET bleibt bei der
+normalen Browser-Prioritaet. Dies ist ein HTTP-
 Scheduling-*Hinweis*, keine Garantie einer Reihenfolge und
 keine beweisbare Erklaerung aller 31 fruehen Bildanfragen.
 Browser ohne Unterstuetzung ignorieren ihn.
