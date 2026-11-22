@@ -17,6 +17,15 @@ Device-authentifizierten Profilstatus-GET, ohne die Device-ID
 aus Clientdaten zu übernehmen. Keine Playback- oder Probe-Aktion;
 CI/Source bleibt getrennt von echter Decoder-Kompatibilität.
 
+**F7.3 kombinierter Contract-Test (Quellkandidat):** Ein einzelner
+Device-HTTP-Mock führt Profil-GET, Progress-Read, explizites
+Resume-Session-CREATE, Tracks-GET, gemessenen Progress-CAS,
+409-Konflikt ohne Redispatch, Continue-Watching-GET und STOP
+über die existierenden Public-v1-Referenzmethoden aus.
+Der Test wird in das bereits vorhandene
+`test-public-v1-recording-progress-client`-Ziel eingebunden;
+keine neue Runtime-Sperre und keine reale Wiedergabe.
+
 **F7 offen:** tatsächlicher Device-Playback-Fortschritt, Resume,
 Continue Watching und Browser-/Account-Abgleich, TV-Client-Verhalten
 sowie echte Medienwiedergabe werden erst bei F8 gemeinsam auf

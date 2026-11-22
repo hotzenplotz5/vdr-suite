@@ -1,5 +1,15 @@
 # VDR-Suite Current State
 
+## API.V1.F7.3 – Kombinierter Device-Resume-Vertrag (22.11.2026)
+
+Der vorhandene `test-public-v1-recording-progress-client`-Lauf
+prüft in einem neuen zusammenhängenden HTTP-Mock den Weg von
+Device-Profil und gesicherter Position über ausdrücklich gestartete
+Resume-Session, Audio-Tracks und Revision-gebundenes Fortschritts-
+Update bis zum einmaligen STOP. Ein stale 409 darf keinen
+zweiten Auftrag auslösen. **Kein realer VDR-/TV-Test**;
+die gemeinsame F8-Abnahme bleibt unverändert ausstehend.
+
 ## API.V1.F7.2 – Device-Player-Profilstatus (22.11.2026)
 
 Der Public-v1-JavaScript-Client kann jetzt den vorhandenen
