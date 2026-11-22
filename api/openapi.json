@@ -7092,7 +7092,7 @@
             "managedBasic": []
           }
         ],
-        "x-vdr-suite-auth-profile": "protectedMutation",
+        "x-vdr-suite-auth-profile": "actorWrite",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.marks.modify@backendId or recordings.edit@backendId; browser CSRF for Browser Session; backend writes and native fences remain separate"
@@ -7331,7 +7331,7 @@
             "managedBasic": []
           }
         ],
-        "x-vdr-suite-auth-profile": "protectedMutation",
+        "x-vdr-suite-auth-profile": "actorWrite",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.cut@backendId or recordings.edit@backendId; browser CSRF for Browser Session; backend writes and native fences remain separate"

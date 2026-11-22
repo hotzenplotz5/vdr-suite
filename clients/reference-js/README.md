@@ -217,3 +217,16 @@ diese neuen Methoden ausgelöst.
 sind **nicht** automatisch 1:1 gleichwertig. Die
 [Web-vs-Public-v1 F4-Matrix](../../docs/development/api-v1-f4-recording-metadata-artwork-parity.md)
 dokumentiert die bekannten Grenzen vor einer Web-Migration.
+
+## API.V1.F6 — Native Marks/Cut source candidate
+
+The reference client exposes `getRecordingMarks`, `getRecordingCutState`,
+`submitRecordingMarksMutation` and `submitRecordingCut` against the
+public `/api/v1/recordings/{recordingId}/marks|cut?backendId=...` routes.
+Writes need a caller-owned `payload` whose backend/Recording IDs match the
+URL, native `operationId`, `operationRevision`, and 32-hex
+`expectedMarksRevision`. The existing browser CSRF proof is caller-owned.
+No retry after an uncertain POST. `recordings.edit@backendId` grants native
+marks/cut for Human Accounts, but Device grant support and complete
+Browser/Device parity are not hardware-accepted. Existing private Web routes
+remain usable. See [F6 source contract](../../docs/development/api-v1-f6-recording-marks-cut-scope.md).

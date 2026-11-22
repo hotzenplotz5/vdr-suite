@@ -1,7 +1,8 @@
 # API.V1.F6 — Recording Marks/Cut: Public-v1-Integration und einfache Rechte
 
-**Status: F6 wieder geöffnet; Rechtevereinfachung im Quellcode implementiert,
-Public-v1-Marks-/Cut-Routen noch ausstehend.**
+**Status: Public-v1-Marks-/Cut-Adapter, Sicherheitsgate, Referenz-JS und
+OpenAPI als Quellkandidat committed. C++-Build, automatisierte
+Web-vs-v1-Regression und finale Hardwareabnahme noch offen.**
 
 Branch: `work/api-v1-finalisierung-f2-f8`.
 Diese Fassung korrigiert den unautorisierten Ausschluss der bereits vorhandenen
@@ -58,7 +59,7 @@ neuer Einzelwahlen an; bestehende ältere Einzelrechte
 bleiben sichtbar und entziehbar. Auf einem älteren Server
 ohne neues Sammelrecht bleibt die bisherige Auswahl erhalten.
 
-## F6.2 — Public-v1-Routen (offen, kein Scope-Ausschluss)
+## F6.2 — Public-v1-Routen (Quellkandidat vorhanden)
 
 Bereits vorhanden und funktionsfähig:
 
@@ -69,15 +70,40 @@ Bereits vorhanden und funktionsfähig:
 - Webfrontend `recordings2-marks-*.js`, Backend Agent und
   SuiteBridge zur VDR-eigenen Marken-/Schnittinstanz.
 
-Die partielle `api/openapi.json` enthält noch **keine**
-Public-v1-Marks-/Cut-Endpunkte.
-F6.2 muss vorhandene Domain-Services ohne zweiten Writer oder
-zweite native Schnittlogik unter den **öffentlichen** API-v1-Vertrag
-bringen. Dafür nötig sind opake, backend-gebundene
-`rec_`-Aufnahmeidentitäten, passende Sicherheitsprojektion,
-Revision/Idempotenz und gleichwertige Fehler-/Statussemantik.
-Die Browserfunktionen bleiben funktionsfähig, bis eine echte
-Web-vs-v1-Regressionsprüfung gleichwertige Antworten belegt.
+Neu im Quellcode und OpenAPI:
+- `GET /api/v1/recordings/{recordingId}/marks?backendId=...`
+- `POST /api/v1/recordings/{recordingId}/marks?backendId=...`
+- `GET /api/v1/recordings/{recordingId}/cut?backendId=...`
+- `POST /api/v1/recordings/{recordingId}/cut?backendId=...`
+
+Der Adapter verwendet **die existierenden** `RecordingMarksApiRuntime`/
+`RecordingCutApiRuntime`-Handler, die bereits mit Agent und
+SuiteBridge verbunden sind; kein zweiter Writer/Schneidepfad.
+Die neuen Pfade werden im Router vor dem generischen v1-404
+zugestellt; Legacy-Routen bleiben erhalten. Der SecurityHttpGate
+verwendet backendgebundenes `recordings.view` für GET und
+die vorhandenen `recordings.marks.modify`-/`recordings.cut`-
+Checks für POST. Ein neues Human-`recordings.edit`-Grant
+deckt beide ab. Der Native-Handler verlangt für POST
+**exakte Übereinstimmung** von `rec_`-Pfad-ID,
+`backendId`-Query und beiden Body-Identitäten;
+außerdem Operation-ID, Revision, Schutz vor Zweitversuchen
+und unveränderte Native-Readbacks.
+
+Die vier SDK-Methoden
+`getRecordingMarks`, `getRecordingCutState`,
+`submitRecordingMarksMutation`, `submitRecordingCut`
+senden nur diese Pfade; der POST-Client wiederholt
+niemals automatisch einen möglicherweise gestarteten Schnitt.
+
+**Noch nicht abgenommen:** Native/Legacy-Fehlerkörper sind
+teilweise `application/json` mit `error.code`, während
+andere Public-v1-Routen `application/problem+json`
+verwenden. Die semantische Gleichwertigkeit von
+Browser-/Device-Transport, Fehlercodes und Status muss
+am gematchten Kandidaten getestet werden. Device-Grant-
+Kataloge liefern das neue Sammelrecht noch nicht automatisch,
+und F6 behauptet keine bestätigten MLD-/TV-Mutationen.
 
 **ADR-0059 bleibt gültig:** VDR ist einzige Autorität für
 Marks, Index und Schneiden; Kontrollplan, Agent und SuiteBridge
@@ -88,17 +114,25 @@ Kontrollen zu umgehen.
 
 ## Abnahme und Folgeschritt
 
-Quellen-/Mock-Test `test_mu9e_grant_mutation_ui.js`:
-**PASS** im isolierten JavaScript-Testadapter für die geänderte
-Picker-Auswahl. C++-Tests für Grant-Katalog und
-AuthorizationService sind ergänzt, ein echter C++-Build,
-Hosted CI und eine yaVDR-Installation am exakten Kandidaten
-sind **noch nicht nachgewiesen**. Keine produktive Aufnahme
-mutiert, geschnitten oder gelöscht.
+Bisherige Quellevidenz: Der isolierte
+`test_mu9e_grant_mutation_ui.js`-Test bestand;
+`test_public_v1_f6_recording_edit_client.js`
+bestand im JavaScript-Mock mit exakt diesem SDK-Code.
+Der kleine `PublicRecordingEditRoute.h`-Parser wurde
+isoliert mit `g++ -std=c++17 -Wall -Wextra -Werror`
+gegen eine äquivalente Testkopie überprüft – **kein**
+vollständiger C++-Build des Repository-Kandidaten.
+C++-Native-/Security-Fixtures sind ergänzt, ihre Ausführung
+ist noch nicht belegt. Keine produktive Aufnahme mutiert,
+geschnitten oder gelöscht.
 
-F6.1 ist **committed, aber noch nicht hardware-/build-abgenommen**.
-F6.2 (echte Public-v1-Routen/Parität) bleibt **offen**;
-die frühere pauschale Scope-Ausnahme ist aufgehoben.
+F6.1 und F6.2 sind **als Quellcode committed, aber noch nicht
+vollständig abgenommen**. Native-API- und Security-Fixtures
+wurden um Public-v1-Pfad-/Backend-/CSRF-/Grant-Fälle ergänzt.
+Ein isolierter C++-Header-Test und der Reference-JS-F6-
+HTTP-Mock-Test bestanden; der vollständige C++-Build und
+die echte Browser-vs-v1-/VDR-Abnahme fehlen weiterhin.
+Die frühere pauschale Scope-Ausnahme ist aufgehoben.
 Weder MLD noch VIDAA oder Tizen müssen eine eigene
 Schneideoberfläche implementieren — sie dürfen die Public-v1-
 Funktion nach Abschluss nutzen, sofern gewünscht und berechtigt.

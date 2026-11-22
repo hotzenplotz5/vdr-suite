@@ -20,13 +20,16 @@ bleibt bestehen. Kein implizites Playback-/Timer-/Add-on-Recht.
 Bisher nur isolierter UI-Test PASS; C++-Build/CI und
 reale Installation ausstehend.
 
-**F6.2 weiter offen:** Bestehenden
-`RecordingMarksApiRuntime`/`RecordingCutApiRuntime`-Domainpfad
-über öffentliche `/api/v1/`-Ressourcen verfügbar machen,
-ohne zweite Engine oder Sicherheitslockerung. API-v1-DTOs,
-backendgebundene öffentliche Identität, Revisionen und
-Web-vs-v1-Parität zielgerichtet prüfen.
-F6 ist also **nicht vollständig abgeschlossen**.
+**F6.2 Quellcode committed:** Vier öffentliche
+`/api/v1/recordings/{recordingId}/{marks|cut}` GET-/POST-
+Operationen nutzen unverändert den nativen SuiteBridge-Pfad.
+Strict `rec_`-Identity, `backendId`-Scope, POST-Body-
+Gleichheit, CSRF und existierende native Schutzprüfungen
+liegen in Code, OpenAPI und Referenzclient vor.
+JS-HTTP-Mock PASS, isolierter C++-Header-Check PASS;
+C++-Build, Native-/Security-Integrationstests und
+Web-vs-v1-/yaVDR-Endabnahme bleiben offen.
+F6 ist bis zu dieser Abnahme **nicht abgeschlossen**.
 F5 Timer/Suchtimer bleibt für MLD-Testfeedback zurückgestellt;
 F7 und F8 bleiben eigenständige Folgeslices.
 

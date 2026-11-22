@@ -1,6 +1,6 @@
 # VDR-Suite Current State
 
-## API.V1.F6 – vereinfachte Recording-Rechte, Public-v1-Integration offen (22.11.2026)
+## API.V1.F6 – öffentliche Marks/Cut-Anbindung als Quellkandidat (22.11.2026)
 
 Die vorherige nicht autorisierte F6-Scope-Ausnahme wurde
 korrigiert: Marks/Cut sollen ebenso über Public API v1
@@ -14,8 +14,12 @@ Ansehen, Umbenennen, Verschieben, Löschen, Marks-Änderung
 und Cut-Start, aber **nicht** Playback, Timer, Add-ons
 oder unerkannte Recording-Aktionen.
 [Status und technische Grenzen](development/api-v1-f6-recording-marks-cut-scope.md).
-UI-Mock-Test PASS; C++-Build/CI/yaVDR-Kandidat offen.
-F6-Public-v1-Marks-/Cut-Routen bleiben noch zu implementieren.
+Zusätzlich sind nun vier öffentliche Marks-/Cut-GET/POST-Routen
+über dieselben nativen Runtime-Handler verdrahtet; passende
+OpenAPI-, JS-Client- und C++-Security-/Identitätstests liegen vor.
+Isolierte JS- und C++-Header-Tests PASS, voller C++-Build/CI und
+gleichwertige Browser-/Device-/yaVDR-Abnahme **offen**.
+Kein Recording-Schnitt wurde ausgeführt.
 
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 
