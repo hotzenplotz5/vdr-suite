@@ -1775,6 +1775,19 @@
           throw new Error('Invalid verified Device capability profile');
         body.capabilityProfile = input.capabilityProfile;
       }
+      // Both options are already supported by the existing Device MediaSession
+      // owner; neither enables a second media path or changes the defaults.
+      if (input.audioTrackId !== undefined) {
+        if (typeof input.audioTrackId !== 'string' ||
+            !/^audio-[1-9][0-9]{0,9}$/.test(input.audioTrackId))
+          throw new Error('Invalid canonical audioTrackId');
+        body.audioTrackId = input.audioTrackId;
+      }
+      if (input.nativeMediaAccess !== undefined) {
+        if (typeof input.nativeMediaAccess !== 'boolean')
+          throw new Error('nativeMediaAccess must be a boolean');
+        body.nativeMediaAccess = input.nativeMediaAccess;
+      }
       const path = '/api/v1/recording-playback-sessions';
       return fetchImpl(buildUrl(baseUrl, path), {
         method: 'POST',
@@ -2163,6 +2176,10 @@
       },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);
+      },
+      getRecordingPlaybackTracks(options) {
+        return request('/api/v1/recording-playback-sessions/' +
+          recordingPlaybackSessionId(options) + '/tracks', options);
       },
       stopRecordingPlaybackSession(options) {
         return deviceSessionStop(options);

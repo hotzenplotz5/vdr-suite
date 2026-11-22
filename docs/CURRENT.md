@@ -1,5 +1,17 @@
 # VDR-Suite Current State
 
+## API.V1.F7.1 – Device Recording Session: nativer Player und Tonspuren (22.11.2026)
+
+Der gemeinsame Public-v1-Referenzclient reicht die bereits serverseitig
+vorhandenen optionalen `nativeMediaAccess`- und `audioTrackId`-Felder
+für Device Recording CREATE weiter. `getRecordingPlaybackTracks`
+liest die vorhandene Device-only `/tracks`-Route mit exakt einer
+Session-ID. Die Standardantwort bleibt ohne native Medienfreigabe;
+kein Media-Server, keine neue Berechtigung oder automatische
+Session-Wiederholung. Gezielte Client-Mock-Regression ergänzt.
+**Quell-/CI-Kandidat:** reale VIDAA-/Tizen-/yaVDR-Abnahme bleibt
+gemeinsam für F8 vorgemerkt.
+
 ## API.V1.F6 – öffentliche Marks/Cut-Anbindung als Quellkandidat (22.11.2026)
 
 Die vorherige nicht autorisierte F6-Scope-Ausnahme wurde

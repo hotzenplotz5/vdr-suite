@@ -23,18 +23,29 @@ const fetchMock = async (url, init) => {
   assert.strictEqual(init.headers.Authorization, 'VDR-Suite-Device demo.credential');
   if (path === '/api/v1/recording-playback-sessions' && init.method === 'POST') {
     const input = JSON.parse(init.body);
-    assert.deepStrictEqual(input, {
-      backendId: 'default', recordingId, capabilities, startPositionSeconds: 2100
+    const native = input.nativeMediaAccess === true;
+    assert.deepStrictEqual(input, native ? {
+      backendId:'default', recordingId, capabilities,
+      audioTrackId:'audio-2', nativeMediaAccess:true
+    } : {
+      backendId:'default', recordingId, capabilities, startPositionSeconds:2100
     });
-    return response(201, {mediaSession:{
-      id: sessionId, backendId:'default', recordingId, state:'ready',
+    return response(201, Object.assign({mediaSession:{
+      id:sessionId, backendId:'default', recordingId, state:'ready',
       presentationProfileId:'hls-ts', mediaPath:'/vdr-suite/api/v1/media/sessions/'+sessionId+'/hls/index.m3u8',
       playback:{durationSeconds:3000, resume:{supported:true,preparing:false}}
-    }});
+    }}, native ? {nativeMediaAccess:{
+      transport:'http-cookie', cookie:'vdr_suite_media=fixture-only',
+      headerName:'X-VDR-Suite-Media-Authorization', headerValue:'Bearer fixture-only'
+    }} : {}));
   }
   if (path === '/api/v1/recording-playback-sessions/'+sessionId && init.method === 'GET')
     return response(200,{mediaSession:{id:sessionId,state:'ready',backendId:'default',
       playback:{resume:{supported:true,preparing:false},durationSeconds:3000}}});
+  if (path === '/api/v1/recording-playback-sessions/'+sessionId+'/tracks' &&
+      init.method === 'GET')
+    return response(200,{mediaSession:{id:sessionId,backendId:'default',
+      state:'ready',tracks:{audio:[],subtitles:[]}}});
   if (path === '/api/v1/recording-playback-sessions/'+sessionId+'/stop' &&
       init.method === 'POST') {
     assert.deepStrictEqual(JSON.parse(init.body), {
@@ -61,6 +72,19 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
   const stopped = await client.stopRecordingPlaybackSession({sessionId,backendId:'default'});
   assert.strictEqual(stopped.stopped,true);
   assert.strictEqual(requests.length,3);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(session,'nativeMediaAccess'),false,
+    'default Device session must not opt into bearer projection');
+
+  const nativeSession = await client.createRecordingPlaybackSession({
+    ...identity, capabilities, audioTrackId:'audio-2', nativeMediaAccess:true
+  });
+  assert.strictEqual(nativeSession.nativeMediaAccess.transport,'http-cookie');
+  assert.strictEqual(nativeSession.nativeMediaAccess.headerName,
+    'X-VDR-Suite-Media-Authorization');
+  const tracks = await client.getRecordingPlaybackTracks({sessionId});
+  assert.strictEqual(tracks.mediaSession.id,sessionId);
+  assert.deepStrictEqual(tracks.mediaSession.tracks.audio,[]);
+  assert.strictEqual(requests.length,5,'opt-in CREATE and tracks are single requests');
 
   assert.throws(() => client.createRecordingPlaybackSession({...identity,
     capabilities, startPositionSeconds:-1}));
@@ -70,6 +94,15 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
     capabilities:{...capabilities, videoCodecs:['made-up-codec']}}));
   assert.throws(() => client.getRecordingPlaybackSession({sessionId:'../foreign'}));
   assert.throws(() => client.stopRecordingPlaybackSession({sessionId,backendId:'../invalid'}));
-  assert.strictEqual(requests.length,3);
-  console.log('Public-v1 recording resume playback client PASS');
+  assert.throws(() => client.getRecordingPlaybackTracks({sessionId:'../foreign'}));
+  assert.throws(() => client.createRecordingPlaybackSession({
+    ...identity, capabilities, nativeMediaAccess:'true'
+  }));
+  assert.throws(() => client.createRecordingPlaybackSession({
+    ...identity, capabilities, audioTrackId:'../native'
+  }));
+  assert.strictEqual(requests.length,5,'invalid Device options must not dispatch');
+  assert(requests.every(x => x.init.headers.Authorization ===
+    'VDR-Suite-Device demo.credential'));
+  console.log('Public-v1 recording resume/native-media/tracks client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});

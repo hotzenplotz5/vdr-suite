@@ -1,5 +1,22 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F7 – Playback/Resume/Device (22.11.2026)
+
+**F7.1 Public-v1-Referenzclient (Quellkandidat):** Optionale
+`nativeMediaAccess`-/`audioTrackId`-Felder bei Device
+Recording Session CREATE und eine vorhandene geschützte
+`/tracks`-GET-Projektion im Reference-JS-Client abgebildet.
+Der Server besitzt diese Funktionen bereits; das ist keine neue
+MediaSession-Implementierung und keine neue Berechtigung.
+Die Default-Session bleibt ohne native Bearer-Projektion.
+Quelle/automatische Tests getrennt von realem TV-Playback bewerten.
+
+**F7 offen:** tatsächlicher Device-Playback-Fortschritt, Resume,
+Continue Watching und Browser-/Account-Abgleich, TV-Client-Verhalten
+sowie echte Medienwiedergabe werden erst bei F8 gemeinsam auf
+dem yaVDR und den verfügbaren Geräten abgenommen. Keine bereits
+akzeptierten Recording-/Timer-Schreibtests wiederholen.
+
 ## API.V1.F6 – Marks/Cut in Public v1 integrieren (22.11.2026)
 
 **Korrektur:** Der vorherige pauschale Ausschluss von Marks/Cut

@@ -90,6 +90,25 @@ Use \`getRecordingPlaybackSession({sessionId,headers})\` and
 uses the current owned-device STOP contract. Media grant delivery remains
 the existing guarded gateway, never private /api/media routes.
 
+### API.V1.F7.1 – Native player transport and audio tracks
+
+The existing `createRecordingPlaybackSession` helper now forwards optional
+`nativeMediaAccess: true` and `audioTrackId: 'audio-2'` to the already
+implemented Device MediaSession CREATE. Neither field is sent by default.
+`nativeMediaAccess` requests the same existing session-scoped media bearer
+for a native TV player whose HTTP requests cannot share the browser's
+HttpOnly cookie jar; it does not create a new login or media endpoint.
+**Treat the returned `nativeMediaAccess.cookie` and `.headerValue` as
+secrets:** use them only in the active player transport, never in a URL,
+log, storage or error text. STOP/revocation invalidates the session grant.
+
+`getRecordingPlaybackTracks({sessionId,headers})` reads the existing
+owned-session Public-v1 `/tracks` projection, not a native Recording ID.
+Audio switching remains an explicit caller-triggered replacement of the
+Recording MediaSession, using a valid track ID from the current inventory.
+No automatic Session CREATE, retry, polling or client-side player is added.
+Source/CI coverage is not a real TV playback or audio-switch acceptance.
+
 ### Admin-assigned playback ownership
 
 The reference client offers `getDevicePlaybackAccount({deviceId,headers})`
