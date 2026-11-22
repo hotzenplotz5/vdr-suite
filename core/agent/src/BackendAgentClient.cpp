@@ -2173,18 +2173,19 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     std::string& reasonCode)
 {
     if (!config_.mediaImportExecutor) return true;
+    // The source observation returns the same verified installation evidence
+    // that is published to Core. Do not verify the handler a second time
+    // before the exact same read-only snapshot.
     vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
-    if (!config_.mediaImportExecutor->verifiedInstallation(installed))
-        installed = {};
     std::vector<std::string> ids;
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
     vdrsuite::mediatools::MediaImportSourcePreview selectedPreview;
     bool partial = true;
-    if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceObservationCached(
+    if (!config_.mediaImportExecutor->listTrustedSourceObservationWithEvidence(
             ids, described, partial, pendingMediaImportPreviewSourceId_,
             pendingMediaImportPreviewCodecHint_,
-            pendingMediaImportPreviewDurationHint_, selectedPreview)) {
+            pendingMediaImportPreviewDurationHint_, selectedPreview, installed) ||
+        installed.sha256.empty()) {
         ids.clear(); // Withdrawal/unreadable ledger removes all listings.
         described.clear();
         partial = true;
