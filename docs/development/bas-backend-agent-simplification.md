@@ -52,7 +52,7 @@ BAS.4 source audit is recorded; actual regression execution must be evidenced be
 | Journey | Source evidence | CI | Real yaVDR |
 | --- | --- | --- | --- |
 | Agent inventory/known source and selected preview | Shared inventory scan, updated focused fixture | PENDING | NOT_VERIFIED on this candidate |
-| CLI vs Web same source | Same Agent/Core source ID contract; no second scanner | PENDING | NOT_VERIFIED on this candidate |
+| CLI vs Web same source | CLI `vdr-suite-media-import plan SOURCE_ROOT VIDEO_ROOT FILE` uses the source path locally; Web selects the opaque Agent inventory ID. Both reuse `inspectImportPreview()` and `probeImportVideoCodec()`; CLI and Agent have different configured FFprobe timeouts. | PENDING | NOT_VERIFIED on this candidate |
 | FFprobe, capacity and concrete failures | Existing inspector; error classification tests | PENDING | NOT_VERIFIED on this candidate |
 | Protected import, operation and native recording readback | Existing pinned executor/operations unchanged | PENDING | NOT_VERIFIED on this candidate |
 | Source/Operation SSE and reconnect | Existing browser event listeners unchanged | PENDING | NOT_VERIFIED on this candidate |
@@ -61,3 +61,7 @@ BAS.4 source audit is recorded; actual regression execution must be evidenced be
 Candidate tests: `make build-media-tools-agent-composition-test` then run the synthetic disposable `.build/addons/test_backend_agent_media_import_runtime` in its specified CI fixture; `node web/frontend/tests/test_media_import_composition.js`, existing Agent/client catalog and Media Tools regression targets. The root-only synthetic fixture is **not** a live import. Later real yaVDR acceptance must check one selected CLI/Web source, non-mutating preview/FFprobe, an expressly approved test import with SSE and native readback, and recovery without blindly replaying an uncertain operation.
 
 Status: **BAS.1 documented; BAS.2/BAS.3 source-implemented; BAS.4 source audit recorded; BAS.5 CI and real yaVDR acceptance OPEN.** No claim of completed phase, merge readiness, deployment or successful tests without executed evidence. Public API v1 and Media Tools' deferred milestones remain separate.
+
+## Draft PR and initial CI evidence (22.11.2026)
+
+Draft PR [#564](https://github.com/hotzenplotz5/vdr-suite/pull/564) targets `main` for source review and CI only. Baseline candidate `99fcc4f241cb30c6194784ed1831c663e2b9e22b` triggered [VDR-Suite CI run 45025539381](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45025539381). Its documentation, architecture and Make-inventory jobs completed PASS. The frontend aggregate job stopped at `tools/check_mu9e_grant_mutation_ui.py` because the untouched `web/frontend/settings-account-admin.js` on **main itself** contains `role.admin` (existing SHA `dd2558eb73a20433b80e32a742a443835f5a17ab`), which the also-unchanged checker forbids. BAS did not change either file; this external baseline failure is not repaired in BAS and is not a BAS/frontend success claim. Later exact-HEAD jobs must be inspected separately. The existing `addon-platform-isolated.yml` is push-to-main/dispatch-only, so a BAS Draft PR alone does not execute its synthetic root Agent composition fixture.
