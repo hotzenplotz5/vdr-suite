@@ -3,6 +3,7 @@
   const names = Object.freeze({
     'channels.view': 'Sender ansehen',
     'recordings.view': 'Aufnahmen ansehen',
+    'recordings.edit': 'Aufnahmen bearbeiten (inkl. Schnitt)',
     'epg.view': 'EPG ansehen',
     'timers.view': 'Aufnahmetimer ansehen',
     'timers.create': 'Einzelaufnahmen programmieren',
@@ -264,7 +265,7 @@
         return x.permission === permission && x.backendId === backendId;
       });
       if (active ? !knownBackend : !existingGrant) return;
-      if (['timers.create', 'searchtimers.create'].includes(permission) &&
+      if (['recordings.edit', 'timers.create', 'searchtimers.create'].includes(permission) &&
           backendId === '*') return;
       const target = state.selected;
       const question = (active ? 'Freigeben: ' : 'Entziehen: ') +

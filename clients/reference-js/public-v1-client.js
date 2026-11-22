@@ -2040,6 +2040,7 @@
         // Mirror DeviceGrantAdministrationService's exact-backend fence
         // before issuing HTTP, while preserving wildcard read grants.
         if ([
+          'recordings.edit',
           'timers.create', 'timers.modify', 'timers.delete',
           'searchtimers.create', 'searchtimers.modify',
           'searchtimers.execute', 'searchtimers.delete'
