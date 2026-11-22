@@ -312,6 +312,31 @@ int main() {
     assert(runtime.available());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.size()==1);
 
+    // BAS.2: legacy Agent read helpers use one inventory walk apiece,
+    // preserving the former nonempty-source and installation semantics.
+    std::vector<std::string> directIds;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> directLabels;
+    vdrsuite::mediatools::MediaImportSourcePreview directPreview;
+    assert(runtime.listTrustedSourceIds(directIds));
+    assert(directIds.size()==1 && directIds[0]=="inventory_Token_0001");
+    assert(runtime.listTrustedSourceLabels(directLabels));
+    assert(directLabels.size()==1 && directLabels[0].sourceId==directIds[0]);
+    assert(!runtime.inspectTrustedSource(directIds[0],directPreview));
+    assert(directPreview.sourceId==directIds[0] &&
+           directPreview.failureCode=="ffprobe_failed");
+
+    // An empty inventory remains unavailable to these legacy helpers.
+    // The missing selection is diagnostic, never an import authorization.
+    const fs::path absentSource=f.source.string()+".temporarily-absent";
+    fs::rename(f.source,absentSource);
+    assert(!runtime.available());
+    assert(!runtime.listTrustedSourceIds(directIds) && directIds.empty());
+    assert(!runtime.listTrustedSourceLabels(directLabels) && directLabels.empty());
+    assert(!runtime.inspectTrustedSource("inventory_Token_0001",directPreview));
+    assert(directPreview.failureCode=="inventory_missing");
+    fs::rename(absentSource,f.source);
+    assert(runtime.available());
+
     // One observation reads the trusted inventory once and reuses its exact
     // selected descriptor for a read-only preview. This synthetic .ts file
     // is deliberately not a real codec stream; no import can be submitted.
