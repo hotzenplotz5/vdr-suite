@@ -17,7 +17,8 @@ const client = createClient({
     assert(!url.includes('/api/vdr/'));
     if (url === 'https://suite.example/api/v1/native-timers?backendId=default&offset=0&limit=30') {
       return {ok:true, status:200, text:async()=>JSON.stringify({
-        backendId:'default', items:[{timerId, title:'Sample recording'}],
+        backendId:'default', items:[{timerId, title:'Sample recording',
+          directory:'Movies~SciFi',priority:55,lifetime:25,vps:true}],
         page:{offset:0,limit:30,hasMore:false,nextOffset:null},
         meta:{partial:false}
       })};
@@ -30,6 +31,7 @@ const client = createClient({
         headers:{get(name) {return name === 'ETag' ? etag : null;}},
         text:async()=>notModified?'':JSON.stringify({
           backendId:'default',timerId,title:'Sample recording',
+          directory:'Movies~SciFi',priority:55,lifetime:25,vps:true,
           ownership:'managed',bindingState:'verified',
           links:{self:'/api/v1/native-timers/'+timerId}
         })};
@@ -43,11 +45,19 @@ const client = createClient({
     query:{backendId:'default',offset:0,limit:30}
   });
   assert.strictEqual(list.items[0].timerId,timerId);
+  assert.strictEqual(list.items[0].directory,'Movies~SciFi');
+  assert.strictEqual(list.items[0].priority,55);
+  assert.strictEqual(list.items[0].lifetime,25);
+  assert.strictEqual(list.items[0].vps,true);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(list.items[0],'aux'),false);
   assert.strictEqual(list.page.hasMore,false);
   const first = await client.getNativeTimer({backendId:'default',timerId});
   assert.strictEqual(first.status,200);
   assert.strictEqual(first.etag,etag);
   assert.strictEqual(first.data.bindingState,'verified');
+  for(const field of ['directory','priority','lifetime','vps'])
+    assert.strictEqual(first.data[field],list.items[0][field]);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(first.data,'aux'),false);
   const cached = await client.getNativeTimer({
     backendId:'default',timerId,ifNoneMatch:first.etag
   });

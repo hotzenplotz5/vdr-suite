@@ -282,6 +282,17 @@ replace the existing browser's live Timer editor or arbitrary CREATE.
 No native Timer modification or delete helper is introduced in F5.1.
 The previously proved yaVDR Timer write lifecycle is not repeated.
 
+## API.V1.F5.4 — Native Timer read fields
+
+`getNativeTimers` and `getNativeTimer` return four additional
+snapshot-owned values: `directory` (string), `priority` and
+`lifetime` (integers) and `vps` (boolean). The detail ETag
+still represents the existing binding-verified native Timer
+configuration. Opaque provider `aux` is not exposed because it
+is not covered by that cross-backend fingerprint.
+This is additive read parity, **not** a migration of the
+browser's legacy full Timer CRUD editor.
+
 ## API.V1.F6 — Native Marks/Cut source candidate
 
 The reference client exposes `getRecordingMarks`, `getRecordingCutState`,

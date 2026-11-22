@@ -1,5 +1,26 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.4 – Native-Timer-Felder ohne neue Writer (22.11.2026)
+
+Die bestehenden öffentlichen GET-DTOs für Liste und Detail
+erhalten `directory`, `priority`, `lifetime` und `vps`
+direkt aus dem aktuellen `VdrTimer`. Diese vier Felder sind
+Teil der schon verifizierten `NativeTimerObservedState`-Fakten
+und damit vom Binding-Revision-/ETag-Modell abgedeckt.
+OpenAPI-Detailvertrag, HTTP-Serialisierung, Daemon-Projektion
+und JS-/Browser-Lese-Regressionen sind angepasst.
+
+Die alte Roadmap-Aussage unter F5.3 beschreibt den **damaligen**
+Feldstand. `aux` bleibt weiterhin bewusst aus Public v1
+ausgenommen: Es ist provider-/plugin-spezifisch und nicht Teil
+des autoritativen nativen Binding-Fingerprints. Der vollständige
+Browser-Editor bleibt unverändert. Offene Folgearbeit:
+explizit kontrollierte Abbildung von `aux` und semantische
+Parität des CREATE sowie der Revision-/Operation-basierten
+MODIFY/DELETE-Workflows; erst dann UI-Migration.
+Die gemeinsame Live-/Hardware-Abnahme bleibt F8.
+
+
 ## API.V1.F5.3 – Browser-Client und Native-Timer-Parität (22.11.2026)
 
 Der Browser-Client kann die bereits implementierten Public-v1-

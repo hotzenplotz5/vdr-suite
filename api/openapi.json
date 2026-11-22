@@ -557,7 +557,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Items include actual VDR timerId/title/channelName/day/weekdays/startTime/endTime/enabled/recording/pending; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
+            "description": "Items include VDR timerId/title/channelName/day/weekdays/startTime/endTime/directory/priority/lifetime/vps/enabled/recording/pending; opaque provider aux excluded; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
             "content": {
               "application/json": {
                 "schema": {
@@ -10858,7 +10858,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Native Timer details. ETag only for verified durable bindings.",
+            "description": "Native Timer details include directory, priority, lifetime and VPS; opaque plugin-specific aux is excluded. ETag only for verified durable bindings.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10897,6 +10897,19 @@
                     },
                     "endTime": {
                       "type": "string"
+                    },
+                    "directory": {
+                      "type": "string",
+                      "description": "Native VDR recording directory, not a filesystem path"
+                    },
+                    "priority": {
+                      "type": "integer"
+                    },
+                    "lifetime": {
+                      "type": "integer"
+                    },
+                    "vps": {
+                      "type": "boolean"
                     },
                     "enabled": {
                       "type": "boolean"

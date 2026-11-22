@@ -362,7 +362,11 @@ int main()
             timer.weekdays = "-------";
             timer.startTime = "2000";
             timer.endTime = "2015";
+            timer.directory = "Drama~Serie";
+            timer.priority = 71;
+            timer.lifetime = 24;
             timer.enabled = true;
+            timer.vps = true;
             result.timers.push_back(timer);
             return result;
         });
@@ -370,6 +374,11 @@ int main()
     assert(timers.statusCode == 200);
     assert(timers.body.find("\"timerId\":\"42\"") != std::string::npos);
     assert(timers.body.find("\"recording\":false") != std::string::npos);
+    assert(timers.body.find("\"directory\":\"Drama~Serie\"") != std::string::npos);
+    assert(timers.body.find("\"priority\":71") != std::string::npos);
+    assert(timers.body.find("\"lifetime\":24") != std::string::npos);
+    assert(timers.body.find("\"vps\":true") != std::string::npos);
+    assert(timers.body.find("\"aux\"") == std::string::npos);
     assert(timers.body.find("\"partial\":false") != std::string::npos);
     assert(timers.body.find("assignmentRevision") == std::string::npos);
     runtime.resetNativeTimersLookup();

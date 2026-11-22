@@ -1,5 +1,27 @@
 # VDR-Suite Current State
 
+## API.V1.F5.4 – Native-Timer-Feldparität (22.11.2026)
+
+Die bestehenden Public-v1-Listen- und Detail-GETs projizieren
+zusätzlich aus dem kanonischen `VdrTimer` die vier stabilen
+Felder `directory`, `priority`, `lifetime` und `vps`.
+Diese Werte sind bereits Teil des nativen
+`NativeTimerObservedState`-Fingerprints; der vorhandene
+Binding-/ETag-/304-Vertrag bleibt unverändert. HTTP-Tests
+für Liste und Detail, Referenz-JS und Browser-F5.3-Lesepfade
+sowie OpenAPI sind angepasst. Kein Timer-Writer, keine zusätzliche
+Sperre, keine neue Datenbank und keine Legacy-Route geändert.
+
+**Verbleibende Grenze:** Das plugin-spezifische rohe `aux`
+ist absichtlich nicht Teil des öffentlichen, revisionsgeprüften
+Native-Timer-Vertrags. Eine gleichwertige UI-Migration benötigt
+eine fachliche Entscheidung/Abbildung für `aux` sowie
+CREATE und die abweichenden asynchronen MODIFY/DELETE-Operationen.
+Der vollständige Web-Timer-Editor bleibt bis dahin auf seinem
+bisherigen funktionierenden Pfad. Kein echter Timer wurde
+geschrieben; die gemeinsame Hardware-Endabnahme bleibt F8.
+
+
 ## API.V1.F5.3 – Browser-Client Native-Timer-Lesepfade (22.11.2026)
 
 Der vorhandene Browser-Client bietet nun `fetchPublicNativeTimerPage`

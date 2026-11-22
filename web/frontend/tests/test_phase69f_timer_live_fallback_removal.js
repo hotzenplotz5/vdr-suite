@@ -35,13 +35,17 @@ const context = {
         const cached = options.headers['If-None-Match'] === etag;
         return Promise.resolve(response(cached ? 304 : 200, {
           backendId: 'living-room', timerId: 'timer:abc-12',
-          title: 'Tagesschau', ownership: 'managed', bindingState: 'verified'
+          title: 'Tagesschau', directory: 'News~Tagesschau',
+          priority: 68, lifetime: 19, vps: true,
+          ownership: 'managed', bindingState: 'verified'
         }, etag));
       }
       return Promise.resolve(response(200, {
         backendId: 'living-room',
         items: [{timerId: 'timer:abc-12', title: 'Tagesschau',
-          channelId: 'C-1-2-3', startTime: '2015', endTime: '2030', enabled: true}],
+          channelId: 'C-1-2-3', startTime: '2015', endTime: '2030',
+          directory: 'News~Tagesschau', priority: 68, lifetime: 19,
+          vps: true, enabled: true}],
         page: {offset: 0, limit: 30, hasMore: false, nextOffset: null},
         meta: {partial: false}
       }));
@@ -104,16 +108,24 @@ async function run() {
   assert.strictEqual(requests[1].options.method, 'GET');
   assert.strictEqual(requests[1].options.credentials, 'same-origin');
   assert.strictEqual(requests[1].options.headers['X-CSRF-Token'], undefined);
-  for (const missing of ['directory', 'aux', 'priority', 'lifetime', 'vps']) {
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(page.items[0], missing),
-      false, 'public list is not a complete legacy Timer editor DTO');
+  for (const [field, value] of Object.entries({
+    directory: 'News~Tagesschau', priority: 68, lifetime: 19, vps: true
+  })) {
+    assert.strictEqual(page.items[0][field], value);
   }
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(page.items[0], 'aux'), false,
+    'opaque provider aux is outside the Public-v1 revision contract');
   const detail = await api.fetchPublicNativeTimerDetail({
     backendId: 'living-room', timerId: 'timer:abc-12'
   });
   assert.strictEqual(detail.status, 200);
   assert.strictEqual(detail.etag, '"native-revision-3"');
   assert.strictEqual(detail.data.bindingState, 'verified');
+  assert.strictEqual(detail.data.directory, page.items[0].directory);
+  assert.strictEqual(detail.data.priority, page.items[0].priority);
+  assert.strictEqual(detail.data.lifetime, page.items[0].lifetime);
+  assert.strictEqual(detail.data.vps, page.items[0].vps);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(detail.data, 'aux'), false);
   const cached = await api.fetchPublicNativeTimerDetail({
     backendId: 'living-room', timerId: 'timer:abc-12', ifNoneMatch: detail.etag
   });

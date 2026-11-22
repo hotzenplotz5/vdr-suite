@@ -35,6 +35,10 @@ int main()
         r.backendId = req.backendId;
         r.timer.id = req.timerId;
         r.timer.title = "Tagesschau";
+        r.timer.directory = "News~Tagesschau";
+        r.timer.priority = 68;
+        r.timer.lifetime = 19;
+        r.timer.vps = true;
         if (bound)
         {
             r.resourceRevision = "native-timer-binding/1:bind:3:8";
@@ -46,6 +50,11 @@ int main()
     const auto ok = get(uri);
     assert(ok.statusCode == 200);
     assert(ok.body.find("Tagesschau") != std::string::npos);
+    assert(ok.body.find("\"directory\":\"News~Tagesschau\"") != std::string::npos);
+    assert(ok.body.find("\"priority\":68") != std::string::npos);
+    assert(ok.body.find("\"lifetime\":19") != std::string::npos);
+    assert(ok.body.find("\"vps\":true") != std::string::npos);
+    assert(ok.body.find("\"aux\"") == std::string::npos);
     assert(ok.body.find("resourceRevision") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
     assert(ok.headers.at("X-Request-ID") == "request");

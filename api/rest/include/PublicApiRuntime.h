@@ -666,11 +666,15 @@ struct PublicNativeTimerItem
     std::string channelId;
     std::string channelName;
     std::string title;
+    std::string directory;
     std::string day;
     std::string weekdays;
     std::string startTime;
     std::string endTime;
+    int priority = 0;
+    int lifetime = 0;
     bool enabled = false;
+    bool vps = false;
     bool recording = false;
     bool pending = false;
 };
