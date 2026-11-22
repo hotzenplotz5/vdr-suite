@@ -6799,12 +6799,12 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             "\",\"channelId\":\"" + jsonEscape(t.channelId) +
             "\",\"channelName\":\"" + jsonEscape(t.channelName) +
             "\",\"title\":\"" + jsonEscape(t.title) +
-                ",\"directory\":\"" + jsonEscape(t.directory) +
+                "\",\"directory\":\"" + jsonEscape(t.directory) +
             "\",\"day\":\"" + jsonEscape(t.day) +
             "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
             "\",\"startTime\":\"" + jsonEscape(t.startTime) +
             "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-                ",\"priority\":" + std::to_string(t.priority) +
+                "\",\"priority\":" + std::to_string(t.priority) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
             "\",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +
@@ -6867,12 +6867,12 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "\",\"channelId\":\"" + jsonEscape(t.channelId) +
                 "\",\"channelName\":\"" + jsonEscape(t.channelName) +
                 "\",\"title\":\"" + jsonEscape(t.title) +
-                ",\"directory\":\"" + jsonEscape(t.directory) +
+                "\",\"directory\":\"" + jsonEscape(t.directory) +
                 "\",\"day\":\"" + jsonEscape(t.day) +
                 "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
                 "\",\"startTime\":\"" + jsonEscape(t.startTime) +
                 "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-                ",\"priority\":" + std::to_string(t.priority) +
+                "\",\"priority\":" + std::to_string(t.priority) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
                 "\",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +

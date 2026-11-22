@@ -51,6 +51,8 @@ int main()
     assert(ok.statusCode == 200);
     assert(ok.body.find("Tagesschau") != std::string::npos);
     assert(ok.body.find("\"directory\":\"News~Tagesschau\"") != std::string::npos);
+    assert(ok.body.find(R"json("title":"Tagesschau","directory":"News~Tagesschau")json") != std::string::npos);
+    assert(ok.body.find(R"json("endTime":"","priority":68)json") == std::string::npos);
     assert(ok.body.find("\"priority\":68") != std::string::npos);
     assert(ok.body.find("\"lifetime\":19") != std::string::npos);
     assert(ok.body.find("\"vps\":true") != std::string::npos);

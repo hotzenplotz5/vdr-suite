@@ -375,6 +375,8 @@ int main()
     assert(timers.body.find("\"timerId\":\"42\"") != std::string::npos);
     assert(timers.body.find("\"recording\":false") != std::string::npos);
     assert(timers.body.find("\"directory\":\"Drama~Serie\"") != std::string::npos);
+    assert(timers.body.find(R"json("title":"Nachrichten","directory":"Drama~Serie")json") != std::string::npos);
+    assert(timers.body.find(R"json("endTime":"2015","priority":71)json") != std::string::npos);
     assert(timers.body.find("\"priority\":71") != std::string::npos);
     assert(timers.body.find("\"lifetime\":24") != std::string::npos);
     assert(timers.body.find("\"vps\":true") != std::string::npos);
