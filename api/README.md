@@ -131,15 +131,14 @@ sind in der [F3-Paritätsmatrix](../docs/development/api-v1-f3-discovery-epg-sea
 dokumentiert. Dieser Teil beweist keinen vollständigen Web-Client-Migrationsstand
 und keine neue reale Hardware-Abnahme.
 
-### API.V1.F6 — Native Recording Marks/Cut scope
+### API.V1.F6 — Recording editing permissions and Public-v1 Marks/Cut
 
-`GET/POST /api/vdr/recordings/marks` and
-`GET/POST /api/vdr/recordings/cut` remain established
-Recording-editing Control Plane routes. They are **not**
-new `/api/v1/` contracts and are **not** interchangeable with
-the public-v1 RENAME/MOVE/DELETE recording-action endpoints.
-The F1–F8 API-v1 finalization explicitly excludes promotion of
-native Marks/Cut to Public v1, without removing existing Web
-features or redoing real cut acceptance. See
-[the F6 scope decision](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
+`recordings.edit` is a single backend-scoped permission for
+existing Recording reads, rename, move, delete, marks modification
+and native cut. Existing individual grants remain valid.
+The remaining Public-v1 Marks/Cut adapter is **in scope but not
+yet implemented**: the established `/api/vdr/recordings/marks`
+and `/api/vdr/recordings/cut` routes do not automatically
+become public-v1 contracts. See
+[F6 integration and authorization](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
 and [ADR-0059](../docs/adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md).

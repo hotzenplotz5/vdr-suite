@@ -1,31 +1,34 @@
 # Public API v1 coverage and client migration roadmap
 
-## API.V1.F6 – Native Recording Marks/Cut: Scope entschieden (21.11.2026)
+## API.V1.F6 – Marks/Cut in Public v1 integrieren (22.11.2026)
 
-**F6 abgeschlossen als bewusste Public-v1-Scope-Ausnahme.**
-[Quellenbeleg und Entscheidung](../development/api-v1-f6-recording-marks-cut-scope.md):
-VDR-native Markenlesen/-Bearbeiten und Native-Cut inkl.
-Browsereditor, Revision, Agent/SuiteBridge und früherer
-Real-VDR-Abnahmen existieren bereits. Sie sind gegenwärtig
-über `/api/vdr/recordings/marks` und
-`/api/vdr/recordings/cut` erreichbar, **nicht** als
-eigenständige `/api/v1/...`-Ressourcen. Vorhandene
-Public-v1-Recording-Aktionen sind **kein** Cut-Alias.
+**Korrektur:** Der vorherige pauschale Ausschluss von Marks/Cut
+aus Public API v1 war nicht vom Betreiber genehmigt und ist
+hiermit aufgehoben. [F6-Vertrag](../development/api-v1-f6-recording-marks-cut-scope.md).
 
-Für F1–F8 werden daher **keine** zusätzlichen
-öffentlichen Native-Marks-/Cut-Schreibrechte,
-Routen, SDK-Methoden oder destruktiven Hardwaretests
-eröffnet. Keine stillschweigende Gleichwertigkeit mit
-dem Webfrontend und keine TV-Schnittfreigabe.
-Soll eine eigenständige Public-v1-Marks-/Cut-API
-später hinzukommen, braucht das einen separat
-genehmigten und nach ADR-0059 abgenommenen Umfang.
+**F6.1 Berechtigungsmodell (Quellcode committed):**
+Ein backend-gebundenes `recordings.edit` gewährt
+`recordings.view`, `recordings.rename`, `recordings.move`,
+`recordings.delete`, `recordings.marks.modify` und
+`recordings.cut`; alte Einzelrechte bleiben gültig.
+Das Web-Kontoadmin-Picker zeigt nur noch die
+zusammengefasste Bearbeitungsoption, lässt bestehende
+Einzelrechte aber sichtbar und widerrufbar.
+Keine neue Rechteprüfung pro Schnitt; die bestehende
+Native-Operation-/CSRF-/Revision-/Provider-Sicherheit
+bleibt bestehen. Kein implizites Playback-/Timer-/Add-on-Recht.
+Bisher nur isolierter UI-Test PASS; C++-Build/CI und
+reale Installation ausstehend.
 
-**Nächster Schritt: F7 Playback/Resume/Devices.**
-F5 Timer/SearchTimer bleibt bis zu den MLD-Interop-
-Rückmeldungen zurückgestellt. F8 ist weiterhin die
-einzige gemeinsame API-v1-Release-/Hardware-Endabnahme.
-
+**F6.2 weiter offen:** Bestehenden
+`RecordingMarksApiRuntime`/`RecordingCutApiRuntime`-Domainpfad
+über öffentliche `/api/v1/`-Ressourcen verfügbar machen,
+ohne zweite Engine oder Sicherheitslockerung. API-v1-DTOs,
+backendgebundene öffentliche Identität, Revisionen und
+Web-vs-v1-Parität zielgerichtet prüfen.
+F6 ist also **nicht vollständig abgeschlossen**.
+F5 Timer/Suchtimer bleibt für MLD-Testfeedback zurückgestellt;
+F7 und F8 bleiben eigenständige Folgeslices.
 
 ## API.V1.F5 – Timer/Suchtimer bewusst zurückgestellt (21.11.2026)
 

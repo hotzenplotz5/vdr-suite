@@ -1,21 +1,21 @@
 # VDR-Suite Current State
 
-## API.V1.F6 – Marks/Cut nicht in Public-v1-Releaseumfang (21.11.2026)
+## API.V1.F6 – vereinfachte Recording-Rechte, Public-v1-Integration offen (22.11.2026)
 
-F6 hat die bestehende native Marks-/Cut-Implementierung
-bis zu `RecordingMarksApiRuntime` und
-`RecordingCutApiRuntime`, den SecurityHttpGate, die
-Browsermodule und die partielle OpenAPI geprüft.
-[Begründete Scopeentscheidung](development/api-v1-f6-recording-marks-cut-scope.md):
-Marks-GET/POST und Cut-GET/POST bleiben über die vorhandenen
-Web-/Kontrollplan-Routen erhalten; **keine** separate
-Public-v1-Marks-/Cut-Ressource im F1–F8-Abschluss,
-kein neuer Writer, keine wiederholten Real-VDR-Mutationen.
-Die historische native Editing-/Cut-/Marks-Abnahme bleibt
-gültig im dokumentierten Umfang. F7 Playback/Device
-ist nächster Schritt; F5 MLD-Timer-Interop zurückgestellt,
-F8 einheitlicher Releaseabschluss.
-
+Die vorherige nicht autorisierte F6-Scope-Ausnahme wurde
+korrigiert: Marks/Cut sollen ebenso über Public API v1
+bereitgestellt werden; keine zusätzliche Schneideberechtigung
+für einen bereits zum Bearbeiten berechtigten Benutzer.
+Die neue `recordings.edit`-Sammelberechtigung ist im
+AuthorizationService und Human-Account-Grants-Katalog
+sowie im Konto-UI (DE/EN) mit Tests committed;
+bestehende Einzelrechte bleiben erhalten. Edit umfasst
+Ansehen, Umbenennen, Verschieben, Löschen, Marks-Änderung
+und Cut-Start, aber **nicht** Playback, Timer, Add-ons
+oder unerkannte Recording-Aktionen.
+[Status und technische Grenzen](development/api-v1-f6-recording-marks-cut-scope.md).
+UI-Mock-Test PASS; C++-Build/CI/yaVDR-Kandidat offen.
+F6-Public-v1-Marks-/Cut-Routen bleiben noch zu implementieren.
 
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 

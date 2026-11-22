@@ -79,3 +79,22 @@ Public runtime errors use `application/problem+json`, with `code` and request id
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+## Simplified Recording editor grant (F6.1)
+
+Use `recordings.view@backend` for read-only Recording catalog
+access or `recordings.edit@backend` to view and edit recordings.
+The editor grant delegates to existing `recordings.rename`,
+`recordings.move`, `recordings.delete`,
+`recordings.marks.modify` and `recordings.cut` checks on
+that same backend. Existing grants remain supported and are not
+automatically converted or elevated. `role.read-only` still
+prevents writes. Recording playback (`media.recording.play`)
+remains an independent media permission; browser CSRF and the
+native Recording revision/Operation/Agent protections remain
+mandatory. The option is available in Human Account grant
+administration; a grant does not arise merely from opening
+an editor screen.
+
+Public API v1 Marks/Cut routing is a separate remaining F6.2
+integration task, not an exception from API-v1 scope.
