@@ -255,6 +255,8 @@ async function run() {
     'web/frontend/recordings2-hero-visibility.js'
   ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 
+  assert.strictEqual(typeof window.VdrSuiteRecordings2HeroDetail.resolvePublicRecordingId,
+    'function', 'Hero visibility wrappers must preserve public Recording identity resolution');
   const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
     selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'
   })});
