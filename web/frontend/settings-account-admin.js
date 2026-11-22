@@ -436,6 +436,14 @@
           permissionCategories.forEach(function(category) {
             const choices = permissionOptions.filter(function(option) {
               if (!option || !option.permission) return false;
+              // Show one Recording editing choice on modern servers.
+              // Older fine-grained grants remain visible and revocable below.
+              if (permissionOptions.some(function(candidate) {
+                return candidate && candidate.permission === 'recordings.edit';
+              }) && [
+                'recordings.rename', 'recordings.move', 'recordings.delete',
+                'recordings.marks.modify', 'recordings.cut'
+              ].includes(option.permission)) return false;
               // Exact and globally granted rights need no duplicate entry.
               if (activeGrants.some(function(grant) {
                 return grant && grant.permission === option.permission &&

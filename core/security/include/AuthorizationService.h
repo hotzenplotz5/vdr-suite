@@ -192,7 +192,9 @@ public:
         {
             const bool permissionMatches =
                 grant.permission == "*" ||
-                grant.permission == request.permission;
+                grant.permission == request.permission ||
+                (grant.permission == "recordings.edit" &&
+                 recordingEditCovers(request.permission));
             if (!permissionMatches) continue;
             permissionPresent = true;
             const bool backendMatches =
@@ -214,11 +216,23 @@ public:
     }
 
 private:
+    // One user-facing Recording editor grant, keeping original narrow grants.
+    static bool recordingEditCovers(const std::string& permission)
+    {
+        return permission == "recordings.view" ||
+            permission == "recordings.rename" ||
+            permission == "recordings.move" ||
+            permission == "recordings.delete" ||
+            permission == "recordings.marks.modify" ||
+            permission == "recordings.cut";
+    }
+
     static bool protectedMutationPermission(
         const std::string& permission)
     {
         return permission == "addons.media.import" ||
             permission == "addons.media.shrink" ||
+            permission == "recordings.edit" ||
             permission == "remote.control" ||
             permission == "timers.create" ||
             permission == "timers.modify" ||

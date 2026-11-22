@@ -94,6 +94,7 @@ const std::set<std::string>& supportedPermissionSet()
         "channels.view",
         "channels.move",
         "recordings.view",
+        "recordings.edit",
         "epg.view",
         "timers.view",
         "timers.create",
