@@ -6833,6 +6833,511 @@
         "x-vdr-suite-auth-profile": "actor"
       }
     },
+    "/api/v1/recordings/{recordingId}/marks": {
+      "get": {
+        "tags": [
+          "Recording editing"
+        ],
+        "operationId": "getPublicRecordingMarks",
+        "summary": "Read canonical native VDR cutting marks",
+        "description": "Uses the existing native Recording editing service; no shadow marks store or direct filesystem access. Same body shape and native revision semantics as the established Webfrontend route.",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "One backend-scoped public Recording identity; never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backend; no extra query fields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current VDR-native state and revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "availability"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "availability": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid public Recording identity, backend query, body or revision"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Missing scoped grant, CSRF or backend write authority"
+          },
+          "404": {
+            "description": "Recording not found"
+          },
+          "409": {
+            "description": "Native Recording conflict or stale revision"
+          },
+          "503": {
+            "description": "Native backend or editing provider unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId (recordings.edit grants this for Human Accounts); backend-scoped"
+        }
+      },
+      "post": {
+        "tags": [
+          "Recording editing"
+        ],
+        "operationId": "submitPublicRecordingMarks",
+        "summary": "Perform one native marks modification",
+        "description": "One protected native dispatch. Body backendId and recordingId MUST equal the URL scope and path. Native marksRevision and operation tokens are caller-owned; no automatic retry on uncertain execution. Browser session mutations require CSRF. The existing RecordingMarks/Cut runtime remains the sole VDR/Agent owner. Existing legacy permissions also work, recordings.edit covers this operation for Human Accounts.",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "One backend-scoped public Recording identity; never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backend; no extra query fields"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "operationId",
+                  "operationRevision",
+                  "expectedMarksRevision",
+                  "kind"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 192
+                  },
+                  "operationRevision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 192
+                  },
+                  "expectedMarksRevision": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "delete",
+                      "move",
+                      "reset",
+                      "replace"
+                    ]
+                  },
+                  "sourceFrame": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "targetFrame": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "replacementFrames": {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified mutation or native cut result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "availability"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "availability": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted queued mutation; not proof of completed cut"
+          },
+          "400": {
+            "description": "Invalid public Recording identity, backend query, body or revision"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Missing scoped grant, CSRF or backend write authority"
+          },
+          "404": {
+            "description": "Recording not found"
+          },
+          "409": {
+            "description": "Native Recording conflict or stale revision"
+          },
+          "503": {
+            "description": "Native backend or editing provider unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "protectedMutation",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.marks.modify@backendId or recordings.edit@backendId; browser CSRF for Browser Session; backend writes and native fences remain separate"
+        }
+      }
+    },
+    "/api/v1/recordings/{recordingId}/cut": {
+      "get": {
+        "tags": [
+          "Recording editing"
+        ],
+        "operationId": "getPublicRecordingCut",
+        "summary": "Read native cut readiness and edited-result state",
+        "description": "Uses the existing native Recording editing service; no shadow marks store or direct filesystem access. Same body shape and native revision semantics as the established Webfrontend route.",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "One backend-scoped public Recording identity; never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backend; no extra query fields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current VDR-native state and revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "availability"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "availability": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid public Recording identity, backend query, body or revision"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Missing scoped grant, CSRF or backend write authority"
+          },
+          "404": {
+            "description": "Recording not found"
+          },
+          "409": {
+            "description": "Native Recording conflict or stale revision"
+          },
+          "503": {
+            "description": "Native backend or editing provider unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId (recordings.edit grants this for Human Accounts); backend-scoped"
+        }
+      },
+      "post": {
+        "tags": [
+          "Recording editing"
+        ],
+        "operationId": "submitPublicRecordingCut",
+        "summary": "Start one explicit native VDR cut",
+        "description": "One protected native dispatch. Body backendId and recordingId MUST equal the URL scope and path. Native marksRevision and operation tokens are caller-owned; no automatic retry on uncertain execution. Browser session mutations require CSRF. The existing RecordingMarks/Cut runtime remains the sole VDR/Agent owner. Existing legacy permissions also work, recordings.edit covers this operation for Human Accounts.",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "One backend-scoped public Recording identity; never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backend; no extra query fields"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "operationId",
+                  "operationRevision",
+                  "expectedMarksRevision"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 192
+                  },
+                  "operationRevision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 192
+                  },
+                  "expectedMarksRevision": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified mutation or native cut result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "availability"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "availability": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted queued mutation; not proof of completed cut"
+          },
+          "400": {
+            "description": "Invalid public Recording identity, backend query, body or revision"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Missing scoped grant, CSRF or backend write authority"
+          },
+          "404": {
+            "description": "Recording not found"
+          },
+          "409": {
+            "description": "Native Recording conflict or stale revision"
+          },
+          "503": {
+            "description": "Native backend or editing provider unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "protectedMutation",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.cut@backendId or recordings.edit@backendId; browser CSRF for Browser Session; backend writes and native fences remain separate"
+        }
+      }
+    },
     "/api/v1/recordings/{recordingId}/artwork": {
       "get": {
         "tags": [
