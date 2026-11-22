@@ -3255,6 +3255,26 @@ function renderHevcHomeActivity() {}
     'exact S01E01 is automatically identified from provider results');
   assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
     'automatic attribution is labelled separately from manual selection');
+  // Regression (Rome S01E01, 22.11.2026): the same opaque source can
+  // receive another technical/NFO/capacity preview after the one confirmed
+  // TMDb match. This must not clear its exact v2 metadata or cause a
+  // second resolver request; only changing to a different source resets it.
+  const autoReadsBeforeSameSourceRefresh = onlineRequests.length;
+  const sourceChecksBeforeSameSourceRefresh = requests.filter(function (entry) {
+    return entry.path.includes('/' + SOURCE + '/preview');
+  }).length;
+  onlineSelect.listeners.change();
+  await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeSameSourceRefresh,
+    'same-source preview refresh reuses the confirmed automatic TMDb episode');
+  assert(requests.filter(function (entry) {
+    return entry.path.includes('/' + SOURCE + '/preview');
+  }).length > sourceChecksBeforeSameSourceRefresh,
+    'same-source regression exercises an actual new technical preview');
+  const retainedAutomatic = findClass(mount, 'media-import-online-confirmed');
+  assert(retainedAutomatic &&
+    retainedAutomatic.children[0].textContent.includes('Pilot'),
+    'automatic TMDb identity survives same-source preview refresh instead of silently downgrading v2 to v1');
   // Previously completed technical checks are visible across episode changes
   // and are not repeated within this source scan.
   const checksFor = function (sourceId) {
