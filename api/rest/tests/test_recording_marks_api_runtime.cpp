@@ -497,20 +497,20 @@ int main()
         });
     assert(runtime.tryHandleGet(publicTarget, response));
     assert(response.statusCode == 200);
-    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+    assert(response.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
-    assert(response.body.find("\\"recordingId\\":\\"7\\"") ==
+    assert(response.body.find("\"recordingId\":\"7\"") ==
         std::string::npos);
     std::string publicMarksBody = addMutationBody();
-    const std::string marksIdToken = "\\"recordingId\\":\\"7\\"";
+    const std::string marksIdToken = "\"recordingId\":\"7\"";
     const std::size_t marksIdAt = publicMarksBody.find(marksIdToken);
     assert(marksIdAt != std::string::npos);
     publicMarksBody.replace(marksIdAt, marksIdToken.size(),
-        "\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"");
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"");
     assert(runtime.tryHandlePost(publicTarget, publicMarksBody, response));
     assert(response.statusCode == 202);
     assert(publicMarksDispatches == 1);
-    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+    assert(response.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
 
     runtime.reset();

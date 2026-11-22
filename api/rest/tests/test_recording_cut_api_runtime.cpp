@@ -440,19 +440,19 @@ int main()
     response = {};
     assert(runtime.tryHandleGet(publicTarget, response));
     assert(response.statusCode == 200);
-    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+    assert(response.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
     std::string publicCutBody = body();
-    const std::string nativeIdToken = "\\"recordingId\\":\\"recording-1\\"";
+    const std::string nativeIdToken = "\"recordingId\":\"recording-1\"";
     const std::size_t nativeIdAt = publicCutBody.find(nativeIdToken);
     assert(nativeIdAt != std::string::npos);
     publicCutBody.replace(nativeIdAt, nativeIdToken.size(),
-        "\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"");
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"");
     response = {};
     assert(runtime.tryHandlePost(publicTarget, publicCutBody, response));
     assert(response.statusCode == 202);
     assert(publicCutDispatches == 1);
-    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+    assert(response.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
 
     runtime.reset();
