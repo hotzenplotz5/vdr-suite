@@ -404,7 +404,7 @@ Agent-/Command-Ergebnisdiagnose nutzen. Diagnostik führt keinen neuen Import,
 keine Löschung, keinen Hintergrundjob und keine Berechtigungsänderung aus.
 **Diese Regel erfordert weder DB-Backup noch neues Sicherheitsframework.**
 
-## BAS — Backend-Agent Simplification (nächste Phase nach Media Tools; NOT STARTED)
+## BAS — Backend-Agent Simplification (aktiv auf getrenntem BAS-Branch seit 22.11.2026)
 
 **Verbindliche Nutzerentscheidung vom 28.10.2026:** Nach Abschluss der laufenden Media-Tools-/Media-Import-Arbeiten ist **Backend-Agent Simplification** die nächste Refactoring-Phase. Bis dahin werden die bereits freigegebenen MT-Arbeiten fortgeführt; BAS beginnt **nicht** automatisch durch diesen Roadmap-Eintrag. Die übergreifende Reihenfolge steht auch in [VDR-Suite Strict Roadmap](../../docs/planning/roadmap.md). Nummerierte Phase 70 wird dadurch weder umbenannt noch gestartet.
 
@@ -421,6 +421,8 @@ keine Löschung, keinen Hintergrundjob und keine Berechtigungsänderung aus.
 **Akzeptanz:** Ein bereits erkannter lokaler Film beziehungsweise eine Folge lässt sich über Browser und Backend-Agent zuverlässig anzeigen und technisch prüfen; die Fehlerursache ist bei Abweichung sichtbar; kein mehrfacher Vollscan pro ausgewählter Vorschau; Import und Readback bleiben funktional; Installation/Upgrade verwenden den vorhandenen versiegelten Runtime-Weg. Bestehende Schutzgrenzen bleiben bestehen, aber es werden keine neuen Restriktionen erfunden.
 
 **Status 28.10.2026:** Die MT-bezogene Ein-Scan-Vereinfachung ist quellseitig umgesetzt; die Runtime wurde installiert und die Agent-Synchronisierung nach einem anfänglichen Fehlversuch bestätigt. Der Andor-Ende-zu-Ende-Test der neuen Version ist **noch offen**. BAS insgesamt ist damit ausdrücklich **nicht abgeschlossen und noch nicht begonnen**.
+
+**Neue ausdrückliche Priorisierung 22.11.2026:** Die obige historische Reihenfolge wird nur für BAS überschrieben: `work/bas-simplification` ist auf Basis von `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650` genehmigt und hat BAS.1-Quellbefunde sowie erste BAS.2-/BAS.3-Source-Patches. Der API-v1-Branch, `main` und die produktive yaVDR-Runtime bleiben unangetastet. BAS.4/5-Abnahme, CI und neue echte yaVDR-Bestätigung bleiben getrennt offen. Bestehende MT.META7-, UX-/REC-, Paket-/PPA- und Hostmigrations-Restarbeiten behalten ihren bisherigen Status; kein impliziter Abschluss. [BAS-Nachweis](../../docs/development/bas-backend-agent-simplification.md).
 
 
 ## MT.REC — Media Import: Fehlerkorrektur und Mockup-gerechtes Redesign (verbindliche Produktentscheidung 27.10.2026)
