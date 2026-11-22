@@ -293,6 +293,21 @@ void verifyDurableAgentLifecycle()
 }
 
 int main() {
+    // BAS.3: source-inspection exceptions preserve distinct path-free
+    // diagnostics; this only labels failures, it never permits execution.
+    assert(std::string(mediaImportSourceInspectionFailure(
+        fs::filesystem_error("missing",std::make_error_code(
+            std::errc::no_such_file_or_directory))))=="source_missing");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        fs::filesystem_error("denied",std::make_error_code(
+            std::errc::permission_denied))))=="source_unreadable");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("unsupported source extension")))=="format_unsupported");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("source changed or is not a nonempty regular file")))
+        =="source_changed");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("unclassified source failure")))=="source_invalid");
     Fixture f;
     Transport transport;
     BackendAgentCommandClientContext current;
