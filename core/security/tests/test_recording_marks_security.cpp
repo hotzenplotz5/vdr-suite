@@ -85,5 +85,45 @@ int main()
     assert(readOnlyDecision.rejection.body.find(
         "role_read_only") != std::string::npos);
 
+    // A single recordings.edit grant covers the public native edit action.
+    // It does not remove CSRF, scope or explicit per-action audit checks.
+    SecurityHttpGateBrowserTestFixture editorFixture;
+    assert(editorFixture.grantRepository.ensureGrant(
+        editorFixture.actorId, "recordings.edit", "default"));
+    HttpServerRequest publicMutation = editorFixture.mutationRequest(
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/marks?backendId=default",
+        "default");
+    editorFixture.addBrowserAuthentication(publicMutation, true);
+    const SecurityGateDecision publicAllowed =
+        editorFixture.gate.evaluate(publicMutation);
+    assert(publicAllowed.allowed);
+    assert(publicAllowed.protectedMutation);
+    assert(publicAllowed.authorizationDecision.permission ==
+        "recordings.marks.modify");
+    assert(publicAllowed.authorizationDecision.backendId == "default");
+
+    HttpServerRequest noCsrf = editorFixture.mutationRequest(
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/marks?backendId=default",
+        "default");
+    editorFixture.addBrowserAuthentication(noCsrf);
+    const auto csrfDenied = editorFixture.gate.evaluate(noCsrf);
+    assert(!csrfDenied.allowed);
+    assert(csrfDenied.rejection.statusCode == 403);
+
+    HttpServerRequest differentBackend = editorFixture.mutationRequest(
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/marks?backendId=house-b",
+        "house-b");
+    editorFixture.addBrowserAuthentication(differentBackend, true);
+    const auto wrongBackend = editorFixture.gate.evaluate(differentBackend);
+    assert(!wrongBackend.allowed);
+    assert(wrongBackend.rejection.statusCode == 403);
+
+    HttpServerRequest publicRead;
+    publicRead.method = "GET";
+    publicRead.path =
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/marks?backendId=default";
+    editorFixture.addBrowserAuthentication(publicRead, true);
+    assert(editorFixture.gate.evaluate(publicRead).allowed);
+
     return 0;
 }

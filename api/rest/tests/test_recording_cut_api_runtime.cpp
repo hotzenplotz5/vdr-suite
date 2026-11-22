@@ -136,6 +136,28 @@ int main()
     assert(runtime.mutationConfigured());
 
     ApiResponse response;
+    const std::string publicRecId = "rec_0123456789abcdef0123456789abcdef";
+    const std::string publicTarget =
+        "/api/v1/recordings/" + publicRecId + "/cut?backendId=default";
+
+    // GET must recognize the public path and preserve the native owner.
+    assert(runtime.tryHandleGet(publicTarget, response));
+    assert(response.statusCode == 503);
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/not-a-rec-id/cut?backendId=default", response));
+    assert(response.statusCode == 400);
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/" + publicRecId + "/cut?backendId=other&backendId=default",
+        response));
+    assert(response.statusCode == 400);
+
+    // A public POST with a Recording in the body different from the URL
+    // must be rejected before native dispatch, even if otherwise valid.
+    assert(runtime.tryHandlePost(publicTarget, body(), response));
+    assert(response.statusCode == 400);
+    assert(response.body.find("recording_cut_start_request_invalid") != std::string::npos);
+
+
     assert(runtime.tryHandleGet(
         "/api/vdr/recordings/cut?backend=default&recordingId=recording-1",
         response));
