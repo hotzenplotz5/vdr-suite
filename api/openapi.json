@@ -7043,7 +7043,13 @@
                   "required": [
                     "backendId",
                     "recordingId",
-                    "availability"
+                    "operationId",
+                    "accepted",
+                    "replayed",
+                    "state",
+                    "verification",
+                    "commandId",
+                    "requestFingerprint"
                   ],
                   "properties": {
                     "backendId": {
@@ -7053,17 +7059,104 @@
                       "type": "string",
                       "pattern": "^rec_[0-9a-f]{32}$"
                     },
-                    "availability": {
+                    "operationId": {
                       "type": "string"
+                    },
+                    "accepted": {
+                      "const": true
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "verified"
+                      ]
+                    },
+                    "verification": {
+                      "type": "string",
+                      "enum": [
+                        "verified"
+                      ]
+                    },
+                    "commandId": {
+                      "type": "string"
+                    },
+                    "requestFingerprint": {
+                      "type": "string"
+                    },
+                    "canonicalMarksRevision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{32}$"
                     }
                   },
-                  "additionalProperties": true
+                  "additionalProperties": false
                 }
               }
             }
           },
           "202": {
-            "description": "Accepted queued mutation; not proof of completed cut"
+            "description": "Accepted queued mutation; not proof of completed cut",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "operationId",
+                    "accepted",
+                    "replayed",
+                    "state",
+                    "verification",
+                    "commandId",
+                    "requestFingerprint"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "operationId": {
+                      "type": "string"
+                    },
+                    "accepted": {
+                      "const": true
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "queued"
+                      ]
+                    },
+                    "verification": {
+                      "type": "string",
+                      "enum": [
+                        "readback_required"
+                      ]
+                    },
+                    "commandId": {
+                      "type": "string"
+                    },
+                    "requestFingerprint": {
+                      "type": "string"
+                    },
+                    "canonicalMarksRevision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{32}$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid public Recording identity, backend query, body or revision"
@@ -7110,7 +7203,7 @@
         ],
         "operationId": "getPublicRecordingCut",
         "summary": "Read native cut readiness and edited-result state",
-        "description": "Uses the existing native Recording editing service; no shadow marks store or direct filesystem access. Same body shape and native revision semantics as the established Webfrontend route.",
+        "description": "Uses the existing native Recording editing service; no shadow marks store or direct filesystem access. Same body shape and native revision semantics as the established Webfrontend route. A completed edited Recording is projected through the canonical public rec_ identity mapping; native paths, backend-native IDs and internal edit keys are not returned by Public v1.",
         "parameters": [
           {
             "name": "recordingId",
@@ -7157,6 +7250,42 @@
                     },
                     "availability": {
                       "type": "string"
+                    },
+                    "editedRecording": {
+                      "type": "object",
+                      "description": "Present only after the edited Recording is visible in the VDR snapshot and has a canonical public identity.",
+                      "required": [
+                        "id",
+                        "recordingId",
+                        "backendId",
+                        "title"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^rec_[0-9a-f]{32}$"
+                        },
+                        "recordingId": {
+                          "type": "string",
+                          "pattern": "^rec_[0-9a-f]{32}$"
+                        },
+                        "backendId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "startTime": {
+                          "type": "string"
+                        },
+                        "durationSeconds": {
+                          "type": "integer"
+                        },
+                        "sizeMb": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "additionalProperties": true
@@ -7282,7 +7411,13 @@
                   "required": [
                     "backendId",
                     "recordingId",
-                    "availability"
+                    "operationId",
+                    "accepted",
+                    "replayed",
+                    "state",
+                    "verification",
+                    "commandId",
+                    "requestFingerprint"
                   ],
                   "properties": {
                     "backendId": {
@@ -7292,17 +7427,104 @@
                       "type": "string",
                       "pattern": "^rec_[0-9a-f]{32}$"
                     },
-                    "availability": {
+                    "operationId": {
                       "type": "string"
+                    },
+                    "accepted": {
+                      "const": true
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "verified"
+                      ]
+                    },
+                    "verification": {
+                      "type": "string",
+                      "enum": [
+                        "verified"
+                      ]
+                    },
+                    "commandId": {
+                      "type": "string"
+                    },
+                    "requestFingerprint": {
+                      "type": "string"
+                    },
+                    "editedRecordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
                     }
                   },
-                  "additionalProperties": true
+                  "additionalProperties": false
                 }
               }
             }
           },
           "202": {
-            "description": "Accepted queued mutation; not proof of completed cut"
+            "description": "Accepted queued mutation; not proof of completed cut",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "operationId",
+                    "accepted",
+                    "replayed",
+                    "state",
+                    "verification",
+                    "commandId",
+                    "requestFingerprint"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "operationId": {
+                      "type": "string"
+                    },
+                    "accepted": {
+                      "const": true
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "queued"
+                      ]
+                    },
+                    "verification": {
+                      "type": "string",
+                      "enum": [
+                        "readback_required"
+                      ]
+                    },
+                    "commandId": {
+                      "type": "string"
+                    },
+                    "requestFingerprint": {
+                      "type": "string"
+                    },
+                    "editedRecordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid public Recording identity, backend query, body or revision"
