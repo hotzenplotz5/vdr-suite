@@ -5263,7 +5263,7 @@ ApiResponse publicDeviceGrantSetResponse(
             jsonEscape(grantSet.grants[i].backendId) + "\"}";
     }
     body += "],\"supportedPermissions\":["
-        "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\","
+        "\"channels.view\",\"recordings.view\",\"recordings.edit\",\"epg.view\",\"timers.view\","
         "\"timers.create\",\"timers.modify\",\"timers.delete\","
         "\"searchtimers.view\",\"searchtimers.create\",\"searchtimers.modify\","
         "\"searchtimers.execute\",\"searchtimers.delete\","
