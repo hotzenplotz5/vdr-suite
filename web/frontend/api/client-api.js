@@ -686,55 +686,6 @@
     );
   }
 
-
-  // Resolve legacy Recordings 2 selections using the canonical public
-  // collection. Never translate a native cache ID or filesystem path.
-  function resolvePublicRecordingId(recording, backendId) {
-    const backend = String(backendId || (recording && recording.backendId) || '').trim();
-    const direct = [recording && recording.recordingId, recording && recording.id]
-      .map(value => String(value || '').trim())
-      .find(value => /^rec_[0-9a-f]{32}$/.test(value));
-    if (direct) return Promise.resolve(direct);
-
-    const recordedAt = String(recording && (recording.startTime || recording.recordedAt) || '').trim();
-    if (!backend || !recordedAt)
-      return Promise.reject(new Error('recording_public_identity_unavailable'));
-    const title = String(recording && recording.title || '');
-    const matches = [];
-    const seenCursors = new Set();
-    let cursor = '';
-
-    function readPage() {
-      const query = {backendId: backend, limit: 100};
-      if (cursor) query.cursor = cursor;
-      return requestJson('/api/v1/recordings', {
-        query: query, credentials: 'same-origin', cache: 'no-store'
-      }).then(function (response) {
-        if (!response || !Array.isArray(response.items) || !response.page)
-          throw new Error('recording_public_identity_invalid_collection');
-        response.items.forEach(function (item) {
-          if (item && item.backendId === backend &&
-              String(item.recordedAt) === recordedAt) matches.push(item);
-        });
-        if (response.page.hasMore) {
-          const next = String(response.page.nextCursor || '');
-          if (!/^rc1_[0-9a-f]+$/.test(next) || seenCursors.has(next))
-            throw new Error('recording_public_identity_invalid_cursor');
-          seenCursors.add(next);
-          cursor = next;
-          return readPage();
-        }
-        const byTitle = title ? matches.filter(item => item.title === title) : [];
-        const candidates = byTitle.length ? byTitle : matches;
-        if (candidates.length !== 1 ||
-            !/^rec_[0-9a-f]{32}$/.test(String(candidates[0].recordingId || '')))
-          throw new Error('recording_public_identity_ambiguous');
-        return candidates[0].recordingId;
-      });
-    }
-    return readPage();
-  }
-
   function fetchClientRecordings(options) {
     return requestJson('/api/vdr/recordings/query', options);
   }
@@ -995,7 +946,6 @@
     fetchClientRecordingPersons: fetchClientRecordingPersons,
     fetchClientRecordingTrailer: fetchClientRecordingTrailer,
     fetchClientRecordings: fetchClientRecordings,
-    resolvePublicRecordingId: resolvePublicRecordingId,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,

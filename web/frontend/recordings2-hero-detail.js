@@ -418,6 +418,14 @@
     return page();
   }
 
+  // Share the existing exact public Recording identity resolution with
+  // the Marks/Cut owner; no second mapper and no native-ID fallback.
+  function resolvePublicRecordingId(recording, backendId) {
+    const client = mediaCheckClient();
+    if (!client) return Promise.reject(new Error('recording_public_identity_unavailable'));
+    return resolveMediaCheckIdentity(client, recording, backendId);
+  }
+
   function mediaCheckSummary(report) {
     if (!report || typeof report !== 'object')
       return 'Unvollständiger Prüfbericht.';
@@ -1614,6 +1622,7 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
+    resolvePublicRecordingId,
     enterPlaybackMode,
     __test: Object.freeze({
       backdropUrl,

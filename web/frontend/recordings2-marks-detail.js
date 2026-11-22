@@ -79,7 +79,10 @@
     if (!id || !backend) {
       return Promise.reject(new Error('recording_marks_public_identity_unavailable'));
     }
-    return client.resolvePublicRecordingId(recording, backend).then(function (publicId) {
+    const hero = global.VdrSuiteRecordings2HeroDetail;
+    if (!hero || typeof hero.resolvePublicRecordingId !== 'function')
+      return Promise.reject(new Error('recording_public_identity_unavailable'));
+    return hero.resolvePublicRecordingId(recording, backend).then(function (publicId) {
       return client.requestJson('/api/v1/recordings/' + publicId + '/marks', {
         query: {backendId: backend},
         cache: 'no-store',

@@ -170,6 +170,7 @@ const originalBrowserOwner = {
   createRecordingCard() {}
 };
 
+const PUBLIC_ID = 'rec_0123456789abcdef0123456789abcdef';
 const payload = {
   backendId: 'default',
   recordingId: PUBLIC_ID,
@@ -187,17 +188,18 @@ const payload = {
   ]
 };
 
-const PUBLIC_ID = 'rec_0123456789abcdef0123456789abcdef';
 let resolvedIdentity = null;
 const window = {
   document,
   VdrSuiteRecordings2Shared: shared,
   VdrSuiteRecordings2BrowserView: originalBrowserOwner,
-  VdrSuiteClientApi: {
+  VdrSuiteRecordings2HeroDetail: {
     resolvePublicRecordingId(recording, backend) {
       resolvedIdentity = {id: recording.id, backend};
       return Promise.resolve(PUBLIC_ID);
-    },
+    }
+  },
+  VdrSuiteClientApi: {
     requestJson(path, options) {
       requestedPath = path;
       requestedOptions = options;

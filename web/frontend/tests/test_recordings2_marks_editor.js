@@ -175,7 +175,14 @@ async function run() {
     setTimeout(fn) { const id = nextTimerId++; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
-    VdrSuiteRecordings2HeroDetail: {enhance(root) { return root; }},
+    VdrSuiteRecordings2HeroDetail: {
+      enhance(root) { return root; },
+      resolvePublicRecordingId(recording, backend) {
+        assert.strictEqual(recording.id, '7');
+        assert.strictEqual(backend, 'default');
+        return Promise.resolve(PUBLIC_ID);
+      }
+    },
     VdrSuiteRecordings2MarksTimeline: {
       render(root, recording, payload, interaction) {
         if (interaction) timelineInteraction = interaction;
@@ -205,11 +212,6 @@ async function run() {
       owner.element.appendChild(start); return owner;
     }},
     VdrSuiteClientApi: {
-      resolvePublicRecordingId(recording, backend) {
-        assert.strictEqual(recording.id, '7');
-        assert.strictEqual(backend, 'default');
-        return Promise.resolve(PUBLIC_ID);
-      },
       requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
