@@ -1752,7 +1752,7 @@
           (!options.payload || typeof options.payload !== 'object' ||
            Array.isArray(options.payload)))
         throw new Error('Native Timer modification requires caller-owned JSON payload');
-      // No retry or re-issuance on an uncertain mutation outcome.
+      // Uncertain writes are never dispatched a second time.
       const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
         copyHeaders(options.headers), {
           'If-Match': options.ifMatch,
