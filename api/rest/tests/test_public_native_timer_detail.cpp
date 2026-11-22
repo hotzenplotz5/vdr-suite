@@ -56,6 +56,7 @@ int main()
     assert(ok.body.find(R"json("endTime":"2030","priority":68)json") != std::string::npos);
     assert(ok.body.find("\"priority\":68") != std::string::npos);
     assert(ok.body.find("\"lifetime\":19") != std::string::npos);
+    assert(ok.body.find(R"json("lifetime":19,"enabled":false,"vps":true)json") != std::string::npos);
     assert(ok.body.find("\"vps\":true") != std::string::npos);
     assert(ok.body.find("\"aux\"") == std::string::npos);
     assert(ok.body.find("resourceRevision") == std::string::npos);

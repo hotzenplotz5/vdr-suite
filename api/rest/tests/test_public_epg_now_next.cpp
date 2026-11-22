@@ -379,6 +379,7 @@ int main()
     assert(timers.body.find(R"json("endTime":"2015","priority":71)json") != std::string::npos);
     assert(timers.body.find("\"priority\":71") != std::string::npos);
     assert(timers.body.find("\"lifetime\":24") != std::string::npos);
+    assert(timers.body.find(R"json("lifetime":24,"enabled":true,"vps":true)json") != std::string::npos);
     assert(timers.body.find("\"vps\":true") != std::string::npos);
     assert(timers.body.find("\"aux\"") == std::string::npos);
     assert(timers.body.find("\"partial\":false") != std::string::npos);

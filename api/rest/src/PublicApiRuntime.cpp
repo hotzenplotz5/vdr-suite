@@ -6806,7 +6806,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             "\",\"endTime\":\"" + jsonEscape(t.endTime) +
                 "\",\"priority\":" + std::to_string(t.priority) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
-            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+            ",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +
             ",\"recording\":" + (t.recording ? "true" : "false") +
             ",\"pending\":" + (t.pending ? "true" : "false") +
@@ -6874,7 +6874,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "\",\"endTime\":\"" + jsonEscape(t.endTime) +
                 "\",\"priority\":" + std::to_string(t.priority) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
-                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+                ",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +
                 ",\"recording\":" + (t.recording ? "true" : "false") +
                 ",\"pending\":" + (t.pending ? "true" : "false") + "}";
