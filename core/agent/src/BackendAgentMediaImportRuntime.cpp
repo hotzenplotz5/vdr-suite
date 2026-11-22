@@ -70,9 +70,12 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceIds(
     std::vector<std::string>& out)
 {
     out.clear();
-    if (!available()) return false;
+    // available() would scan the entire inventory before this read scans it
+    // again. Preserve install/context validation and the nonempty contract.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        return inventory_.listTrustedSourceIds(backendId_, out);
+        return inventory_.listTrustedSourceIds(backendId_, out) && !out.empty();
     } catch (...) {
         out.clear();
         return false;
@@ -83,9 +86,12 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceLabels(
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& out)
 {
     out.clear();
-    if (!available()) return false;
+    // A single inventory read supplies the labels; available() needlessly
+    // walked all source roots again just to test for a nonempty listing.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        return inventory_.listTrustedSourceLabels(backendId_, out);
+        return inventory_.listTrustedSourceLabels(backendId_, out) && !out.empty();
     } catch (...) {
         out.clear();
         return false;
@@ -178,7 +184,10 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.failureCode = "source_invalid";
         return false;
     }
-    if (!available()) {
+    // Resolve and preview the selected source through one inventory walk.
+    // The existing install/context/maintenance proof still applies.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) {
         out.failureCode = "agent_unavailable";
         return false;
     }
