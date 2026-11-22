@@ -2407,10 +2407,10 @@ int main()
     const std::string publicCutRoute =
         "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/"
         "cut?backendId=router-backend";
-    const ApiResponse routerLegacyCut = router.handleGet(
+    const ApiResponse routerLegacyCut = router.handleClientGet(
         "/api/vdr/recordings/cut"
         "?backend=router-backend&recordingId=router-recording-1");
-    const ApiResponse routerPublicCut = router.handleGet(publicCutRoute);
+    const ApiResponse routerPublicCut = router.handleClientGet(publicCutRoute);
     assert(routerLegacyCut.statusCode == 200);
     assert(routerPublicCut.statusCode == 200);
     assert(routerLegacyCut.body.find("\"editedRecordingFound\":true") !=
@@ -2435,7 +2435,7 @@ int main()
         "\"operationRevision\":\"1\","
         "\"expectedMarksRevision\":\"0123456789abcdef0123456789abcdef\"}";
     const ApiResponse routerPublicCutPost =
-        router.handlePost(publicCutRoute, publicCutBody);
+        router.handleClientPost(publicCutRoute, publicCutBody);
     assert(routerPublicCutPost.statusCode == 200);
     assert(routerCutDispatches == 1);
     assert(routerPublicCutPost.body.find(
