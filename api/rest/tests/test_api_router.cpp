@@ -2353,7 +2353,8 @@ int main()
     } routerCutResolver;
 
     auto& cutRuntime = RecordingCutApiRuntime::instance();
-    cutRuntime.reset();
+    // The router registered its canonical public rec_ resolver above.
+    // A reset here would erase that production-style wiring.
     int routerCutDispatches = 0;
     assert(cutRuntime.configure(
         [](const std::string& backendId) {
