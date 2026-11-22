@@ -11,6 +11,12 @@ MediaSession-Implementierung und keine neue Berechtigung.
 Die Default-Session bleibt ohne native Bearer-Projektion.
 Quelle/automatische Tests getrennt von realem TV-Playback bewerten.
 
+**F7.2 Public-v1-Referenzclient (Quellkandidat):**
+`getRecordingPlaybackCapabilities` exponiert den existierenden
+Device-authentifizierten Profilstatus-GET, ohne die Device-ID
+aus Clientdaten zu übernehmen. Keine Playback- oder Probe-Aktion;
+CI/Source bleibt getrennt von echter Decoder-Kompatibilität.
+
 **F7 offen:** tatsächlicher Device-Playback-Fortschritt, Resume,
 Continue Watching und Browser-/Account-Abgleich, TV-Client-Verhalten
 sowie echte Medienwiedergabe werden erst bei F8 gemeinsam auf

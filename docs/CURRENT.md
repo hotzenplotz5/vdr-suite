@@ -1,5 +1,15 @@
 # VDR-Suite Current State
 
+## API.V1.F7.2 – Device-Player-Profilstatus (22.11.2026)
+
+Der Public-v1-JavaScript-Client kann jetzt den vorhandenen
+authentifizierten `/recording-playback-sessions/capabilities`-
+Read aufrufen. Vier explizite Profileigenschaften werden
+transportiert; die Device-ID stammt weiterhin ausschließlich
+aus dem Server-Credential. Keine automatische Player-Umschaltung,
+keine neue Medienfreigabe und keine Hardware-Abnahme.
+Gezielte HTTP-Mock-Regression ergänzt.
+
 ## API.V1.F7.1 – Device Recording Session: nativer Player und Tonspuren (22.11.2026)
 
 Der gemeinsame Public-v1-Referenzclient reicht die bereits serverseitig

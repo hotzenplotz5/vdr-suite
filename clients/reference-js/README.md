@@ -90,6 +90,19 @@ Use \`getRecordingPlaybackSession({sessionId,headers})\` and
 uses the current owned-device STOP contract. Media grant delivery remains
 the existing guarded gateway, never private /api/media routes.
 
+### API.V1.F7.2 – Device player-profile readiness
+
+`getRecordingPlaybackCapabilities({appVersion,firmwareVersion,playerVersion,
+engine,headers})` sends the existing authenticated, read-only
+`GET /api/v1/recording-playback-sessions/capabilities` with the four
+explicit profile fields (`engine` is `mse`, `native` or `external`).
+The server binds the Device identity to the credential, not a client-supplied
+query value. A response describes recorded server-side profile evidence;
+it is **not** proof of physical decoder playback and does not start a
+MediaSession, set a profile or automatically change the selected player.
+A client may explicitly opt in to the matching `capabilityProfile` for
+a subsequent CREATE only when appropriate. No retry or polling is added.
+
 ### API.V1.F7.1 – Native player transport and audio tracks
 
 The existing `createRecordingPlaybackSession` helper now forwards optional

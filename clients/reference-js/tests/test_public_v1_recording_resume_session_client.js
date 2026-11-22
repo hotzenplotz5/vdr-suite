@@ -21,6 +21,16 @@ const fetchMock = async (url, init) => {
   const path = new URL(url).pathname;
   assert(!path.startsWith('/api/media/'));
   assert.strictEqual(init.headers.Authorization, 'VDR-Suite-Device demo.credential');
+  if (path === '/api/v1/recording-playback-sessions/capabilities' &&
+      init.method === 'GET') {
+    assert.deepStrictEqual(Object.fromEntries(new URL(url).searchParams.entries()), {
+      appVersion:'b20261011.24', firmwareVersion:'vidaa9',
+      playerVersion:'mse_v1', engine:'mse'
+    });
+    assert.strictEqual(new URL(url).searchParams.has('deviceId'),false,
+      'Device identity must come from credential, not query');
+    return response(200,{availability:'available'});
+  }
   if (path === '/api/v1/recording-playback-sessions' && init.method === 'POST') {
     const input = JSON.parse(init.body);
     const native = input.nativeMediaAccess === true;
@@ -102,6 +112,15 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
     ...identity, capabilities, audioTrackId:'../native'
   }));
   assert.strictEqual(requests.length,5,'invalid Device options must not dispatch');
+  const profile = await client.getRecordingPlaybackCapabilities({
+    appVersion:'b20261011.24', firmwareVersion:'vidaa9',
+    playerVersion:'mse_v1', engine:'mse'
+  });
+  assert.strictEqual(profile.availability,'available');
+  assert.throws(() => client.getRecordingPlaybackCapabilities({
+    appVersion:'b20261011.24', engine:'mse'
+  }));
+  assert.strictEqual(requests.length,6,'profile check is exactly one read');
   assert(requests.every(x => x.init.headers.Authorization ===
     'VDR-Suite-Device demo.credential'));
   console.log('Public-v1 recording resume/native-media/tracks client PASS');

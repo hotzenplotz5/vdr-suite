@@ -2171,6 +2171,16 @@
       setDevicePlaybackAccount(options) {
         return setPlaybackAccountForDevice(options);
       },
+      getRecordingPlaybackCapabilities(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const keys = ['appVersion', 'firmwareVersion', 'playerVersion', 'engine'];
+        if (!keys.every(key => typeof input[key] === 'string' && input[key].length > 0))
+          throw new Error('Exact Device playback profile key required');
+        const query = new URLSearchParams();
+        keys.forEach(key => query.set(key, input[key]));
+        return request('/api/v1/recording-playback-sessions/capabilities?' +
+          query.toString(), input);
+      },
       createRecordingPlaybackSession(options) {
         return startDeviceRecordingPlayback(options);
       },
