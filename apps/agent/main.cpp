@@ -370,6 +370,22 @@ int main(int argc, char** argv)
     // only constructs the gated composition; it cannot bypass the server's
     // per-backend administrator intent, operation and effective grant fence.
     BackendAgentClientRuntime* runtimeAccess = nullptr;
+    // A single read of the current authenticated Agent context is shared by
+    // both optional Media Tools executors. Neither executor caches credentials
+    // or a backend generation across command dispatches.
+    const auto currentCommandContext = [&runtimeAccess]() {
+        BackendAgentCommandClientContext context;
+        if (runtimeAccess)
+        {
+            const auto& state = runtimeAccess->state();
+            context.agentId = state.agentId;
+            context.credentialSecret = state.credentialSecret;
+            context.backendId = state.backendId;
+            context.agentInstanceId = runtimeAccess->agentInstanceId();
+            context.backendGeneration = state.backendGeneration;
+        }
+        return context;
+    };
     std::unique_ptr<vdrsuite::agent::BackendAgentMediaImportRuntime>
         mediaImportRuntime;
     if (enableMediaImport)
@@ -384,19 +400,7 @@ int main(int argc, char** argv)
         mediaImportRuntime = std::make_unique<
             vdrsuite::agent::BackendAgentMediaImportRuntime>(
                 "/", config.backendId, config.commandStatePath, transport,
-                [&]() {
-                    BackendAgentCommandClientContext context;
-                    if (runtimeAccess)
-                    {
-                        const auto& state = runtimeAccess->state();
-                        context.agentId = state.agentId;
-                        context.credentialSecret = state.credentialSecret;
-                        context.backendId = state.backendId;
-                        context.agentInstanceId = runtimeAccess->agentInstanceId();
-                        context.backendGeneration = state.backendGeneration;
-                    }
-                    return context;
-                },
+                currentCommandContext,
                 [&]() {
                     // Renew only the existing lease while this one import
                     // command is executing; never poll a second command.
@@ -451,19 +455,7 @@ int main(int argc, char** argv)
             vdrsuite::mediatools::LocalMediaShrinkReviewStore>(statePath);
         shrinkAuthorization = std::make_unique<
             vdrsuite::agent::ReceiptRevalidatingMediaShrinkAuthorization>(
-                config.commandStatePath, transport, [&]() {
-                    BackendAgentCommandClientContext context;
-                    if (runtimeAccess)
-                    {
-                        const auto& state = runtimeAccess->state();
-                        context.agentId = state.agentId;
-                        context.credentialSecret = state.credentialSecret;
-                        context.backendId = state.backendId;
-                        context.agentInstanceId = runtimeAccess->agentInstanceId();
-                        context.backendGeneration = state.backendGeneration;
-                    }
-                    return context;
-                });
+                config.commandStatePath, transport, currentCommandContext);
         shrinkRunner = std::make_unique<
             vdrsuite::mediatools::NativeProcessRunner>(
                 std::chrono::seconds(4 * 3600), mediaTools,
