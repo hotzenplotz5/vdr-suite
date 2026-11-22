@@ -35,6 +35,7 @@ int main()
         r.backendId = req.backendId;
         r.timer.id = req.timerId;
         r.timer.title = "Tagesschau";
+        r.timer.endTime = "2030";
         r.timer.directory = "News~Tagesschau";
         r.timer.priority = 68;
         r.timer.lifetime = 19;
@@ -52,7 +53,7 @@ int main()
     assert(ok.body.find("Tagesschau") != std::string::npos);
     assert(ok.body.find("\"directory\":\"News~Tagesschau\"") != std::string::npos);
     assert(ok.body.find(R"json("title":"Tagesschau","directory":"News~Tagesschau")json") != std::string::npos);
-    assert(ok.body.find(R"json("endTime":"","priority":68)json") == std::string::npos);
+    assert(ok.body.find(R"json("endTime":"2030","priority":68)json") != std::string::npos);
     assert(ok.body.find("\"priority\":68") != std::string::npos);
     assert(ok.body.find("\"lifetime\":19") != std::string::npos);
     assert(ok.body.find("\"vps\":true") != std::string::npos);
