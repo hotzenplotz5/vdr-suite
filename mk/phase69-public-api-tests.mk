@@ -776,3 +776,10 @@ test-public-epg-event-detail:
 		api/rest/tests/test_public_epg_event_detail.cpp \
 		-o $(BUILD_DIR)/test_public_epg_event_detail
 	$(BUILD_DIR)/test_public_epg_event_detail
+
+# Public API v1 F6 native Editing client contract (mock HTTP only).
+.PHONY: test-api-v1-f6-recording-edit-client
+test-api-v1-f6-recording-edit-client:
+	node clients/reference-js/tests/test_public_v1_f6_recording_edit_client.js
+
+test-frontend-contracts: test-api-v1-f6-recording-edit-client

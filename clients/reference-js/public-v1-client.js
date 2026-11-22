@@ -427,6 +427,21 @@
     return '/api/v1/recordings/' + id + '?backendId=' + encodeURIComponent(backend);
   }
 
+  // Public-v1 native Recording editing shares the authoritative VDR
+  // Recording identity and the existing native Cut/Marks core.
+  function f6RecordingEditPath(input, suffix) {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new Error('Recording edit options must be an object');
+    if (suffix !== 'marks' && suffix !== 'cut')
+      throw new Error('Unsupported native Recording editing resource');
+    const id = f4Id(input.recordingId, 'recordingId', /^rec_[0-9a-f]{32}$/);
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    if (backend === '.' || backend === '..')
+      throw new Error('Invalid Recording edit backend');
+    return '/api/v1/recordings/' + id + '/' + suffix +
+      '?backendId=' + encodeURIComponent(backend);
+  }
+
   function f4PagedQuery(input, kind) {
     if (!input || typeof input !== 'object' || Array.isArray(input))
       throw new Error('Public Recording query must be an object');
@@ -835,6 +850,43 @@
       });
     }
 
+
+    function requestRecordingEditMutation(options, suffix) {
+      const o = options && typeof options === 'object' ? options : {};
+      const path = f6RecordingEditPath(o, suffix);
+      const body = o.payload;
+      if (!body || typeof body !== 'object' || Array.isArray(body) ||
+          body.backendId !== o.backendId ||
+          body.recordingId !== o.recordingId ||
+          typeof body.operationId !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{1,192}$/.test(body.operationId) ||
+          typeof body.operationRevision !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{1,192}$/.test(body.operationRevision) ||
+          typeof body.expectedMarksRevision !== 'string' ||
+          !/^[0-9a-f]{32}$/.test(body.expectedMarksRevision)) {
+        throw new Error('Recording edit requires matching backend/Recording ID and native operation revision');
+      }
+      // Single user-intended POST; transport never retries an uncertain cut.
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(o.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers,
+        credentials: o.credentials !== undefined
+          ? o.credentials : normalized.credentials,
+        cache: 'no-store', signal: o.signal,
+        body: JSON.stringify(body)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          return payload;
+        });
+      });
+    }
 
     function requestArtworkImage(path, options) {
       const input = options && typeof options === 'object' ? options : {};
@@ -2138,6 +2190,20 @@
       getRecordingDetail(options) {
         const o = options && typeof options === 'object' ? options : {};
         return request(f4RecordingDetailPath(o), o);
+      },
+      getRecordingMarks(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f6RecordingEditPath(o, 'marks'), o);
+      },
+      getRecordingCutState(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f6RecordingEditPath(o, 'cut'), o);
+      },
+      submitRecordingMarksMutation(options) {
+        return requestRecordingEditMutation(options, 'marks');
+      },
+      submitRecordingCut(options) {
+        return requestRecordingEditMutation(options, 'cut');
       },
       getRecordingFolders(options) {
         const o = options && typeof options === 'object' ? options : {};
