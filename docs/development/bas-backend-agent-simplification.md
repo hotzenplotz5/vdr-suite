@@ -1,0 +1,22 @@
+# BAS.1 – Backend-Agent call-chain findings
+
+Source baseline: `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`.
+BAS branch: `work/bas-simplification`. Analysis is source-only; no runtime measurements or yaVDR acceptance are implied. Media Tools' outstanding MT.META7 and real acceptance are unchanged.
+
+## Actual paths and bounded findings
+
+1. **Inventory and selected preview (already optimized):** `BackendAgentClientRuntime::publishMediaImportSourceObservation()` sends one authenticated `/api/agent/v1/observations/media-import-sources` observation. `BackendAgentMediaImportRuntime::listTrustedSourceObservationCached()` calls `RootOwnedMediaImportInventory::listTrustedSourceSnapshot()` once, returning IDs, labels and the selected source descriptor from the same directory walk. It then calls `inspectResolvedSource()`. Do not add a second scan or a second preview engine. Existing `BackendAgentMediaImportCatalog` reuses successful codec/duration observations for fingerprinted `scan_` IDs, including durable checked-preview storage. Regression: `core/agent/tests/test_backend_agent_media_import_runtime.cpp`, `addons/media-tools/tests/test_local_media_import_inventory.cpp`, catalog tests.
+
+2. **Redundant reads proven in legacy read helpers:** `BackendAgentMediaImportRuntime::listTrustedSourceIds()`, `listTrustedSourceLabels()` and `inspectTrustedSource()` each call `available()`, which invokes `inventory_.hasTrustedSource()` and fully scans sources. The same function then calls inventory listing or resolving, causing a second full scan for that read. Replace the preliminary *inventory* scan with existing `verifiedInstallation()`, retaining existing context/install/lock checks and the final inventory-based result. Regression: authenticated valid/empty/invalid inventory, busy maintenance lock, unavailable install, selected preview.
+
+3. **Heartbeat work requires care:** `publishMediaImportSourceObservation()` first obtains installation evidence and the observation method independently verifies installation again. Later `discoverBackendAgentCommandAvailability()` calls the executor's `available()`, which performs another inventory walk. These are actual repeated reads, but source advertisement and executable command eligibility are security-relevant; no caching across authorization/dispatch boundaries is approved merely because a heartbeat has just been published. Measure separately before altering these paths. Regression: source disappearance, command availability, generation change, run-lock contention and result/readback.
+
+4. **Error visibility:** `inspectResolvedSource()` presently initializes `source_invalid` before `inspectImportPreview()`, translating all exceptions at that step into the same code. `ffprobe_failed`, `source_changed`, `capacity_failed`, `target_not_writable`, `inventory_missing` and `target_collision` already exist and have Webfrontend translations; do not duplicate them. Distinguish known filesystem/extension errors from the existing inspection exception only when provable, preserving the wire's bounded, path-free `failureCode`. Regression: missing/unreadable/unsupported source and existing FFprobe/capacity/duplicate cases.
+
+5. **Import, Operations and SSE remain separate:** The browser reads the authorized paginated source list; Core's catalog drives preview requests via the existing Agent observation response, and import is a protected Agent command with durable receipt/revalidation, recording reconciliation and readback. The frontend listens to source `update/resync` and Operation SSE and re-reads only on events/reconnect. No scheduled Operation polling or second import implementation is needed. Regression: frontend media-import composition, agent dispatch, Core catalog, operation/readback and SSE reconnect.
+
+## Sequence and evidence boundary
+
+BAS.2: remove only the independently proven extra full scans on legacy read helpers without weakening mutations. BAS.3: refine source-specific error classification within existing codes/protocol bounds. BAS.4: review the repeated verification paths against actual use; keep any independent use-time authority and authorization fences. BAS.5: focused source/CI tests and targeted live yaVDR CLI/Web/import/SSE/readback acceptance, **not** inferred from hosted CI.
+
+Status: `BAS.1 SOURCE-CALL-CHAIN DOCUMENTED`; real call-count benchmarking, executed tests and live acceptance remain separate.
