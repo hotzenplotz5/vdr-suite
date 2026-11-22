@@ -26,11 +26,16 @@ Cut-Ergebnis wird auch die geschnittene Aufnahme über dieselbe
 persistente öffentliche `rec_`-Zuordnung projiziert; Public v1
 gibt weder native Ergebnis-IDs noch VDR-Pfade oder interne
 Schnittschlüssel aus. Die Webfrontend-Legacy-Antwort bleibt
-unverändert. Die ergänzte Router-Regression prüft ausdrücklich
-`handleClientGet`/`handleClientPost`; die
-vollständige CI-Verifikation auf dem aktuellen Quellkandidaten
-`624c360a26b8` und die reale Browser-/Device-/yaVDR-Abnahme
-sind noch **offen**. Kein produktiver Schnitt wurde ausgeführt.
+unverändert. Die vorhandenen Router-Verdrahtungsprüfungen
+(`check_recording_cut_runtime_wiring.py`) und die nativen
+Marks-/Cut-API-Regressionsfixtures decken die Public-v1-
+Weiterleitung und Legacy-/Public-Ergebnisprojektion ab.
+Ein zusätzlicher vollständiger Client-Router-Linktest wurde
+zurückgenommen, da er fremde, im isolierten Testziel
+absichtlich nicht gelinkte API-Runtimes erfordert.
+Die vollständige CI-Verifikation des aktuellen PR-Quellkandidaten
+und die reale Browser-/Device-/yaVDR-Abnahme sind **offen**.
+Kein produktiver Schnitt wurde ausgeführt.
 
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 

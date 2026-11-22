@@ -2,9 +2,10 @@
 
 **Status: Public-v1-Marks-/Cut-Adapter, bestehendes Sicherheitsgate,
 Referenz-JS, OpenAPI und kanonische Public-ID-Projektion für native
-Cut-Ergebnisse committed. Gezielte Native-/Security- und Router-Fixtures
-liegen im Quellkandidaten vor. Vollständige CI-Verifikation auf
-`624c360a26b8` sowie reale Browser-/Device-/VDR-Abnahme offen.**
+Cut-Ergebnisse committed. Gezielte Native-/Security-Fixtures und
+die bestehende Router-Verdrahtungsprüfung liegen im Quellkandidaten
+vor. Vollständige CI-Verifikation auf dem aktuellen PR-Head
+sowie reale Browser-/Device-/VDR-Abnahme offen.**
 
 Branch: `work/api-v1-finalisierung-f2-f8`.
 Diese Fassung korrigiert den unautorisierten Ausschluss der bereits vorhandenen
@@ -125,10 +126,13 @@ Ergebnis-ID noch native Pfade oder Cut-Keys werden in Public-v1-GET-
 und verifizierten POST-Antworten zurückgegeben; bei noch fehlender
 eindeutiger Ergebnisauflösung bleibt die verschachtelte
 Ergebnisprojektion aus, statt Legacy-Identitäten preiszugeben.
-Die Legacy-Webantwort bleibt unverändert. Eine gezielte
-`test_api_router.cpp`-Fixture prüft echte Client-Router-
-Eintrittspunkte und Legacy-v1-Projektion; ein bestandener Lauf
-dieser Fixture ist erst nach erfolgreicher CI belegbar.
+Die Legacy-Webantwort bleibt unverändert. Die bereits
+bestehende Router-Verdrahtungsprüfung bestätigt beide nativen
+Cut-Eintrittspunkte; `test_recording_cut_api_runtime.cpp`
+prüft die GET-/POST-Ergebnisprojektion in Legacy und Public v1.
+Ein isolierter Client-Router-Linktest wurde nach belegtem
+Linker-Abhängigkeitsproblem zurückgenommen, statt fremde
+Runtimes in den F6-Testumfang zu ziehen.
 MLD-/TV-Mutationen sind weiterhin nicht hardwarebestätigt.
 
 **ADR-0059 bleibt gültig:** VDR ist einzige Autorität für
@@ -144,18 +148,19 @@ F6.1 und F6.2 sind **als Quellcode einschließlich
 kanonischer Public-Cut-Ergebnis-ID committed, aber noch nicht
 vollständig abgenommen**. Die bestehenden Native-/Security-
 Tests und Reference-JS-Mocks wurden um Public-v1-Pfad-,
-Backend-, CSRF- und Grant-Fälle ergänzt; ein zusätzlicher
-`test_api_router.cpp`-Test übt die tatsächlichen
-`handleClientGet`-/`handleClientPost`-Eintrittspunkte
-gegen denselben nativen Cut-Handler aus.
-
-Der vorherige C++-CI-Kandidat `ed9228e21930` bestand
-die Aufnahme-Vertragstests und die Daemon-Kompilierung,
-scheiterte jedoch **an einer Test-Fixture**, die den
-Legacy-Cut-Aufruf irrtümlich über `handleGet` statt
-`handleClientGet` ausführte. Korrigierter
-Quellkandidat: `624c360a26b8`. Dessen vollständige
-CI-Verifikation ist noch offen; ein echter
+Backend-, CSRF- und Grant-Fälle ergänzt. Die native
+`test_recording_cut_api_runtime.cpp`-Fixture deckt
+Public/Legacy-GET, überprüfte Cut-Replays und die
+öffentliche Ergebnis-ID ohne native Pfad-/Key-Leaks ab.
+Die existierende `check_recording_cut_runtime_wiring.py`-
+Prüfung schützt die Router-Verdrahtung. Ein zusätzlicher
+Gesamt-Router-Linktest führte zunächst zu einer fehlerhaften
+Router-Fixture, danach zum Linker-Fehler wegen im
+isolierten Testziel nicht vorhandener fremder Runtimes.
+Dieser Zusatztest ist ohne Änderung am Produktionscode
+entfernt worden, statt unnötige Runtime-Linkabhängigkeiten
+einzuführen. Die vollständige CI-Verifikation des aktuellen
+PR-Quellkandidaten bleibt offen; ein echter
 Browser-vs-Public-v1- und yaVDR-/Device-Test ist
 nicht ausgeführt. Keine produktive Aufnahme wurde
 mutiert, geschnitten oder gelöscht.

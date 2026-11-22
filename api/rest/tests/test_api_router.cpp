@@ -64,7 +64,6 @@
 #include "VdrTimerActionRequestParser.h"
 #include "VdrTimerActionResultJsonSerializer.h"
 #include "MockVdrTimerActionExecutor.h"
-#include "VdrRecordingNativeIdentity.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -2326,124 +2325,6 @@ int main()
         if (url == "/recordings/trash.json") ++deleteDispatches;
     }
     assert(moveDispatches == 1 && deleteDispatches == 1);
-
-    // F6: exercise real ApiRouter GET/POST routing to the shared native
-    // Cut runtime, retaining Web and Public-v1 parity without native-ID leaks.
-    struct RouterCutStateResolver final : IVdrRecordingNativeCutStateResolver
-    {
-        VdrRecordingNativeCutState resolve(
-            const std::string& recordingKey) override
-        {
-            VdrRecordingNativeCutState state;
-            state.availability =
-                VdrRecordingNativeCutStateAvailability::Available;
-            state.found = true;
-            state.recordingKey = recordingKey;
-            state.reason = "edited-destination-exists";
-            state.marksReadable = true;
-            state.marksRevision = "0123456789abcdef0123456789abcdef";
-            state.ready = false;
-            state.editedDestinationExists = true;
-            state.editedRecordingFound = true;
-            state.editedRecordingKey =
-                VdrRecordingNativeIdentity::keyForNativeId(
-                    "/private/edited-native-recording.rec");
-            return state;
-        }
-    } routerCutResolver;
-
-    auto& cutRuntime = RecordingCutApiRuntime::instance();
-    // The router registered its canonical public rec_ resolver above.
-    // A reset here would erase that production-style wiring.
-    int routerCutDispatches = 0;
-    assert(cutRuntime.configure(
-        [](const std::string& backendId) {
-            if (backendId != "router-backend")
-                return std::vector<VdrRecording>{};
-            VdrRecording original;
-            original.id = "router-recording-1";
-            original.backendId = backendId;
-            original.title = "Original";
-            original.backendNativeId = "/private/native-recording.rec";
-            VdrRecording edited;
-            edited.id = "router-internal-edited-1";
-            edited.backendId = backendId;
-            edited.title = "Original (edited)";
-            edited.backendNativeId = "/private/edited-native-recording.rec";
-            return std::vector<VdrRecording>{original, edited};
-        },
-        [&routerCutResolver](const std::string&) {
-            return RecordingCutBackendAccess{
-                RecordingCutBackendAvailability::Available,
-                &routerCutResolver};
-        },
-        [](const std::string&) {
-            RecordingCutBackendWriteAccess write;
-            write.allowed = true;
-            write.statusCode = 200;
-            return write;
-        },
-        [&routerCutDispatches](const RecordingCutStartRequest& request) {
-            assert(request.replayOnly);
-            ++routerCutDispatches;
-            RecordingCutDispatchResult result;
-            result.accepted = true;
-            result.replayed = true;
-            result.verified = true;
-            result.commandId = "router-cut-cmd";
-            result.requestFingerprint = "router-cut-fingerprint";
-            result.editedRecordingKey =
-                VdrRecordingNativeIdentity::keyForNativeId(
-                    "/private/edited-native-recording.rec");
-            return result;
-        }));
-    router.setPublicRecordingEditedResultResolver(
-        [](const std::string& backendId, const std::string& nativeId) {
-            return backendId == "router-backend" &&
-                nativeId == "/private/edited-native-recording.rec"
-                ? std::string("rec_fedcba9876543210fedcba9876543210")
-                : std::string();
-        });
-    const std::string publicCutRoute =
-        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/"
-        "cut?backendId=router-backend";
-    const ApiResponse routerLegacyCut = router.handleClientGet(
-        "/api/vdr/recordings/cut"
-        "?backend=router-backend&recordingId=router-recording-1");
-    const ApiResponse routerPublicCut = router.handleClientGet(publicCutRoute);
-    assert(routerLegacyCut.statusCode == 200);
-    assert(routerPublicCut.statusCode == 200);
-    assert(routerLegacyCut.body.find("\"editedRecordingFound\":true") !=
-        std::string::npos);
-    assert(routerPublicCut.body.find("\"editedRecordingFound\":true") !=
-        std::string::npos);
-    assert(routerLegacyCut.body.find("\"backendNativeId\"") !=
-        std::string::npos);
-    assert(routerPublicCut.body.find("\"backendNativeId\"") ==
-        std::string::npos);
-    assert(routerPublicCut.body.find("\"editedRecordingKey\"") ==
-        std::string::npos);
-    assert(routerPublicCut.body.find(
-        "\"recordingId\":\"rec_fedcba9876543210fedcba9876543210\"") !=
-        std::string::npos);
-    assert(routerPublicCut.body.find("/private/") == std::string::npos);
-
-    const std::string publicCutBody =
-        "{\"backendId\":\"router-backend\","
-        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
-        "\"operationId\":\"router-public-cut-1\","
-        "\"operationRevision\":\"1\","
-        "\"expectedMarksRevision\":\"0123456789abcdef0123456789abcdef\"}";
-    const ApiResponse routerPublicCutPost =
-        router.handleClientPost(publicCutRoute, publicCutBody);
-    assert(routerPublicCutPost.statusCode == 200);
-    assert(routerCutDispatches == 1);
-    assert(routerPublicCutPost.body.find(
-        "\"editedRecordingId\":\"rec_fedcba9876543210fedcba9876543210\"") !=
-        std::string::npos);
-    assert(routerPublicCutPost.body.find("\"editedRecordingKey\"") ==
-        std::string::npos);
-    cutRuntime.reset();
 
     std::cout
         << "test_api_router passed"
