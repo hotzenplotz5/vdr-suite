@@ -250,6 +250,20 @@ sind **nicht** automatisch 1:1 gleichwertig. Die
 [Web-vs-Public-v1 F4-Matrix](../../docs/development/api-v1-f4-recording-metadata-artwork-parity.md)
 dokumentiert die bekannten Grenzen vor einer Web-Migration.
 
+## API.V1.F5.1 – Native Timer snapshot and conditional detail
+
+`getNativeTimers({query:{backendId,offset,limit},headers})` reads the
+existing VDR-owned `GET /api/v1/native-timers` snapshot with
+offset pagination (maximum `limit:30`). `getNativeTimer({timerId,backendId,
+ifNoneMatch,headers})` reads an exact native Timer item and returns
+`{status,etag,data}`; a verified bound item may yield HTTP 304.
+An unbound item has no guaranteed ETag. Both operations are read-only.
+
+These are **not** `TimerAssignments` or `TimerIntents` and cannot
+replace the existing browser's live Timer editor or arbitrary CREATE.
+No native Timer modification or delete helper is introduced in F5.1.
+The previously proved yaVDR Timer write lifecycle is not repeated.
+
 ## API.V1.F6 — Native Marks/Cut source candidate
 
 The reference client exposes `getRecordingMarks`, `getRecordingCutState`,

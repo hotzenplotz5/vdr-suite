@@ -1699,6 +1699,47 @@
     }
 
 
+    // Native timers are current VDR snapshot resources, not TimerAssignments.
+    // Keep their backendId/offset paging distinct from SearchTimer/Assignment
+    // cursors and preserve the server's conditional ETag semantics on detail.
+    function nativeTimerListQuery(query) {
+      if (!query || typeof query !== 'object' || Array.isArray(query) ||
+          typeof query.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId))
+        throw new Error('Native Timer backendId required');
+      const allowed = new Set(['backendId', 'offset', 'limit']);
+      Object.keys(query).forEach(key => {
+        if (!allowed.has(key))
+          throw new Error('Unsupported native Timer query: ' + key);
+      });
+      const params = new URLSearchParams();
+      params.set('backendId', query.backendId);
+      if (query.offset !== undefined) {
+        if (!Number.isInteger(query.offset) ||
+            query.offset < 0 || query.offset > 100000)
+          throw new Error('Native Timer offset must be 0..100000');
+        params.set('offset', String(query.offset));
+      }
+      if (query.limit !== undefined) {
+        if (!Number.isInteger(query.limit) ||
+            query.limit < 1 || query.limit > 30)
+          throw new Error('Native Timer limit must be 1..30');
+        params.set('limit', String(query.limit));
+      }
+      return '?' + params.toString();
+    }
+
+    function nativeTimerItemPath(options) {
+      if (!options || typeof options !== 'object' ||
+          typeof options.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
+          typeof options.timerId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(options.timerId))
+        throw new Error('Canonical native Timer ID and backendId required');
+      return '/api/v1/native-timers/' + options.timerId +
+        '?backendId=' + encodeURIComponent(options.backendId);
+    }
+
     function playbackAccountAdminPath(input) {
       if (!input || typeof input.deviceId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.deviceId))
@@ -2318,6 +2359,15 @@
       getSearchTimer(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(searchTimerDetailPath(normalizedOptions), normalizedOptions);
+      },
+      getNativeTimers(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/native-timers' +
+          nativeTimerListQuery(input.query), input);
+      },
+      getNativeTimer(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(nativeTimerItemPath(input), input);
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

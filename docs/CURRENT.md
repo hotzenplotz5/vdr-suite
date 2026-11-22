@@ -1,5 +1,16 @@
 # VDR-Suite Current State
 
+## API.V1.F5.1 – Public-v1 Native-Timer-Reads (22.11.2026)
+
+Der Reference-JS-Client erhält die bereits serverseitig existierenden
+Native-Timer-Snapshot-/Detail-GETs mit Offset/Limit und
+`If-None-Match`-/304-Vertrag. Ein reiner HTTP-Mock prüft
+Request-Pfade, exakt einen Backend-Scope und ETag-Verhalten
+im bestehenden `test-ci-fast`-Lauf. **Keine Timeränderung**,
+keine Web-Timer-Migration und keine Gleichsetzung von native
+Timer, TimerAssignment oder TimerIntent. F5-Interop-Deltas
+bleiben bis zur echten MLD-/Browser-Paritätsprüfung offen.
+
 ## API.V1.F7.3 – Kombinierter Device-Resume-Vertrag (22.11.2026)
 
 Der vorhandene `test-public-v1-recording-progress-client`-Lauf

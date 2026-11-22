@@ -68,6 +68,19 @@ F6 ist bis zu dieser Abnahme **nicht abgeschlossen**.
 F5 Timer/Suchtimer bleibt für MLD-Testfeedback zurückgestellt;
 F7 und F8 bleiben eigenständige Folgeslices.
 
+## API.V1.F5.1 – Native Timer Reads im Reference-JS-Client (22.11.2026)
+
+Nach den F6-/F7-Quellkandidaten ist als enger, lesender
+F5-Abgleich `GET /api/v1/native-timers` und
+`GET /api/v1/native-timers/{timerId}` mit Offset/Limit,
+backendgebundener Identität und optionalem
+`If-None-Match` ergänzt. Ein Mock deckt GET/304 ab.
+Das **ändert weder den Timer im VDR noch die bestehenden
+Web-Timeraktionen**. Native Timer, TimerAssignments und
+TimerIntents werden ausdrücklich nicht gleichgesetzt.
+F5-Mutations- und MLD-Interop-Abgleich bleibt zurückgestellt;
+realer gemeinsamer Test erfolgt erst F8.
+
 ## API.V1.F5 – Timer/Suchtimer bewusst zurückgestellt (21.11.2026)
 
 **Betreiberentscheidung:** F5 wird nicht als weiterer sofortiger Timer-/Suchtimer-
