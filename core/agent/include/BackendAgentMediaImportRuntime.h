@@ -76,6 +76,13 @@ public:
         bool& partial, const std::string& selectedSourceId,
         const std::string& codecHint, std::uint64_t durationHint,
         vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
+    bool listTrustedSourceObservationWithEvidence(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview,
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& installed) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;
