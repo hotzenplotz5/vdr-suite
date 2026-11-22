@@ -87,6 +87,7 @@ const publicClient = {
           {permission: 'recordings.delete', presentationKey: 'recordings.delete', category: 'permission'},
           {permission: 'recordings.marks.modify', presentationKey: 'recordings.marks.modify', category: 'permission'},
           {permission: 'recordings.cut', presentationKey: 'recordings.cut', category: 'permission'},
+          {permission: 'recordings.execute', presentationKey: 'recordings.execute', category: 'permission'},
           {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'},
           {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],

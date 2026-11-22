@@ -33,6 +33,13 @@ Der bestehende `role.read-only`-Schutz, Backend-Scope,
 Native-Revision, Agent-/Provider-Fencing, In-use-Schutz,
 Einmal-Dispatch und VDR-Readback gelten unverändert.
 
+**Wichtig:** Die bestehende Device-Grant-Allowlist erteilt
+`recordings.edit` derzeit **nicht** an TV-/Service-Actors.
+Die Freigabe von Recording-Mutationen für Geräte muss im
+separaten Public-v1-Marks-/Cut-Adapter unter den geprüften
+Device-/Backend-Scopes erfolgen. Eine Konto-Bearbeitungsberechtigung
+ist keine implizite Genehmigung jedes gekoppelten Geräts.
+
 **Nicht** impliziert sind Playback (`media.recording.play`),
 `recordings.execute` als unbekannter/fallback Action-Code,
 Metadatenzuordnung, Add-on-Aktionen, Timer und andere Schreibrechte.

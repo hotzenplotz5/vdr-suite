@@ -442,7 +442,8 @@
                 return candidate && candidate.permission === 'recordings.edit';
               }) && [
                 'recordings.rename', 'recordings.move', 'recordings.delete',
-                'recordings.marks.modify', 'recordings.cut'
+                'recordings.marks.modify', 'recordings.cut',
+                'recordings.execute'
               ].includes(option.permission)) return false;
               // Exact and globally granted rights need no duplicate entry.
               if (activeGrants.some(function(grant) {
@@ -470,7 +471,8 @@
             choices.forEach(function(option) {
               const label = permissionLabel(option.permission, permissionOptions);
               appendOption(group, option.permission,
-                label === option.permission ? label : label + ' — ' + option.permission,
+                label === option.permission || option.permission === 'recordings.edit'
+                  ? label : label + ' — ' + option.permission,
                 false);
               available.push(option.permission);
             });
