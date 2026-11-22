@@ -17,8 +17,13 @@ oder unerkannte Recording-Aktionen.
 Zusätzlich sind nun vier öffentliche Marks-/Cut-GET/POST-Routen
 über dieselben nativen Runtime-Handler verdrahtet; passende
 OpenAPI-, JS-Client- und C++-Security-/Identitätstests liegen vor.
-Isolierte JS- und C++-Header-Tests PASS, voller C++-Build/CI und
-gleichwertige Browser-/Device-/yaVDR-Abnahme **offen**.
+Die gemeinsame persistente `rec_`-Zuordnung wird für native
+Marks/Cut-GET/POST wiederverwendet und per Mock-C++-Tests
+auf Antwort-IDs und Dispatch-Identität geprüft.
+Der optional vergebbare Device-Grant `recordings.edit@backendId`
+ist auf konkrete Backends begrenzt. Public-v1-Acceptance-Runner
+PASS auf Quellkandidat `5a5e373ec810`; vollständiger
+C++-Build/CI und Browser-/Device-/yaVDR-Abnahme **offen**.
 Kein Recording-Schnitt wurde ausgeführt.
 
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)

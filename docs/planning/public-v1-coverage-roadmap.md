@@ -23,10 +23,13 @@ reale Installation ausstehend.
 **F6.2 Quellcode committed:** Vier öffentliche
 `/api/v1/recordings/{recordingId}/{marks|cut}` GET-/POST-
 Operationen nutzen unverändert den nativen SuiteBridge-Pfad.
-Strict `rec_`-Identity, `backendId`-Scope, POST-Body-
-Gleichheit, CSRF und existierende native Schutzprüfungen
+Strict `rec_`-Identity (über denselben persistierten Resolver
+wie bestehende Public Recording-Aktionen), `backendId`-Scope,
+POST-Body-Gleichheit, CSRF und existierende native Schutzprüfungen
 liegen in Code, OpenAPI und Referenzclient vor.
-JS-HTTP-Mock PASS, isolierter C++-Header-Check PASS;
+JS-HTTP-Mock und Public-v1-Vertragsrunner PASS,
+isolierter C++-Header-Check PASS; expliziter
+Device-`recordings.edit`-Grant ohne Auto-Privilege;
 C++-Build, Native-/Security-Integrationstests und
 Web-vs-v1-/yaVDR-Endabnahme bleiben offen.
 F6 ist bis zu dieser Abnahme **nicht abgeschlossen**.

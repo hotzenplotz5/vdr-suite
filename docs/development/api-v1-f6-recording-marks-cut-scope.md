@@ -80,6 +80,14 @@ Neu im Quellcode und OpenAPI:
 Der Adapter verwendet **die existierenden** `RecordingMarksApiRuntime`/
 `RecordingCutApiRuntime`-Handler, die bereits mit Agent und
 SuiteBridge verbunden sind; kein zweiter Writer/Schneidepfad.
+Die öffentliche `rec_`-ID wird nicht als native Cache-ID missverstanden:
+Die Registrierung über `ApiRouter::setPublicRecordingActionResolver`
+verwendet denselben persistenten `PublicRecordingPlaybackTargetResolver`
+wie Public Recording-Aktionen. Die nachgeschlagene native Identität
+wird vor dem SuiteBridge-Aufruf erneut gegen die aktuelle Cache-Bindung
+geprüft; öffentliche JSON-Responses behalten die ursprüngliche
+`rec_`-ID. Native Pfade und das interne Aufnahmeschlüsselmaterial
+werden nicht als Client-Mutationsziel akzeptiert.
 Die neuen Pfade werden im Router vor dem generischen v1-404
 zugestellt; Legacy-Routen bleiben erhalten. Der SecurityHttpGate
 verwendet backendgebundenes `recordings.view` für GET und
@@ -102,9 +110,16 @@ teilweise `application/json` mit `error.code`, während
 andere Public-v1-Routen `application/problem+json`
 verwenden. Die semantische Gleichwertigkeit von
 Browser-/Device-Transport, Fehlercodes und Status muss
-am gematchten Kandidaten getestet werden. Device-Grant-
-Kataloge liefern das neue Sammelrecht noch nicht automatisch,
-und F6 behauptet keine bestätigten MLD-/TV-Mutationen.
+am gematchten Kandidaten getestet werden. Die neue
+Device-Berechtigung `recordings.edit` ist als **explizit
+admin-vergebbarer, konkreter Backend-Grant** im Katalog
+und in beiden Device-Clients vorhanden; Pairing oder
+Playback erteilen sie nicht automatisch.
+Die öffentliche Antwort zur bereits fertig geschnittenen
+Aufnahme kann noch eine legacy-interne Ergebnis-ID enthalten:
+die kanonische Public-Result-ID-Projektion ist vor
+F6-Endabnahme gesondert zu vergleichen.
+MLD-/TV-Mutationen sind weiterhin nicht hardwarebestätigt.
 
 **ADR-0059 bleibt gültig:** VDR ist einzige Autorität für
 Marks, Index und Schneiden; Kontrollplan, Agent und SuiteBridge
