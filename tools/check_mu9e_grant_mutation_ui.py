@@ -56,9 +56,10 @@ def main():
     forbid("ui", ".innerHTML")
 
     # Product authorization remains server-owned; no copied permission catalogue
-    # belongs in the browser source.
+    # belongs in the browser source. An exact 'role.admin' grant comparison
+    # is allowed solely to suppress redundant picker entries for administrators;
+    # it does not enumerate or award the administrator's permissions.
     for marker in (
-        "role.admin",
         "role.read-only",
         "channels.view",
         "timers.view",

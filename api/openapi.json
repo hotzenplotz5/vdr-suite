@@ -52,6 +52,10 @@
       "description": "Global administrator-only secret-free Credential/Browser Session metadata and safe lifecycle revocation"
     },
     {
+      "name": "Recording editing",
+      "description": "Native VDR Recording marks and cut via the existing protected control plane and backend-scoped Recording grants"
+    },
+    {
       "name": "Recording browse",
       "description": "Authorized Suite recording identity, bounded keyset recording collection and folder-aware view"
     },

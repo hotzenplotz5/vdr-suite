@@ -152,6 +152,27 @@ RECORDING_ACTION_AUDITED = {
     },
 }
 
+# F6 Public-v1 operations reuse the existing native RecordingMarks/Cut
+# owners. Audit both dispatch reachability and URL/body identity checks.
+RECORDING_NATIVE_EDITING_AUDITED = {
+    "/api/v1/recordings/{recordingId}/marks": {
+        "get": ("RecordingMarksApiRuntime::instance().tryHandleGet(",
+                "isPublicRecordingMarks", "RecordingMarksApiRuntime.cpp"),
+        "post": ("RecordingMarksApiRuntime::instance().tryHandlePost(",
+                 "isRecordingMarksModifyAction", "RecordingMarksApiRuntime.cpp"),
+    },
+    "/api/v1/recordings/{recordingId}/cut": {
+        "get": ("RecordingCutApiRuntime::instance().tryHandleGet(",
+                "isPublicRecordingCut", "RecordingCutApiRuntime.cpp"),
+        "post": ("RecordingCutApiRuntime::instance().tryHandlePost(",
+                 "isRecordingCutAction", "RecordingCutApiRuntime.cpp"),
+    },
+}
+
+RECORDING_NATIVE_ROUTER = ROOT / "api/rest/include/ApiRouter.h"
+RECORDING_NATIVE_MARKS = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
+RECORDING_NATIVE_CUT = ROOT / "api/rest/src/RecordingCutApiRuntime.cpp"
+
 DEVICE_AUDITED = {
     "/api/v1/recording-playback-sessions/continue-watching": {
         "get": ('const std::string continuePath = collection + "/continue-watching";',
@@ -322,6 +343,9 @@ def validate(
     security_source: str | None = None,
     recording_router_source: str | None = None,
     epg_artwork_http_source: str | None = None,
+    native_router_source: str | None = None,
+    native_marks_source: str | None = None,
+    native_cut_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -333,6 +357,12 @@ def validate(
         recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
     if epg_artwork_http_source is None:
         epg_artwork_http_source = EPG_ARTWORK_HTTP.read_text(encoding="utf-8")
+    if native_router_source is None:
+        native_router_source = RECORDING_NATIVE_ROUTER.read_text(encoding="utf-8")
+    if native_marks_source is None:
+        native_marks_source = RECORDING_NATIVE_MARKS.read_text(encoding="utf-8")
+    if native_cut_source is None:
+        native_cut_source = RECORDING_NATIVE_CUT.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -348,7 +378,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -384,6 +414,7 @@ def validate(
         errors.append("Device Recording playback composition handler disappeared")
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+        **RECORDING_NATIVE_EDITING_AUDITED,
         **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED
     }.items():
         data = paths.get(path)
@@ -418,6 +449,29 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in RECORDING_NATIVE_EDITING_AUDITED:
+                router_marker, gate_marker, native_owner = marker
+                native_source = (
+                    native_marks_source if native_owner == "RecordingMarksApiRuntime.cpp"
+                    else native_cut_source
+                )
+                if native_router_source.count(router_marker) != 1:
+                    errors.append(f"{where}: expected exactly one native Editing router owner")
+                if gate_marker not in security_source or (
+                    "isPublicRecordingEditRead" not in security_source or
+                    "isPublicRecordingRead" not in security_source):
+                    errors.append(f"{where}: Recording SecurityHttpGate scope/permission admission missing")
+                if 'PublicRecordingEditRoute::matchPath(' not in native_source or (
+                    'request.request.recordingId != publicRecordingId' not in native_source or
+                    'request.request.backendId != backendId' not in native_source):
+                    errors.append(f"{where}: public Recording path/body identity check absent")
+                public_dispatch = "PublicApiRuntime::instance().tryHandle" + (
+                    "Get(" if method == "get" else "Post("
+                )
+                if public_dispatch not in native_router_source or (
+                    native_router_source.index(router_marker) >
+                    native_router_source.index(public_dispatch)):
+                    errors.append(f"{where}: native Recording owner must precede v1 fallback")
             elif path in DEVICE_AUDITED:
                 device_marker, gate_marker = marker
                 if device_marker not in device_source:
@@ -511,7 +565,7 @@ def main() -> int:
             print(f"- {message}")
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-             **EPG_ARTWORK_AUDITED}
+             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 
