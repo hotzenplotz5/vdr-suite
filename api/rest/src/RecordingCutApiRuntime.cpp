@@ -1,6 +1,7 @@
 #include "RecordingCutApiRuntime.h"
 
 #include "VdrRecordingNativeIdentity.h"
+#include "PublicRecordingEditRoute.h"
 
 #include <algorithm>
 #include <cctype>
@@ -681,10 +682,29 @@ bool RecordingCutApiRuntime::tryHandleGet(
     const std::string& requestTarget,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingCutRoute) return false;
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/cut", publicRecordingId);
+    if (!publicV1 && path != RecordingCutRoute) return false;
+
+    std::string translated = requestTarget;
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId))
+        {
+            response = errorResponse(400, "recording_cut_request_invalid");
+            return true;
+        }
+        translated = std::string(RecordingCutRoute) +
+            "?backend=" + backendId + "&recordingId=" + publicRecordingId;
+    }
 
     Request request;
-    if (!parseRequest(requestTarget, request))
+    if (!parseRequest(translated, request))
     {
         response = errorResponse(400, "recording_cut_request_invalid");
         return true;
@@ -746,8 +766,12 @@ bool RecordingCutApiRuntime::tryHandlePost(
     const std::string& body,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingCutRoute) return false;
-    if (requestTarget != RecordingCutRoute)
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/cut", publicRecordingId);
+    if (!publicV1 && path != RecordingCutRoute) return false;
+    if (!publicV1 && requestTarget != RecordingCutRoute)
     {
         response = errorResponse(400, "recording_cut_start_request_invalid");
         return true;
@@ -758,6 +782,20 @@ bool RecordingCutApiRuntime::tryHandlePost(
     {
         response = errorResponse(400, "recording_cut_start_request_invalid");
         return true;
+    }
+
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId) ||
+            request.request.recordingId != publicRecordingId ||
+            request.request.backendId != backendId)
+        {
+            response = errorResponse(400, "recording_cut_start_request_invalid");
+            return true;
+        }
     }
 
     RecordingLookup recordingLookup;

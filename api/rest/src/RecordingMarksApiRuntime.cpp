@@ -1,6 +1,7 @@
 #include "RecordingMarksApiRuntime.h"
 
 #include "VdrRecordingNativeIdentity.h"
+#include "PublicRecordingEditRoute.h"
 
 #include <algorithm>
 #include <cctype>
@@ -760,10 +761,29 @@ bool RecordingMarksApiRuntime::tryHandleGet(
     const std::string& requestTarget,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingMarksRoute) return false;
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/marks", publicRecordingId);
+    if (!publicV1 && path != RecordingMarksRoute) return false;
+
+    std::string translated = requestTarget;
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId))
+        {
+            response = errorResponse(400, "recording_marks_request_invalid");
+            return true;
+        }
+        translated = std::string(RecordingMarksRoute) +
+            "?backend=" + backendId + "&recordingId=" + publicRecordingId;
+    }
 
     Request request;
-    if (!parseRequest(requestTarget, request))
+    if (!parseRequest(translated, request))
     {
         response = errorResponse(400, "recording_marks_request_invalid");
         return true;
@@ -804,8 +824,12 @@ bool RecordingMarksApiRuntime::tryHandlePost(
     const std::string& body,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingMarksRoute) return false;
-    if (requestTarget != RecordingMarksRoute)
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/marks", publicRecordingId);
+    if (!publicV1 && path != RecordingMarksRoute) return false;
+    if (!publicV1 && requestTarget != RecordingMarksRoute)
     {
         response = errorResponse(400, "recording_marks_mutation_request_invalid");
         return true;
@@ -816,6 +840,20 @@ bool RecordingMarksApiRuntime::tryHandlePost(
     {
         response = errorResponse(400, "recording_marks_mutation_request_invalid");
         return true;
+    }
+
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId) ||
+            request.request.recordingId != publicRecordingId ||
+            request.request.backendId != backendId)
+        {
+            response = errorResponse(400, "recording_marks_mutation_request_invalid");
+            return true;
+        }
     }
 
     RecordingLookup recordingLookup;
