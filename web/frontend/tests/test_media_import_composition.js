@@ -154,6 +154,7 @@ async function settle() {
 let allow = true;
 let confirmLocal = true;
 let confirmCalls = 0;
+let lastConfirmation = '';
 let sourcesStatus = 200;
 let state = 'dispatching';
 let cleanupState = '';
@@ -514,7 +515,11 @@ const context = {
     }
   },
   location: {origin: 'https://suite.test'},
-  confirm() { ++confirmCalls; return confirmLocal; },
+  confirm(message) {
+    ++confirmCalls;
+    lastConfirmation = String(message || '');
+    return confirmLocal;
+  },
   setTimeout(fn, delay) {
     timerCallbacks.push(fn);
     timerDelays.push(delay);
@@ -3302,8 +3307,15 @@ function renderHevcHomeActivity() {}
   previewAvailableBytes = 9000000000;
   previewNfoPlot = 'NFO wurde nach dem ersten Codec-Check aktualisiert.';
   const metadataChecksBefore = checksFor(SOURCE);
+  const autoReadsBeforeSameSource = onlineRequests.length;
   reloadedEpisodes.listeners.change();
   await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeSameSource,
+    'same-source NFO/capacity refresh retains the confirmed automatic TMDb match');
+  const confirmedAfterSameSource = findClass(mount, 'media-import-online-confirmed');
+  assert(confirmedAfterSameSource &&
+    confirmedAfterSameSource.children[0].textContent.includes('Pilot'),
+    'repeated preview must not discard an automatic episode identity');
   assert.strictEqual(checksFor(SOURCE), metadataChecksBefore + 1,
     'same source requests current metadata and capacity exactly once');
   const newCapacityFact = findClass(mount, 'media-import-preview-facts').children
@@ -3316,8 +3328,11 @@ function renderHevcHomeActivity() {}
   previewAvailableBytes = 12000000000;
   previewNfoPlot = 'Eine Handlung aus der tatsächlichen .nfo-Datei.';
   const beforeManualRecheck = checksFor(SOURCE);
+  const autoReadsBeforeManualRecheck = onlineRequests.length;
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeManualRecheck,
+    'manual technical recheck keeps the same already-confirmed automatic TMDb identity');
   assert.strictEqual(checksFor(SOURCE), beforeManualRecheck + 1,
     'the explicit recheck does exactly one fresh technical request');
   // Local source artwork stays authoritative, while the episode still has
@@ -3360,7 +3375,13 @@ function renderHevcHomeActivity() {}
     'automatic metadata lookup never imports, marks or changes VDR media');
   // Multiple equally plausible provider IDs must not be silently chosen.
   onlineMode = 'ambiguous';
+  // Change the opaque source first: a same-source technical refresh is
+  // intentionally no longer allowed to erase a confirmed TMDb selection.
+  onlineSelect.value = SOURCE_B;
+  onlineSelect.listeners.change();
+  await settle();
   const beforeAmbiguousRequests = onlineRequests.length;
+  onlineSelect.value = SOURCE;
   onlineSelect.listeners.change();
   await settle();
   assert.strictEqual(onlineRequests.length - beforeAmbiguousRequests, 1,
@@ -3376,6 +3397,16 @@ function renderHevcHomeActivity() {}
   await settle();
   const resolveOldAuto = resolveOnlineReply;
   assert.strictEqual(typeof resolveOldAuto, 'function');
+  const beforePendingImport = submits;
+  confirmLocal = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(lastConfirmation.includes('TMDb-Abgleich läuft noch') &&
+    lastConfirmation.includes('nur lokale Metadaten'),
+    'an unresolved automatic lookup is disclosed in the existing import confirmation');
+  assert.strictEqual(submits, beforePendingImport,
+    'cancelling the ordinary import confirmation creates no operation');
+  confirmLocal = true;
   onlineMode = 'offline';
   onlineSelect.value = SOURCE_B;
   onlineSelect.listeners.change();
@@ -3509,6 +3540,15 @@ function renderHevcHomeActivity() {}
   await settle();
   assert(findClass(mount, 'media-import-online-status').textContent.includes('lokale Daten'));
   assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null);
+  confirmLocal = false;
+  const offlineSubmits = submits;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(lastConfirmation.includes('keine TMDb-Auswahl bestätigt') &&
+    lastConfirmation.includes('nur lokale Metadaten'),
+    'offline import remains possible with a clear local-only notice in the existing confirmation');
+  assert.strictEqual(submits, offlineSubmits);
+  confirmLocal = true;
   assert(findClass(mount, 'media-import-local-metadata') &&
     findClass(mount, 'media-import-artwork'),
     'offline fallback retains local information and images');
