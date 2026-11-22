@@ -148,7 +148,11 @@ public:
 
     void setPublicRecordingActionResolver(PublicRecordingActionResolver resolver)
     {
-        publicRecordingActionResolver_ = std::move(resolver);
+        // Reuse one persistent rec_ binding across all Recording owners.
+        publicRecordingActionResolver_ = resolver;
+        RecordingMarksApiRuntime::instance().setPublicRecordingResolver(resolver);
+        RecordingCutApiRuntime::instance().setPublicRecordingResolver(
+            std::move(resolver));
     }
 
     using PublicRecordingFolderResolver =

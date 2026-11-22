@@ -128,7 +128,15 @@ struct Request
 {
     std::string backendId;
     std::string recordingId;
+    std::string publicRecordingId;
+    std::string expectedNativeId;
 };
+
+std::string responseRecordingId(const Request& request)
+{
+    return request.publicRecordingId.empty()
+        ? request.recordingId : request.publicRecordingId;
+}
 
 bool parseRequest(const std::string& target, Request& request)
 {
@@ -515,7 +523,7 @@ ApiResponse serializeAvailable(
     std::ostringstream json;
     json << std::setprecision(12);
     json << "{\"backendId\":\"" << jsonEscape(request.backendId)
-         << "\",\"recordingId\":\"" << jsonEscape(request.recordingId)
+         << "\",\"recordingId\":\"" << jsonEscape(responseRecordingId(request))
          << "\",\"availability\":\"available\""
          << ",\"state\":\"" << jsonEscape(nativeMarks.state) << "\""
          << ",\"framesPerSecond\":" << nativeMarks.framesPerSecond
@@ -561,7 +569,7 @@ ApiResponse serializeAssigned(
     response.headers["Cache-Control"] = "no-store";
     response.body =
         "{\"backendId\":\"" + jsonEscape(request.request.backendId) +
-        "\",\"recordingId\":\"" + jsonEscape(request.request.recordingId) +
+        "\",\"recordingId\":\"" + jsonEscape(responseRecordingId(request.request)) +
         "\",\"operationId\":\"" + jsonEscape(request.mutation.operationId) +
         "\",\"accepted\":true,\"replayed\":" +
         std::string(dispatch.replayed ? "true" : "false") +
@@ -590,6 +598,30 @@ int dispatchFailureStatus(const std::string& reason)
     if (reason == "invalid_recording_marks_modify_assignment_request")
         return 400;
     return 503;
+}
+
+bool bindPublicRecordingIdentity(
+    Request& request,
+    const RecordingMarksApiRuntime::PublicRecordingResolver& resolver,
+    ApiResponse& response)
+{
+    if (request.publicRecordingId.empty()) return true;
+    if (!resolver)
+    {
+        response = errorResponse(503, "public_recording_identity_unavailable");
+        return false;
+    }
+    VdrRecording found;
+    if (!resolver(request.backendId, request.publicRecordingId, found) ||
+        found.backendId != request.backendId ||
+        found.id.empty() || found.backendNativeId.empty())
+    {
+        response = errorResponse(404, "recording_not_found");
+        return false;
+    }
+    request.recordingId = found.id;
+    request.expectedNativeId = found.backendNativeId;
+    return true;
 }
 
 bool resolveNativeIdentity(
@@ -622,6 +654,12 @@ bool resolveNativeIdentity(
     if (matches != 1U)
     {
         response = errorResponse(409, "recording_identity_ambiguous");
+        return false;
+    }
+    if (!request.expectedNativeId.empty() &&
+        selected->backendNativeId != request.expectedNativeId)
+    {
+        response = errorResponse(409, "recording_identity_stale");
         return false;
     }
     if (selected->backendNativeId.empty() ||
@@ -736,9 +774,16 @@ void RecordingMarksApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     recordingLookup_ = {};
+    publicRecordingResolver_ = {};
     backendResolver_ = {};
     backendWritePolicy_ = {};
     mutationDispatcher_ = {};
+}
+
+void RecordingMarksApiRuntime::setPublicRecordingResolver(PublicRecordingResolver resolver)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingResolver_ = std::move(resolver);
 }
 
 bool RecordingMarksApiRuntime::configured() const
@@ -790,10 +835,12 @@ bool RecordingMarksApiRuntime::tryHandleGet(
     }
 
     RecordingLookup recordingLookup;
+    PublicRecordingResolver publicRecordingResolver;
     BackendResolver backendResolver;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         recordingLookup = recordingLookup_;
+        publicRecordingResolver = publicRecordingResolver_;
         backendResolver = backendResolver_;
     }
 
@@ -801,6 +848,14 @@ bool RecordingMarksApiRuntime::tryHandleGet(
     {
         response = errorResponse(503, "recording_marks_runtime_unavailable");
         return true;
+    }
+
+    if (publicV1)
+    {
+        request.publicRecordingId = publicRecordingId;
+        if (!bindPublicRecordingIdentity(
+                request, publicRecordingResolver, response))
+            return true;
     }
 
     std::string recordingKey;
@@ -857,12 +912,14 @@ bool RecordingMarksApiRuntime::tryHandlePost(
     }
 
     RecordingLookup recordingLookup;
+    PublicRecordingResolver publicRecordingResolver;
     BackendResolver backendResolver;
     BackendWritePolicy backendWritePolicy;
     MutationDispatcher mutationDispatcher;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         recordingLookup = recordingLookup_;
+        publicRecordingResolver = publicRecordingResolver_;
         backendResolver = backendResolver_;
         backendWritePolicy = backendWritePolicy_;
         mutationDispatcher = mutationDispatcher_;
@@ -889,6 +946,14 @@ bool RecordingMarksApiRuntime::tryHandlePost(
                 ? "recording_marks_backend_write_unavailable"
                 : writeAccess.reasonCode);
         return true;
+    }
+
+    if (publicV1)
+    {
+        request.request.publicRecordingId = publicRecordingId;
+        if (!bindPublicRecordingIdentity(
+                request.request, publicRecordingResolver, response))
+            return true;
     }
 
     std::string recordingKey;
