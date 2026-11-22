@@ -1,5 +1,24 @@
 # VDR-Suite Current State
 
+## API.V1.F5.3 – Browser-Client Native-Timer-Lesepfade (22.11.2026)
+
+Der vorhandene Browser-Client bietet nun `fetchPublicNativeTimerPage`
+und `fetchPublicNativeTimerDetail` über denselben Public-v1-Referenzclient an.
+Beide GETs verwenden die bestehende Browser-Session, ein ausdrückliches
+`backendId` und die native Timer-ID; der Detailaufruf bewahrt ETag/304.
+Die vorhandene Timer-Verwaltung bleibt vorerst auf den Legacy-Routen:
+Die Public-v1-Native-Timer-Projektion enthält aktuell kein Verzeichnis,
+Aux, Priorität, Lebensdauer oder VPS; außerdem verlangen Public-v1-
+MODIFY/DELETE einen aktuellen Binding-/ETag-Vertrag und antworten
+asynchron. Eine einfache URL-Umstellung würde die vorhandene
+vollständige Bearbeitung gefährden. Die bestehende Frontend-Regression
+prüft die separaten versionierten Reads, ETag/304 und fehlenden
+Fallback bei 503. Es gibt keinen neuen Writer, keinen Timer-Eingriff,
+keine Installation und keine reale Browser-/MLD-Abnahme. Die
+vollständige Timer-UI-Migration bleibt bis zur semantischen Parität offen;
+die gemeinsame Systemabnahme erfolgt in F8.
+
+
 ## API.V1.F5.2 – Native-Timer-Mutationen im Referenzclient (22.11.2026)
 
 Die vorhandenen Public-v1-Routen für native Timer TOGGLE/UPDATE

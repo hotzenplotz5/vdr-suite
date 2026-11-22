@@ -403,6 +403,39 @@
     return requestJson('/api/vdr/timers/conflicts/live', options);
   }
 
+  // F5.3: reuse the Public-v1 reference client's scoped native Timer reads.
+  // The legacy editor needs more fields and different write semantics.
+  function publicNativeTimerClient() {
+    const factory = window.VdrSuitePublicV1Client;
+    if (!factory || typeof factory.createClient !== 'function') {
+      throw new Error('Public API v1 Client ist nicht verfügbar.');
+    }
+    return factory.createClient({
+      baseUrl: window.location && window.location.origin ? window.location.origin : '',
+      credentials: 'same-origin'
+    });
+  }
+
+  function fetchPublicNativeTimerPage(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimers({
+      query: {backendId: input.backendId, offset: input.offset, limit: input.limit},
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  function fetchPublicNativeTimerDetail(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifNoneMatch: input.ifNoneMatch,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
   // One public EPG Timer CREATE path for all browser EPG surfaces. The
   // server owns the native timer, VDR margins and conflict decision.
   // Never synthesize If-Match from a cached EPG card or retry a POST.
@@ -905,6 +938,8 @@
     isClientError: isClientError,
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
+    fetchPublicNativeTimerPage: fetchPublicNativeTimerPage,
+    fetchPublicNativeTimerDetail: fetchPublicNativeTimerDetail,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,

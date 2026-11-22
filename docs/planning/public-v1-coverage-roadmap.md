@@ -1,5 +1,26 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.3 – Browser-Client und Native-Timer-Parität (22.11.2026)
+
+Der Browser-Client kann die bereits implementierten Public-v1-
+Native-Timer-Liste und das ETag-gebundene Detail explizit über
+`fetchPublicNativeTimerPage` und `fetchPublicNativeTimerDetail`
+lesen. Die vorhandene `fetchClientTimers`-Liste und die drei
+Legacy-CRUD-Methoden werden nicht unbemerkt ersetzt.
+Der öffentliche `PublicNativeTimerItem` liefert ID, Kanal,
+Titel, Tag/Wochentage, Start/Ende und Status, aber nicht
+Verzeichnis, Aux, VPS, Priorität und Lebensdauer des
+Browser-Editors. Ein Public-v1-CREATE für denselben manuellen
+Editor und ein direkt äquivalentes synchrones UPDATE/DELETE
+sind nicht belegt; vorhandene Mutationen arbeiten stattdessen
+mit Binding, ETag, Idempotenz und asynchronem Operationsreadback.
+Der bestehende Timer-Live-Test prüft die separaten API-v1-Reads
+mit Browser-Cookie, ETag/304 und ohne Legacy-503-Fallback.
+**Noch offen:** Vollständiger äquivalenter API-v1-Bearbeitungsvertrag,
+anschließende Web-Timer-Migration und gemeinsame F8-Abnahme.
+Keine neue Schreibaktion, Berechtigung oder Timer-Änderung.
+
+
 ## API.V1.F7 – Playback/Resume/Device (22.11.2026)
 
 **F7.1 Public-v1-Referenzclient (Quellkandidat):** Optionale

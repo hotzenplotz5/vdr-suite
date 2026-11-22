@@ -9,21 +9,43 @@ const clientPath = path.resolve(__dirname, '..', 'api', 'client-api.js');
 const source = fs.readFileSync(clientPath, 'utf8');
 const requests = [];
 
-function response(status, payload) {
+function response(status, payload, etag) {
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: { get() { return null; } },
-    text() { return Promise.resolve(JSON.stringify(payload)); },
+    headers: { get(name) { return name === 'ETag' ? (etag || null) : null; } },
+    text() { return Promise.resolve(status === 304 ? '' : JSON.stringify(payload)); },
     arrayBuffer() { return Promise.resolve(new ArrayBuffer(0)); }
   };
 }
 
 const context = {
-  window: null, Headers, URLSearchParams, Promise, Object, Array, String, JSON,
+  window: null, Headers, URL, URLSearchParams, Set, Promise, Object, Array, String, JSON,
+  location: {origin: 'https://suite.example'},
   Error, Number, Boolean, Uint8Array, ArrayBuffer,
   fetch(url, options) {
-    requests.push({url: String(url), options});
+    const target = String(url);
+    requests.push({url: target, options});
+    if (target.startsWith('https://suite.example/api/v1/native-timers')) {
+      if (target.includes('backendId=offline')) return Promise.resolve(response(503, {
+        error: {code: 'backend_unavailable', message: 'Native timer unavailable'}
+      }));
+      if (target.includes('/timer:abc-12?')) {
+        const etag = '"native-revision-3"';
+        const cached = options.headers['If-None-Match'] === etag;
+        return Promise.resolve(response(cached ? 304 : 200, {
+          backendId: 'living-room', timerId: 'timer:abc-12',
+          title: 'Tagesschau', ownership: 'managed', bindingState: 'verified'
+        }, etag));
+      }
+      return Promise.resolve(response(200, {
+        backendId: 'living-room',
+        items: [{timerId: 'timer:abc-12', title: 'Tagesschau',
+          channelId: 'C-1-2-3', startTime: '2015', endTime: '2030', enabled: true}],
+        page: {offset: 0, limit: 30, hasMore: false, nextOffset: null},
+        meta: {partial: false}
+      }));
+    }
     return Promise.resolve(response(503, {
       error: {
         code: 'backend_unavailable',
@@ -36,6 +58,10 @@ const context = {
 context.window = context;
 
 vm.createContext(context);
+const referencePath = path.resolve(__dirname, '..', '..', '..',
+  'clients', 'reference-js', 'public-v1-client.js');
+vm.runInContext(fs.readFileSync(referencePath, 'utf8'), context,
+  {filename: referencePath});
 vm.runInContext(source, context, {filename: clientPath});
 const api = context.VdrSuiteClientApi;
 assert.ok(api);
@@ -66,7 +92,47 @@ async function run() {
   assert.strictEqual(requests[0].options.method, 'GET');
   assert.strictEqual(requests[0].options.cache, 'no-store');
 
-  console.log('test_phase69f_timer_live_fallback_removal passed');
+  // F5.3: explicit, read-only Public-v1 access must not reinterpret the
+  // public projection as the existing full Legacy CRUD edit contract.
+  const page = await api.fetchPublicNativeTimerPage({
+    backendId: 'living-room', offset: 0, limit: 30
+  });
+  assert.strictEqual(page.items[0].timerId, 'timer:abc-12');
+  assert.strictEqual(page.meta.partial, false);
+  assert.strictEqual(requests[1].url,
+    'https://suite.example/api/v1/native-timers?backendId=living-room&offset=0&limit=30');
+  assert.strictEqual(requests[1].options.method, 'GET');
+  assert.strictEqual(requests[1].options.credentials, 'same-origin');
+  assert.strictEqual(requests[1].options.headers['X-CSRF-Token'], undefined);
+  for (const missing of ['directory', 'aux', 'priority', 'lifetime', 'vps']) {
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(page.items[0], missing),
+      false, 'public list is not a complete legacy Timer editor DTO');
+  }
+  const detail = await api.fetchPublicNativeTimerDetail({
+    backendId: 'living-room', timerId: 'timer:abc-12'
+  });
+  assert.strictEqual(detail.status, 200);
+  assert.strictEqual(detail.etag, '"native-revision-3"');
+  assert.strictEqual(detail.data.bindingState, 'verified');
+  const cached = await api.fetchPublicNativeTimerDetail({
+    backendId: 'living-room', timerId: 'timer:abc-12', ifNoneMatch: detail.etag
+  });
+  assert.strictEqual(cached.status, 304);
+  assert.strictEqual(cached.data, null);
+  assert.strictEqual(requests[3].options.headers['If-None-Match'], detail.etag);
+  const publicFailure = await captureFailure(() => api.fetchPublicNativeTimerPage({
+    backendId: 'offline', offset: 0, limit: 30
+  }));
+  assert.strictEqual(publicFailure.status, 503);
+  assert.strictEqual(requests.length, 5, 'Public-v1 503 is not followed by a legacy retry');
+  assert.strictEqual(requests[4].url.includes('backendId=offline'), true);
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  assert.throws(() => api.fetchPublicNativeTimerDetail({
+    backendId: 'living-room', timerId: '../private'
+  }));
+  assert.strictEqual(requests.length, 5);
+
+  console.log('test_phase69f_timer_live_fallback_removal and F5.3 public reads passed');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
