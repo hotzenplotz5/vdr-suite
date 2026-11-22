@@ -458,6 +458,24 @@ public:
         return listTrustedSourceObservation(
             ids, labels, partial, selectedSourceId, preview);
     }
+    // BAS.2: return the installation evidence used for this very source
+    // observation. The default preserves older injected executor behavior;
+    // the production Agent overrides it to avoid verifying the same handler
+    // twice on every heartbeat. Nothing here authorizes import execution.
+    virtual bool listTrustedSourceObservationWithEvidence(
+        std::vector<std::string>& ids,
+        std::vector<MediaImportSourceLabel>& labels, bool& partial,
+        const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        MediaImportSourcePreview& preview,
+        MediaToolsInstallationEvidence& installed)
+    {
+        installed = {};
+        if (!verifiedInstallation(installed)) return false;
+        return listTrustedSourceObservationCached(
+            ids, labels, partial, selectedSourceId,
+            codecHint, durationHint, preview);
+    }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
