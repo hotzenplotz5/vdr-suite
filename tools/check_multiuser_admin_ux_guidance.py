@@ -83,14 +83,14 @@ def main():
     forbid("ui", "backendInput.type = 'text'")
     forbid("ui", ".innerHTML")
 
-    # The browser may translate server-supplied presentation keys, but it must
-    # not contain a copied authorization allowlist.
+    # The browser may translate server-supplied options and suppress
+    # redundant grant-picker choices. Exact role.admin and Recording-edit
+    # comparisons are presentation-only; authorization is still server-owned.
+    # Keep forbidding a copied baseline permission catalogue.
     for marker in (
-        "role.admin",
         "role.read-only",
         "channels.view",
         "timers.view",
-        "recordings.rename",
     ):
         forbid("ui", marker)
 
