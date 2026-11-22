@@ -142,6 +142,37 @@ neue Sammelberechtigung verwenden, ohne diese technischen
 Kontrollen zu umgehen.
 [ADR-0059](../adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
 
+## F6.3 — Recordings-2-Webfrontend auf Public API v1
+
+Die bestehende Marks-/Cut-Oberfläche wurde ohne UI-Neubau von
+`/api/vdr/recordings/marks` und `/api/vdr/recordings/cut`
+auf die vier bereits implementierten Public-v1-Routen
+umgestellt. Der Marks-Readback liefert die kanonische `rec_`-
+ID; der Editor verwendet exakt diese ID für Cut-/Marks-GET
+und -POST, einschließlich übereinstimmendem `backendId`
+in Query und Body sowie unverändertem Browser-CSRF.
+
+Da Recordings 2 für vorhandene Legacy-Aufnahmeeinträge
+weiterhin eine native Listen-ID liefern kann, verwendet der
+Browser die **bereits vorhandene** Recordings-Hero-Auflösung
+über die Public-v1-Aufnahmenliste (eindeutiger Aufnahmezeitpunkt
+und Titel, gegebenenfalls Cursor-Pagination). Kein Mapping
+über Dateipfad oder erratene `rec_`-ID und kein Rückfall
+auf Legacy-Schreibendpunkte. Beide Hero-Wrapper reichen
+den bestehenden Resolver explizit durch.
+
+Die vorhandenen Editor-/Detail- und Hero-Regressionen prüfen
+die URL-/Body-/Backend-/CSRF-Verträge, Polling-/Native-
+Bestätigungsabläufe, Schnittfassung-Anzeige und die eindeutige
+Aufnahmezuordnung inklusive Ambiguitätsfall.
+Die Produktions-Owner von VDR, Agent und SuiteBridge bleiben
+unverändert. **Vor echter Freigabe bleibt die gemeinsame
+Browser-/yaVDR-Abnahme nötig**, insbesondere der reale
+Marks-Readback, ein nur ausdrücklich freigegebener
+Schnittstart und das Öffnen der erzeugten Schnittfassung.
+Bis dahin ist die Browser-/Legacy-MediaSession-Kompatibilität
+der öffentlichen Ergebnisaufnahme nicht hardwarebestätigt.
+
 ## Abnahme und Folgeschritt
 
 F6.1 und F6.2 sind **als Quellcode einschließlich

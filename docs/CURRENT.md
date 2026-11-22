@@ -37,6 +37,22 @@ Die vollständige CI-Verifikation des aktuellen PR-Quellkandidaten
 und die reale Browser-/Device-/yaVDR-Abnahme sind **offen**.
 Kein produktiver Schnitt wurde ausgeführt.
 
+**API.V1.F6.3 – Webfrontend-Umstellung (Quellimplementierung):**
+Das bestehende Recordings-2-Marks-/Cut-UI nutzt nun die vier
+Public-v1-Routen statt der alten `/api/vdr/recordings/{marks|cut}`-
+Routen. Der Browser verwendet für den Legacy-Aufnahmeeintrag
+die bereits vorhandene Hero-`rec_`-Auflösung, nicht eine
+zweite ID-Datenbank; alle GET-/POST-Aufrufe tragen
+`backendId` in der Query, POST zusätzlich die identische
+öffentliche Aufnahme-ID im Body und den vorhandenen CSRF-Header.
+Die beiden Hero-Wrapper reichen die ID-Auflösung durch.
+Die UI-Schnittlogik, Einmal-Auftrags-ID und Readback-Prüfung
+sind unverändert; keine neue Sperre und keine Legacy-
+Mutations-Fallbacks. Frontend-/Router-/CI-Regressionen
+für den endgültigen PR-Kandidaten und die gemeinsame
+yaVDR-/Browser-Abnahme müssen nachgewiesen werden.
+Die Legacy-Endpunkte bleiben für ältere Clients erhalten.
+
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 
 Nach Betreiberentscheidung wird F5 hinter F6/F7 geschoben:

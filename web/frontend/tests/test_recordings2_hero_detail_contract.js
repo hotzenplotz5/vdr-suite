@@ -318,4 +318,67 @@ assert.strictEqual(trailerIdentity({
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('abcdefghijk'), true);
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
 
+// F6.3: the actual Hero identity mapper is shared with Marks/Cut. Test
+// pagination and unique timestamp/title selection, not a second fake mapper.
+const publicId = 'rec_fedcba9876543210fedcba9876543210';
+let publicPages = [];
+const publicRequests = [];
+trailerContext.window.VdrSuitePublicV1Client = {
+  createClient(options) {
+    assert.strictEqual(options.credentials, 'same-origin');
+    return {
+      getRecordings(options) {
+        publicRequests.push(options);
+        assert(publicPages.length, 'unexpected public Recording page');
+        return Promise.resolve(publicPages.shift());
+      }
+    };
+  }
+};
+const legacyRecording = {
+  id: '7', backendId: 'default', startTime: '1788696000',
+  title: 'Original', backendNativeId: '/private/video/Original.rec'
+};
+publicPages = [
+  {items: [{
+    backendId: 'default', recordedAt: '1788696000',
+    title: 'Other', recordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  }], page: {hasMore: true, nextCursor: 'rc1_abcdef'}},
+  {items: [{
+    backendId: 'default', recordedAt: '1788696000',
+    title: 'Original', recordingId: publicId
+  }], page: {hasMore: false}}
+];
+trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default')
+  .then(function (resolved) {
+    assert.strictEqual(resolved, publicId);
+    assert.strictEqual(publicRequests.length, 2);
+    assert.strictEqual(publicRequests[0].query.backendId, 'default');
+    assert.strictEqual(publicRequests[1].query.cursor, 'rc1_abcdef');
+    assert(publicRequests.every(request =>
+      !JSON.stringify(request).includes('/private/') &&
+      request.credentials === 'same-origin'));
+    return trailerRuntime.resolvePublicRecordingId(
+      {recordingId: publicId}, 'default');
+  }).then(function (direct) {
+    assert.strictEqual(direct, publicId);
+    assert.strictEqual(publicRequests.length, 2,
+      'already public rec_ IDs must not scan the collection');
+    publicPages = [{items: [
+      {backendId: 'default', recordedAt: '1788696000', title: 'Original',
+        recordingId: publicId},
+      {backendId: 'default', recordedAt: '1788696000', title: 'Original',
+        recordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}
+    ], page: {hasMore: false}}];
+    return assert.rejects(
+      trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'),
+      /Kanonische Aufnahme-ID nicht eindeutig/
+    );
+  }).then(function () {
+    console.log('recordings2 hero public identity pagination and ambiguity contract ok');
+  }).catch(function (error) {
+    console.error(error);
+    process.exitCode = 1;
+  });
+
 console.log('recordings2 hero/playback placement contract ok');
