@@ -376,8 +376,27 @@ int main() {
            observedPreview.status == "unavailable" &&
            observedPreview.failureCode == "inventory_missing");
 
+    // BAS.2: the live heartbeat receives installation evidence and the
+    // source observation in one call; do not run another approval proof.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence observationInstall;
+    assert(runtime.listTrustedSourceObservationWithEvidence(
+        observedIds, observedLabels, observedPartial,
+        "inventory_Token_0001", "", 0, observedPreview,
+        observationInstall));
+    assert(observationInstall.origin == "manual" &&
+           !observationInstall.version.empty() &&
+           observationInstall.sha256.size() == 64 &&
+           observedIds.size() == 1 &&
+           observedLabels[0].sourceId == observedIds[0] &&
+           observedPreview.failureCode == "ffprobe_failed");
+
     fs::remove(f.runLock);
     assert(!runtime.available());
+    assert(!runtime.listTrustedSourceObservationWithEvidence(
+        observedIds, observedLabels, observedPartial,
+        "inventory_Token_0001", "", 0, observedPreview,
+        observationInstall));
+    assert(observationInstall.sha256.empty() && observedIds.empty());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
     {std::ofstream lockFile(f.runLock,std::ios::trunc|std::ios::binary);}
     assert(::chmod(f.runLock.c_str(),0644)==0);
