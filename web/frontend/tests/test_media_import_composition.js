@@ -8,6 +8,13 @@ const frontend = path.join(__dirname, '..');
 const index = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const app = fs.readFileSync(path.join(frontend, 'app.js'), 'utf8');
 const view = fs.readFileSync(path.join(frontend, 'modules/media-import.js'), 'utf8');
+// BAS.3 uses the existing preview failureCode, not a new endpoint or
+// client-side guess about source identity or permissions.
+for (const code of ['source_missing', 'source_unreadable',
+  'format_unsupported', 'source_changed', 'ffprobe_failed',
+  'target_not_writable', 'inventory_missing']) {
+  assert(view.includes(code + ':'), code + ' must have a localized preview diagnosis');
+}
 const daemonRuntime = fs.readFileSync(path.join(frontend, '../../core/daemon/src/DaemonRuntimeInitialization.cpp'), 'utf8');
 const previewOwner = daemonRuntime.split('registerMediaImportPreviewLookup(')[1]
   .split('registerMediaImportCapabilityLookup(')[0];
