@@ -121,7 +121,7 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
     appVersion:'b20261011.24', engine:'mse'
   }));
   assert.strictEqual(requests.length,6,'profile check is exactly one read');
-  assert(requests.every(x => x.init.headers.Authorization ===
+  assert(requests.every(x => x.headers.Authorization ===
     'VDR-Suite-Device demo.credential'));
   console.log('Public-v1 recording resume/native-media/tracks client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});
