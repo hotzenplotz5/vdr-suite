@@ -220,8 +220,15 @@ bool BackendAgentMediaImportRuntime::inspectResolvedSource(
     out.sourceId = sourceId;
     try {
         out.failureCode = "source_invalid";
-        const auto plan = inspectImportPreview(
-            {local.sourceRoot, local.videoRoot, local.sourceFile});
+        const auto plan = [&]() {
+            try {
+                return inspectImportPreview(
+                    {local.sourceRoot, local.videoRoot, local.sourceFile});
+            } catch (const std::exception& error) {
+                out.failureCode = mediaImportSourceInspectionFailure(error);
+                throw;
+            }
+        }();
         out.failureCode = "source_changed";
         if (plan.sourceDevice != local.sourceDevice ||
             plan.sourceInode != local.sourceInode ||
