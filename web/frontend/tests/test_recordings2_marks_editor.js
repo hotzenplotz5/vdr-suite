@@ -120,8 +120,11 @@ async function run() {
   };
   function publish(value) { snapshot = value; [...listeners].forEach(fn => fn(value)); }
 
+  const PUBLIC_ID = 'rec_0123456789abcdef0123456789abcdef';
+  const MARKS_PATH = '/api/v1/recordings/' + PUBLIC_ID + '/marks';
+  const CUT_PATH = '/api/v1/recordings/' + PUBLIC_ID + '/cut';
   const initial = {
-    backendId: 'default', recordingId: '7', availability: 'available',
+    backendId: 'default', recordingId: PUBLIC_ID, availability: 'available',
     framesPerSecond: 25, inUse: false, marksRevision: 'a'.repeat(32), sequenceCount: 1,
     marks: [
       {positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
@@ -201,7 +204,13 @@ async function run() {
       start.addEventListener('click', () => publish({transition: 'session-started', sessionId: 'one', state: 'playing'}));
       owner.element.appendChild(start); return owner;
     }},
-    VdrSuiteClientApi: {requestJson(path, config) {
+    VdrSuiteClientApi: {
+      resolvePublicRecordingId(recording, backend) {
+        assert.strictEqual(recording.id, '7');
+        assert.strictEqual(backend, 'default');
+        return Promise.resolve(PUBLIC_ID);
+      },
+      requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
       if (!body && deferredRead && deferredRead.path === path) return deferredRead.promise;
@@ -264,7 +273,7 @@ async function run() {
   }
   function button(label) { const found = findButton(label); assert(found, label); return found; }
   function posts() { return requests.filter(request => request.body); }
-  function markReads() { return requests.filter(request => !request.body && request.path === '/api/vdr/recordings/marks'); }
+  function markReads() { return requests.filter(request => !request.body && request.path === MARKS_PATH); }
 
   assert(button('Marke setzen').disabled);
   button('Start im Playback-Owner').click();
@@ -450,11 +459,11 @@ async function run() {
 
   mode = 'verified';
   const beforeCut = posts().length;
-  const cutReadsBeforePreview = requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length;
-  deferredRead = Object.assign({path: '/api/vdr/recordings/cut'}, deferred());
+  const cutReadsBeforePreview = requests.filter(request => !request.body && request.path === CUT_PATH).length;
+  deferredRead = Object.assign({path: CUT_PATH}, deferred());
   button('Schneiden …').click(); await flush();
   assert.strictEqual(
-    requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length,
+    requests.filter(request => !request.body && request.path === CUT_PATH).length,
     cutReadsBeforePreview,
     'cut preview must not synchronously depend on cut-state telemetry'
   );
@@ -497,7 +506,7 @@ async function run() {
   deferredMutation = null;
   await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
-  assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
+  assert.strictEqual(posts().at(-1).path, CUT_PATH);
   assert(!button('Neu laden').disabled, 'stalled cut-state telemetry must not keep the editor busy after dispatch');
   assert(allText(root).includes('Schnitt läuft'));
   assert(allText(root).includes('keinen verlässlichen Prozentwert'));
@@ -508,11 +517,10 @@ async function run() {
   deferredRead = null;
 
   const editedRecording = {
-    id: 'cut-7',
-    recordingId: 'cut-7',
+    id: 'rec_fedcba9876543210fedcba9876543210',
+    recordingId: 'rec_fedcba9876543210fedcba9876543210',
     backendId: 'default',
-    title: 'Testaufnahme (geschnitten)',
-    backendNativeId: '/srv/vdr/video/%Testaufnahme/cut.rec'
+    title: 'Testaufnahme (geschnitten)'
   };
   cutStateOverride = {
     ready: false,
@@ -522,7 +530,6 @@ async function run() {
     operationState: 'verified',
     operationPending: false,
     operationVerified: true,
-    editedRecordingKey: 'b'.repeat(32),
     editedRecording
   };
   cutStateOverride.handlerUsage = 36;
@@ -589,8 +596,11 @@ async function run() {
   assert(restored && !restored.hidden && allText(restored).includes('Schnitt läuft'), 'reload recovers running state even in detail mode');
   assert.strictEqual(posts().length, postsBeforeReload, 'reload must not submit another mutation');
   assert(requests.filter(request => request.path.endsWith('/cut')).every(request =>
-    (request.body || request.config.query).recordingId === '7'), 'cut and variant navigation keep the source identity');
-  assert(posts().every(request => request.path === '/api/vdr/recordings/cut' || request.path === '/api/vdr/recordings/marks'), 'cut never invokes Delete/Trash');
+    request.path === CUT_PATH && request.config.query.backendId === 'default' &&
+    (!request.body || request.body.recordingId === PUBLIC_ID)), 'cut and variant navigation keep the source identity');
+  assert(posts().every(request => request.path === CUT_PATH || request.path === MARKS_PATH), 'cut never invokes Delete/Trash');
+  assert(posts().every(request => request.config.query.backendId === 'default' &&
+    request.body.recordingId === PUBLIC_ID), 'public mutation scope matches path, query and body');
   root.__vdrSuiteMarksEditor.destroy();
   console.log('native marks editor add/delete/reset/move/navigation/readback/external-sync and failure-state hardening ok');
 }

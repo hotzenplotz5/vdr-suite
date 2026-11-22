@@ -172,7 +172,7 @@ const originalBrowserOwner = {
 
 const payload = {
   backendId: 'default',
-  recordingId: '7',
+  recordingId: PUBLIC_ID,
   availability: 'available',
   state: 'present',
   framesPerSecond: 25,
@@ -187,11 +187,17 @@ const payload = {
   ]
 };
 
+const PUBLIC_ID = 'rec_0123456789abcdef0123456789abcdef';
+let resolvedIdentity = null;
 const window = {
   document,
   VdrSuiteRecordings2Shared: shared,
   VdrSuiteRecordings2BrowserView: originalBrowserOwner,
   VdrSuiteClientApi: {
+    resolvePublicRecordingId(recording, backend) {
+      resolvedIdentity = {id: recording.id, backend};
+      return Promise.resolve(PUBLIC_ID);
+    },
     requestJson(path, options) {
       requestedPath = path;
       requestedOptions = options;
@@ -238,10 +244,11 @@ const recording = {
 
 api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(result, payload);
-  assert.strictEqual(requestedPath, '/api/vdr/recordings/marks');
+  assert.strictEqual(requestedPath, '/api/v1/recordings/' + PUBLIC_ID + '/marks');
+  assert.deepStrictEqual(resolvedIdentity, {id: '7', backend: 'default'});
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(requestedOptions.query)),
-    {backend: 'default', recordingId: '7'}
+    {backendId: 'default'}
   );
   assert.strictEqual(requestedOptions.cache, 'no-store');
   assert.strictEqual(requestedOptions.credentials, 'same-origin');

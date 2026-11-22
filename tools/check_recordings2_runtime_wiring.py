@@ -124,8 +124,9 @@ required_tokens = {
     ),
     'marks_detail': (
         'global.VdrSuiteRecordings2MarksDetail',
-        "'/api/vdr/recordings/marks'",
-        'recordingId: id',
+        "'/api/v1/recordings/'",
+        'resolvePublicRecordingId(recording, backend)',
+        'backendId: backend',
         'Schnitt / Schnittmarken',
         'marksRevision',
         'VdrSuiteRecordings2BrowserView',
@@ -135,7 +136,8 @@ required_tokens = {
     ),
     'marks_editor': (
         'global.VdrSuiteRecordings2MarksEditor',
-        "'/api/vdr/recordings/cut'",
+        "'/api/v1/recordings/'",
+        'const cutPath',
         'operationPending',
         'operationVerified',
         'editedRecordingFound',
@@ -333,7 +335,7 @@ for forbidden in (
             f'Recordings 2 marks read addon violates read-only public identity boundary: {forbidden}'
         )
 for required in (
-    "query: {\n        backend: backend,\n        recordingId: id\n      }",
+    "query: {backendId: backend}",
     "cache: 'no-store'",
     "credentials: 'same-origin'",
 ):
