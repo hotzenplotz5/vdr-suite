@@ -124,7 +124,22 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservationCached(
     const std::string& codecHint, std::uint64_t durationHint,
     vdrsuite::mediatools::MediaImportSourcePreview& preview)
 {
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    return listTrustedSourceObservationWithEvidence(
+        ids, labels, partial, selectedSourceId,
+        codecHint, durationHint, preview, installed);
+}
+
+bool BackendAgentMediaImportRuntime::listTrustedSourceObservationWithEvidence(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial, const std::string& selectedSourceId,
+    const std::string& codecHint, std::uint64_t durationHint,
+    vdrsuite::mediatools::MediaImportSourcePreview& preview,
+    vdrsuite::mediatools::MediaToolsInstallationEvidence& installed)
+{
     using namespace vdrsuite::mediatools;
+    installed = {};
     ids.clear();
     labels.clear();
     partial = true;
@@ -132,7 +147,6 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservationCached(
     preview.sourceId = selectedSourceId;
     // Reuse the existing installation/context check but avoid available(),
     // whose inventory.hasTrustedSource() performs another complete scan.
-    MediaToolsInstallationEvidence installed;
     if (!verifiedInstallation(installed)) return false;
     try {
         auto lock = MediaToolsImportRunLock::tryAcquire(
