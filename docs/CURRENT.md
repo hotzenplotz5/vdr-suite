@@ -21,10 +21,16 @@ Die gemeinsame persistente `rec_`-Zuordnung wird für native
 Marks/Cut-GET/POST wiederverwendet und per Mock-C++-Tests
 auf Antwort-IDs und Dispatch-Identität geprüft.
 Der optional vergebbare Device-Grant `recordings.edit@backendId`
-ist auf konkrete Backends begrenzt. Public-v1-Acceptance-Runner
-PASS auf Quellkandidat `5a5e373ec810`; vollständiger
-C++-Build/CI und Browser-/Device-/yaVDR-Abnahme **offen**.
-Kein Recording-Schnitt wurde ausgeführt.
+ist auf konkrete Backends begrenzt. Bei verifiziertem nativem
+Cut-Ergebnis wird auch die geschnittene Aufnahme über dieselbe
+persistente öffentliche `rec_`-Zuordnung projiziert; Public v1
+gibt weder native Ergebnis-IDs noch VDR-Pfade oder interne
+Schnittschlüssel aus. Die Webfrontend-Legacy-Antwort bleibt
+unverändert. Die ergänzte Router-Regression prüft ausdrücklich
+`handleClientGet`/`handleClientPost`; die
+vollständige CI-Verifikation auf dem aktuellen Quellkandidaten
+`624c360a26b8` und die reale Browser-/Device-/yaVDR-Abnahme
+sind noch **offen**. Kein produktiver Schnitt wurde ausgeführt.
 
 ## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
 

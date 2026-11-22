@@ -1,8 +1,10 @@
 # API.V1.F6 — Recording Marks/Cut: Public-v1-Integration und einfache Rechte
 
-**Status: Public-v1-Marks-/Cut-Adapter, Sicherheitsgate, Referenz-JS und
-OpenAPI als Quellkandidat committed. C++-Build, automatisierte
-Web-vs-v1-Regression und finale Hardwareabnahme noch offen.**
+**Status: Public-v1-Marks-/Cut-Adapter, bestehendes Sicherheitsgate,
+Referenz-JS, OpenAPI und kanonische Public-ID-Projektion für native
+Cut-Ergebnisse committed. Gezielte Native-/Security- und Router-Fixtures
+liegen im Quellkandidaten vor. Vollständige CI-Verifikation auf
+`624c360a26b8` sowie reale Browser-/Device-/VDR-Abnahme offen.**
 
 Branch: `work/api-v1-finalisierung-f2-f8`.
 Diese Fassung korrigiert den unautorisierten Ausschluss der bereits vorhandenen
@@ -115,10 +117,18 @@ Device-Berechtigung `recordings.edit` ist als **explizit
 admin-vergebbarer, konkreter Backend-Grant** im Katalog
 und in beiden Device-Clients vorhanden; Pairing oder
 Playback erteilen sie nicht automatisch.
-Die öffentliche Antwort zur bereits fertig geschnittenen
-Aufnahme kann noch eine legacy-interne Ergebnis-ID enthalten:
-die kanonische Public-Result-ID-Projektion ist vor
-F6-Endabnahme gesondert zu vergleichen.
+Für ein im aktuellen Aufnahme-Cache eindeutig nachgewiesenes
+natives Cut-Ergebnis projiziert Public v1 nun dessen eigene,
+persistente `rec_`-ID aus dem vorhandenen
+`PublicRecordingIdentityRepository`. Weder die interne
+Ergebnis-ID noch native Pfade oder Cut-Keys werden in Public-v1-GET-
+und verifizierten POST-Antworten zurückgegeben; bei noch fehlender
+eindeutiger Ergebnisauflösung bleibt die verschachtelte
+Ergebnisprojektion aus, statt Legacy-Identitäten preiszugeben.
+Die Legacy-Webantwort bleibt unverändert. Eine gezielte
+`test_api_router.cpp`-Fixture prüft echte Client-Router-
+Eintrittspunkte und Legacy-v1-Projektion; ein bestandener Lauf
+dieser Fixture ist erst nach erfolgreicher CI belegbar.
 MLD-/TV-Mutationen sind weiterhin nicht hardwarebestätigt.
 
 **ADR-0059 bleibt gültig:** VDR ist einzige Autorität für
@@ -130,24 +140,25 @@ Kontrollen zu umgehen.
 
 ## Abnahme und Folgeschritt
 
-Bisherige Quellevidenz: Der isolierte
-`test_mu9e_grant_mutation_ui.js`-Test bestand;
-`test_public_v1_f6_recording_edit_client.js`
-bestand im JavaScript-Mock mit exakt diesem SDK-Code.
-Der kleine `PublicRecordingEditRoute.h`-Parser wurde
-isoliert mit `g++ -std=c++17 -Wall -Wextra -Werror`
-gegen eine äquivalente Testkopie überprüft – **kein**
-vollständiger C++-Build des Repository-Kandidaten.
-C++-Native-/Security-Fixtures sind ergänzt, ihre Ausführung
-ist noch nicht belegt. Keine produktive Aufnahme mutiert,
-geschnitten oder gelöscht.
+F6.1 und F6.2 sind **als Quellcode einschließlich
+kanonischer Public-Cut-Ergebnis-ID committed, aber noch nicht
+vollständig abgenommen**. Die bestehenden Native-/Security-
+Tests und Reference-JS-Mocks wurden um Public-v1-Pfad-,
+Backend-, CSRF- und Grant-Fälle ergänzt; ein zusätzlicher
+`test_api_router.cpp`-Test übt die tatsächlichen
+`handleClientGet`-/`handleClientPost`-Eintrittspunkte
+gegen denselben nativen Cut-Handler aus.
 
-F6.1 und F6.2 sind **als Quellcode committed, aber noch nicht
-vollständig abgenommen**. Native-API- und Security-Fixtures
-wurden um Public-v1-Pfad-/Backend-/CSRF-/Grant-Fälle ergänzt.
-Ein isolierter C++-Header-Test und der Reference-JS-F6-
-HTTP-Mock-Test bestanden; der vollständige C++-Build und
-die echte Browser-vs-v1-/VDR-Abnahme fehlen weiterhin.
+Der vorherige C++-CI-Kandidat `ed9228e21930` bestand
+die Aufnahme-Vertragstests und die Daemon-Kompilierung,
+scheiterte jedoch **an einer Test-Fixture**, die den
+Legacy-Cut-Aufruf irrtümlich über `handleGet` statt
+`handleClientGet` ausführte. Korrigierter
+Quellkandidat: `624c360a26b8`. Dessen vollständige
+CI-Verifikation ist noch offen; ein echter
+Browser-vs-Public-v1- und yaVDR-/Device-Test ist
+nicht ausgeführt. Keine produktive Aufnahme wurde
+mutiert, geschnitten oder gelöscht.
 Die frühere pauschale Scope-Ausnahme ist aufgehoben.
 Weder MLD noch VIDAA oder Tizen müssen eine eigene
 Schneideoberfläche implementieren — sie dürfen die Public-v1-
