@@ -87,7 +87,7 @@ Implementation order and acceptance: [PWA plan](../development/pwa-local-first-f
 
 **Media-Tools-Portabilität vor BAS:** MT.I3 und MT.ENC3 enthalten jetzt den verbindlichen gemeinsamen Ausführungsvertrag für yaVDR/Ubuntu sowie spätere MLD-/openSUSE-Adapter (Werkzeugpfade, VDR-Wurzel, Backend-Konfiguration, typisierte Encoderwerte und getrennte reale Abnahme). Kein zweiter Importer und keine pauschale Distributionsfreigabe. Reihenfolge und Abnahmekriterien stehen in der [Media-Tools-Roadmap](../../addons/media-tools/ROADMAP.md#mti3--mtenc3--distributionsneutraler-ausführungsvertrag-09112026).
 
-**Status:** BAS = **PLANNED / NOT STARTED**. This prioritizes the maintenance work immediately after Media Tools; it **does not renumber or kick off the previously planned numbered Phase 70**. Until MT has completed its real-user acceptance, continue that workstream rather than switching prematurely.
+**Status update 2026-11-22 (explicit maintainer reprioritization):** BAS = **ACTIVE** on the separately authorized `work/bas-simplification` branch, based on `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`. BAS.1 source call-chain documented; BAS.2/3 source patches and targeted regression fixtures committed; BAS.4 retains independent Agent/operation safety; BAS.5 CI and real yaVDR acceptance remain OPEN. This supersedes only the previous sequencing constraint: deferred or unfinished Media Tools milestones stay OPEN. Parallel API v1 stays isolated on `work/api-v1-finalisierung-f2-f8`. No automatic merge to main and no Phase 70 kickoff. [BAS implementation evidence](../development/bas-backend-agent-simplification.md).
 
 ---
 
