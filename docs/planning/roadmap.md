@@ -89,6 +89,8 @@ Implementation order and acceptance: [PWA plan](../development/pwa-local-first-f
 
 **Status update 2026-11-22 (explicit maintainer reprioritization):** BAS = **ACTIVE** on the separately authorized `work/bas-simplification` branch, based on `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`. BAS.1 source call-chain documented; BAS.2/3 source patches and targeted regression fixtures committed; BAS.4 retains independent Agent/operation safety; BAS.5 CI and real yaVDR acceptance remain OPEN. This supersedes only the previous sequencing constraint: deferred or unfinished Media Tools milestones stay OPEN. Parallel API v1 stays isolated on `work/api-v1-finalisierung-f2-f8`. No automatic merge to main and no Phase 70 kickoff. [BAS implementation evidence](../development/bas-backend-agent-simplification.md).
 
+**BAS-Ausweitung 22.11.2026:** BAS umfasst ausdrücklich **den gesamten Backend-Agenten**, nicht nur den Media-Tools-Importer. BAS.6 hat die zwei redundanten Live-Agent-Context-Konstruktionen für Media Import und HEVC/Shrink in `apps/agent/main.cpp` zusammengefasst (SOURCE, Build-/CI-Abnahme noch offen). Die nächsten begrenzten Schritte BAS.7–BAS.9 prüfen Health-/Channel-/OSD-Observations, native Timer-/Marks-/Cut-Commands und Credential-/Heartbeat-/Recovery-Lifecycle. BAS.10 ist die getrennte Gesamtintegration inklusive echtem yaVDR. Zusätzlich wurde ein aus realen Importen belegter `v1`-ohne-TMDb-Snapshot-Fall durch Erhalt bestätigter automatischer Metadaten bei gleicher Source-ID adressiert; der Fall ist nicht ohne Browser-Endabnahme als vollständig behoben deklariert. [Technische Matrix](../development/bas-backend-agent-simplification.md).
+
 ---
 
 ---
