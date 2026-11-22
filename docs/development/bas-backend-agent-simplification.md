@@ -65,3 +65,75 @@ Status: **BAS.1 documented; BAS.2/BAS.3 source-implemented; BAS.4 source audit r
 ## Draft PR and initial CI evidence (22.11.2026)
 
 Draft PR [#564](https://github.com/hotzenplotz5/vdr-suite/pull/564) targets `main` for source review and CI only. Baseline candidate `99fcc4f241cb30c6194784ed1831c663e2b9e22b` triggered [VDR-Suite CI run 45025539381](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45025539381). Its documentation, architecture and Make-inventory jobs completed PASS. The frontend aggregate job stopped at `tools/check_mu9e_grant_mutation_ui.py` because the untouched `web/frontend/settings-account-admin.js` on **main itself** contains `role.admin` (existing SHA `dd2558eb73a20433b80e32a742a443835f5a17ab`), which the also-unchanged checker forbids. BAS did not change either file; this external baseline failure is not repaired in BAS and is not a BAS/frontend success claim. Later exact-HEAD jobs must be inspected separately. The existing `addon-platform-isolated.yml` is push-to-main/dispatch-only, so a BAS Draft PR alone does not execute its synthetic root Agent composition fixture.
+
+## 22.11.2026 – REAL Media Import anomaly and scoped correction
+
+The operator's yaVDR evidence distinguishes the successful import from the
+optional metadata assignment. A local Recording `Rom (2005) S01E01` appeared
+with the importer's generic title/subtitle, no persisted poster, and the
+confirmed import Operation at 19:41:38 had payload version **1** with no
+metadata snapshot. The same host's `Lost Treasures of Rome S01E03` Operation
+at 19:40:22 had payload version **8** with a valid v2 snapshot and confirmed
+`Media Import TMDb assignment saved` in the daemon journal. Four intervening
+v7 Operations were duplicate-cleanup actions, not metadata-bearing imports.
+This is **not** evidence that the daemon's v2 metadata writer is generally
+broken or that the preview's artwork was necessarily a selected TMDb record.
+
+The source audit found a specific generic selection-loss path:
+`refreshSelectedPreview()` retained manual TMDb selections but discarded
+a confirmed *automatic* selection even when the opaque source ID was unchanged.
+The next import could therefore use the original version-1 payload without a
+snapshot. On this BAS branch, the selected provider/episode identity and
+automatic provenance now survive a same-source NFO, capacity, or poster refresh;
+a changed source still clears the identity, and no automatic import is added.
+The **existing** confirmation reports when a lookup is still pending or no
+provider choice is confirmed; offline/local-only import remains allowed and
+unchanged. No provider lookup, permission gate, or new background job is added
+to the import click.
+
+Focused composition regressions cover automatic selection retention across
+two technical refreshes, fresh matching after an actual source change,
+late-result fencing, local-only/offline confirmation and no unrequested
+operation. This is a SOURCE fix; the exact new code's complete Node test and
+live yaVDR acceptance remain open until they actually run. The previously
+imported `Rom` video is not re-imported: Home's existing Series backfill
+has already displayed one enriched episode and a Series poster, while
+native `info` verification remains separate.
+
+## BAS.6 – Full Backend-Agent scope, first composition simplification
+
+BAS is **not limited to Media Tools**. The actual runtime spans
+`core/agent/src/BackendAgentClient.cpp`,
+`BackendAgentCommandClient.cpp`, the SuiteBridge handshake/observation
+transports, native Timer create/delete/modify, Recording marks/cut, channel
+and OSD observation, protected command state/receipts, credential rotation
+and `apps/agent/main.cpp` composition.
+
+- **BAS.6 source change:** two identical closures in
+  `apps/agent/main.cpp` formerly built the same live command context for
+  Media Import and HEVC/Media Shrink. They now share one local
+  `currentCommandContext` closure. Each use still reads the current Agent
+  state, instance ID, credential and backend generation; no credential is
+  captured or cached at construction. Executor opt-ins, transport, authorization,
+  heartbeat and command semantics are unchanged.
+- **BAS.7 – Health/Channel/OSD observations:** inspect the already distinct
+  pending-observation journals, snapshot generations and resync paths.
+  Simplify only duplicated pure construction when equivalent; do not combine
+  their unrelated protocol lineages or change observation ordering.
+- **BAS.8 – Native Timer/Recording command flows:** inspect create/delete/modify
+  and marks/cut through the single local receipt/result journal, generation
+  fence, timeouts and native readback. Identify actual duplicated work first;
+  never consolidate independent use-time permission or physical VDR guards.
+- **BAS.9 – Transport, lifecycle, capability and recovery:** inspect
+  enrollment/credential rotation, reconnect, heartbeat/fast command polling
+  and capability publication. The fast poll already reuses one availability
+  snapshot per heartbeat; don't reintroduce redundant probing, polling or
+  loosen command replay fences.
+- **BAS.10 – Final cross-domain acceptance:** relevant Agent build and
+  focused native command, observation, Media Tools, SSE and reconciliation
+  regressions plus controlled yaVDR checks. No merge/ready-for-review claim
+  before the final-head graph and genuinely necessary hardware evidence.
+
+BAS.6 is **source-implemented, compile/CI/real-runtime acceptance pending**.
+BAS.7–10 are planned, not passed. The API v1 parallel work remains on its
+separate branch and was not merged or modified by this branch.
