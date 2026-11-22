@@ -34,12 +34,13 @@ Der bestehende `role.read-only`-Schutz, Backend-Scope,
 Native-Revision, Agent-/Provider-Fencing, In-use-Schutz,
 Einmal-Dispatch und VDR-Readback gelten unverändert.
 
-**Wichtig:** Die bestehende Device-Grant-Allowlist erteilt
-`recordings.edit` derzeit **nicht** an TV-/Service-Actors.
-Die Freigabe von Recording-Mutationen für Geräte muss im
-separaten Public-v1-Marks-/Cut-Adapter unter den geprüften
-Device-/Backend-Scopes erfolgen. Eine Konto-Bearbeitungsberechtigung
-ist keine implizite Genehmigung jedes gekoppelten Geräts.
+**Device-Grenze:** Die Device-Grant-Allowlist erlaubt jetzt ebenfalls
+`recordings.edit`, **nur für ein ausdrücklich administrativ
+freigegebenes Gerät und genau ein Backend**. Es gibt keinen
+automatischen Grant beim Pairing, keine globale Device-Bearbeitung
+und keine Vererbung von Human-Account-Rechten.
+Der native Recording-Editor prüft weiterhin Actor, CSRF bei Browser-
+Sessions, Scope, Revision, Readback und Provider-/Agent-Fencing.
 
 **Nicht** impliziert sind Playback (`media.recording.play`),
 `recordings.execute` als unbekannter/fallback Action-Code,

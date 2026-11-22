@@ -84,10 +84,14 @@ int main()
         "media.live.play", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "recordings.view", "default"));
-    // Device mutation remains independently grant-gated until Public-v1
-    // Recording editing is explicitly admitted for Devices.
-    assert(!DeviceGrantAdministrationService::supportedGrant(
+    // Exactly one approved backend; no implicit editing or wildcard.
+    assert(DeviceGrantAdministrationService::supportedGrant(
         "recordings.edit", "default"));
+    for (const char* badScope : {"*", ".", "..", ""})
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            "recordings.edit", badScope));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "recordings.cut", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "epg.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(

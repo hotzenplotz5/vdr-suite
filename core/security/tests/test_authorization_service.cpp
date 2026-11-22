@@ -131,6 +131,20 @@ int main()
     assert(service.authorize(readonlyEditor,
         permissionRequest("recordings.marks.modify", "default")).reasonCode ==
         "role_read_only");
+    // Device Service actors only receive this privilege from their
+    // explicitly approved, concrete-backend Device grant.
+    RequestSecurityContext deviceEditor = authenticatedContext();
+    deviceEditor.actor.type = ActorType::Service;
+    deviceEditor.grants.push_back({"recordings.edit", "default"});
+    assert(service.authorize(deviceEditor,
+        permissionRequest("recordings.cut", "default")).allowed);
+    assert(service.authorize(deviceEditor,
+        permissionRequest("recordings.marks.modify", "default")).allowed);
+    assert(!service.authorize(deviceEditor,
+        permissionRequest("recordings.cut", "house-b")).allowed);
+    assert(!service.authorize(deviceEditor,
+        permissionRequest("timers.delete", "default")).allowed);
+
     RequestSecurityContext legacy = authenticatedContext();
     legacy.grants.push_back({"recordings.marks.modify", "default"});
     assert(service.authorize(legacy,

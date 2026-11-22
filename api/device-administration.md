@@ -120,6 +120,7 @@ The supported Device grants are the following reviewed permissions:
 
 - `channels.view`
 - `recordings.view` (read-only Public-v1 recording search)
+- `recordings.edit` (explicitly approved, exact-backend Recording editor: view, rename, move, delete, native marks and cut; no automatic grant or wildcard)
 - `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
 - `timers.create` (EPG-selected native Timer intent)
