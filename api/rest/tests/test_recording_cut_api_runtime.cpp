@@ -406,7 +406,7 @@ int main()
     int publicCutDispatches = 0;
     assert(runtime.configure(
         [](const std::string&) {
-            return std::vector<VdrRecording>{recording()};
+            return std::vector<VdrRecording>{recording(), editedRecording()};
         },
         [&publicCut](const std::string&) {
             return RecordingCutBackendAccess{
@@ -427,6 +427,14 @@ int main()
             result.accepted = true;
             result.commandId = "cmd-public-cut";
             result.requestFingerprint = "fp-public-cut";
+            if (start.replayOnly)
+            {
+                result.replayed = true;
+                result.verified = true;
+                result.editedRecordingKey =
+                    VdrRecordingNativeIdentity::keyForNativeId(
+                        editedRecording().backendNativeId);
+            }
             return result;
         }));
     runtime.setPublicRecordingResolver(
@@ -436,6 +444,14 @@ int main()
                 return false;
             out = recording();
             return true;
+        });
+    runtime.setPublicEditedRecordingIdResolver(
+        [](const std::string& backend,
+           const std::string& nativeId) {
+            return backend == "default" &&
+                nativeId == editedRecording().backendNativeId
+                ? std::string("rec_fedcba9876543210fedcba9876543210")
+                : std::string();
         });
     response = {};
     assert(runtime.tryHandleGet(publicTarget, response));
@@ -453,6 +469,35 @@ int main()
     assert(response.statusCode == 202);
     assert(publicCutDispatches == 1);
     assert(response.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") !=
+        std::string::npos);
+
+    // After native readback, public Cut results use the same persistent
+    // rec_ mapping as the Recording collection, with no legacy path leak.
+    publicCut.state.ready = false;
+    publicCut.state.reason = "edited-destination-exists";
+    publicCut.state.editedDestinationExists = true;
+    publicCut.state.editedRecordingFound = true;
+    response = {};
+    assert(runtime.tryHandleGet(publicTarget, response));
+    assert(response.statusCode == 200);
+    assert(response.body.find(
+        "\"editedRecording\":{\"id\":\"rec_fedcba9876543210fedcba9876543210\"") !=
+        std::string::npos);
+    assert(response.body.find("\"recordingId\":\"recording-cut-1\"") ==
+        std::string::npos);
+    assert(response.body.find("\"editedRecordingKey\"") ==
+        std::string::npos);
+    assert(response.body.find("\"backendNativeId\"") ==
+        std::string::npos);
+    assert(response.body.find("/srv/vdr/") == std::string::npos);
+    response = {};
+    assert(runtime.tryHandlePost(publicTarget, publicCutBody, response));
+    assert(response.statusCode == 200);
+    assert(publicCutDispatches == 2);
+    assert(response.body.find(
+        "\"editedRecordingId\":\"rec_fedcba9876543210fedcba9876543210\"") !=
+        std::string::npos);
+    assert(response.body.find("\"editedRecordingKey\"") ==
         std::string::npos);
 
     runtime.reset();

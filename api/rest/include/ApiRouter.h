@@ -155,6 +155,15 @@ public:
             std::move(resolver));
     }
 
+    // Map a verified native cut result through the existing persistent
+    // public Recording identity repository, not a second result-ID store.
+    void setPublicRecordingEditedResultResolver(
+        RecordingCutApiRuntime::PublicEditedRecordingIdResolver resolver)
+    {
+        RecordingCutApiRuntime::instance().setPublicEditedRecordingIdResolver(
+            std::move(resolver));
+    }
+
     using PublicRecordingFolderResolver =
         std::function<bool(const std::string&, const std::string&, std::string&)>;
 

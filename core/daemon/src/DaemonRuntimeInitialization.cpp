@@ -5472,6 +5472,15 @@ bool DaemonRuntime::initialize()
             return true;
         });
 
+    apiRouter_->setPublicRecordingEditedResultResolver(
+        [this](const std::string& backendId,
+               const std::string& backendNativeId) -> std::string {
+            if (!publicRecordingIdentities_) return {};
+            const auto id = publicRecordingIdentities_->resolveOrCreate(
+                backendId, backendNativeId);
+            return id.value_or(std::string());
+        });
+
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
