@@ -399,5 +399,62 @@ int main()
     assert(response.statusCode == 400);
 
     runtime.reset();
+    // F6: use the same canonical public rec_ resolver as Recording actions,
+    // retaining public identity on both read and accepted native write.
+    FakeCutStateResolver publicCut;
+    publicCut.state = readyState();
+    int publicCutDispatches = 0;
+    assert(runtime.configure(
+        [](const std::string&) {
+            return std::vector<VdrRecording>{recording()};
+        },
+        [&publicCut](const std::string&) {
+            return RecordingCutBackendAccess{
+                RecordingCutBackendAvailability::Available, &publicCut};
+        },
+        [](const std::string&) {
+            RecordingCutBackendWriteAccess access;
+            access.allowed = true;
+            access.statusCode = 200;
+            return access;
+        },
+        [&publicCutDispatches](const RecordingCutStartRequest& start) {
+            ++publicCutDispatches;
+            assert(start.recordingKey ==
+                VdrRecordingNativeIdentity::keyForNativeId(
+                    recording().backendNativeId));
+            RecordingCutDispatchResult result;
+            result.accepted = true;
+            result.commandId = "cmd-public-cut";
+            result.requestFingerprint = "fp-public-cut";
+            return result;
+        }));
+    runtime.setPublicRecordingResolver(
+        [](const std::string& backend,
+           const std::string& publicId, VdrRecording& out) {
+            if (backend != "default" || publicId != "rec_0123456789abcdef0123456789abcdef")
+                return false;
+            out = recording();
+            return true;
+        });
+    response = {};
+    assert(runtime.tryHandleGet(publicTarget, response));
+    assert(response.statusCode == 200);
+    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+        std::string::npos);
+    std::string publicCutBody = body();
+    const std::string nativeIdToken = "\\"recordingId\\":\\"recording-1\\"";
+    const std::size_t nativeIdAt = publicCutBody.find(nativeIdToken);
+    assert(nativeIdAt != std::string::npos);
+    publicCutBody.replace(nativeIdAt, nativeIdToken.size(),
+        "\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"");
+    response = {};
+    assert(runtime.tryHandlePost(publicTarget, publicCutBody, response));
+    assert(response.statusCode == 202);
+    assert(publicCutDispatches == 1);
+    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+        std::string::npos);
+
+    runtime.reset();
     return 0;
 }

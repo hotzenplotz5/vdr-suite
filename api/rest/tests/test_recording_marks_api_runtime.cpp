@@ -454,5 +454,65 @@ int main()
     runtime.reset();
     assert(!runtime.configured());
     assert(!runtime.mutationConfigured());
+    // F6: the canonical rec_ binding resolves to the current cached native
+    // Recording; responses retain the public rec_ ID, no native path leaks.
+    FakeResolver publicMarks;
+    publicMarks.next = availableMarks();
+    publicMarks.next.inUseFlags = 0;
+    int publicMarksDispatches = 0;
+    assert(runtime.configure(
+        [](const std::string&) {
+            return std::vector<VdrRecording>{makeRecording()};
+        },
+        [&publicMarks](const std::string&) {
+            RecordingMarksBackendAccess access;
+            access.availability = RecordingMarksBackendAvailability::Available;
+            access.resolver = &publicMarks;
+            return access;
+        },
+        [](const std::string&) {
+            RecordingMarksBackendWriteAccess access;
+            access.allowed = true;
+            access.statusCode = 200;
+            return access;
+        },
+        [&publicMarksDispatches](const RecordingMarksMutationRequest& mutation) {
+            ++publicMarksDispatches;
+            assert(mutation.recordingKey ==
+                VdrRecordingNativeIdentity::keyForNativeId(
+                    makeRecording().backendNativeId));
+            RecordingMarksMutationDispatchResult result;
+            result.accepted = true;
+            result.commandId = "cmd-marks-public";
+            result.requestFingerprint = "fp-marks-public";
+            return result;
+        }));
+    runtime.setPublicRecordingResolver(
+        [](const std::string& backend,
+           const std::string& publicId, VdrRecording& out) {
+            if (backend != "default" || publicId != "rec_0123456789abcdef0123456789abcdef")
+                return false;
+            out = makeRecording();
+            return true;
+        });
+    assert(runtime.tryHandleGet(publicTarget, response));
+    assert(response.statusCode == 200);
+    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+        std::string::npos);
+    assert(response.body.find("\\"recordingId\\":\\"7\\"") ==
+        std::string::npos);
+    std::string publicMarksBody = addMutationBody();
+    const std::string marksIdToken = "\\"recordingId\\":\\"7\\"";
+    const std::size_t marksIdAt = publicMarksBody.find(marksIdToken);
+    assert(marksIdAt != std::string::npos);
+    publicMarksBody.replace(marksIdAt, marksIdToken.size(),
+        "\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"");
+    assert(runtime.tryHandlePost(publicTarget, publicMarksBody, response));
+    assert(response.statusCode == 202);
+    assert(publicMarksDispatches == 1);
+    assert(response.body.find("\\"recordingId\\":\\"rec_0123456789abcdef0123456789abcdef\\"") !=
+        std::string::npos);
+
+    runtime.reset();
     return 0;
 }
