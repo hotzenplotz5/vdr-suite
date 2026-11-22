@@ -335,6 +335,21 @@ public:
             return response;
         }
 
+        // Native Recording edit handlers run before Public-v1's catch-all.
+        if (RecordingCutApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
@@ -346,20 +361,6 @@ public:
                 authorizedBackendRefs,
                 pairingToken,
                 browserAuthenticated))
-        {
-            return response;
-        }
-
-        if (RecordingCutApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
-        {
-            return response;
-        }
-
-        if (RecordingMarksApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
         {
             return response;
         }
@@ -533,6 +534,23 @@ public:
                 return resolved;
             });
 
+        // Reuse the protected, native Marks/Cut runtimes for public paths.
+        if (RecordingCutApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
+        if (RecordingMarksApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 requestRef,
@@ -566,22 +584,6 @@ public:
                 actorRef,
                 clientRef,
                 correlationRef,
-                response))
-        {
-            return response;
-        }
-
-        if (RecordingCutApiRuntime::instance().tryHandlePost(
-                requestTarget,
-                body,
-                response))
-        {
-            return response;
-        }
-
-        if (RecordingMarksApiRuntime::instance().tryHandlePost(
-                requestTarget,
-                body,
                 response))
         {
             return response;

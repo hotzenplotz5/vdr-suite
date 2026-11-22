@@ -135,10 +135,28 @@ public:
              path == "/api/vdr/recordings/actions/execute" ||
              path == "/api/v1/recordings/actions/execute" ||
              path == "/api/v1/recordings/actions/validate");
+        // Existing native edit permissions also protect the public routes.
+        const std::string publicEditPrefix = "/api/v1/recordings/";
+        const std::size_t publicEditSlash =
+            path.compare(0U, publicEditPrefix.size(), publicEditPrefix) == 0
+                ? path.find('/', publicEditPrefix.size())
+                : std::string::npos;
+        const bool publicEditPath =
+            publicEditSlash != std::string::npos &&
+            publicEditSlash > publicEditPrefix.size();
+        const bool isPublicRecordingMarks =
+            publicEditPath && path.substr(publicEditSlash) == "/marks";
+        const bool isPublicRecordingCut =
+            publicEditPath && path.substr(publicEditSlash) == "/cut";
+        const bool isPublicRecordingEditRead =
+            request.method == "GET" &&
+            (isPublicRecordingMarks || isPublicRecordingCut);
         const bool isRecordingMarksModifyAction =
-            isPost && path == "/api/vdr/recordings/marks";
+            isPost && (path == "/api/vdr/recordings/marks" ||
+                       isPublicRecordingMarks);
         const bool isRecordingCutAction =
-            isPost && path == "/api/vdr/recordings/cut";
+            isPost && (path == "/api/vdr/recordings/cut" ||
+                       isPublicRecordingCut);
         const bool isSearchTimerCreateAction = isPost &&
             (path == "/api/searchtimers" || path == "/api/vdr/searchtimers");
         const bool isSearchTimerUpdateAction = isPost &&
@@ -1003,6 +1021,7 @@ public:
             (path == "/api/v1/recordings" ||
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
+             isPublicRecordingEditRead ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
