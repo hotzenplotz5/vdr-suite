@@ -224,6 +224,13 @@ const trailerContext = vm.createContext({
     VdrSuiteRecordings2Shared: {
       text(value) {
         return value === undefined || value === null ? '' : String(value);
+      },
+      first(recording, keys, fallback) {
+        for (const key of keys) {
+          if (recording && recording[key] !== undefined && recording[key] !== null)
+            return recording[key];
+        }
+        return fallback;
       }
     }
   },
