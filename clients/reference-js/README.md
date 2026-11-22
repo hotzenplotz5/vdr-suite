@@ -250,6 +250,24 @@ sind **nicht** automatisch 1:1 gleichwertig. Die
 [Web-vs-Public-v1 F4-Matrix](../../docs/development/api-v1-f4-recording-metadata-artwork-parity.md)
 dokumentiert die bekannten Grenzen vor einer Web-Migration.
 
+## API.V1.F5.2 – Native Timer modifications and delete (explicit)
+
+The existing Public-v1 endpoints are available through
+`modifyNativeTimer({timerId,backendId,ifMatch,idempotencyKey,payload,headers})`
+for `POST /api/v1/native-timers/{timerId}/modifications`, and
+`deleteNativeTimer({timerId,backendId,ifMatch,idempotencyKey,headers})`
+for `DELETE /api/v1/native-timers/{timerId}`.
+The mutation payload is caller-owned: `{kind:'toggle',enabled:false|true}`
+or the server-defined complete `kind:'update'` specification.
+Both methods forward the original strong ETag from a verified managed/adopted
+Timer and one logical operation's idempotency key. The server controls
+admission, revision, ownership, device/browser permissions and readback.
+A Browser supplies its existing CSRF token through `headers`.
+The helper returns `{status,data,location}` for the async Operation;
+`202` is **not** a confirmed native Timer change. No implicit retry,
+automatic Operation polling, timer creation or legacy fallback is added.
+This is a source mock contract, not a new real-Timer mutation test.
+
 ## API.V1.F5.1 – Native Timer snapshot and conditional detail
 
 `getNativeTimers({query:{backendId,offset,limit},headers})` reads the

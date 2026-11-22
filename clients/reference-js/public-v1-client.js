@@ -1729,7 +1729,7 @@
       return '?' + params.toString();
     }
 
-    function nativeTimerItemPath(options) {
+    function nativeTimerItemPath(options, suffix) {
       if (!options || typeof options !== 'object' ||
           typeof options.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
@@ -1737,7 +1737,45 @@
           !/^[A-Za-z0-9._:-]{1,160}$/.test(options.timerId))
         throw new Error('Canonical native Timer ID and backendId required');
       return '/api/v1/native-timers/' + options.timerId +
-        '?backendId=' + encodeURIComponent(options.backendId);
+        (suffix || '') + '?backendId=' + encodeURIComponent(options.backendId);
+    }
+
+    function submitNativeTimerMutation(input, method) {
+      const options = input && typeof input === 'object' ? input : {};
+      const path = nativeTimerItemPath(options,
+        method === 'POST' ? '/modifications' : '');
+      if (typeof options.ifMatch !== 'string' || options.ifMatch.length === 0 ||
+          typeof options.idempotencyKey !== 'string' ||
+          options.idempotencyKey.length === 0)
+        throw new Error('Native Timer mutation requires If-Match and Idempotency-Key');
+      if (method === 'POST' &&
+          (!options.payload || typeof options.payload !== 'object' ||
+           Array.isArray(options.payload)))
+        throw new Error('Native Timer modification requires caller-owned JSON payload');
+      // No retry or re-issuance on an uncertain mutation outcome.
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(options.headers), {
+          'If-Match': options.ifMatch,
+          'Idempotency-Key': options.idempotencyKey
+        });
+      const requestOptions = {
+        method, headers,
+        credentials: options.credentials !== undefined
+          ? options.credentials : normalized.credentials,
+        signal: options.signal
+      };
+      if (method === 'POST') {
+        headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify(options.payload);
+      }
+      return fetchImpl(buildUrl(baseUrl, path), requestOptions).then(
+        response => parseJsonBody(response).then(data => {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status: response.status, data,
+            location: headerValue(response,'Location')};
+        })
+      );
     }
 
     function playbackAccountAdminPath(input) {
@@ -2368,6 +2406,12 @@
       getNativeTimer(options) {
         const input = options && typeof options === 'object' ? options : {};
         return requestRevisioned(nativeTimerItemPath(input), input);
+      },
+      modifyNativeTimer(options) {
+        return submitNativeTimerMutation(options, 'POST');
+      },
+      deleteNativeTimer(options) {
+        return submitNativeTimerMutation(options, 'DELETE');
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

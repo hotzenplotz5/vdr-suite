@@ -1,5 +1,19 @@
 # VDR-Suite Current State
 
+## API.V1.F5.2 – Native-Timer-Mutationen im Referenzclient (22.11.2026)
+
+Die vorhandenen Public-v1-Routen für native Timer TOGGLE/UPDATE
+und DELETE sind als explizite `modifyNativeTimer`- und
+`deleteNativeTimer`-Methoden auf dem Reference-JS-Client
+verfügbar. Sie übernehmen die vom Aufrufer gelieferten
+`If-Match`-/`Idempotency-Key`-Werte sowie beim Browser
+bestehende CSRF-Header und lösen **keine** automatische
+Wiederholung aus. 202 bleibt ein asynchroner Operation-Auftrag,
+nicht der behauptete fertige VDR-Readback.
+Eine reine HTTP-Mock-Regression ist im F5.1-Testziel ergänzt.
+Web-Timer-UI, reale Timer und die bisherige Interop-Grenze
+bleiben unverändert.
+
 ## API.V1.F5.1 – Public-v1 Native-Timer-Reads (22.11.2026)
 
 Der Reference-JS-Client erhält die bereits serverseitig existierenden

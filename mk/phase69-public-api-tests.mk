@@ -66,6 +66,7 @@ test-phase: test-public-epg-timer-intent-admission
 .PHONY: test-public-v1-native-timer-read-client
 test-public-v1-native-timer-read-client:
 	node clients/reference-js/tests/test_public_v1_f5_native_timer_read_client.js
+	node clients/reference-js/tests/test_public_v1_f5_native_timer_mutation_client.js
 
 test-ci-fast: test-public-v1-native-timer-read-client
 

@@ -68,6 +68,19 @@ F6 ist bis zu dieser Abnahme **nicht abgeschlossen**.
 F5 Timer/Suchtimer bleibt für MLD-Testfeedback zurückgestellt;
 F7 und F8 bleiben eigenständige Folgeslices.
 
+## API.V1.F5.2 – Native Timer UPDATE/TOGGLE/DELETE Client (22.11.2026)
+
+Quellseitig sind die **bereits vorhandenen** Public-v1-Routen
+`POST /api/v1/native-timers/{timerId}/modifications` und
+`DELETE /api/v1/native-timers/{timerId}` im Reference-JS-Client
+als explizite, einmalige Aktionen abgebildet. Der Aufrufer
+muss ETag und Idempotenzschlüssel selbst liefern; Browser-CSRF
+bleibt caller-owned. Der Quell-Mock testet HTTP 202 und 409,
+Operation-Rückgabe sowie ausbleibende Auto-Wiederholung.
+Kein realer Timer wurde erstellt, geändert oder gelöscht.
+Die Web-Timer-Oberfläche ist wegen anderer Semantik weiterhin
+nicht blind auf TimerAssignment/Intent umgestellt.
+
 ## API.V1.F5.1 – Native Timer Reads im Reference-JS-Client (22.11.2026)
 
 Nach den F6-/F7-Quellkandidaten ist als enger, lesender
