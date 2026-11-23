@@ -1223,6 +1223,19 @@ struct PublicAccountSessionMutationResult
 
 // A new EPG intent is not an existing TimerAssignment and is never a
 // caller-supplied native Timer specification.
+
+// Manual one-shot CREATE carries the Human's desired title/window only.
+// Backend-local day/HHMM, source and CLOCK/preview authority are resolved
+// by the existing daemon and native Agent, never accepted from client JSON.
+struct PublicManualTimerIntentAdmissionRequest
+{
+    std::string actorRef, backendId, idempotencyKey;
+    std::string channelId, title, directory;
+    std::int64_t startAt = 0, stopAt = 0;
+    int priority = 50, lifetime = 99;
+    bool enabled = true, vps = false;
+};
+
 struct PublicEpgTimerIntentAdmissionRequest
 {
     std::string actorRef;
@@ -1698,6 +1711,13 @@ public:
         std::function<PublicDevicePairingDecisionResult(
             const PublicDevicePairingDecisionRequest& request)>;
 
+    using ManualTimerIntentReplayLookup =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicManualTimerIntentAdmissionRequest&)>;
+    using ManualTimerIntentSubmit =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicManualTimerIntentAdmissionRequest&)>;
+
     using EpgTimerIntentObservationLookup =
         std::function<PublicEpgTimerIntentObservationResult(
             const PublicEpgTimerIntentAdmissionRequest&)>;
@@ -1977,6 +1997,11 @@ public:
         DevicePairingDecision decision);
     void resetDevicePairingDecision();
     bool devicePairingDecisionConfigured() const;
+
+    void registerManualTimerIntentReplayLookup(ManualTimerIntentReplayLookup callback);
+    void resetManualTimerIntentReplayLookup();
+    void registerManualTimerIntentSubmit(ManualTimerIntentSubmit callback);
+    void resetManualTimerIntentSubmit();
 
     void registerEpgTimerIntentObservationLookup(EpgTimerIntentObservationLookup callback);
     void resetEpgTimerIntentObservationLookup();
@@ -2330,6 +2355,10 @@ private:
 
     mutable std::mutex devicePairingDecisionMutex_;
     DevicePairingDecision devicePairingDecision_;
+
+    mutable std::mutex manualTimerIntentMutex_;
+    ManualTimerIntentReplayLookup manualTimerIntentReplayLookup_;
+    ManualTimerIntentSubmit manualTimerIntentSubmit_;
 
     mutable std::mutex epgTimerIntentMutex_;
     EpgTimerIntentObservationLookup epgTimerIntentObservationLookup_;

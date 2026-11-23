@@ -1117,8 +1117,11 @@ public:
         const bool isPublicSearchTimerPreviewRead =
             request.method == "GET" &&
             (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
+        // Manual and EPG one-shot CREATE share the EXISTING exact
+        // timers.create authorization, Browser CSRF and audited mutation.
         const bool isPublicEpgTimerIntentCreate =
-            isPost && path == "/api/v1/epg/timer-intents";
+            isPost && (path == "/api/v1/epg/timer-intents" ||
+                       path == "/api/v1/manual/timer-intents");
         const std::string publicEpgTimerBackendId =
             isPublicEpgTimerIntentCreate
                 ? jsonStringValue(request.body, "backendId") : std::string();

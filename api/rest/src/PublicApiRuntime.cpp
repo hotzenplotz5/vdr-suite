@@ -115,6 +115,7 @@ constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr const char* PublicEpgEventDetailPath = "/api/v1/epg/event";
 constexpr const char* PublicEpgTimerIntentPath = "/api/v1/epg/timer-intents";
+constexpr const char* PublicManualTimerIntentPath = "/api/v1/manual/timer-intents";
 constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
 constexpr const char* PublicEpgWindowPath =
@@ -2886,6 +2887,90 @@ bool parsePublicAccountMutationBody(
     return position == input.size();
 }
 
+
+
+// Strict closed JSON with native backend-local day/HHMM deliberately absent.
+// Timestamps are UTC Unix seconds; VDR-local scheduling is attested by
+// SuiteBridge CLOCK before the shared Native CREATE admission is reached.
+bool parsePublicManualTimerIntentBody(
+    const std::string& body, PublicManualTimerIntentAdmissionRequest& input)
+{
+    if (body.empty() || body.size() > 4096U) return false;
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    skipAccountMutationWhitespace(body, pos);
+    if (pos >= body.size() || body[pos++] != '{') return false;
+    for (;;)
+    {
+        skipAccountMutationWhitespace(body, pos);
+        std::string key;
+        if (!parseAccountMutationJsonString(body, pos, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(body, pos);
+        if (pos >= body.size() || body[pos++] != ':') return false;
+        skipAccountMutationWhitespace(body, pos);
+        if (key == "backendId" || key == "channelId" || key == "title" ||
+            key == "directory")
+        {
+            std::string value;
+            if (!parseAccountMutationJsonString(body, pos, value)) return false;
+            if (key == "backendId") input.backendId = std::move(value);
+            else if (key == "channelId") input.channelId = std::move(value);
+            else if (key == "title") input.title = std::move(value);
+            else input.directory = std::move(value);
+        }
+        else if (key == "enabled" || key == "vps")
+        {
+            bool enabled = false;
+            if (consumeAccountMutationLiteral(body, pos, "true"))
+                enabled = true;
+            else if (!consumeAccountMutationLiteral(body, pos, "false"))
+                return false;
+            if (key == "enabled") input.enabled = enabled;
+            else input.vps = enabled;
+        }
+        else if (key == "startAt" || key == "stopAt" ||
+                 key == "priority" || key == "lifetime")
+        {
+            const std::size_t first = pos;
+            std::int64_t value = 0;
+            while (pos < body.size() && body[pos] >= '0' && body[pos] <= '9')
+            {
+                const int digit = body[pos++] - '0';
+                if (value > (std::numeric_limits<std::int64_t>::max() - digit) / 10)
+                    return false;
+                value = value * 10 + digit;
+            }
+            if (first == pos || (pos - first > 1U && body[first] == '0'))
+                return false;
+            if (key == "startAt") input.startAt = value;
+            else if (key == "stopAt") input.stopAt = value;
+            else if (value > 99)
+                return false;
+            else if (key == "priority") input.priority = static_cast<int>(value);
+            else input.lifetime = static_cast<int>(value);
+        }
+        else return false;
+        skipAccountMutationWhitespace(body, pos);
+        if (pos < body.size() && body[pos] == ',')
+        {
+            ++pos;
+            continue;
+        }
+        if (pos >= body.size() || body[pos++] != '}') return false;
+        break;
+    }
+    skipAccountMutationWhitespace(body, pos);
+    return pos == body.size() && seen.size() == 10U &&
+        vdrsuite::public_epg_timer::boundedId(input.backendId, 128U) &&
+        vdrsuite::public_epg_timer::boundedId(input.channelId, 160U) &&
+        !input.title.empty() && input.title.size() <= 1024U &&
+        input.directory.size() <= 1024U &&
+        input.startAt > 0 && input.stopAt > input.startAt &&
+        input.stopAt - input.startAt < 24 * 60 * 60;
+}
 
 // Reject unknown, duplicate and caller-owned scheduling fields.
 bool parsePublicEpgTimerIntentBody(const std::string& body,
@@ -5865,6 +5950,29 @@ bool PublicApiRuntime::operationLookupConfigured() const
     std::lock_guard<std::mutex> lock(
         operationLookupMutex_);
     return static_cast<bool>(operationLookup_);
+}
+
+void PublicApiRuntime::registerManualTimerIntentReplayLookup(
+    ManualTimerIntentReplayLookup callback)
+{
+    std::lock_guard<std::mutex> lock(manualTimerIntentMutex_);
+    manualTimerIntentReplayLookup_ = std::move(callback);
+}
+void PublicApiRuntime::resetManualTimerIntentReplayLookup()
+{
+    std::lock_guard<std::mutex> lock(manualTimerIntentMutex_);
+    manualTimerIntentReplayLookup_ = {};
+}
+void PublicApiRuntime::registerManualTimerIntentSubmit(
+    ManualTimerIntentSubmit callback)
+{
+    std::lock_guard<std::mutex> lock(manualTimerIntentMutex_);
+    manualTimerIntentSubmit_ = std::move(callback);
+}
+void PublicApiRuntime::resetManualTimerIntentSubmit()
+{
+    std::lock_guard<std::mutex> lock(manualTimerIntentMutex_);
+    manualTimerIntentSubmit_ = {};
 }
 
 void PublicApiRuntime::registerEpgTimerIntentObservationLookup(
@@ -9983,6 +10091,11 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    if (path == PublicManualTimerIntentPath)
+    {
+        response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
+        return true;
+    }
     if (path == PublicEpgTimerIntentPath)
     {
         response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
@@ -12387,6 +12500,112 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
         }
     }
 
+    if (path == PublicManualTimerIntentPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(path,
+                "Manual TimerIntent POST accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = publicTimerCreateProblem(415, "unsupported_media_type",
+                "Unsupported media type", "JSON required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        JsonSyntaxValidator syntax(body);
+        if (!syntax.valid())
+        {
+            response = invalidRequestProblem(path, "Invalid JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicManualTimerIntentAdmissionRequest manual;
+        if (!parsePublicManualTimerIntentBody(body, manual) ||
+            manual.backendId != authorizedBackendId ||
+            !vdrsuite::public_epg_timer::validIdempotencyKey(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "Authorized backend, manual window and Idempotency-Key required.",
+                requestId, correlationId);
+            return true;
+        }
+        manual.actorRef = actorRef;
+        manual.idempotencyKey = idempotencyKey;
+
+        ManualTimerIntentReplayLookup replay;
+        ManualTimerIntentSubmit submit;
+        {
+            std::lock_guard<std::mutex> lock(manualTimerIntentMutex_);
+            replay = manualTimerIntentReplayLookup_;
+            submit = manualTimerIntentSubmit_;
+        }
+        if (!replay)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto previous = replay(manual);
+        using S = PublicEpgTimerIntentAdmissionStatus;
+        const bool prior = previous.status == S::replayed;
+        if (previous.status == S::idempotencyConflict)
+        {
+            response = publicTimerCreateProblem(409, "idempotency_conflict",
+                "Idempotency conflict", "Key used for a different manual timer.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!prior && (previous.status != S::notFound || !submit))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto saved = prior ? previous : submit(manual);
+        if (saved.status == S::accepted || saved.status == S::replayed)
+        {
+            if (saved.operation.operationId.empty() ||
+                saved.operation.state.empty() ||
+                saved.operation.backendId != manual.backendId ||
+                saved.operation.resourceRevision.empty())
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            const std::string location =
+                std::string(PublicOperationPrefix) + saved.operation.operationId;
+            response = publicOperationResponse(saved.operation, location,
+                requestId, correlationId, "");
+            response.statusCode = 202;
+            response.headers["Location"] = location;
+            response.headers["Cache-Control"] = "no-store";
+            return true;
+        }
+        if (saved.status == S::invalid)
+            response = publicTimerCreateProblem(422, "validation_error",
+                "Validation failed", "Invalid manual TimerIntent.",
+                path, requestId, correlationId);
+        else if (saved.status == S::idempotencyConflict)
+            response = publicTimerCreateProblem(409, "idempotency_conflict",
+                "Idempotency conflict", "Manual timer key conflict.",
+                path, requestId, correlationId);
+        else if (saved.status == S::stateConflict ||
+                 saved.status == S::generationConflict)
+            response = publicTimerCreateProblem(409, "operation_conflict",
+                "Operation conflict", "Manual timer conflicts.",
+                path, requestId, correlationId);
+        else
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
+    }
+
     if (path == PublicEpgTimerIntentPath)
     {
         if (actorRef.empty())
@@ -13490,6 +13709,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicEpgNowNextPath ||
         path == PublicEpgEventDetailPath ||
         path == PublicEpgTimerIntentPath ||
+        path == PublicManualTimerIntentPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
         publicNativeTimerItemPath(path, timerAssignmentId) ||
