@@ -360,6 +360,163 @@
         "x-vdr-suite-auth-profile": "actor"
       }
     },
+    "/api/v1/manual/timer-intents": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "createManualTimerIntent",
+        "summary": "Admit an absolute manual one-shot TimerIntent",
+        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native flags/aux, recurring schedule or parallel writer. Currently source-only pending CI and hardware acceptance.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing native_timers.create: paired Device with exact timers.create@backendId, or Browser administrator role.admin@backendId/role.admin@* with CSRF."
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Visible ASCII 1–160; same key and body for replay",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "backendId",
+                  "channelId",
+                  "title",
+                  "directory",
+                  "startAt",
+                  "stopAt",
+                  "priority",
+                  "lifetime",
+                  "enabled",
+                  "vps"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  },
+                  "channelId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "directory": {
+                    "type": "string",
+                    "maxLength": 1024
+                  },
+                  "startAt": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1,
+                    "description": "Absolute Unix seconds, not native VDR day/HHMM"
+                  },
+                  "stopAt": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1,
+                    "description": "After startAt, interval under 24 hours"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99
+                  },
+                  "lifetime": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "vps": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable accepted/replayed Operation; native timer readback not implied",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, JSON, closed fields, backend scope, or key"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Grant, administrator or CSRF denied"
+          },
+          "409": {
+            "description": "Idempotency, generation or operation conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "422": {
+            "description": "Invalid manual timer specification"
+          },
+          "503": {
+            "description": "Native authority, preview, backend, or admission unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
+      }
+    },
     "/api/v1/epg/timer-intents": {
       "post": {
         "tags": [

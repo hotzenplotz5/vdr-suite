@@ -100,6 +100,37 @@ not a claim that every later source commit was independently installed.
 
 **Slice 1 + incomplete Slice 2:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The daemon registers the **read-only** `EpgTimerIntentObservationLookup`, reusing source event detail, backend Agent generation and write policy. The standalone atomic domain coordinator `EpgTimerIntentAtomicAdmissionService` now persists an intent, selected assignment, native CREATE Operation/payload and durable idempotency record in **one caller-owned transaction**, with rollback/replay/duplicate/stale-generation regressions. It requires a fresh authoritative native-specification attestation. **Historical 2026-10-18 Slice-2 finding (no longer current):** The earlier standalone source had no productive `EpgTimerIntentSubmit` registration and returned **503**. This statement is superseded by the composed daemon callback and the real 2026-10-19 public-v1 CREATE acceptance above. Source tests alone never authorized a hardware-acceptance claim.
 
+## Manual one-shot TimerIntent (F5.5.5 source; CI and real VDR outstanding)
+
+POST /api/v1/manual/timer-intents admits an explicit manual_window without
+an EPG event. It is not an alias for the legacy synchronous Timer writer.
+
+~~~http
+POST /api/v1/manual/timer-intents
+Content-Type: application/json
+Idempotency-Key: manual-timer-once-1
+
+{"backendId":"default","channelId":"C-1-1051-10301","title":"Meine Sendung","directory":"TV","startAt":1795547700,"stopAt":1795552200,"priority":50,"lifetime":99,"enabled":true,"vps":false}
+~~~
+
+All ten fields are required. The caller provides absolute Unix seconds,
+not a VDR-local day/HHMM, native Provider epoch, source evidence, flags or
+plugin-specific aux. No query or If-Match EPG precondition is accepted.
+The existing timers.create backend scope, administrator Browser+CSRF and
+Device grant checks are reused.
+
+The daemon obtains the selected backend native CLOCK and NTPREVIEW evidence
+through the current Agent/Provider fence, then uses the existing atomic
+TimerIntent -> TimerAssignment -> native CREATE Operation/Readback chain.
+HTTP 202 indicates only accepted/replayed Operation. Recover the original
+key and resource after transient loss, never blindly create a second Timer.
+The conservative preview may refuse recurring, overlapping, encrypted,
+VPS or inactive scenarios until independently verified.
+
+Final-head C++/security/production integration, real-VDR command/readback
+and established Webfrontend parity are NOT YET accepted. The old Web Timer
+editor remains on its proven route pending F5.6.
+
 ## HTTP request
 
 **Live-VDR-Vorlauf/Nachlauf (neuer Source-Vertrag 2026-10-26):**

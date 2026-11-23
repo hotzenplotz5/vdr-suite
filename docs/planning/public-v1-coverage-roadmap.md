@@ -2,6 +2,22 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.5.2 – Public-v1 Manuell-CREATE (Source-Stand; CI/Hardware offen):**
+Die Route POST /api/v1/manual/timer-intents nimmt absolute Unix-Zeiten,
+Kanal, Titel/Verzeichnis, Priorität, Lebensdauer, Enabled und VPS an.
+Der Daemon löst Backend-Kanal, native VDR CLOCK und den verifizierten
+NTPREVIEW auf; der bestehende NativeTimerCreateAdmissionService nimmt
+Intent, ausgewählte Assignment und Operation in EINER Transaktion an.
+Browser-Administrator+CSRF oder Device mit exaktem timers.create-Grant
+nutzen die bisherige Sicherheitsprüfung. Read-only Replay der dauerhaften
+Operation funktioniert ohne Backendkontakt; kein zweiter Writer/DB-Schema.
+Regressionsfälle für HTTP, Auth, Idempotenz, Backend-Drift und native
+Konfliktnachweise ergänzt, aber **CI/real VDR noch nicht bestätigt**.
+Die native Preview belegt noch keine universelle VPS-, Recurrence- oder
+Kollisionsparität; provider-spezifisches Aux bleibt bewusst gesondert.
+
+
+
 **F5.5.5.1 – Manuelle TimerIntent-Abbildung (ohne öffentlichen Writer):**
 Der bestehende ADR-0044-`manualWindow`-Intent und die unveränderte
 `NativeTimerSpecification` erhalten eine gemeinsame, reine Draft-Projektion
@@ -34,12 +50,9 @@ durch `submitAndSelectPrimaryInCurrentTransaction` und
 Er prüft die **eine** SQLite-Transaktion für Intent, Assignment und
 Operation inklusive vollständiger Rollback-Freiheit, exakter
 Wunsch-Spezifikation und idempotentem Operation-Replay.
-Der produktive Public-v1-HTTP-Adapter ist damit weiterhin **nicht** aktiviert.
+Der zunächst reine Domain-Teststand wurde inzwischen um die produktive Public-v1-HTTP-/Daemon-Komposition erweitert; CI und Hardwareabnahme stehen aus.
 
-**Offen vor Public-v1-Manuell-CREATE:** autoritative Backend-Kanal-/Uhrevidenz,
-Admission mit exakt payloadgebundener Idempotenz, atomare Intent-/Assignment-/
-Operation-Annahme, Native-Preview/Dispatch/Readback und HTTP-/Browser-Parität.
-Die Projektion ist **keine** HTTP-Route und keine Installationsfreigabe.
+**Weiter offen:** Final-HEAD-C++-Build/HTTP-Integrationstest, Real-VDR-Mutation und Operation-Readback, vollständig bewiesene Web-Parität. Kein Merge, keine Installation aus diesem Source-Stand.
 
 
 
@@ -109,7 +122,7 @@ und Installationsabnahme bleibt F8.
 | Fähigkeit des vorhandenen Web-Editors | Public-v1-Quellstand | F5.5/F5.6-Gate |
 | --- | --- | --- |
 | Liste/Detail, Sortierung, Status | GET /native-timers, Snapshot; F5.4-Grundfelder sowie eventId/native flags | Aux/Untertitel-/Sortierparität noch nicht vollständig |
-| Manuelles CREATE mit Kanal, Titel, Zeit, `aux` | EPG-TimerIntent nur für serverseitiges EPG-Ereignis | Manuelles CREATE fehlt |
+| Manuelles CREATE mit Kanal, Titel, Zeit, `aux` | Öffentlicher manueller One-shot-POST (source), native CLOCK/Preview/Operation, ohne `aux` | CI/Real-VDR und übrige Feld-/Aux-Parität noch offen |
 | UPDATE + aktiv/inaktiv für bestehende Timer | Nur verified managed/adopted Binding, ETag, Operation | Externe/ungeprüfte Timer bleiben nicht editierbar |
 | Timer löschen, bei Aufnahme ggf. Aufnahme stoppen | Native DELETE nur für gültige gebundene Timer, mit asynchronem Readback | Aufnahme-/externes-Timer-Verhalten fehlt |
 | Aux anzeigen/bearbeiten, EPGSearch-/TVScraper-Metadaten | Absichtlich nicht im Public DTO/Fingerprint; native MODIFY übernimmt bestehenden VDR-`Aux()`-Wert | Sichere Anzeige und Änderung nicht gleichwertig |
