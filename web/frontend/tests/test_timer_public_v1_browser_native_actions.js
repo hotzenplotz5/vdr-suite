@@ -230,6 +230,43 @@ function editor() {
   assert.equal(legacy[0].action, 'update');
   assert.equal(publicWrites.length, 4);
 
+  // Slice 3: VDR/epgsearch/LIVE-created timers have no Suite assignment.
+  // Their explicitly authorized existing native editor remains usable for
+  // UPDATE, TOGGLE and DELETE without pretending they are adopted or bound.
+  bindingState = 'adoption_required';
+  render({...nativeTimer, aux: '<epgsearch owned="external"/>'});
+  const externalForm = editor();
+  externalForm.elements.manualChannelId.value = 'C-1';
+  externalForm.elements.title.value = 'Edited outside Suite';
+  externalForm.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(legacy.length, 2);
+  assert.equal(legacy[1].action, 'update');
+  assert.equal(legacy[1].payload.title, 'Edited outside Suite');
+  assert.equal(legacy[1].payload.aux, '<epgsearch owned="external"/>');
+  assert.equal(legacy[1].payload.backendId, 'default');
+  assert.equal(publicWrites.length, 4, 'external UPDATE must not fake a bound Operation');
+
+  render(nativeTimer);
+  button('Timer löschen').listeners.click();
+  await tick();
+  assert.equal(legacy.length, 3);
+  assert.equal(legacy[2].action, 'delete');
+  assert.deepEqual(JSON.parse(JSON.stringify(legacy[2].payload)),
+    {backendId: 'default', timerId: '17'});
+  assert.equal(publicWrites.length, 4, 'external DELETE stays on established writer');
+
+  bindingState = 'binding_required';
+  render(nativeTimer);
+  button('Timer löschen').listeners.click();
+  await tick();
+  assert.equal(legacy.length, 4);
+  assert.equal(legacy[3].action, 'delete');
+  assert.equal(publicWrites.length, 4, 'unbound DELETE needs no invented binding');
+
+  // From here the managed-only fixtures continue with the original
+  // legacy count; all subsequent assertions account for these three
+  // additionally verified native actions.
   // Native MODIFY preserves the current VDR Aux() verbatim. An unchanged
   // opaque aux value is not a reason to bypass the managed Public-v1 writer.
   bindingState = 'verified';
