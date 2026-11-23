@@ -18,15 +18,15 @@ int main() {
     first.revision = revision("");
     auto pending = render(first, true);
     assert(pending.statusCode == 200);
-    assert(pending.body.find("\\"sources\\":[]") != std::string::npos);
-    assert(pending.body.find("\\"videoRoot\\":\\"/data/tv\\"") != std::string::npos);
-    assert(pending.body.find("\\"initialSetup\\":true") != std::string::npos);
+    assert(pending.body.find("\"sources\":[]") != std::string::npos);
+    assert(pending.body.find("\"videoRoot\":\"/data/tv\"") != std::string::npos);
+    assert(pending.body.find("\"initialSetup\":true") != std::string::npos);
 
     Snapshot existing = first;
     existing.sources.push_back({"/data/import", "Import"});
     const auto saved = render(existing);
-    assert(saved.body.find("\\"initialSetup\\":false") != std::string::npos);
-    assert(saved.body.find("\\"path\\":\\"/data/import\\"") != std::string::npos);
+    assert(saved.body.find("\"initialSetup\":false") != std::string::npos);
+    assert(saved.body.find("\"path\":\"/data/import\"") != std::string::npos);
 
     std::string backend, expected;
     std::vector<Source> sources;
