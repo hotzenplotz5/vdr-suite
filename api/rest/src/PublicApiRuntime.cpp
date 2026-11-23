@@ -2923,13 +2923,15 @@ bool parsePublicManualTimerIntentBody(
         seen.push_back(key);
 
         if (key == "backendId" || key == "channelId" ||
-            key == "title" || key == "directory")
+            key == "title" || key == "directory" ||
+            key == "weekdays")
         {
             std::string value;
             if (!json.string(value, 1024U)) return false;
             if (key == "backendId") input.backendId = std::move(value);
             else if (key == "channelId") input.channelId = std::move(value);
             else if (key == "title") input.title = std::move(value);
+            else if (key == "weekdays") input.weekdays = std::move(value);
             else input.directory = std::move(value);
         }
         else if (key == "enabled" || key == "vps")
@@ -2955,8 +2957,14 @@ bool parsePublicManualTimerIntentBody(
         if (!json.consume('}')) return false;
         break;
     }
-    return json.finished() && seen.size() == 10U &&
-        vdrsuite::public_epg_timer::boundedId(input.backendId, 128U) &&
+    if (!json.finished() ||
+        (seen.size() != 10U && seen.size() != 11U)) return false;
+    constexpr char kWeekdays[] = "MTWTFSS";
+    if (input.weekdays.size() != 7U) return false;
+    for (std::size_t day = 0U; day < 7U; ++day)
+        if (input.weekdays[day] != '-' &&
+            input.weekdays[day] != kWeekdays[day]) return false;
+    return vdrsuite::public_epg_timer::boundedId(input.backendId, 128U) &&
         vdrsuite::public_epg_timer::boundedId(input.channelId, 160U) &&
         !input.title.empty() && input.title.size() <= 1024U &&
         input.directory.size() <= 1024U &&

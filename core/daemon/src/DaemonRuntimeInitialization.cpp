@@ -5008,6 +5008,7 @@ bool DaemonRuntime::initialize()
             lookup.channelId = request.channelId;
             lookup.title = request.title;
             lookup.directory = request.directory;
+            lookup.weekdays = request.weekdays;
             lookup.startAt = request.startAt;
             lookup.stopAt = request.stopAt;
             lookup.priority = request.priority;
@@ -5143,7 +5144,7 @@ bool DaemonRuntime::initialize()
             native.channelId = request.channelId;
             native.title = request.title;
             native.directory = request.directory;
-            native.weekdays = "-------";
+            native.weekdays = request.weekdays;
             native.priority = request.priority;
             native.lifetime = request.lifetime;
             native.enabled = request.enabled;
@@ -5219,11 +5220,17 @@ bool DaemonRuntime::initialize()
             source.sourceType = "vdr";
             source.sourceId = request.backendId;
             source.backendChannelId = request.channelId;
-            source.timezone = "UTC";
+            // The first interval is an absolute Unix time; weekly repeats
+            // follow the owning VDR clock rather than the daemon timezone.
+            source.timezone = native.weekdays == "-------"
+                ? "UTC" : "VDR-local";
             source.startAt = request.startAt;
             source.stopAt = request.stopAt;
-            const auto draft = makeManualWindowTimerIntentDraft(
-                native, source, request.actorRef);
+            const auto draft = native.weekdays == "-------"
+                ? makeManualWindowTimerIntentDraft(
+                    native, source, request.actorRef)
+                : makeRecurringTimerIntentDraft(
+                    native, source, request.actorRef);
             if (!draft.valid)
             {
                 result.status = PublicEpgTimerIntentAdmissionStatus::invalid;

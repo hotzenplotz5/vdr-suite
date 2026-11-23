@@ -1227,13 +1227,15 @@ struct PublicAccountSessionMutationResult
 // A new EPG intent is not an existing TimerAssignment and is never a
 // caller-supplied native Timer specification.
 
-// Manual one-shot CREATE carries the Human's desired title/window only.
-// Backend-local day/HHMM, source and CLOCK/preview authority are resolved
+// Manual one-shot/weekly CREATE carries the desired first window and
+// native weekday mask. Backend-local day/HHMM and CLOCK/preview are resolved
 // by the existing daemon and native Agent, never accepted from client JSON.
 struct PublicManualTimerIntentAdmissionRequest
 {
     std::string actorRef, backendId, idempotencyKey;
     std::string channelId, title, directory;
+    // Native VDR weekdays, Monday through Sunday; ------- is one-shot.
+    std::string weekdays = "-------";
     std::int64_t startAt = 0, stopAt = 0;
     int priority = 50, lifetime = 99;
     bool enabled = true, vps = false;
