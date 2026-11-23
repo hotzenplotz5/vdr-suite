@@ -1,5 +1,29 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6.2 – Gezielte VDR-AUX-Mutation (23.11.2026; SOURCE)
+
+PR #563 ergänzt `POST /api/v1/native-timers/{timerId}/modifications`
+für ausdrücklich verändertes natives AUX bei bereits verifiziert
+verwalteten/übernommenen Timern. Der UPDATE-Body akzeptiert das Feldpaar
+`expectedAux`/`aux`, während unverändertes AUX beim üblichen Timer-UPDATE
+weiterhin vollständig vom VDR übernommen wird. Das aktuelle AUX wird vor der
+Operation gegen den Backend-Timer-Snapshot geprüft; beim eigentlichen
+Schreibzugriff vergleicht SuiteBridge NTMOD EXEC v2 unter der vorhandenen
+VDR-Write-Lock den Fingerprint der alten AUX-Bytes. Es gibt **keinen
+zusätzlichen Timer-Writer**. Ein neuer v2-AUX-Auftrag wird im vorhandenen
+Operation-/Agent-Auftrag/Reconciliation- und Recovery-Pfad getragen, mit
+native RESTfulAPI-Readback des AUX-Inhalts und SSE im Browser. Frühere
+NTMOD-v1-Aufträge bleiben im alten Format unverändert.
+
+Der Web-Timereditor sendet das alte/neue AUX nur bei echter Änderung
+über Public API v1. Bereits vorhandene Plugin-Metadaten bleiben bei
+normalen Timeränderungen erhalten; geändertes AUX kann geleert oder ersetzt
+werden. Die Regressionen umfassen HTTP, Browser-Komposition, durable
+Payload-/Agent-Recovery und Native-NTMOD-Contract. **Realer VDR-Readback
+und vollständige Final-Head-CI sind noch separat zu belegen**. Noch keine
+Parität für AUX bei ungebundenen/externen Timern oder AUX beim CREATE;
+diese Grenzen werden nicht als fertig behauptet. Kein Merge oder Install.
+
 ## API.V1.F5.6 – VDR-native wiederkehrende Timer (23.11.2026; SOURCE)
 
 PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält die erste
@@ -23,8 +47,9 @@ funktionierende alte Editorpfad. Die native Preview lehnt weiterhin
 nicht sicher prüfbare aktive Fremd-/Wiederholungstimer, native
 VPS-Kandidaten und derzeit inaktive Timer ab. **F5.6.1 ist damit
 noch nicht vollständig abgenommen oder uneingeschränkt paritätisch.**
-Die weiteren vier Timer-Lücken (AUX-Writer, externe/ungebundene Timer,
-Aufnahme-Stopp, vollständige Editor-Migration) bleiben offen.
+Die übrigen Lücken (AUX beim CREATE und bei nicht gebundenen Timern,
+externe/ungebundene Timer, Aufnahme-Stopp, vollständige Editor-Migration)
+bleiben offen.
 Kein realer VDR wurde geändert; PR Draft, kein Merge/Install.
 
 

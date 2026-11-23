@@ -25,17 +25,26 @@ vorhandene backendbezogene `timers.create`, `timers.modify` und
 Backend-Scope- und Audit-Prüfungen bleiben. Regressionen für nichtadministrative
 Human-Accounts und CSRF sind ergänzt (Commit `33e708238`).
 
-**F5.6.2 – Aux-Read (Source, kein Aux-Writer):**
-`GET /api/v1/native-timers/{timerId}/aux?backendId=...` liefert die
-rohen VDR-`aux`-Daten aus dem bestehenden Timer-Snapshot unter
-`timers.view`. Die Route wird im Public-v1-OpenAPI-Vertrag und
-Reference-JS-Client geführt, mit HTTP-/Berechtigungs-/Client-Regressionen.
-Sie besitzt **keinen** Binding-ETag/304-Vertrag, weil plugin-spezifisches
-Aux nicht zum nativen Binding-Fingerprint gehört und sonst reine Aux-
-Änderungen mit einem veralteten 304 quittiert werden könnten.
-Plugin-spezifisches Aux wird nicht in das backendneutrale Timer-Domainmodell
-übernommen. `CREATE/UPDATE/DELETE` der Aux-Metadaten sind weiterhin offen;
-dieser GET beweist keine vollständige F5.6.2-Parität.
+**F5.6.2 – Native AUX-Read und gezieltes MODIFY (Source; CI/HW offen):**
+`GET /api/v1/native-timers/{timerId}/aux?backendId=...` liefert den
+rohen VDR-AUX-Wert unabhängig von den nativen Binding-ETags, ohne
+veraltete 304-Antworten. Bei bereits verifiziert verwalteten/übernommenen
+Timern unterstützt `POST /api/v1/native-timers/{timerId}/modifications`
+für UPDATE optional **beide** `expectedAux` und `aux`; normale Updates
+ohne das Paar erhalten AUX unverändert. Die vorhandene Autorisierung
+`timers.modify`, If-Match, Idempotenz, Agent-/Provider-Fencing,
+Operation/SSE sowie Native-Readback bleiben bestehen.
+Die NTMOD-v2-Ausführung prüft den ursprünglichen AUX-Fingerprint
+direkt unter VDR-Write-Lock, bevor sie native Felder/AUX ändert;
+alte NTMOD-v1-Aufträge werden unverändert verarbeitet.
+Durable Payload und Agent-Recovery tragen die opt-in-AUX-Änderung;
+Readback bestätigt neben den Timerfeldern den tatsächlichen AUX-Wert.
+Die Browser-Form sendet hierfür eine Public-v1-Mutation, keinen zweiten
+Legacy-Writer. **Kein neuer Table, kein zweiter Timer-Schreiber.**
+AUX beim CREATE, externe/ungebundene Timer und Real-VDR-Acceptance
+bleiben offen. Insbesondere ist der neue Quellpfad kein Beweis für
+produktive Plugin-Kompatibilität.
+
 
 Auf PR #563 wurde die Browser-Komposition im bestehenden Timer-Modul
 schrittweise auf Public API v1 umgestellt. Manuelles einmaliges CREATE
@@ -56,8 +65,8 @@ auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
 Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
 
 **Keine Vollmigration / keine Installationsfreigabe:** Unbeschränktes
-wiederkehrendes CREATE, tatsächlich geänderte oder gelöschte `aux`-Inhalte,
-externe oder ungebundene Timer und Stoppen einer laufenden Aufnahme
+wiederkehrendes CREATE, native AUX-Mutation bei CREATE oder
+externen/ungebundenen Timern und Stoppen einer laufenden Aufnahme
 haben noch keinen funktionsgleichen Public-v1-Writer. Die vorhandene
 Legacy-Funktion bleibt für diese nachgewiesenen Vertragslücken erhalten.
 Der öffentliche Manual-CREATE-Vertrag besitzt jetzt eine begrenzte
