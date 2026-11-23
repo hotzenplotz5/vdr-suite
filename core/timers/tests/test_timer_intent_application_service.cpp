@@ -2,6 +2,7 @@
 #include "NativeTimerBindingRepository.h"
 #include "TimerAssignmentRepository.h"
 #include "TimerIntentApplicationService.h"
+#include "ManualTimerIntentDraft.h"
 #include "TimerIntentRepository.h"
 
 #include <cassert>
@@ -193,6 +194,74 @@ int main()
     wrongRequest.intent.spec.schedule.stopAt = 2150;
     assert(selectAfterRestart.submitAndSelectPrimary(wrongRequest).status ==
         TimerIntentApplicationStatus::intentConflict);
+
+
+    // F5.5.5: the manual-window input follows the already implemented
+    // TimerIntent -> selected Assignment repository path. Native CREATE
+    // remains owned by NativeTimerCreateAdmissionService (not this test).
+    auto manualRequest = request();
+    manualRequest.intent.timerIntentId = "intent:application:manual";
+    manualRequest.timerAssignmentId = "assignment:application:manual";
+    manualRequest.intent.createdByActorId = "actor:manual";
+    auto native = manualRequest.candidates.front().desiredNativeTimerSpecification;
+    native.title = "Manual Archive, Part 1";
+    native.directory = "TV~Archiv";
+    native.day = "2026-11-24";
+    native.startTime = "2015";
+    native.endTime = "2130";
+    native.priority = 0;
+    native.lifetime = 0;
+    native.vps = true;
+
+    ManualTimerSourceEvidence source;
+    source.backendId = "backend:alpha";
+    source.sourceType = "dvb";
+    source.sourceId = "suitebridge:local";
+    source.backendChannelId = native.channelId;
+    source.timezone = "Europe/Berlin";
+    source.startAt = 1795547700;
+    source.stopAt = 1795552200;
+    const auto manualDraft =
+        makeManualWindowTimerIntentDraft(native, source, "actor:manual");
+    assert(manualDraft.valid);
+    manualRequest.intent.spec = manualDraft.intent;
+    manualRequest.intent.expiresAt = source.stopAt + 86400;
+    manualRequest.candidates.front().desiredNativeTimerSpecification =
+        manualDraft.desiredNativeTimer;
+    manualRequest.candidates.front().channel.sourceType = source.sourceType;
+    manualRequest.candidates.front().channel.sourceId = source.sourceId;
+    manualRequest.candidates.front().channel.sourceChannelId =
+        source.backendChannelId;
+
+    const auto manualSelected =
+        service.submitAndSelectPrimary(manualRequest);
+    assert(manualSelected.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(manualSelected.assignment.state == TimerAssignmentState::selected);
+    assert(manualSelected.assignment.desiredNativeTimerSpecificationPresent);
+    assert(manualSelected.assignment.desiredNativeTimerSpecification.title ==
+        native.title);
+    assert(manualSelected.assignment.desiredNativeTimerSpecification.directory ==
+        native.directory);
+    assert(manualSelected.assignment.desiredNativeTimerSpecification.priority == 0);
+    assert(manualSelected.assignment.desiredNativeTimerSpecification.lifetime == 0);
+    assert(manualSelected.assignment.desiredNativeTimerSpecification.vps);
+    assert(manualSelected.intent.spec.intentType == TimerIntentType::manualWindow);
+    assert(manualSelected.intent.spec.programEventId.empty());
+
+    const auto manualPersisted =
+        assignments.findById(manualRequest.timerAssignmentId);
+    assert(manualPersisted.ok());
+    assert(manualPersisted.assignment.state == TimerAssignmentState::selected);
+    assert(manualPersisted.assignment.desiredNativeTimerSpecification.title ==
+        native.title);
+    assert(manualPersisted.assignment.desiredNativeTimerSpecification.directory ==
+        native.directory);
+    assert(manualPersisted.assignment.desiredNativeTimerSpecification.priority == 0);
+    assert(manualPersisted.assignment.desiredNativeTimerSpecification.lifetime == 0);
+    const auto manualReplay = restarted.submitAndSelectPrimary(manualRequest);
+    assert(manualReplay.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(manualReplay.assignment.assignmentRevision ==
+        manualPersisted.assignment.assignmentRevision);
 
     std::cout << "test_timer_intent_application_service passed\n";
     return 0;

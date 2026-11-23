@@ -20,6 +20,12 @@ verwendet die manuelle Draft-Projektion mit derselben produktiven
 gewünschten Native-Felder, die Ablehnung einer falschen
 Kanalquelle und einer veralteten Backend-Generation.
 
+Auch der vorhandene `test_timer_intent_application_service` führt
+den manuellen Draft über die existierende `submitAndSelectPrimary`-
+Anwendung in die persistierte, **noch nicht provisionierte** Assignment.
+Er prüft vollständige Titel-/Ordner-/Optionsfelder und den
+revisionsstabilen Readback/Replay. Keine künstliche Native-CREATE-Ausführung.
+
 **Offen vor Public-v1-Manuell-CREATE:** autoritative Backend-Kanal-/Uhrevidenz,
 Admission mit exakt payloadgebundener Idempotenz, atomare Intent-/Assignment-/
 Operation-Annahme, Native-Preview/Dispatch/Readback und HTTP-/Browser-Parität.
