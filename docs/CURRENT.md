@@ -1,5 +1,36 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6.3 – Externe und ungebundene VDR-Timer (23.11.2026; SOURCE)
+
+PR #563 verwendet bei nativen Timern ohne Suite-Assignment den bereits
+vorhandenen direkten `VdrTimerActionController`, statt automatisch eine
+`TimerAssignment` oder einen zweiten nativen Schreiber zu erzeugen.
+`POST /api/v1/native-timers/{timerId}/direct-update?backendId=...` und
+`POST /api/v1/native-timers/{timerId}/direct-delete?backendId=...`
+sind bewusst **synchrone native Aktionen** mit dem bestehenden
+`success`-Ergebnis, **keine** künstlichen 202-/Operation-Antworten.
+Der Backend- und Timer-Identifier aus dem JSON-Body muss exakt der
+autorisierten URL entsprechen. Die bestehenden
+`timers.modify`-/`timers.delete`-Grants und Browser-CSRF bleiben
+unverändert. Managed/adopted Timer nutzen weiter ausschließlich ihre
+bereits bestehenden dauerhaften Public-v1-Operations.
+
+Ein nur lesend ermittelter `directActions:true`-Hinweis im Timer-Detail
+schaltet das Webfrontend auf die neue Public-v1-Direktroute. Fehlt die
+Kennzeichnung bei älteren Installationen, bleibt der bisherige
+funktionsfähige VDR-Editor erhalten. Die JS-Clients senden nicht
+automatisch erneut nach ungewissem Ergebnis. Opaque native Aux wird
+vom bestehenden VDR-Writer übernommen. Gezielte Regressionen prüfen
+HTTP-Routen, Browser-/Referenzclient-Komposition, Backend-ID/Timer-ID,
+bestehende Grants und CSRF sowie die Trennung von managed Operations.
+
+**Abgrenzung:** Diese direkte Aktion übernimmt externe Timer nicht
+stillschweigend in den Suite-Scheduler und behauptet keine atomare
+CAS-/dauerhafte Operation für ungebundene native Timer. Das ist
+absichtlich dieselbe Ausführungseigenschaft wie beim bisherigen
+VDR-Editor. **CI des finalen HEAD und realer VDR-Readback sind noch
+zu verifizieren; kein Merge oder produktiver Eingriff.**
+
 ## API.V1.F5.6.2 – Gezielte VDR-AUX-Mutation (23.11.2026; SOURCE)
 
 PR #563 ergänzt `POST /api/v1/native-timers/{timerId}/modifications`
