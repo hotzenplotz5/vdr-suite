@@ -498,9 +498,9 @@
   // Use the same Idempotency-Key after an uncertain native mutation.
   const nativeMutationAttempts = new WeakMap();
 
-  function publicNativeTimerUpdatePayload(payload) {
+  function publicNativeTimerUpdatePayload(payload, originalAux) {
     if (!payload) return null;
-    return {
+    const spec = {
       kind: 'update', channelId: payload.channelId, title: payload.title,
       directory: payload.directory, day: payload.day,
       weekdays: normalizeWeekdays(payload.weekdays),
@@ -509,11 +509,16 @@
       priority: payload.priority, lifetime: payload.lifetime,
       enabled: payload.active, vps: payload.vps
     };
+    if (originalAux !== undefined && String(payload.aux || '') !== originalAux) {
+      spec.expectedAux = originalAux;
+      spec.aux = String(payload.aux || '');
+    }
+    return spec;
   }
 
   // Public-v1 modifies only a verified bound native Timer. Retain the
   // existing permitted editor for legacy-only fields or unbound Timers.
-  function executePublicNativeTimerAction(type, payload, button, feedback) {
+  function executePublicNativeTimerAction(type, payload, button, feedback, originalAux) {
     const legacyType = type === 'toggle' ? 'update' : type;
     // The browser's recording flag is UI state, not a legacy DELETE field.
     const legacyPayload = type === 'delete'
@@ -528,7 +533,7 @@
       return executeAction(legacyType, legacyPayload, button, feedback);
 
     const modification = type === 'update'
-      ? publicNativeTimerUpdatePayload(payload)
+      ? publicNativeTimerUpdatePayload(payload, originalAux)
       : {kind: 'toggle', enabled: payload.active};
     const fingerprint = JSON.stringify([type, payload]);
     let publicWriteAttempted = false;
@@ -992,13 +997,11 @@
         });
         return;
       }
-      // Native MODIFY preserves existing VDR Aux() verbatim. Only an actual
-      // aux change requires the existing VDR-specific editor/write contract.
-      if (mode === 'update' &&
-          String(timer.aux || '') !== String(payload.aux || ''))
-        executeAction('update', payload, submit, feedback);
-      else if (mode === 'update')
-        executePublicNativeTimerAction('update', payload, submit, feedback);
+      // Explicit AUX edits go through the existing durable Public-v1
+      // MODIFY writer; unchanged Aux is omitted from the update body.
+      if (mode === 'update')
+        executePublicNativeTimerAction(
+          'update', payload, submit, feedback, String(timer.aux || ''));
       else executeAction(mode, payload, submit, feedback);
     });
     return form;
