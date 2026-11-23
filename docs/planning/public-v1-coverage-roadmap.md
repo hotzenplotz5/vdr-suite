@@ -10,6 +10,12 @@ Der bestehende `test-public-v1-native-timer-read-client`-Target
 enthält den fokussierten Regressionstest. F5.6-Webfrontend-Umstellung
 bleibt unabhängig.
 
+Der Reference-JS-Client prüft für Titel/Verzeichnis jetzt dieselben
+1024 UTF-8-Bytes wie die bestehende C++-Admission und behandelt
+`If-Match` unabhängig von der Header-Schreibweise. Der fokussierte
+JavaScript-Regressionstest ist in einer isolierten Laufzeit ausgeführt;
+GitHub-Actions- und Real-VDR-Abnahme bleiben davon unberührt.
+
 **F5.5.5.2 – Public-v1 Manuell-CREATE (Source-Stand; CI/Hardware offen):**
 Die Route POST /api/v1/manual/timer-intents nimmt absolute Unix-Zeiten,
 Kanal, Titel/Verzeichnis, Priorität, Lebensdauer, Enabled und VPS an.
@@ -92,6 +98,14 @@ Fokussierte Tests verwenden pluginartige `aux`-Metadaten und
 Komposition prüft nun zusätzlich die unveränderte Übergabe an den
 bestehenden Writer. Dies behebt **keine** noch fehlende
 Public-v1-Writer-/GET-Parität für Aux.
+
+**F5.5.1 – Native-Timer-Subtitle (Collection, Source-Stand):**
+Der bereits vorhandene VDR-Snapshot enthält `subtitle`; die Public-v1-
+Native-Timer-Liste gibt diesen Wert nun lesend weiter. Die konditionale
+Detailroute bleibt unverändert: Ihr Binding-ETag umfasst `subtitle`
+nicht, weshalb eine zusätzliche Detailprojektion ohne passende Revision
+veraltete `304`-Antworten riskieren würde. Keine neue Datenquelle,
+Berechtigung oder Mutation. C++-Quelltests ergänzt, Build/CI offen.
 
 **F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
 aus dem bestehenden `VdrTimer`-Snapshot in Liste und Detail projiziert.
