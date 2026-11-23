@@ -129,7 +129,7 @@ MutationOperation reserve(
     MutationOperationPayload durable;
     durable.operationId = operation.operationId;
     durable.payloadType = "native.timer.modify";
-    durable.payloadVersion = 1;
+    durable.payloadVersion = payload.modifyAux ? 2U : 1U;
     durable.payload = serializeNativeTimerModifyOperationPayload(payload);
     durable.payloadFingerprint =
         nativeTimerModifyOperationPayloadFingerprint(payload);
@@ -143,10 +143,19 @@ void verifyRoundTrip(
     NativeTimerBindingRepository& bindings,
     NativeTimerModifyKind kind,
     NativeTimerModifyExecutorOutcomeCategory category,
-    const std::string& suffix)
+    const std::string& suffix,
+    bool modifyAux = false)
 {
     const NativeTimerBinding binding = createBinding(bindings, suffix);
-    const auto payload = payloadFor(binding, kind);
+    auto payload = payloadFor(binding, kind);
+    if (modifyAux)
+    {
+        assert(kind == NativeTimerModifyKind::update);
+        payload.modifyAux = true;
+        payload.expectedAuxFingerprint =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        payload.desiredAux = "<tvscraper/>";
+    }
     const MutationOperation operation =
         reserve(operations, payload, suffix, 100);
 
@@ -164,6 +173,7 @@ void verifyRoundTrip(
     assert(claimed.operation.state == MutationOperationState::dispatching);
     assert(claimed.claim.payload.nativeTimerBindingId ==
         binding.nativeTimerBindingId);
+    assert(claimed.claim.payload.modifyAux == modifyAux);
     assert(dispatch.claim(request, 106).status ==
         NativeTimerModifyDispatchClaimStatus::alreadyClaimed);
 
@@ -194,6 +204,13 @@ void verifyRoundTrip(
         nativeTimerObservedStateFingerprint(observation.observedState);
 
     NativeTimerModifyReadbackVerificationService verification(bindings);
+    if (modifyAux)
+    {
+        // Native timer fields alone are not enough for an AUX mutation.
+        assert(verification.verify(applied.expectation, observation).status ==
+            NativeTimerModifyReadbackVerificationStatus::reconciliationRequired);
+        observation.observedAux = payload.desiredAux;
+    }
     const auto verified =
         verification.verify(applied.expectation, observation);
     assert(verified.status ==
@@ -524,6 +541,13 @@ int main()
         NativeTimerModifyKind::toggle,
         NativeTimerModifyExecutorOutcomeCategory::outcomeUnknown,
         "toggle");
+    verifyRoundTrip(
+        operations,
+        bindings,
+        NativeTimerModifyKind::update,
+        NativeTimerModifyExecutorOutcomeCategory::acceptedUnverified,
+        "update-aux",
+        true);
     verifyRejectedWithoutEffect(operations, bindings);
     verifyEvidenceFreeLegacyQuarantine(operations, bindings);
     verifyUncertainNoEffectReconcilesExactlyOnce(operations, bindings);
