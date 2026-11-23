@@ -134,6 +134,57 @@ and `apps/agent/main.cpp` composition.
   regressions plus controlled yaVDR checks. No merge/ready-for-review claim
   before the final-head graph and genuinely necessary hardware evidence.
 
-BAS.6 is **source-implemented, compile/CI/real-runtime acceptance pending**.
-BAS.7–10 are planned, not passed. The API v1 parallel work remains on its
-separate branch and was not merged or modified by this branch.
+BAS.6 is **source-implemented**; its exact-head build/CI and real-runtime
+acceptance must be cited separately. BAS.8–10 remain planned. Parallel
+API v1 remains on its own branch and is not merged or modified by BAS.
+
+## BAS.7 – Independent Health / Channel / OSD observation audit and refactor (23.11.2026)
+
+**Observed production owners and non-interchangeable transport semantics:**
+
+- **Backend Health:** `BackendAgentClientRuntime::preparePendingBackendHealthObservation`
+  stores an immutable in-flight `completeSnapshot` or `changeBatch` identity
+  and heartbeat sequence in the protected Agent identity. Retries send the
+  exact saved observation and only promote the sequence on accepted/replayed
+  Core response. A 409 resync starts a new Health snapshot lineage.
+- **Channels:** `preparePendingChannelObservation` reads the native
+  `channels.conf` (including administrator-selected symlinks) and compares
+  the canonical resource revision. Unchanged observations are skipped; a
+  changed source starts a new `completeSnapshot` generation. Its separate
+  protected `identity.channels.pending.json` is retried byte-for-byte and
+  deleted only after accepted/replayed acknowledgement. The Agent heartbeat
+  submits any pending Channel observation before starting a new one.
+- **OSD:** `publishOsdObservation` sends the ephemeral current frame, or a
+  resync/degraded state without stale frame contents, on the heartbeat cadence.
+  It has no disk pending journal or blind replay, and failure must not block
+  Health/Channel/native commands. The receiver's bounded latest-value cache
+  and freshness/Agent-authority checks remain unchanged.
+- **SuiteBridge:** `SuiteBridgeObservationService` and
+  `SuiteBridgeObservationWorker` own a separate native discovery,
+  stale/offline state and snapshot baseline, not one of the Control Plane's
+  authenticated Health/Channel/OSD wire protocols.
+
+**Concrete safe duplication:** `BackendAgentClient.cpp` previously repeated
+the same bounded 0→1 / n→n+1 `int64_t`-safe snapshot progression in five
+places (Health+Channel generation reset at Connect, Health reset, Channel
+reset, changed Channel snapshot). BAS.7 puts only that arithmetic in the
+file-local `advanceObservationSnapshotGeneration` function. Each caller
+retains the existing domain-specific error code, affected fields, pending
+journal behavior, 409 recovery, resource revision and persistence ordering
+of its own protocol. No new service, queue, lease, guard, auth rule, data
+format, endpoint, poll or OSD frame state.
+
+**Regression:** `core/agent/tests/test_backend_agent_client.cpp` already
+covers Health first-generation→replay→resync, Channel unchanged skip→new
+snapshot generation→durable pending retry, legacy identity and connect.
+BAS.7 adds `test_observation_lineage_generation_exhaustion`: exact
+`int64_t`-maximum Health and Channel generations independently reject
+reconnect with their original distinct diagnostic codes, without advancing
+to heartbeat or submitting an observation. Target:
+`make test-backend-agent-client`. This is a fixture on disposable `/tmp`
+paths, not a live service mutation.
+
+**Acceptance:** source refactor and regression committed on the BAS branch.
+Build/targeted CI on the final head and real Device/OSD observational
+acceptance remain explicitly OPEN until actual evidence is checked. No
+deployment to the user's already functioning yaVDR for this refactor.
