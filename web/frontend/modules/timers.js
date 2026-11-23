@@ -521,7 +521,7 @@
 
   // No status polling: one immediate read and event-driven readbacks.
   // The POST is never re-dispatched to resolve an uncertain outcome.
-  function observeManualTimerOperation(operationId, feedback) {
+  function observeManualTimerOperation(operationId, feedback, onSucceeded) {
     const api = resolvedClientApi();
     if (!api || typeof api.fetchPublicNativeTimerOperation !== 'function')
       return;
@@ -544,6 +544,7 @@
           if (state === 'succeeded') {
             close();
             setFeedback(feedback, 'Timer wurde im VDR bestätigt.', false);
+            if (typeof onSucceeded === 'function') onSucceeded();
             reloadTimers();
           } else if (['rejected', 'conflict', 'failed_before_dispatch',
               'failed_verified', 'cancelled'].includes(state)) {
@@ -577,7 +578,7 @@
     readback();
   }
 
-  function executePublicManualCreate(specification, idempotencyKey, button, feedback) {
+  function executePublicManualCreate(specification, idempotencyKey, button, feedback, onSucceeded) {
     const api = resolvedClientApi();
     if (!api || typeof api.fetchPublicManualTimerCreate !== 'function') {
       setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
@@ -593,7 +594,7 @@
         throw new Error('Timer-Antwort enthält keine dauerhafte Operation.');
       setFeedback(feedback, 'Timer-Auftrag ' + result.data.operationId +
         ' angenommen. Native Bestätigung steht noch aus.', false);
-      observeManualTimerOperation(result.data.operationId, feedback);
+      observeManualTimerOperation(result.data.operationId, feedback, onSucceeded);
       return result;
     }).catch(error => {
       setFeedback(feedback,
@@ -878,7 +879,10 @@
           setFeedback(feedback, String(error.message || error), true);
           return;
         }
-        executePublicManualCreate(manual, manualAttemptKey, submit, feedback);
+        executePublicManualCreate(manual, manualAttemptKey, submit, feedback, () => {
+          manualAttemptPayload = '';
+          manualAttemptKey = '';
+        });
         return;
       }
       // Repeating/opaque-aux Timer editing keeps its existing capabilities.
