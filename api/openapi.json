@@ -367,7 +367,7 @@
         ],
         "operationId": "createManualTimerIntent",
         "summary": "Admit an absolute manual one-shot TimerIntent",
-        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native flags/aux, recurring schedule or parallel writer. Currently source-only pending CI and hardware acceptance.",
+        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native flags/aux, recurring schedule or parallel writer. Currently source-only pending CI and hardware acceptance. The complete serialized JSON body is capped at 4096 UTF-8 bytes.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing native_timers.create: paired Device with exact timers.create@backendId, or Browser administrator role.admin@backendId/role.admin@* with CSRF."
@@ -420,11 +420,13 @@
                   "title": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 1024
+                    "maxLength": 1024,
+                    "description": "Nonempty native timer title, maximum 1024 decoded UTF-8 bytes."
                   },
                   "directory": {
                     "type": "string",
-                    "maxLength": 1024
+                    "maxLength": 1024,
+                    "description": "Native timer directory, maximum 1024 decoded UTF-8 bytes."
                   },
                   "startAt": {
                     "type": "integer",
