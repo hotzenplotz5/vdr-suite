@@ -30,6 +30,9 @@ struct NativeTimerModifyOperationPayload
     std::string backendNativeTimerId;
     std::string expectedCurrentFingerprint;
     NativeTimerSpecification expectedSpecification;
+    bool modifyAux = false;
+    std::string expectedAuxFingerprint;
+    std::string desiredAux;
 };
 
 bool nativeTimerModifyOperationPayloadValid(

@@ -1,4 +1,5 @@
 #include "NativeTimerModifyOperationPreparationService.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include "MutationOperationRepository.h"
 #include "NativeTimerBindingRepository.h"
@@ -38,6 +39,11 @@ bool requestValid(const NativeTimerModifyOperationPreparationRequest& request)
         && !request.expectedCurrentFingerprint.empty()
         && request.expectedCurrentFingerprint.size() <= MaxFingerprint
         && nativeTimerSpecificationValid(request.expectedSpecification)
+        && (!request.modifyAux ||
+            (request.kind == NativeTimerModifyKind::update &&
+             vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintTokenValid(
+                 request.expectedAuxFingerprint) &&
+             request.desiredAux.size() <= 1024U))
         && request.requestedAt > 0
         && (request.deadline == 0 ||
             request.deadline >= request.requestedAt);
@@ -202,6 +208,9 @@ NativeTimerModifyOperationPreparationService::prepare(
     payload.backendNativeTimerId = binding.backendNativeTimerId;
     payload.expectedCurrentFingerprint = binding.observedFingerprint;
     payload.expectedSpecification = request.expectedSpecification;
+    payload.modifyAux = request.modifyAux;
+    payload.expectedAuxFingerprint = request.expectedAuxFingerprint;
+    payload.desiredAux = request.desiredAux;
     const std::string serialized =
         serializeNativeTimerModifyOperationPayload(payload);
     const std::string fingerprint =
@@ -232,7 +241,7 @@ NativeTimerModifyOperationPreparationService::prepare(
     MutationOperationPayload durable;
     durable.operationId = request.operationId;
     durable.payloadType = "native.timer.modify";
-    durable.payloadVersion = 1;
+    durable.payloadVersion = request.modifyAux ? 2 : 1;
     durable.payload = serialized;
     durable.payloadFingerprint = fingerprint;
 

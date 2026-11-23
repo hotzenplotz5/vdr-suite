@@ -62,6 +62,9 @@ struct NativeTimerModifyOperationPreparationRequest
     std::string backendNativeTimerId;
     std::string expectedCurrentFingerprint;
     NativeTimerSpecification expectedSpecification;
+    bool modifyAux = false;
+    std::string expectedAuxFingerprint;
+    std::string desiredAux;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
 };

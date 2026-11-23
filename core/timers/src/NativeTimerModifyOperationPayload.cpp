@@ -1,4 +1,5 @@
 #include "NativeTimerModifyOperationPayload.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +16,8 @@ constexpr std::size_t MaxIdentity = 160;
 constexpr std::size_t MaxFingerprint = 4096;
 constexpr const char* PayloadPrefix =
     "native-timer-modify-operation-payload/1|";
+constexpr const char* AuxPayloadPrefix =
+    "native-timer-modify-operation-payload/2|";
 constexpr const char* FingerprintPrefix =
     "native-timer-modify-operation-payload-fingerprint/1|";
 
@@ -78,6 +81,12 @@ std::string canonical(const NativeTimerModifyOperationPayload& payload)
     append(output, specification.lifetime);
     append(output, specification.enabled);
     append(output, specification.vps);
+    if (payload.modifyAux)
+    {
+        append(output, std::string("1"));
+        append(output, payload.expectedAuxFingerprint);
+        append(output, payload.desiredAux);
+    }
     return output;
 }
 
@@ -191,14 +200,26 @@ bool nativeTimerModifyOperationPayloadValid(
         && identity(payload.backendNativeTimerId)
         && !payload.expectedCurrentFingerprint.empty()
         && payload.expectedCurrentFingerprint.size() <= MaxFingerprint
-        && nativeTimerSpecificationValid(payload.expectedSpecification);
+        && nativeTimerSpecificationValid(payload.expectedSpecification)
+        && (!payload.modifyAux ||
+            (payload.kind == NativeTimerModifyKind::update &&
+             vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintTokenValid(
+                 payload.expectedAuxFingerprint) &&
+             payload.desiredAux.size() <= 1024U &&
+             payload.desiredAux.find_first_of("\0\r\n", 0U, 3U) ==
+                 std::string::npos))
+        && (payload.modifyAux ||
+            (payload.expectedAuxFingerprint.empty() &&
+             payload.desiredAux.empty()));
 }
 
 std::string serializeNativeTimerModifyOperationPayload(
     const NativeTimerModifyOperationPayload& payload)
 {
     const std::string body = canonical(payload);
-    return body.empty() ? std::string() : std::string(PayloadPrefix) + body;
+    return body.empty() ? std::string() :
+        std::string(payload.modifyAux ? AuxPayloadPrefix : PayloadPrefix) +
+            body;
 }
 
 bool parseNativeTimerModifyOperationPayload(
@@ -206,17 +227,21 @@ bool parseNativeTimerModifyOperationPayload(
     NativeTimerModifyOperationPayload& payload)
 {
     const std::string prefix(PayloadPrefix);
-    if (serialized.compare(0, prefix.size(), prefix) != 0) return false;
-    std::size_t position = prefix.size();
+    const std::string auxPrefix(AuxPayloadPrefix);
+    const bool withAux =
+        serialized.compare(0, auxPrefix.size(), auxPrefix) == 0;
+    if (!withAux && serialized.compare(0, prefix.size(), prefix) != 0)
+        return false;
+    std::size_t position = withAux ? auxPrefix.size() : prefix.size();
     std::vector<std::string> fields;
     while (position < serialized.size())
     {
         std::string field;
         if (!read(serialized, position, field)) return false;
         fields.push_back(std::move(field));
-        if (fields.size() > 22) return false;
+        if (fields.size() > (withAux ? 25U : 22U)) return false;
     }
-    if (fields.size() != 22) return false;
+    if (fields.size() != (withAux ? 25U : 22U)) return false;
 
     NativeTimerModifyOperationPayload parsed;
     if (!kindValue(fields[0], parsed.kind)) return false;
@@ -243,6 +268,13 @@ bool parseNativeTimerModifyOperationPayload(
         || !booleanValue(fields[20], specification.enabled)
         || !booleanValue(fields[21], specification.vps))
         return false;
+    if (withAux)
+    {
+        parsed.modifyAux = fields[22] == "1";
+        if (!parsed.modifyAux) return false;
+        parsed.expectedAuxFingerprint = fields[23];
+        parsed.desiredAux = fields[24];
+    }
     if (!nativeTimerModifyOperationPayloadValid(parsed)
         || serializeNativeTimerModifyOperationPayload(parsed) != serialized)
         return false;
