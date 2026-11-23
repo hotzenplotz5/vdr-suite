@@ -1,5 +1,22 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6 – Rechteparität und natives Aux-Read (23.11.2026; SOURCE)
+
+PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält seit
+`33e708238` die Public-v1-Human-Grant-Parität für `timers.create`,
+`timers.modify` und `timers.delete` bei unverändertem CSRF, Audit,
+Backend-Grant und Device-Check. Der darauf folgende F5.6.2-Schritt
+`b600f14e5` projiziert natives `aux` als **eigenes, unbedingtes
+GET-Subresource** aus dem bestehenden VDR-Snapshot, ohne den vorhandenen
+Binding-ETag zu verfälschen. OpenAPI und fokussierte Source-Regressionen
+sind ergänzt; der Reference-JS-Lesepfad wird im Folgecommit nachgeführt.
+
+**Noch offen:** Aux-Mutation, wiederkehrendes CREATE mit vollständiger
+SuiteBridge-Preview, externe/unge­bundene Timer-Writer, Aufnahme-Stopp,
+Legacy-Editor-Migration sowie weitere F3–F8-Vertrags-/Runtime- und
+Hardwareabnahmen. Neue Source-Commits sind weder installierte Kandidaten
+noch bestätigte native VDR-Readbacks. Kein Merge oder Runtime-Update.
+
 ## BAS – Backend-Agent Simplification (22.11.2026; getrennt von API v1)
 
 **Maintainer-Freigabe:** BAS.1–BAS.5 hat Vorrang und wird auf dem genehmigten Branch `work/bas-simplification` entwickelt, ab `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`. Public API v1 entwickelt parallel ausschließlich auf `work/api-v1-finalisierung-f2-f8`. **Kein Merge und keine Runtime-Installation.**

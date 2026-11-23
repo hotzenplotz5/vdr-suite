@@ -2474,6 +2474,13 @@
         const input = options && typeof options === 'object' ? options : {};
         return requestRevisioned(nativeTimerItemPath(input), input);
       },
+      // Opaque VDR Aux changes independently of the Timer Binding ETag.
+      // This unconditional snapshot read deliberately uses request(), not
+      // requestRevisioned(), and cannot return a misleading 304.
+      getNativeTimerAux(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request(nativeTimerItemPath(input, '/aux'), input);
+      },
       modifyNativeTimer(options) {
         return submitNativeTimerMutation(options, 'POST');
       },

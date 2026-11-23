@@ -36,6 +36,13 @@ const client = createClient({
           links:{self:'/api/v1/native-timers/'+timerId}
         })};
     }
+    if (url === 'https://suite.example/api/v1/native-timers/'+timerId+'/aux?backendId=default') {
+      assert.strictEqual(options.headers['If-None-Match'], undefined);
+      return {ok:true, status:200, text:async()=>JSON.stringify({
+        backendId:'default',timerId,
+        aux:'<epgsearch><searchtimer>Newscast</searchtimer></epgsearch>'
+      })};
+    }
     throw Error('Unexpected GET '+url);
   }
 });
@@ -63,7 +70,12 @@ const client = createClient({
   });
   assert.strictEqual(cached.status,304);
   assert.strictEqual(cached.data,null);
-  assert.strictEqual(requests.length,3);
+  const aux = await client.getNativeTimerAux({backendId:'default',timerId});
+  assert.strictEqual(aux.backendId,'default');
+  assert.strictEqual(aux.timerId,timerId);
+  assert.strictEqual(aux.aux,
+    '<epgsearch><searchtimer>Newscast</searchtimer></epgsearch>');
+  assert.strictEqual(requests.length,4);
 
   assert.throws(()=>client.getNativeTimers({query:{backendId:'default',limit:31}}));
   assert.throws(()=>client.getNativeTimers({query:{backendId:'default',offset:-1}}));
@@ -71,7 +83,9 @@ const client = createClient({
   assert.throws(()=>client.getNativeTimer({backendId:'default',timerId:'../other'}));
   assert.throws(()=>client.getNativeTimer({backendId:'default',timerId,
     ifNoneMatch:''}));
-  assert.strictEqual(requests.length,3,'invalid reads must not dispatch');
+  assert.throws(()=>client.getNativeTimerAux({
+    backendId:'default',timerId:'../invalid'}));
+  assert.strictEqual(requests.length,4,'invalid reads must not dispatch');
   assert(requests.every(r=>r.url.startsWith('https://suite.example/api/v1/native-timers')));
-  console.log('Public-v1 F5 Native Timer list/detail conditional client PASS');
+  console.log('Public-v1 F5 Native Timer list/detail/Aux client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -2,6 +2,25 @@
 
 ## API.V1.F5.6 – Web-Timer-Editor (Quellstand, unvollständig; 23.11.2026)
 
+**F5.6.5 – Rechteparität (Source, noch keine Final-CI/Real-VDR-Abnahme):**
+Der Public-v1-SecurityHttpGate erkennt für Human-Browser-Sessions nun
+vorhandene backendbezogene `timers.create`, `timers.modify` und
+`timers.delete` neben `role.admin` an. Bestehende CSRF-, Device-Grant-,
+Backend-Scope- und Audit-Prüfungen bleiben. Regressionen für nichtadministrative
+Human-Accounts und CSRF sind ergänzt (Commit `33e708238`).
+
+**F5.6.2 – Aux-Read (Source, kein Aux-Writer):**
+`GET /api/v1/native-timers/{timerId}/aux?backendId=...` liefert die
+rohen VDR-`aux`-Daten aus dem bestehenden Timer-Snapshot unter
+`timers.view`. Die Route wird im Public-v1-OpenAPI-Vertrag und
+Reference-JS-Client geführt, mit HTTP-/Berechtigungs-/Client-Regressionen.
+Sie besitzt **keinen** Binding-ETag/304-Vertrag, weil plugin-spezifisches
+Aux nicht zum nativen Binding-Fingerprint gehört und sonst reine Aux-
+Änderungen mit einem veralteten 304 quittiert werden könnten.
+Plugin-spezifisches Aux wird nicht in das backendneutrale Timer-Domainmodell
+übernommen. `CREATE/UPDATE/DELETE` der Aux-Metadaten sind weiterhin offen;
+dieser GET beweist keine vollständige F5.6.2-Parität.
+
 Auf PR #563 wurde die Browser-Komposition im bestehenden Timer-Modul
 schrittweise auf Public API v1 umgestellt. Manuelles einmaliges CREATE
 ohne plugin-spezifisches `aux` nutzt die bereits vorhandene durable
