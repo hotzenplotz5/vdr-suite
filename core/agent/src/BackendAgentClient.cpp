@@ -65,6 +65,31 @@ bool advanceObservationSnapshotGeneration(std::uint64_t& generation)
     return true;
 }
 
+// Fast command polls and ordinary heartbeats must pass the same executor
+// and native transport selection. Construct a fresh value on each call:
+// neither credentials nor local capabilities are cached across generations.
+BackendAgentCommandClientConfig currentCommandConfig(
+    const BackendAgentClientConfig& config)
+{
+    BackendAgentCommandClientConfig command;
+    command.statePath = config.commandStatePath;
+    command.commandTypes = config.commandTypes;
+    command.nativeTimerCreateTransport = config.nativeTimerCreateTransport;
+    command.nativeTimerDeleteTransport = config.nativeTimerDeleteTransport;
+    command.nativeTimerModifyTransport = config.nativeTimerModifyTransport;
+    command.legacyOsdInputTransport = config.legacyOsdInputTransport;
+    command.mediaImportExecutor = config.mediaImportExecutor;
+    command.mediaShrinkExecutor = config.mediaShrinkExecutor;
+    return command;
+}
+
+BackendAgentCommandClientContext currentCommandContext(
+    const BackendAgentClientState& state, const std::string& instanceId)
+{
+    return {state.agentId, state.credentialSecret, state.backendId,
+            instanceId, state.backendGeneration};
+}
+
 std::string generateOpaqueId(const std::string& prefix, std::size_t bytes)
 {
     if (prefix.empty() || bytes < 8 || bytes > 32) return {};
@@ -2121,26 +2146,11 @@ bool BackendAgentClientRuntime::pollCommands(
         return false;
     }
 
-    BackendAgentCommandClientConfig commandConfig;
-    commandConfig.statePath = config_.commandStatePath;
-    commandConfig.commandTypes = config_.commandTypes;
-    commandConfig.nativeTimerCreateTransport =
-        config_.nativeTimerCreateTransport;
-    commandConfig.nativeTimerDeleteTransport =
-        config_.nativeTimerDeleteTransport;
-    commandConfig.nativeTimerModifyTransport =
-        config_.nativeTimerModifyTransport;
-    commandConfig.legacyOsdInputTransport =
-        config_.legacyOsdInputTransport;
-    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
-    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
+    const BackendAgentCommandClientConfig commandConfig =
+        currentCommandConfig(config_);
 
-    BackendAgentCommandClientContext commandContext{
-        state_.agentId,
-        state_.credentialSecret,
-        state_.backendId,
-        agentInstanceId_,
-        state_.backendGeneration};
+    const BackendAgentCommandClientContext commandContext =
+        currentCommandContext(state_, agentInstanceId_);
 
     if (!commandAvailabilityReady_)
     {
@@ -2410,20 +2420,10 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "agent_not_synchronized";
         return false;
     }
-    BackendAgentCommandClientConfig commandConfig;
-    commandConfig.statePath = config_.commandStatePath;
-    commandConfig.commandTypes = config_.commandTypes;
-    commandConfig.nativeTimerCreateTransport =
-        config_.nativeTimerCreateTransport;
-    commandConfig.nativeTimerDeleteTransport =
-        config_.nativeTimerDeleteTransport;
-    commandConfig.nativeTimerModifyTransport =
-        config_.nativeTimerModifyTransport;
-    commandConfig.legacyOsdInputTransport =
-        config_.legacyOsdInputTransport;
-    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
-    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
-    BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
+    const BackendAgentCommandClientConfig commandConfig =
+        currentCommandConfig(config_);
+    const BackendAgentCommandClientContext commandContext =
+        currentCommandContext(state_, agentInstanceId_);
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
         // An unacknowledged assignment from an older Agent generation must
