@@ -66,11 +66,13 @@ const legacy = [];
 const reads = [];
 const sources = [];
 let operationState = 'accepted';
+let failManual = false;
 let reloads = 0;
 let randomSeed = 0;
 const clientApi = {
   fetchPublicManualTimerCreate(input) {
     calls.push(input);
+    if (failManual) return Promise.reject(new Error('backend unavailable'));
     return Promise.resolve({
       status: 202, location: '/api/v1/operations/op_manual_f56',
       data: {operationId: 'op_manual_f56', backendId: 'living-room',
@@ -188,13 +190,30 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.notStrictEqual(calls[1].idempotencyKey, calls[0].idempotencyKey);
   assert.strictEqual(legacy.length, 0);
 
+  // A transport/backend failure never falls back to legacy CREATE.
+  failManual = true;
+  fields.title.value = 'No backend';
+  submit();
+  await tick();
+  assert.strictEqual(calls.length, 3);
+  assert.strictEqual(legacy.length, 0);
+  assert(feedback.textContent.includes('nicht bestätigt'));
+  const firstFailedKey = calls[2].idempotencyKey;
+  submit();
+  await tick();
+  assert.strictEqual(calls.length, 4, 'only explicit submission may resend');
+  assert.strictEqual(calls[3].idempotencyKey, firstFailedKey,
+    'an uncertain retry must keep its original idempotency key');
+  assert.strictEqual(legacy.length, 0, 'no legacy retry after Public-v1 error');
+  failManual = false;
+
   // Repeating timers and opaque Aux must remain functional, not lose fields.
   const weekday = find(form, item => item.name === 'weekday');
   weekday.checked = true;
   fields.aux.value = '';
   submit();
   await tick();
-  assert.strictEqual(calls.length, 2);
+  assert.strictEqual(calls.length, 4);
   assert.strictEqual(legacy.length, 1);
   assert.strictEqual(legacy[0].weekdays, 'M------');
 
@@ -202,7 +221,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   fields.aux.value = '<epgsearch/>';
   submit();
   await tick();
-  assert.strictEqual(calls.length, 2);
+  assert.strictEqual(calls.length, 4);
   assert.strictEqual(legacy.length, 2);
   assert.strictEqual(legacy[1].aux, '<epgsearch/>');
   console.log('Timer browser F5.6 one-shot Public-v1 Operation/SSE integration PASS');
