@@ -34,6 +34,8 @@ struct SuiteBridgeNativeTimerMarginsProjection
 struct SuiteBridgeNativeTimerPreviewProjection
 {
     bool isolatedCandidateClear = false;
+    // Recurring schedules are attested for their first native airing only.
+    bool recurringInitialClear = false;
     std::int64_t proposedStart = 0;
     std::int64_t proposedStop = 0;
     std::int64_t nativeObservedAt = 0;

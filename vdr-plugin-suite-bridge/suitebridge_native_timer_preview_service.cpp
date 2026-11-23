@@ -152,13 +152,11 @@ bool parsePreview(const std::vector<std::string>& a,
   request.enabled = a[14] == "1";
   request.vps = a[15] == "1";
   bool validWeekdays = request.weekdays.size() == 7U;
-  bool recurring = false;
   constexpr char kWeekdays[] = "MTWTFSS";
   if (validWeekdays) {
     for (std::size_t i = 0; i < 7; ++i) {
       if (request.weekdays[i] == '-') continue;
       if (request.weekdays[i] != kWeekdays[i]) validWeekdays = false;
-      recurring = true;
     }
   }
   if (request.channelId.empty() || title.empty() ||
