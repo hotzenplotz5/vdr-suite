@@ -2763,10 +2763,9 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
-        // Native EPG Timer CREATE accepts a verified, explicitly granted
-        // Device OR a Human administrator Browser Session. A normal Human
-        // with timers.create alone is not an administrator. Browser CSRF is
-        // checked by the shared protected-mutation gate below.
+        // Native EPG/manual Timer CREATE accepts a verified, explicitly
+        // granted Device or a Human Browser Session with existing
+        // timers.create/administrator rights. Browser CSRF remains mandatory.
         if (isPublicEpgTimerIntentCreate)
         {
             if (!gate.context.authenticated())

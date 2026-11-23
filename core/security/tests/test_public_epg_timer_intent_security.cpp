@@ -71,15 +71,31 @@ int main()
         assert(!denied.allowed && denied.rejection.statusCode == 403);
     }
     {
-        // Ordinary Human users cannot become administrators just by
-        // receiving a backend-scoped timers.create grant.
+        // A normal Human retains existing backend-scoped timers.create
+        // rights on both public EPG and manual CREATE without role.admin.
+        // CSRF, backend isolation and authentication are still required.
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "timers.create", "home"));
-        auto denied = fixture.gate.evaluate(createRequest(fixture));
+        const auto epg = fixture.gate.evaluate(createRequest(fixture));
+        assert(epg.allowed && epg.protectedMutation);
+        assert(epg.authorizationDecision.permission == "timers.create");
+        assert(epg.authorizationDecision.backendId == "home");
+        const auto manual = fixture.gate.evaluate(
+            createRequest(fixture, true, "home", true));
+        assert(manual.allowed && manual.protectedMutation);
+        assert(manual.authorizationDecision.permission == "timers.create");
+        auto denied = fixture.gate.evaluate(
+            createRequest(fixture, false));
         assert(!denied.allowed && denied.rejection.statusCode == 403);
         denied = fixture.gate.evaluate(
-            createRequest(fixture, true, "home", true));
+            createRequest(fixture, false, "home", true));
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+        denied = fixture.gate.evaluate(
+            createRequest(fixture, true, "other"));
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+        denied = fixture.gate.evaluate(
+            createRequest(fixture, true, "other", true));
         assert(!denied.allowed && denied.rejection.statusCode == 403);
         HttpServerRequest anonymous = createRequest(fixture);
         anonymous.headers.erase("Cookie");
