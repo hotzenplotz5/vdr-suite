@@ -558,7 +558,13 @@
         return result;
       });
     }).catch(error => {
-      // No automatic legacy write or new key after uncertain Public-v1 dispatch.
+      // Public Native v1 requires a Browser administrator, even for Humans
+      // with direct timers.modify/delete grants. HTTP 403 is a proven
+      // pre-dispatch denial by SecurityHttpGate; the existing legacy route
+      // independently enforces the caller's original Timer permissions.
+      if (error && error.status === 403)
+        return executeAction(legacyType, legacyPayload, button, feedback);
+      // Never fall through after an uncertain Public-v1 mutation outcome.
       setFeedback(feedback, 'Timer-Aktion nicht bestätigt: ' +
         String(error && error.message ? error.message : error), true);
       return null;
