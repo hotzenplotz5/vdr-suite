@@ -111,6 +111,19 @@ int main()
     assert(unbound.statusCode == 200);
     assert(unbound.headers.count("ETag") == 0U);
     assert(unbound.body.find("binding_required") != std::string::npos);
+    assert(unbound.body.find("directActions") == std::string::npos);
+    api.registerNativeTimerDirectAction(
+        [](const std::string&, const std::string&,
+           const std::string&, const std::string&, const std::string&) {
+            return ApiResponse{};
+        });
+    const auto directUnbound = get(uri);
+    assert(directUnbound.body.find(R"json("directActions":true)json")
+        != std::string::npos);
+    bound = true;
+    assert(get(uri).body.find("directActions") == std::string::npos);
+    bound = false;
+    api.resetNativeTimerDirectAction();
     assert(get(uri, tag).statusCode == 400);
     ApiResponse denied;
     assert(api.tryHandleUnsupportedMethod("DELETE", uri, "req", "corr", denied));
