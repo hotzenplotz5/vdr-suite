@@ -199,14 +199,18 @@ BackendAgentLifecycleService::BackendAgentLifecycleService(
     SecurityIdentityProvisioningRepository& provisioningRepository,
     SecurityIdentityRepository& identityRepository,
     CredentialVerifierRepository& credentialVerifierRepository,
-    AccountabilityEventRepository& accountabilityRepository)
+    AccountabilityEventRepository& accountabilityRepository,
+    BackendAgentRepository* heartbeatRepository,
+    AccountabilityEventRepository* heartbeatAccountabilityRepository)
     : database_(database),
       repository_(repository),
       backendRegistryService_(backendRegistryService),
       provisioningRepository_(provisioningRepository),
       identityRepository_(identityRepository),
       credentialVerifierRepository_(credentialVerifierRepository),
-      accountabilityRepository_(accountabilityRepository)
+      accountabilityRepository_(accountabilityRepository),
+      heartbeatRepository_(heartbeatRepository),
+      heartbeatAccountabilityRepository_(heartbeatAccountabilityRepository)
 {
 }
 
@@ -260,7 +264,8 @@ bool BackendAgentLifecycleService::appendEvent(
     const std::string& decision,
     const std::string& reasonCode,
     const std::string& outcome,
-    std::int64_t now) const
+    std::int64_t now,
+    AccountabilityEventRepository* repositoryOverride) const
 {
     AccountabilityEvent event;
     event.eventId = backendAgentGenerateOpaqueId("aae_", 12);
@@ -280,7 +285,9 @@ bool BackendAgentLifecycleService::appendEvent(
     event.decision = decision;
     event.reasonCode = reasonCode;
     event.outcome = outcome;
-    return !event.eventId.empty() && accountabilityRepository_.append(event);
+    AccountabilityEventRepository& owner = repositoryOverride == nullptr
+        ? accountabilityRepository_ : *repositoryOverride;
+    return !event.eventId.empty() && owner.append(event);
 }
 
 RequestSecurityContext BackendAgentLifecycleService::systemEnrollmentContext(
@@ -791,44 +798,49 @@ BackendAgentHeartbeatResult BackendAgentLifecycleService::heartbeat(
         return result;
     }
     HeartbeatLifecycleTimings timings;
-    const auto agent = repository_.findAgent(context.actor.actorId);
+    BackendAgentRepository& heartbeatRepository =
+        heartbeatRepository_ == nullptr ? repository_ : *heartbeatRepository_;
+    const auto agent = heartbeatRepository.findAgent(context.actor.actorId);
     timings.mark(timings.agentLookupMs);
     if (!agent.has_value() || agent->backendId != backendId)
     {
         result.reasonCode = "agent_binding_mismatch";
         appendEvent(context, "agent.lease.result", backendId,
-                    "backend.agent.heartbeat", "deny", result.reasonCode, "denied", now);
+                    "backend.agent.heartbeat", "deny", result.reasonCode, "denied", now,
+                    heartbeatAccountabilityRepository_);
         return result;
     }
-    const auto current = repository_.findAgent(agent->agentId);
+    const auto current = heartbeatRepository.findAgent(agent->agentId);
     timings.mark(timings.currentLookupMs);
     const bool duplicate = current.has_value() &&
         heartbeatSequence == current->heartbeatSequence;
     if (!duplicate &&
         !appendEvent(context, "agent.lease.renewed", backendId,
                      "backend.agent.heartbeat", "allow", "lease_renewal_requested",
-                     "pending", now))
+                     "pending", now, heartbeatAccountabilityRepository_))
     {
         timings.mark(timings.preAuditMs);
         result.reasonCode = "accountability_unavailable";
         return result;
     }
     timings.mark(timings.preAuditMs);
-    if (!repository_.renewLease(
+    if (!heartbeatRepository.renewLease(
             agent->agentId, agentInstanceId, backendGeneration, heartbeatSequence,
             now, now + LeaseDurationSeconds, result))
     {
         timings.mark(timings.renewMs);
         result.reasonCode = "lease_persistence_failed";
         appendEvent(context, "agent.lease.result", backendId,
-                    "backend.agent.heartbeat", "deny", result.reasonCode, "failed", now);
+                    "backend.agent.heartbeat", "deny", result.reasonCode, "failed", now,
+                    heartbeatAccountabilityRepository_);
         timings.mark(timings.resultAuditMs);
         return result;
     }
     timings.mark(timings.renewMs);
     appendEvent(context, "agent.lease.result", backendId,
                 "backend.agent.heartbeat", result.accepted ? "allow" : "deny",
-                result.reasonCode, result.accepted ? "succeeded" : "denied", now);
+                result.reasonCode, result.accepted ? "succeeded" : "denied", now,
+                heartbeatAccountabilityRepository_);
     timings.mark(timings.resultAuditMs);
     return result;
 }

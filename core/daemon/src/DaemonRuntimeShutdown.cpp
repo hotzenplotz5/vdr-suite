@@ -179,6 +179,9 @@ void DaemonRuntime::shutdown()
     backendAgentAuthReadIdentityRepository_.reset();
     backendAgentAuthReadDatabase_.close();
     backendAgentCommandDeliveryService_.reset();
+    backendAgentHeartbeatRepository_.reset();
+    backendAgentHeartbeatAccountabilityRepository_.reset();
+    backendAgentHeartbeatDatabase_.close();
     backendAgentCommandPollRepository_.reset();
     backendAgentCommandPollDatabase_.close();
     backendAgentRepository_.reset();
