@@ -57,6 +57,9 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
     payload:{...payload,title:'ö'.repeat(513)}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,
     payload:{...payload,directory:'🎥'.repeat(257)}}));
+  // Both fields fit separately; JSON escaping may still exceed 4096 bytes.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'\\'.repeat(1024),directory:'\\'.repeat(1024)}}));
   assert.strictEqual(calls.length,before,'invalid writes cannot dispatch');
   assert(calls.every(call=>!call.url.includes('/api/vdr/')));
   // Exactly 1024 UTF-8 bytes remain valid, including non-BMP characters.
