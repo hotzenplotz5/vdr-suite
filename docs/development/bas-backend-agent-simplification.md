@@ -224,9 +224,13 @@ command types, three native Timer transports, legacy OSD input, Media Import
 and Media Shrink executors. They also each constructed the same live
 authenticated Agent command context.
 
-**Source refactor:** Two file-local pure functions now create fresh
+**Source refactor:** One private `BackendAgentClientRuntime::commandClientConfig()`
+method and one file-local `currentCommandContext` helper now build fresh
 `BackendAgentCommandClientConfig` and
-`BackendAgentCommandClientContext` values at each call. No credentials,
+`BackendAgentCommandClientContext` values at each call. The member method
+retains literal `config_.nativeTimer{Create,Delete,Modify}Transport` mappings
+inside the actual runtime, as required by the existing Phase-64 production
+transport-injection architecture guards. No credentials,
 native transport pointers, backend generation, advertised availability,
 poll receipt or command state are cached as part of the refactor. The
 heartbeat still reconciles the durable journal before observations,
@@ -250,3 +254,12 @@ actual run results. BAS.10 still requires cross-domain integration,
 documented partial coverage, and focused real yaVDR observation before
 declaring the overall phase complete. No branch merge, package install,
 daemon/VDR restart or media mutation occurred from this development step.
+
+**CI architecture guard finding (same day):** The first BAS.9 candidate
+used a free function parameter named `config`, so the long-established
+Phase-64 test could no longer see its required production
+`config_.nativeTimerCreateTransport` mapping. Rather than weakening or
+rewriting any security guard, the shared config composition moved to the
+private runtime member method above; original injected Create/Delete/Modify
+pointers are still copied fresh into each command request. The architecture
+job on the exact post-fix HEAD remains to be checked independently.
