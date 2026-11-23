@@ -202,7 +202,7 @@ inline bool readLedger(Snapshot& out) {
     out.revision = revision(content);
     return true;
 }
-inline ApiResponse render(const Snapshot& snapshot) {
+inline ApiResponse render(const Snapshot& snapshot, bool initialSetup = false) {
     ApiResponse result;
     result.statusCode = 200;
     result.contentType = "application/json";
@@ -215,7 +215,8 @@ inline ApiResponse render(const Snapshot& snapshot) {
         result.body += "{\"path\":\"" + escape(snapshot.sources[i].path) +
             "\",\"name\":\"" + escape(snapshot.sources[i].name) + "\"}";
     }
-    result.body += "]}";
+    result.body += "],\"initialSetup\":";
+    result.body += initialSetup ? "true}" : "false}";
     return result;
 }
 inline bool parseQuery(const std::string& uri, std::string& backend) {
@@ -225,14 +226,38 @@ inline bool parseQuery(const std::string& uri, std::string& backend) {
     backend = uri.substr(std::strlen(prefix));
     return backendId(backend);
 }
-inline ApiResponse read(const std::string& uri) {
+// Missing is a first-run state, never equivalent to an invalid or unsafe
+// existing inventory. No config file is created by a read request.
+inline bool inventoryAbsent() {
+    struct stat st{};
+    return ::lstat(Ledger, &st) != 0 && errno == ENOENT;
+}
+inline bool initialSnapshot(Snapshot& out, const std::string& trustedVideoRoot) {
+    if (!protectedConfigDirs() || !inventoryAbsent()) return false;
+    std::string local;
+    if (!localBackend(local)) return false;
+    out = {};
+    out.backend = local;
+    // A missing recording-root discovery is visible, but cannot be used as a
+    // destination. The actual VDR-owned root is provided by the daemon.
+    out.videoRoot = rootSyntax(trustedVideoRoot) ? trustedVideoRoot : "";
+    out.revision = revision("");
+    return true;
+}
+inline ApiResponse read(const std::string& uri,
+                        const std::string& trustedVideoRoot = {}) {
     std::string requested;
     if (!parseQuery(uri, requested)) return error(422, "invalid_backend");
     Snapshot current;
-    if (!readLedger(current)) return error(503, "sources_unavailable");
+    bool initial = false;
+    if (!readLedger(current)) {
+        if (!initialSnapshot(current, trustedVideoRoot))
+            return error(503, "sources_unavailable");
+        initial = true;
+    }
     if (current.backend != requested)
         return error(409, "backend_is_not_local");
-    return render(current);
+    return render(current, initial);
 }
 inline bool decode(const std::string& encoded, std::string& decoded) {
     decoded.clear();
@@ -279,13 +304,44 @@ inline bool parseBody(const std::string& body, std::string& backend,
     }
     return !sources.empty();
 }
-inline ApiResponse save(const std::string& body) {
+inline ApiResponse save(const std::string& body,
+                        const std::string& trustedVideoRoot = {}) {
     std::string backend, expected;
     std::vector<Source> proposed;
     if (!parseBody(body, backend, expected, proposed))
         return error(422, "invalid_sources");
     if (::geteuid() != 0) return error(503, "sources_not_writable");
-    if (!protectedConfigDirs() || !rootOwnedFile(Lock))
+    if (!protectedConfigDirs())
+        return error(503, "source_lock_unavailable");
+    // Only an authenticated first save may prepare the existing import
+    // lifetime lock if the package deliberately did not ship host state.
+    Snapshot before;
+    bool initial = false;
+    if (!readLedger(before)) {
+        if (!initialSnapshot(before, trustedVideoRoot))
+            return error(503, "sources_unavailable");
+        initial = true;
+    }
+    if (before.backend != backend)
+        return error(409, "backend_is_not_local");
+    if (before.revision != expected)
+        return error(409, "sources_changed");
+    if (initial && !safeRoot(before.videoRoot))
+        return error(503, "video_root_unavailable");
+    if (initial && inventoryAbsent() && !rootOwnedFile(Lock)) {
+        struct stat st{};
+        if (::lstat(Lock, &st) != 0 && errno == ENOENT) {
+            const int fd = ::open(Lock, O_WRONLY | O_CREAT | O_EXCL |
+                O_NOFOLLOW | O_CLOEXEC, 0644);
+            if (fd >= 0) {
+                const bool valid = ::fchown(fd, 0, 0) == 0 &&
+                    ::fchmod(fd, 0644) == 0 && ::fsync(fd) == 0;
+                ::close(fd);
+                if (!valid) return error(503, "source_lock_unavailable");
+            }
+        }
+    }
+    if (!rootOwnedFile(Lock))
         return error(503, "source_lock_unavailable");
     const int lock = ::open(Lock, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (lock < 0) return error(503, "source_lock_unavailable");
@@ -296,7 +352,11 @@ inline ApiResponse save(const std::string& body) {
     ApiResponse result = error(503, "sources_unavailable");
     Snapshot current;
     do {
-        if (!readLedger(current)) break;
+        const bool creating = !readLedger(current);
+        if (creating && !initialSnapshot(current, trustedVideoRoot)) break;
+        if (creating && !safeRoot(current.videoRoot)) {
+            result = error(503, "video_root_unavailable"); break;
+        }
         if (current.backend != backend) {
             result = error(409, "backend_is_not_local"); break;
         }
@@ -334,8 +394,17 @@ inline ApiResponse save(const std::string& body) {
         }
         if (written) written = ::fsync(fd)==0;
         ::close(fd);
-        if (written) written = ::rename(temp, Ledger)==0;
-        if (!written) { ::unlink(temp); break; }
+        // An initial save must not overwrite a config created elsewhere.
+        if (written) written = creating
+            ? ::link(temp, Ledger)==0 : ::rename(temp, Ledger)==0;
+        const int linkError = errno;
+        if (written && creating) ::unlink(temp);
+        if (!written) {
+            ::unlink(temp);
+            if (creating && linkError == EEXIST)
+                result = error(409, "sources_changed");
+            break;
+        }
         const int directory = ::open("/etc/vdr-suite/addon-sources",
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (directory < 0) break;
