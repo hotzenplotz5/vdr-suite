@@ -1718,8 +1718,9 @@
           typeof p.channelId !== 'string' ||
           !/^[A-Za-z0-9._:-]{1,160}$/.test(p.channelId) ||
           typeof p.title !== 'string' || p.title.length < 1 ||
-          p.title.length > 1024 ||
-          typeof p.directory !== 'string' || p.directory.length > 1024 ||
+          new TextEncoder().encode(p.title).length > 1024 ||
+          typeof p.directory !== 'string' ||
+          new TextEncoder().encode(p.directory).length > 1024 ||
           !Number.isSafeInteger(p.startAt) || p.startAt <= 0 ||
           !Number.isSafeInteger(p.stopAt) ||
           p.stopAt <= p.startAt || p.stopAt - p.startAt >= 86400 ||
