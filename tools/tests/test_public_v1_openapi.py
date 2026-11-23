@@ -43,6 +43,26 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_missing_native_timer_aux_contract(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/native-timers/{timerId}/aux"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_missing_native_timer_aux_dispatch(self):
+        # Only the public GET dispatcher proves routing to the dedicated
+        # read owner; removing that route must invalidate the audit.
+        marker = "publicNativeTimerAuxPath(path, nativeTimerId))"
+        start = self.source.index("bool PublicApiRuntime::tryHandleGet(")
+        end = self.source.index("bool PublicApiRuntime::tryHandlePost(", start)
+        dispatch = self.source[start:end]
+        self.assertIn(marker, dispatch)
+        changed_source = (self.source[:start] +
+            dispatch.replace(marker,
+                "obsoleteNativeTimerAuxPath(path, nativeTimerId))", 1) +
+            self.source[end:])
+        self.assert_rejected(source=changed_source,
+            reason="source route handler anchor disappeared")
+
     def test_missing_post(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/devices/{deviceId}/grants"]["post"]

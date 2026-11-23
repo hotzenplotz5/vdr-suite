@@ -46,8 +46,11 @@ AUDITED = {
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
     "/api/v1/native-timers/{timerId}": {
-        "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
+        "get": "if (publicNativeTimerItemPath(path, nativeTimerId) ||",
         "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",
+    },
+    "/api/v1/native-timers/{timerId}/aux": {
+        "get": "publicNativeTimerAuxPath(path, nativeTimerId))",
     },
     "/api/v1/native-timers/{timerId}/modifications": {
         "post": "if (publicNativeTimerModificationPath(path, modifiedTimerId))",
