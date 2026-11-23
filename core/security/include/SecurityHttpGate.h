@@ -1043,6 +1043,22 @@ public:
             path.size() > nativeTimerItemPrefix.size() &&
             path.find('/', nativeTimerItemPrefix.size()) ==
                 std::string::npos;
+        // Direct external/unbound actions inherit the EXACT existing
+        // Public-v1 timers.modify / timers.delete authorization and CSRF.
+        const auto nativeDirectPath = [&](const std::string& suffix) {
+            return isPost &&
+                path.compare(0U, nativeTimerItemPrefix.size(),
+                    nativeTimerItemPrefix) == 0 &&
+                path.size() > nativeTimerItemPrefix.size() + suffix.size() &&
+                path.compare(path.size() - suffix.size(),
+                    suffix.size(), suffix) == 0 &&
+                path.find('/', nativeTimerItemPrefix.size()) ==
+                    path.size() - suffix.size();
+        };
+        const bool isPublicNativeTimerDirectUpdate =
+            nativeDirectPath("/direct-update");
+        const bool isPublicNativeTimerDirectDelete =
+            nativeDirectPath("/direct-delete");
         const std::string modificationSuffix = "/modifications";
         const bool isPublicNativeTimerModify =
             isPost && path.compare(0U, nativeTimerItemPrefix.size(),
@@ -1051,9 +1067,11 @@ public:
             path.compare(path.size() - modificationSuffix.size(),
                 modificationSuffix.size(), modificationSuffix) == 0 &&
             path.find('/', nativeTimerItemPrefix.size()) ==
-                path.size() - modificationSuffix.size();
+                path.size() - modificationSuffix.size() ||
+            isPublicNativeTimerDirectUpdate;
         const bool isPublicNativeTimerDelete =
-            request.method == "DELETE" && isPublicNativeTimerItem;
+            (request.method == "DELETE" && isPublicNativeTimerItem) ||
+            isPublicNativeTimerDirectDelete;
         const std::string nativeAuxSuffix = "/aux";
         const bool isPublicNativeTimerAuxRead =
             request.method == "GET" &&
