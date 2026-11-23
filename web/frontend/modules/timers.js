@@ -504,6 +504,9 @@
   // existing permitted editor for legacy-only fields or unbound Timers.
   function executePublicNativeTimerAction(type, payload, button, feedback) {
     const legacyType = type === 'toggle' ? 'update' : type;
+    // The browser's recording flag is UI state, not a legacy DELETE field.
+    const legacyPayload = type === 'delete'
+      ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
     const api = resolvedClientApi();
     if ((type === 'update' && String(payload.aux || '') !== '') ||
         (type === 'delete' && payload.recording === true) ||
@@ -512,7 +515,7 @@
         (type === 'delete'
           ? typeof api.fetchPublicNativeTimerDelete !== 'function'
           : typeof api.fetchPublicNativeTimerModify !== 'function'))
-      return executeAction(legacyType, payload, button, feedback);
+      return executeAction(legacyType, legacyPayload, button, feedback);
 
     const modification = type === 'update'
       ? publicNativeTimerUpdatePayload(payload)
@@ -528,7 +531,7 @@
       // No guessed If-Match: the Public API requires a durable binding ETag.
       if (detail.data.bindingState === 'binding_required' ||
           detail.data.bindingState === 'adoption_required')
-        return executeAction(legacyType, payload, button, feedback);
+        return executeAction(legacyType, legacyPayload, button, feedback);
       if (detail.data.bindingState !== 'verified' || !detail.etag)
         throw new Error('Native Timer-Bindung nicht verifiziert.');
 
