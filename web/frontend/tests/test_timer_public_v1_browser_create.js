@@ -262,6 +262,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
       throw new Error('Unexpected production request: ' + String(url));
     }
   };
+  // In a browser window.fetch is the same transport as global fetch.
+  productionWindow.fetch = httpContext.fetch;
   const reference = path.join(__dirname, '..', '..', '..', 'clients',
     'reference-js', 'public-v1-client.js');
   const browserClient = path.join(__dirname, '..', 'api', 'client-api.js');
