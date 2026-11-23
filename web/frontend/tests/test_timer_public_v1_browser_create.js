@@ -270,7 +270,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
             return name === 'ETag' ? '"native-timer-binding/1:fixture:2:3"' : null;
           }},
           text: async () => JSON.stringify({
-            backendId: 'living-room', timerId: '17', bindingState: 'verified'
+            backendId: 'living-room', timerId: '17', bindingState: nativeBindingState
           })
         });
       if (String(url) ===
@@ -293,6 +293,12 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
             backendId: 'living-room'
           })
         });
+      if (String(url) === 'https://suite.example/api/vdr/timers/actions/update' ||
+          String(url) === 'https://suite.example/api/vdr/timers/actions/delete')
+        return Promise.resolve({
+          status: 200, ok: true, headers: {get() {return null;}},
+          text: async () => JSON.stringify({success: true})
+        });
       if (String(url) === 'https://suite.example/api/v1/operations/op_manual_f56')
         return Promise.resolve({
           status: 200, ok: true,
@@ -305,7 +311,11 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
       throw new Error('Unexpected production request: ' + String(url));
     }
   };
-  // A browser's window and globalThis are the same object (unlike
+  let nativeBindingState = 'verified';
+  // External and unbound native Timer reads retain the established writer.
+  // Verify that the REAL browser/reference client routes their actions
+  // through the existing authorized VDR endpoint, not a false v1 Operation.
+    // A browser's window and globalThis are the same object (unlike
   // separately constructed Node VM objects). Keep UMD and client-api aligned.
   httpContext.location = productionWindow.location;
   httpContext.VdrSuiteBrowserSession = productionWindow.VdrSuiteBrowserSession;
@@ -412,5 +422,56 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(auxRequests[2].url,
     'https://suite.example/api/v1/operations/op_native_f56');
   assert.equal(legacy.length, 2, 'Aux edit may not launch a second legacy writer');
-  console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
+  // Slice 3: a native VDR Timer created outside Suite is not a managed
+  // TimerAssignment. Browser -> real client-api -> HTTP must remain usable
+  // without inventing a binding ETag or issuing a duplicate native write.
+  nativeBindingState = 'adoption_required';
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'External news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 50, lifetime: 99, enabled: true, aux: '<epgsearch/>'
+  }]});
+  const externalToggle = find(root, item =>
+    item.tagName === 'button' && item.textContent === 'Deaktivieren');
+  assert(externalToggle);
+  const beforeExternal = httpRequests.length;
+  externalToggle.listeners.click();
+  await tick();
+  const externalCalls = httpRequests.slice(beforeExternal);
+  assert.equal(externalCalls.length, 2, 'one detail read and one existing VDR update');
+  assert.equal(externalCalls[0].url,
+    'https://suite.example/api/v1/native-timers/17?backendId=living-room');
+  assert.equal(externalCalls[1].url,
+    'https://suite.example/api/vdr/timers/actions/update');
+  assert.equal(externalCalls[1].options.method, 'POST');
+  assert.equal(externalCalls[1].options.credentials, 'same-origin');
+  assert.equal(externalCalls[1].options.headers['X-CSRF-Token'], 'composition-csrf');
+  const externalBody = JSON.parse(externalCalls[1].options.body);
+  assert.equal(externalBody.backendId, 'living-room');
+  assert.equal(externalBody.timerId, '17');
+  assert.equal(externalBody.aux, '<epgsearch/>');
+  assert.equal(externalBody.active, false);
+
+  nativeBindingState = 'binding_required';
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'Unbound news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 50, lifetime: 99, enabled: true, aux: ''
+  }]});
+  const unboundDelete = find(root, item =>
+    item.tagName === 'button' && item.textContent === 'Timer löschen');
+  assert(unboundDelete);
+  const beforeUnbound = httpRequests.length;
+  unboundDelete.listeners.click();
+  await tick();
+  const unboundCalls = httpRequests.slice(beforeUnbound);
+  assert.equal(unboundCalls.length, 2, 'unbound delete uses one existing writer');
+  assert.equal(unboundCalls[0].url,
+    'https://suite.example/api/v1/native-timers/17?backendId=living-room');
+  assert.equal(unboundCalls[1].url,
+    'https://suite.example/api/vdr/timers/actions/delete');
+  assert.deepStrictEqual(JSON.parse(unboundCalls[1].options.body),
+    {backendId: 'living-room', timerId: '17'});
+  assert.equal(unboundCalls[1].options.headers['X-CSRF-Token'], 'composition-csrf');
+    console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });
