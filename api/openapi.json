@@ -717,7 +717,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Items include VDR timerId/title/channelName/eventId/day/weekdays/startTime/endTime/directory/flags/priority/lifetime/vps/enabled/recording/pending; opaque provider aux excluded; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
+            "description": "Items include VDR timerId/title/channelName/eventId/day/weekdays/startTime/endTime/directory/subtitle/flags/priority/lifetime/vps/enabled/recording/pending; opaque provider aux excluded; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
             "content": {
               "application/json": {
                 "schema": {
