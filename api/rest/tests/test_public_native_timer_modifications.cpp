@@ -68,4 +68,38 @@ int main()
     status = PublicNativeTimerModifyStatus::serviceUnavailable;
     assert(post(path,toggle,etag).statusCode == 503);
     runtime.resetNativeTimerModifyAdmission();
+
+    // Raw Aux replacement is an opt-in extension of the existing native
+    // update route, using the caller's previous Aux for native CAS.
+    const std::string update =
+        R"json({"kind":"update","channelId":"S19.2E-1-2-3","title":"News","directory":"TV","day":"2026-11-24","weekdays":"-------","startTime":"2015","endTime":"2030","priority":0,"lifetime":0,"enabled":true,"vps":false})json";
+    const std::string auxUpdate = update.substr(0,update.size()-1) +
+        R"json(,"expectedAux":"<epgsearch/>","aux":"<tvscraper/>"})json";
+    assert(post(path,auxUpdate,etag).statusCode == 503);
+    assert(post(path,update.substr(0,update.size()-1) +
+        R"json(,"aux":"bad"})json",etag).statusCode == 400);
+    assert(post(path,update.substr(0,update.size()-1) +
+        R"json(,"expectedAux":"bad"})json",etag).statusCode == 400);
+    assert(post(path,toggle.substr(0,toggle.size()-1) +
+        R"json(,"expectedAux":"","aux":"new"})json",etag).statusCode == 400);
+    int auxAdmissions = 0;
+    runtime.registerNativeTimerModifyAdmission(
+        [&](const PublicNativeTimerModifyRequest& r) {
+            ++auxAdmissions;
+            assert(r.kind == PublicNativeTimerChangeKind::update);
+            assert(r.specification.modifyAux);
+            assert(r.specification.expectedAux == "<epgsearch/>");
+            assert(r.specification.aux == "<tvscraper/>");
+            assert(r.specification.priority == 0 && r.specification.lifetime == 0);
+            PublicNativeTimerModifyResult result;
+            result.status = PublicNativeTimerModifyStatus::accepted;
+            result.operation.operationId = "op_modify_aux";
+            result.operation.state = "accepted";
+            result.operation.backendId = "backend-one";
+            result.operation.resourceRevision = "2";
+            return result;
+        });
+    assert(post(path,auxUpdate,etag).statusCode == 202);
+    assert(auxAdmissions == 1);
+    runtime.resetNativeTimerModifyAdmission();
 }
