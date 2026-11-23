@@ -4973,6 +4973,352 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+
+    // Public-v1 manual one-shot Timer CREATE composes the SAME provider-fenced
+    // native CLOCK/NTPREVIEW, TimerIntent/Assignment and Native CREATE
+    // operation/readback owner as the EPG path. No legacy CRUD alias.
+    PublicApiRuntime::instance().registerManualTimerIntentReplayLookup(
+        [this](const PublicManualTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!nativeTimerCreateAdmissionService_ ||
+                !timerIntentRepository_ || !mutationOperationReadService_)
+                return result;
+
+            vdrsuite::timers::ManualNativeTimerCreateReplayRequest lookup;
+            lookup.actorId = request.actorRef;
+            lookup.backendId = request.backendId;
+            lookup.idempotencyKey = request.idempotencyKey;
+            lookup.channelId = request.channelId;
+            lookup.title = request.title;
+            lookup.directory = request.directory;
+            lookup.startAt = request.startAt;
+            lookup.stopAt = request.stopAt;
+            lookup.priority = request.priority;
+            lookup.lifetime = request.lifetime;
+            lookup.enabled = request.enabled;
+            lookup.vps = request.vps;
+            const auto saved = nativeTimerCreateAdmissionService_->replayManualWindow(
+                lookup, *timerIntentRepository_);
+            using S = vdrsuite::timers::NativeTimerCreateAdmissionStatus;
+            if (saved.status == S::assignmentNotFound)
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+            else if (saved.status == S::idempotencyConflict)
+                result.status =
+                    PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+            else if (saved.status == S::invalid)
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+            else if (saved.status == S::replayed)
+            {
+                const auto current = mutationOperationReadService_->findForActor(
+                    saved.operation.operationId, request.actorRef);
+                if (!current.ok() ||
+                    current.operation.backendId != request.backendId ||
+                    current.operation.actionFamily != "timer.create")
+                    return result;
+                result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+                result.operation.operationId = current.operation.operationId;
+                result.operation.state =
+                    vdrsuite::operations::mutationOperationStateName(
+                        current.operation.state);
+                result.operation.backendId = current.operation.backendId;
+                result.operation.resourceRevision =
+                    current.operation.operationRevision;
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerManualTimerIntentSubmit(
+        [this](const PublicManualTimerIntentAdmissionRequest& request)
+        {
+            using namespace vdrsuite::public_epg_timer;
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::agent;
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                !vdrSnapshotReadService_ || !timerIntentRepository_ ||
+                !timerAssignmentRepository_ || !nativeTimerBindingRepository_ ||
+                !nativeTimerCreateAdmissionService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.channelId.empty() || request.title.empty())
+                return result;
+
+            const auto nowSeconds = []() -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            };
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, request.backendId).allowed ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            }
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(request.backendId);
+            const bool channelObserved = std::any_of(
+                channels.begin(), channels.end(), [&request](const VdrChannel& c) {
+                    return c.id == request.channelId;
+                });
+            if (!channelObserved)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            }
+
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == request.backendId &&
+                    context->suiteBridgeTransport && context->httpClient &&
+                    context->service)
+                {
+                    runtime = context.get();
+                    break;
+                }
+            if (!runtime) return result;
+
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            }
+            std::string reason;
+            const auto provider = backendAgentCommandRepository_->selectLocalProvider(
+                request.backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration,
+                kBackendAgentNativeTimerCreateAuthorityDomain,
+                kBackendAgentNativeTimerCreateCapability, reason);
+            if (!provider) return result;
+
+            TimerAssignmentPlanningBackendCandidate candidate;
+            candidate.backendId = request.backendId;
+            candidate.currentBackendGeneration = agent->backendGeneration;
+            candidate.executionAuthorityFence =
+                nativeTimerCreatePlanningAuthorityFence(*provider);
+            candidate.executionAuthorityCurrent =
+                !candidate.executionAuthorityFence.empty();
+            candidate.state = TimerAssignmentPlanningBackendState::online;
+            candidate.writeAllowed = true;
+            const auto observedAt = nowSeconds();
+            if (!currentNativeTimerCreateExecutionAuthority(
+                    *agent, *provider, candidate, observedAt))
+                return result;
+
+            // No EPG event and no implicit margins: this is exactly the
+            // Human's manually selected absolute window. Backend VDR owns
+            // the local time projections, never the daemon host timezone.
+            ServerOwnedNativeClockEvidence clock;
+            if (!attestBackendNativeTimerClockReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerClockContract(
+                        request.startAt, request.stopAt),
+                    *agent, *provider, candidate,
+                    request.startAt, request.stopAt, nowSeconds(),
+                    clock, reason) ||
+                clock.startUtcOffsetSeconds != clock.stopUtcOffsetSeconds)
+                return result;
+
+            NativeTimerSpecification native;
+            native.channelId = request.channelId;
+            native.title = request.title;
+            native.directory = request.directory;
+            native.weekdays = "-------";
+            native.priority = request.priority;
+            native.lifetime = request.lifetime;
+            native.enabled = request.enabled;
+            native.vps = request.vps;
+            std::string endDay;
+            if (!projectEpgBoundaryToNative(
+                    request.startAt, clock.startUtcOffsetSeconds,
+                    false, native.day, native.startTime) ||
+                !projectEpgBoundaryToNative(
+                    request.stopAt, clock.stopUtcOffsetSeconds,
+                    true, endDay, native.endTime) ||
+                !nativeTimerSpecificationValid(native))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            }
+
+            candidate.desiredNativeTimerSpecification = native;
+            candidate.desiredNativeTimerSpecificationPresent = true;
+            candidate.channel.backendGeneration = agent->backendGeneration;
+            candidate.channel.mappingRevision =
+                "native:" + std::to_string(agent->backendGeneration);
+            candidate.channel.mappingSource = "vdr-native-snapshot";
+            candidate.channel.sourceType = "vdr";
+            candidate.channel.sourceId = request.backendId;
+            candidate.channel.sourceChannelId = request.channelId;
+            candidate.channel.backendChannelId = request.channelId;
+            candidate.channel.current = true;
+            candidate.capability.backendGeneration = agent->backendGeneration;
+            candidate.capability.revision =
+                "suitebridge:" + std::to_string(provider->capabilityRevision);
+            candidate.capability.current = true;
+            candidate.capability.timerCreate = true;
+            candidate.capability.timerReadback = true;
+            candidate.health.backendGeneration = agent->backendGeneration;
+            candidate.health.revision =
+                "agent:" + std::to_string(agent->heartbeatSequence);
+            candidate.health.current = true;
+            candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+            candidate.health.timerWritesAvailable = true;
+
+            BackendAgentNativeTimerCreateSpecification nativeCommand;
+            nativeCommand.channelId = native.channelId;
+            nativeCommand.title = native.title;
+            nativeCommand.directory = native.directory;
+            nativeCommand.day = native.day;
+            nativeCommand.weekdays = native.weekdays;
+            nativeCommand.startTime = native.startTime;
+            nativeCommand.endTime = native.endTime;
+            nativeCommand.priority = native.priority;
+            nativeCommand.lifetime = native.lifetime;
+            nativeCommand.enabled = native.enabled;
+            nativeCommand.vps = native.vps;
+
+            const auto previewReply =
+                runtime->suiteBridgeTransport->inspectNativeTimerPreviewContract(
+                    nativeCommand, provider->providerInstanceEpoch,
+                    request.startAt, request.stopAt);
+            const auto previewReceivedAt = nowSeconds();
+            SuiteBridgeNativeTimerPreviewProjection nativePreview;
+            if (!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+                    previewReply, nativeCommand, request.startAt, request.stopAt,
+                    *provider, previewReceivedAt, nativePreview, reason))
+                return result;
+            ProspectiveNativeTimerConflictProof proof;
+            if (!attestBackendNativeTimerPreview(
+                    nativePreview, *agent, *provider, candidate,
+                    previewReceivedAt, proof))
+                return result;
+
+            ManualTimerSourceEvidence source;
+            source.backendId = request.backendId;
+            source.sourceType = "vdr";
+            source.sourceId = request.backendId;
+            source.backendChannelId = request.channelId;
+            source.timezone = "UTC";
+            source.startAt = request.startAt;
+            source.stopAt = request.stopAt;
+            const auto draft = makeManualWindowTimerIntentDraft(
+                native, source, request.actorRef);
+            if (!draft.valid)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            }
+            ManualNativeTimerCreateAdmissionRequest admission;
+            admission.actorId = request.actorRef;
+            admission.backendId = request.backendId;
+            admission.idempotencyKey = request.idempotencyKey;
+            admission.draft = draft;
+            admission.candidate = candidate;
+            admission.nativeClock = clock;
+            admission.conflictProof = proof;
+            admission.authoritativeAgent = *agent;
+            admission.nativeCreateProvider = *provider;
+            admission.requestedAt = nowSeconds();
+            // Fresh backend authority must remain true during the atomic
+            // transaction. This callback never initiates native mutation.
+            admission.revalidateSourceAndExecutionAuthority =
+                [this, backendId = request.backendId,
+                    channelId = request.channelId, agent = *agent,
+                    provider = *provider, candidate]() {
+                    if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                        !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                        !vdrSnapshotReadService_ ||
+                        !backendAccessPolicy_->canWriteToBackend(
+                            *backendRegistryService_, backendId).allowed)
+                        return false;
+                    const auto backend =
+                        backendRegistryService_->getBackend(backendId);
+                    if (!backend || !backend->enabled || !backend->online ||
+                        !vdrSnapshotReadService_->hasSnapshotForBackend(backendId))
+                        return false;
+                    const auto channels =
+                        vdrSnapshotReadService_->getChannelsForBackend(backendId);
+                    if (!std::any_of(channels.begin(), channels.end(),
+                        [&channelId](const VdrChannel& c) {
+                            return c.id == channelId;
+                        })) return false;
+                    const auto liveAgent =
+                        backendAgentRepository_->findAgentForBackend(backendId);
+                    if (!liveAgent || liveAgent->agentId != agent.agentId ||
+                        liveAgent->agentInstanceId != agent.agentInstanceId ||
+                        liveAgent->backendGeneration != agent.backendGeneration)
+                        return false;
+                    std::string why;
+                    const auto liveProvider =
+                        backendAgentCommandRepository_->selectLocalProvider(
+                            backendId, liveAgent->agentId,
+                            liveAgent->agentInstanceId,
+                            liveAgent->backendGeneration,
+                            kBackendAgentNativeTimerCreateAuthorityDomain,
+                            kBackendAgentNativeTimerCreateCapability, why);
+                    if (!liveProvider ||
+                        !backendAgentLocalProviderSameFence(
+                            *liveProvider, provider))
+                        return false;
+                    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    return currentNativeTimerCreateExecutionAuthority(
+                        *liveAgent, *liveProvider, candidate, now);
+                };
+
+            TimerIntentApplicationService application(
+                *timerIntentRepository_, *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_);
+            const auto saved = nativeTimerCreateAdmissionService_->admitManualWindow(
+                admission, *timerIntentRepository_, application);
+            using S = NativeTimerCreateAdmissionStatus;
+            switch (saved.status)
+            {
+            case S::prepared:
+                result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
+                break;
+            case S::replayed:
+                result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+                break;
+            case S::invalid:
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            case S::assignmentNotFound:
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            case S::idempotencyConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+                return result;
+            case S::backendConflict:
+            case S::generationConflict:
+            case S::specificationUnavailable:
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            case S::assignmentRevisionConflict:
+            case S::assignmentStateConflict:
+            case S::intentRevisionConflict:
+            case S::operationConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::stateConflict;
+                return result;
+            case S::identityGenerationFailed:
+            case S::repositoryError:
+                return result;
+            }
+            result.operation.operationId = saved.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    saved.operation.state);
+            result.operation.backendId = saved.operation.backendId;
+            result.operation.resourceRevision =
+                saved.operation.operationRevision;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerEpgWindowLookup(
         [this](const PublicEpgWindowRequest& request)
         {
