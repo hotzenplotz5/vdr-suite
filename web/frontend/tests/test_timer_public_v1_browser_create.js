@@ -381,5 +381,36 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(nativeRequests[2].options.method, 'GET');
   assert.equal(legacy.length, 2, 'native Public-v1 TOGGLE never dispatched legacy');
 
-  console.log('Timer browser F5.6 create and native toggle browser/reference composition PASS');
+  // Production browser -> reference JS -> HTTP MODIFY composition for an
+  // explicit Aux update. The previous plugin metadata is carried only on
+  // an actual edit, and the old synchronous writer is never dispatched.
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'Native news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 0, lifetime: 0, enabled: true, aux: '<epgsearch/>'
+  }]});
+  const auxForm = find(root, item => item.tagName === 'form' &&
+    item.elements.timerId && item.elements.timerId.value === '17');
+  assert(auxForm, 'native Aux edit form must be present');
+  auxForm.elements.manualChannelId.value = 'C-1';
+  auxForm.elements.aux.value = '<tvscraper/>';
+  auxForm.listeners.submit({preventDefault() {}});
+  await tick();
+  const auxRequests = httpRequests.slice(5);
+  assert.equal(auxRequests[0].url,
+    'https://suite.example/api/v1/native-timers/17?backendId=living-room');
+  assert.equal(auxRequests[1].url,
+    'https://suite.example/api/v1/native-timers/17/modifications?backendId=living-room');
+  const auxBody = JSON.parse(auxRequests[1].options.body);
+  assert.equal(auxBody.kind, 'update');
+  assert.equal(auxBody.expectedAux, '<epgsearch/>');
+  assert.equal(auxBody.aux, '<tvscraper/>');
+  assert.equal(auxBody.priority, 0);
+  assert.equal(auxRequests[1].options.headers['X-CSRF-Token'], 'composition-csrf');
+  assert.equal(auxRequests[1].options.headers['If-Match'],
+    '"native-timer-binding/1:fixture:2:3"');
+  assert.equal(auxRequests[2].url,
+    'https://suite.example/api/v1/operations/op_native_f56');
+  assert.equal(legacy.length, 2, 'Aux edit may not launch a second legacy writer');
+  console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });
