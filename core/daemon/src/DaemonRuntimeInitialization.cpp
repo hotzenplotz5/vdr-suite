@@ -4106,7 +4106,9 @@ bool DaemonRuntime::initialize()
             {
                 candidate.expectedAuxFingerprint =
                     vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
-                        request.specification.expectedAux);
+                        "native-timer-aux/1|" +
+                        std::to_string(request.specification.expectedAux.size()) +
+                        ":" + request.specification.expectedAux);
                 if (candidate.expectedAuxFingerprint.empty())
                 {
                     response.status = S::invalid;

@@ -257,8 +257,10 @@ SuiteBridgeNativeTimerModifyVdrMutationCallback::ModifyTimer(
     // The normal binding fingerprint intentionally excludes opaque Aux.
     // Compare the exact prior-Aux digest while holding VDR's native write
     // lock so epgsearch/TVScraper metadata cannot be silently overwritten.
+    const std::string currentAux = timer->Aux() ? timer->Aux() : "";
     if (request.modifyAux &&
-        sha256Token(timer->Aux() ? timer->Aux() : "") !=
+        sha256Token("native-timer-aux/1|" +
+            std::to_string(currentAux.size()) + ":" + currentAux) !=
             request.expectedAuxFingerprint) {
       stateKey.Remove(false);
       return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
