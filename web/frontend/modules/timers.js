@@ -544,10 +544,34 @@
     })).then(detail => {
       if (!detail || detail.status !== 200 || !detail.data)
         throw new Error('Native Timer-Bindung konnte nicht gelesen werden.');
-      // No guessed If-Match: the Public API requires a durable binding ETag.
+      // External/unbound Timers cannot use a managed Binding ETag. A
+      // compatible Public-v1 daemon exposes a direct native action which
+      // reuses the established VDR writer; older daemons retain legacy.
+      // Once dispatched, never attempt a second writer after uncertainty.
       if (detail.data.bindingState === 'binding_required' ||
-          detail.data.bindingState === 'adoption_required')
-        return executeAction(legacyType, legacyPayload, button, feedback);
+          detail.data.bindingState === 'adoption_required') {
+        const direct = detail.data.directActions === true &&
+          (type === 'delete'
+            ? typeof api.fetchPublicNativeTimerDirectDelete === 'function'
+            : typeof api.fetchPublicNativeTimerDirectUpdate === 'function');
+        if (!direct)
+          return executeAction(legacyType, legacyPayload, button, feedback);
+        publicWriteAttempted = true;
+        const request = {backendId: payload.backendId, timerId: payload.timerId};
+        if (type !== 'delete') request.payload = legacyPayload;
+        const write = type === 'delete'
+          ? api.fetchPublicNativeTimerDirectDelete(request)
+          : api.fetchPublicNativeTimerDirectUpdate(request);
+        return Promise.resolve(write).then(result => {
+          if (!result || result.success !== true)
+            throw new Error(resultMessage(result,
+              'VDR hat die direkte Timer-Aktion abgelehnt.'));
+          setFeedback(feedback,
+            resultMessage(result, 'VDR hat die Timer-Aktion bestätigt.'), false);
+          global.setTimeout(reloadTimers, 250);
+          return result;
+        });
+      }
       if (detail.data.bindingState !== 'verified' || !detail.etag)
         throw new Error('Native Timer-Bindung nicht verifiziert.');
 
