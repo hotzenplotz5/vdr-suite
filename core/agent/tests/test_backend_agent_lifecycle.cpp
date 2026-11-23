@@ -1289,6 +1289,46 @@ void test_http_protocol_and_redaction()
     assert(server.handleRequest(ordinary).statusCode == 299);
 }
 
+
+void test_find_agent_slow_lookup_attributes_main_connection_mutex_wait()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    sqlite3_mutex* connectionMutex = sqlite3_db_mutex(fixture.database.handle());
+    assert(connectionMutex != nullptr);
+
+    std::atomic<bool> locked{false};
+    std::thread blocker([&] {
+        sqlite3_mutex_enter(connectionMutex);
+        locked.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        sqlite3_mutex_leave(connectionMutex);
+    });
+    while (!locked.load()) std::this_thread::yield();
+
+    std::ostringstream timings;
+    std::streambuf* previousError = std::cerr.rdbuf(timings.rdbuf());
+    const auto found = fixture.agentRepository.findAgent(enrollment.agentId);
+    std::cerr.rdbuf(previousError);
+    blocker.join();
+
+    assert(found.has_value());
+    const std::string output = timings.str();
+    const std::string marker = "BACKEND_AGENT_LOOKUP_SLOW total_ms=";
+    const auto markerAt = output.find(marker);
+    assert(markerAt != std::string::npos);
+    const std::string prepareMarker = " prepare_ms=";
+    const auto prepareAt = output.find(prepareMarker, markerAt);
+    assert(prepareAt != std::string::npos);
+    const auto prepareMs = std::stoll(
+        output.substr(prepareAt + prepareMarker.size()));
+    assert(prepareMs >= 1000);
+    assert(output.find(" step_ms=") != std::string::npos);
+    assert(output.find(" finalize_ms=") != std::string::npos);
+    assert(output.find(enrollment.agentId) == std::string::npos);
+    assert(output.find(AgentSecret) == std::string::npos);
+}
+
 void test_http_authentication_read_does_not_wait_for_main_connection()
 {
     Fixture fixture;
@@ -1423,6 +1463,7 @@ int main()
     test_revoked_agent_can_be_replaced_without_losing_history();
     test_http_protocol_and_redaction();
     test_http_authentication_read_does_not_wait_for_main_connection();
+    test_find_agent_slow_lookup_attributes_main_connection_mutex_wait();
     test_accountability_failure_is_fail_closed();
     test_enrollment_transaction_rolls_back_partial_identity();
     std::cout << "test_backend_agent_lifecycle passed" << std::endl;

@@ -81,6 +81,41 @@ BackendAgentRecord readAgent(sqlite3_stmt* statement)
 }
 
 
+
+struct AgentLookupTimings
+{
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point started = Clock::now();
+    Clock::time_point previous = started;
+    long long prepareMs = 0;
+    long long bindMs = 0;
+    long long stepMs = 0;
+    long long decodeMs = 0;
+    long long finalizeMs = 0;
+
+    void mark(long long& elapsedMs)
+    {
+        const auto now = Clock::now();
+        elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - previous).count();
+        previous = now;
+    }
+
+    ~AgentLookupTimings()
+    {
+        const auto total = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started).count();
+        if (total < 1000) return;
+        // Aggregate timing only; never expose agent IDs or SQL parameter values.
+        std::cerr << "BACKEND_AGENT_LOOKUP_SLOW total_ms=" << total
+                  << " prepare_ms=" << prepareMs
+                  << " bind_ms=" << bindMs
+                  << " step_ms=" << stepMs
+                  << " decode_ms=" << decodeMs
+                  << " finalize_ms=" << finalizeMs << std::endl;
+    }
+};
+
 struct HeartbeatRenewLeaseTimings
 {
     using Clock = std::chrono::steady_clock;
@@ -370,23 +405,38 @@ BackendAgentRepository::findEnrollment(const std::string& enrollmentId) const
 std::optional<BackendAgentRecord> BackendAgentRepository::findAgent(
     const std::string& agentId) const
 {
+    AgentLookupTimings timings;
     sqlite3_stmt* statement = nullptr;
     const std::string sql =
         std::string("SELECT ") + AgentColumns +
         " FROM backend_agents WHERE agent_id = ?;";
-    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
-        !bindText(statement, 1, agentId))
+    const int prepared = sqlite3_prepare_v2(
+        database_.handle(), sql.c_str(), -1, &statement, nullptr);
+    timings.mark(timings.prepareMs);
+    if (prepared != SQLITE_OK)
     {
         if (statement != nullptr) sqlite3_finalize(statement);
+        timings.mark(timings.finalizeMs);
+        return std::nullopt;
+    }
+    const bool bound = bindText(statement, 1, agentId);
+    timings.mark(timings.bindMs);
+    if (!bound)
+    {
+        sqlite3_finalize(statement);
+        timings.mark(timings.finalizeMs);
         return std::nullopt;
     }
     std::optional<BackendAgentRecord> result;
-    if (sqlite3_step(statement) == SQLITE_ROW &&
-        validAgentNumericColumns(statement))
+    const int stepped = sqlite3_step(statement);
+    timings.mark(timings.stepMs);
+    if (stepped == SQLITE_ROW && validAgentNumericColumns(statement))
     {
         result = readAgent(statement);
     }
+    timings.mark(timings.decodeMs);
     sqlite3_finalize(statement);
+    timings.mark(timings.finalizeMs);
     return result;
 }
 
