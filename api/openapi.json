@@ -366,11 +366,11 @@
           "TimerAssignments"
         ],
         "operationId": "createManualTimerIntent",
-        "summary": "Admit an absolute manual one-shot TimerIntent",
-        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native flags/aux, recurring schedule or parallel writer. Currently source-only pending CI and hardware acceptance. The complete serialized JSON body is capped at 4096 UTF-8 bytes.",
+        "summary": "Admit a manual one-shot or VDR-weekly native TimerIntent",
+        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native day/HHMM/aux or parallel writer. An optional canonical weekday mask uses native VDR scheduling; startAt/stopAt represent the first attested airing, not a proof that future repeats are conflict-free. Currently source-only pending CI and hardware acceptance. The complete serialized JSON body is capped at 4096 UTF-8 bytes.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Existing native_timers.create: paired Device with exact timers.create@backendId, or Browser administrator role.admin@backendId/role.admin@* with CSRF."
+          "authorization": "Existing native_timers.create: paired Device with exact timers.create@backendId, or Human Browser with timers.create@backendId or administrator role.admin@backendId/role.admin@*, with CSRF."
         },
         "parameters": [
           {
@@ -427,6 +427,12 @@
                     "type": "string",
                     "maxLength": 1024,
                     "description": "Native timer directory, maximum 1024 decoded UTF-8 bytes."
+                  },
+                  "weekdays": {
+                    "type": "string",
+                    "minLength": 7,
+                    "maxLength": 7,
+                    "description": "Optional canonical native VDR Monday-through-Sunday mask MTWTFSS with - for skipped days. Omit or ------- for one-shot; selected days create a VDR-managed weekly TimerIntent. The first startAt local date must be a selected weekday."
                   },
                   "startAt": {
                     "type": "integer",
@@ -492,7 +498,7 @@
             "description": "Unauthenticated"
           },
           "403": {
-            "description": "Grant, administrator or CSRF denied"
+            "description": "Existing timers.create grant or CSRF denied"
           },
           "404": {
             "description": "Channel not found on selected authoritative backend"
