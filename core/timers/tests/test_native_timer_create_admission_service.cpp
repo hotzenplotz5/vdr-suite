@@ -1081,11 +1081,13 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
             recurring, second.intents, secondApplication);
         assert(recurrentResult.status == NativeTimerCreateAdmissionStatus::prepared);
         assert(recurrentResult.payload.expectedSpecification.weekdays == "MTWTF--");
+        const std::string assignmentPrefix = "manual-assignment:";
+        assert(recurrentResult.operation.resourceId.compare(
+            0, assignmentPrefix.size(), assignmentPrefix) == 0);
         const auto recurrentIntentId =
             std::string("manual-intent:") +
-            manualNativeTimerSubmissionDigest(
-                recurring.actorId, recurring.backendId, recurring.idempotencyKey)
-                .substr(7U);
+            recurrentResult.operation.resourceId.substr(
+                assignmentPrefix.size());
         const auto persistedRecurring = second.intents.findById(recurrentIntentId);
         assert(persistedRecurring.ok());
         assert(persistedRecurring.intent.spec.intentType ==
