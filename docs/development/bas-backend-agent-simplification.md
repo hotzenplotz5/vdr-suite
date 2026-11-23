@@ -188,3 +188,65 @@ paths, not a live service mutation.
 Build/targeted CI on the final head and real Device/OSD observational
 acceptance remain explicitly OPEN until actual evidence is checked. No
 deployment to the user's already functioning yaVDR for this refactor.
+
+## BAS.8 – Native Timer / Recording command identity audit (23.11.2026)
+
+**Existing verified architectural boundary:** The common delivery runtime in
+`core/agent/src/BackendAgentCommandClient.cpp` already centralizes the
+protected `LocalState`, receipt/result publication, command assignment,
+restart reconciliation and the generic result contract. Each of five native
+domains retains its own typed context, transport, evidence parser, execution
+guard and use-time readback: Timer Create, Delete, Modify, Recording Marks
+Modify and Recording Cut. Their separate outcome mappings are deliberately
+**not** combined; accepting an unverified native outcome as successful
+would be a real regression.
+
+**Safe duplication removed:** The five domain context adapters all populated
+the same four identity values in the same order: backend ID, Agent ID,
+Agent-instance ID and backend generation. A file-local
+`nativeCommandIdentity<DomainContext>` constructs that immutable value.
+Each existing typed adapter still produces its original concrete context;
+no command types, journal filenames, native actions, ownership fences or
+authorization checks changed.
+
+**Regression targets:** `make test-phase63-command-delivery-runtime`,
+`make test-backend-agent-client` and the existing native
+Timer/Marks/Cut suites. Tests in GitHub CI or on a disposable fixture are
+distinct from real timed recordings, editing marks and cut operations on
+a live VDR; no live mutations requested or executed.
+
+## BAS.9 – Command poll / heartbeat composition without stale capture (23.11.2026)
+
+**Observed repeated work:** `BackendAgentClientRuntime::pollCommands`
+(fast interactive poll) and `::heartbeat` (lease and observation cadence)
+contained byte-equivalent mappings of command state path, advertised
+command types, three native Timer transports, legacy OSD input, Media Import
+and Media Shrink executors. They also each constructed the same live
+authenticated Agent command context.
+
+**Source refactor:** Two file-local pure functions now create fresh
+`BackendAgentCommandClientConfig` and
+`BackendAgentCommandClientContext` values at each call. No credentials,
+native transport pointers, backend generation, advertised availability,
+poll receipt or command state are cached as part of the refactor. The
+heartbeat still reconciles the durable journal before observations,
+discovers capability once on its own cadence and polls with refresh=true;
+fast polls still reuse that heartbeat's availability snapshot with
+refresh=false. Existing resync, fail-fast, delayed heartbeat and
+lost-response handling remain intact.
+
+**New focused regression:** The real Agent-client fixture
+`test_low_latency_command_poll_between_heartbeats` asserts that command
+polls before and after the intervening heartbeat retain the authenticated
+backend ID, Agent-instance ID, backend generation and credential from the
+running runtime. This supplements its previous checks of poll cadence,
+capability refresh flags, old-generation quarantine and lease renewal.
+Targets: `make test-backend-agent-client` plus established fast tests.
+
+**Acceptance status:** BAS.7–9 changes are committed on the *authorized*
+`work/bas-simplification` branch only. New and existing targeted tests,
+full package/Agent build and final-head CI must be checked against the
+actual run results. BAS.10 still requires cross-domain integration,
+documented partial coverage, and focused real yaVDR observation before
+declaring the overall phase complete. No branch merge, package install,
+daemon/VDR restart or media mutation occurred from this development step.
