@@ -47,6 +47,16 @@ enum class NativeTimerCreateAdmissionStatus
  // Manual one-shot admission reuses the EXISTING native CREATE operation
  // authority. Input projection/Planner evidence is server-owned; the API
  // may supply the user's desired window/title, not authoritative Agent facts.
+
+struct ManualNativeTimerCreateReplayRequest
+{
+    std::string actorId, backendId, idempotencyKey;
+    std::string channelId, title, directory;
+    std::int64_t startAt = 0, stopAt = 0;
+    std::int32_t priority = 50, lifetime = 99;
+    bool enabled = true, vps = false;
+};
+
 struct ManualNativeTimerCreateAdmissionRequest
 {
     std::string actorId;
@@ -106,6 +116,12 @@ public:
         const ManualNativeTimerCreateAdmissionRequest& request,
         TimerIntentRepository& intents,
         TimerIntentApplicationService& application);
+
+    // Read-only recovery; no Agent/Clock/preview needed for a committed
+    // Operation. Returns assignmentNotFound for a previously unused key.
+    NativeTimerCreateAdmissionResult replayManualWindow(
+        const ManualNativeTimerCreateReplayRequest& request,
+        TimerIntentRepository& intents);
 
     // Higher-level EPG admission owns BEGIN/COMMIT/ROLLBACK and the
     // database transaction lease. Never commits a partially-created

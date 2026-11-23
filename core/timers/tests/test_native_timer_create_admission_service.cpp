@@ -939,6 +939,32 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
         assert(replay.operation.operationId == first.operation.operationId);
         assert(validations == 1);
 
+        ManualNativeTimerCreateReplayRequest lookup;
+        lookup.actorId = manual.actorId;
+        lookup.backendId = manual.backendId;
+        lookup.idempotencyKey = manual.idempotencyKey;
+        lookup.channelId = nativeSpec.channelId;
+        lookup.title = nativeSpec.title;
+        lookup.directory = nativeSpec.directory;
+        lookup.startAt = source.startAt;
+        lookup.stopAt = source.stopAt;
+        lookup.priority = nativeSpec.priority;
+        lookup.lifetime = nativeSpec.lifetime;
+        lookup.enabled = nativeSpec.enabled;
+        lookup.vps = nativeSpec.vps;
+        const auto offlineReplay = second.admission.replayManualWindow(
+            lookup, second.intents);
+        assert(offlineReplay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(offlineReplay.operation.operationId == first.operation.operationId);
+        lookup.title = "Changed without source";
+        assert(second.admission.replayManualWindow(
+            lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        lookup.idempotencyKey = "never-submitted";
+        assert(second.admission.replayManualWindow(
+            lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::assignmentNotFound);
+
         auto changed = manual;
         changed.draft.desiredNativeTimer.title = "Different manual title";
         changed.candidate.desiredNativeTimerSpecification =

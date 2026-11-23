@@ -188,6 +188,19 @@ NativeTimerCreateAdmissionStatus preparationStatus(
     return NativeTimerCreateAdmissionStatus::repositoryError;
 }
 
+
+std::string manualNativeTimerSubmissionDigest(
+    const std::string& actorId, const std::string& backendId,
+    const std::string& idempotencyKey)
+{
+    const auto field = [](const std::string& value) {
+        return std::to_string(value.size()) + ":" + value + "|";
+    };
+    return vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+        "manual-native-timer-create/1|" + field(actorId) +
+        field(backendId) + field(idempotencyKey));
+}
+
 std::int64_t provisioningTimestamp(
     std::int64_t requestedAt,
     std::int64_t assignmentUpdatedAt)
@@ -463,6 +476,88 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admitImpl(
 }
 
 
+
+NativeTimerCreateAdmissionResult
+NativeTimerCreateAdmissionService::replayManualWindow(
+    const ManualNativeTimerCreateReplayRequest& request,
+    TimerIntentRepository& intents)
+{
+    using namespace vdrsuite::operations;
+    if (!identity(request.actorId) || !identity(request.backendId) ||
+        !identity(request.idempotencyKey) ||
+        request.channelId.empty() ||
+        request.startAt <= 0 || request.stopAt <= request.startAt)
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+
+    const std::string digest = manualNativeTimerSubmissionDigest(
+        request.actorId, request.backendId, request.idempotencyKey);
+    if (digest.size() != 71U)
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+    const std::string intentId = "manual-intent:" + digest.substr(7U);
+    const std::string assignmentId = "manual-assignment:" + digest.substr(7U);
+
+    auto lease = database_.acquireTransactionLease();
+    const auto found = operationRepository_.findByIdempotencyScope(
+        request.actorId, request.backendId, kResourceType, assignmentId,
+        kActionFamily, request.idempotencyKey);
+    if (found.status == MutationOperationRepositoryStatus::notFound)
+        return result(NativeTimerCreateAdmissionStatus::assignmentNotFound);
+    if (!found.ok())
+        return result(NativeTimerCreateAdmissionStatus::repositoryError);
+
+    const auto intent = intents.findById(intentId);
+    const auto assignment = assignmentRepository_.findById(assignmentId);
+    const auto payload = operationRepository_.findPayloadByOperationId(
+        found.operation.operationId);
+    NativeTimerCreateOperationPayload parsed;
+    if (!intent.ok() || !assignment.ok() || !payload.ok() ||
+        payload.payload.payloadType != kPayloadType ||
+        payload.payload.payloadVersion != kPayloadVersion ||
+        !parseNativeTimerCreateOperationPayload(
+            payload.payload.payload, parsed) ||
+        nativeTimerCreateOperationPayloadFingerprint(parsed) !=
+            payload.payload.payloadFingerprint)
+        return result(NativeTimerCreateAdmissionStatus::operationConflict);
+
+    const auto& saved = intent.intent.spec;
+    const auto& native = parsed.expectedSpecification;
+    const bool matches =
+        found.operation.actorId == request.actorId &&
+        found.operation.backendId == request.backendId &&
+        found.operation.resourceId == assignmentId &&
+        found.operation.actionFamily == kActionFamily &&
+        found.operation.idempotencyKey == request.idempotencyKey &&
+        intent.intent.createdByActorId == request.actorId &&
+        saved.intentType == TimerIntentType::manualWindow &&
+        saved.ownerActorId == request.actorId &&
+        saved.assignmentPolicy.preferredBackendIds ==
+            std::vector<std::string>{request.backendId} &&
+        saved.schedule.startAt == request.startAt &&
+        saved.schedule.stopAt == request.stopAt &&
+        saved.channelRequirement.sourceChannelId == request.channelId &&
+        saved.recordingOptions.priority == request.priority &&
+        saved.recordingOptions.lifetimeDays == request.lifetime &&
+        saved.recordingOptions.vpsPreferred == request.vps &&
+        assignment.assignment.timerIntentId == intentId &&
+        assignment.assignment.backendId == request.backendId &&
+        assignment.assignment.desiredNativeTimerSpecificationPresent &&
+        timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+            assignment.assignment.desiredNativeTimerSpecification, native) &&
+        native.channelId == request.channelId &&
+        native.title == request.title &&
+        native.directory == request.directory &&
+        native.priority == request.priority &&
+        native.lifetime == request.lifetime &&
+        native.enabled == request.enabled &&
+        native.vps == request.vps &&
+        found.operation.expectedResourceFingerprint ==
+            nativeTimerSpecificationFingerprint(native);
+    if (!matches)
+        return result(NativeTimerCreateAdmissionStatus::idempotencyConflict);
+    return result(NativeTimerCreateAdmissionStatus::replayed,
+        found.operation, parsed);
+}
+
 NativeTimerCreateAdmissionResult
 NativeTimerCreateAdmissionService::admitManualWindow(
     const ManualNativeTimerCreateAdmissionRequest& request,
@@ -494,18 +589,10 @@ NativeTimerCreateAdmissionService::admitManualWindow(
          request.deadline < request.requestedAt + 3))
         return result(NativeTimerCreateAdmissionStatus::invalid);
 
-    // Stable per actor/backend/key identities permit a durable replay even
-    // after the Assignment has entered provisioning and the Agent went away.
-    // Length prefixes prevent delimiter ambiguity; SHA-256 is the existing
-    // Suite fingerprint implementation, not a new identity store.
-    const auto field = [](const std::string& value) {
-        return std::to_string(value.size()) + ":" + value + "|";
-    };
-    const std::string scope =
-        "manual-native-timer-create/1|" + field(request.actorId) +
-        field(request.backendId) + field(request.idempotencyKey);
-    const std::string digest =
-        vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(scope);
+    // Stable per actor/backend/key identities preserve replay after the
+    // Assignment has entered provisioning and the Agent went away.
+    const std::string digest = manualNativeTimerSubmissionDigest(
+        request.actorId, request.backendId, request.idempotencyKey);
     if (digest.size() != 71U)
         return result(NativeTimerCreateAdmissionStatus::invalid);
     const std::string intentId = "manual-intent:" + digest.substr(7U);
