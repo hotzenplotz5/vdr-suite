@@ -97,8 +97,14 @@ late-result fencing, local-only/offline confirmation and no unrequested
 operation. This is a SOURCE fix; the exact new code's complete Node test and
 live yaVDR acceptance remain open until they actually run. The previously
 imported `Rom` video is not re-imported: Home's existing Series backfill
-has already displayed one enriched episode and a Series poster, while
-native `info` verification remains separate.
+has already displayed one enriched episode and a Series poster. The later
+**real yaVDR Rom S01E02 import on 22.11.2026 at 20:36:01 CET** completed
+with immutable operation payload version **8**, exact v2 TMDb episode
+identity (season 1 / episode 2, `Wie Titus Pullo die Republik stürzte`),
+and a nonempty poster reference. The user's Home screenshot shows two
+episodes and the shared Rom cover. This verifies a working persisted v2
+snapshot on that run, **not proof of sole causality of the BAS fix** or
+the native `info` file's final state.
 
 ## BAS.6 – Full Backend-Agent scope, first composition simplification
 
