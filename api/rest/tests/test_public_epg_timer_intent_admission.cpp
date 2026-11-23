@@ -4,8 +4,109 @@
 #include <string>
 #include <ctime>
 
+
+static void test_manual_timer_intent_post()
+{
+    auto& api = PublicApiRuntime::instance();
+    const std::string route = "/api/v1/manual/timer-intents";
+    const std::string body = R"json({"backendId":"home","channelId":"S19.2E-1-100","title":"News, Teil 1","directory":"News","startAt":1795547700,"stopAt":1795552200,"priority":0,"lifetime":0,"enabled":true,"vps":false})json";
+    const auto post = [&](const std::string& input,
+        const std::string& key = "manual-idem-1",
+        const std::string& backend = "home",
+        const std::string& target = "/api/v1/manual/timer-intents",
+        const std::string& type = "application/json") {
+        ApiResponse response;
+        assert(api.tryHandlePost(target, "req", "corr", response,
+            input, "actor", "", key, type, backend));
+        return response;
+    };
+    api.resetManualTimerIntentReplayLookup();
+    api.resetManualTimerIntentSubmit();
+    assert(post(body).statusCode == 503);
+    assert(post(body, "").statusCode == 400);
+    assert(post(body, "bad key").statusCode == 400);
+    assert(post(body, "manual-idem-1", "foreign").statusCode == 400);
+    assert(post(body, "manual-idem-1", "home", route + "?backendId=home").statusCode == 400);
+    assert(post(body, "manual-idem-1", "home", route, "text/plain").statusCode == 415);
+    assert(post("{").statusCode == 400);
+    assert(post("{}").statusCode == 400);
+    assert(post(body.substr(0, body.size()-1) +
+        ",\"eventId\":\"unverified\"}").statusCode == 400);
+    assert(post(body.substr(0, body.size()-1) +
+        ",\"title\":\"duplicate\"}").statusCode == 400);
+    assert(post(body.substr(0, body.size()-1) +
+        ",\"priority\":200}").statusCode == 400);
+    assert(post(body.substr(0, body.size()-1) +
+        ",\"aux\":\"<epgsearch>spoof</epgsearch>\"}").statusCode == 400);
+
+    int replays = 0, submissions = 0;
+    auto replayStatus = PublicEpgTimerIntentAdmissionStatus::notFound;
+    auto submitStatus = PublicEpgTimerIntentAdmissionStatus::accepted;
+    api.registerManualTimerIntentReplayLookup(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++replays;
+            assert(r.actorRef=="actor" && r.backendId=="home");
+            assert(r.channelId=="S19.2E-1-100");
+            assert(r.title=="News, Teil 1" && r.directory=="News");
+            assert(r.priority==0 && r.lifetime==0);
+            assert(r.startAt==1795547700LL && r.stopAt==1795552200LL);
+            assert(r.enabled && !r.vps && r.idempotencyKey=="manual-idem-1");
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status=replayStatus;
+            result.operation.operationId="op_0123456789abcdef0123456789abcdef";
+            result.operation.state="outcome_unknown";
+            result.operation.backendId="home";
+            result.operation.resourceRevision="2";
+            return result;
+        });
+    api.registerManualTimerIntentSubmit(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++submissions;
+            assert(r.actorRef=="actor" && r.idempotencyKey=="manual-idem-1");
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status=submitStatus;
+            result.operation.operationId="op_0123456789abcdef0123456789abcdef";
+            result.operation.state="accepted";
+            result.operation.backendId="home";
+            result.operation.resourceRevision="1";
+            return result;
+        });
+    const auto accepted = post(body);
+    assert(accepted.statusCode==202 && submissions==1 && replays==1);
+    assert(accepted.headers.at("Location") ==
+        "/api/v1/operations/op_0123456789abcdef0123456789abcdef");
+    assert(accepted.headers.at("Cache-Control")=="no-store");
+    replayStatus = PublicEpgTimerIntentAdmissionStatus::replayed;
+    api.resetManualTimerIntentSubmit();
+    const auto recovered = post(body);
+    assert(recovered.statusCode==202);
+    assert(recovered.body.find("outcome_unknown") != std::string::npos);
+    assert(submissions==1 && replays==2);
+    replayStatus = PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+    assert(post(body).statusCode==409 && submissions==1);
+    replayStatus = PublicEpgTimerIntentAdmissionStatus::notFound;
+    assert(post(body).statusCode==503 && submissions==1);
+    api.registerManualTimerIntentSubmit(
+        [&](const PublicManualTimerIntentAdmissionRequest&) {
+            ++submissions;
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status=submitStatus;
+            return result;
+        });
+    submitStatus = PublicEpgTimerIntentAdmissionStatus::stateConflict;
+    assert(post(body).statusCode==409);
+    submitStatus = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+    assert(post(body).statusCode==503);
+    api.resetManualTimerIntentReplayLookup();
+    api.resetManualTimerIntentSubmit();
+    ApiResponse get;
+    assert(api.tryHandleGet(route, "actor", "req", "corr", get));
+    assert(get.statusCode==405);
+}
+
 int main()
 {
+    test_manual_timer_intent_post();
     auto& api = PublicApiRuntime::instance();
     const std::string route = "/api/v1/epg/timer-intents";
     const std::string body = "{\"backendId\":\"home\",\"channelId\":\"S19.2E-1-100\",\"eventId\":\"81234\"}";
