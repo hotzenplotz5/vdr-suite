@@ -221,27 +221,39 @@ function editor() {
   assert.equal(legacy[0].action, 'update');
   assert.equal(publicWrites.length, 4);
 
-  // Opaque Aux cannot be represented by v1 UPDATE; preserve all bytes.
+  // Native MODIFY preserves the current VDR Aux() verbatim. An unchanged
+  // opaque aux value is not a reason to bypass the managed Public-v1 writer.
   bindingState = 'verified';
   render({...nativeTimer, aux: '<epgsearch/>'});
-  const auxForm = editor();
-  auxForm.elements.manualChannelId.value = 'C-1';
-  auxForm.listeners.submit({preventDefault() {}});
+  const unchangedAux = editor();
+  unchangedAux.elements.manualChannelId.value = 'C-1';
+  unchangedAux.listeners.submit({preventDefault() {}});
   await tick();
-  assert.equal(legacy.length, 2);
-  assert.equal(legacy[1].payload.aux, '<epgsearch/>');
+  assert.equal(publicWrites.length, 5);
+  assert.equal(publicWrites[4].action, 'modify');
+  assert.equal(publicWrites[4].input.payload.aux, undefined);
+  assert.equal(legacy.length, 1);
 
-  // Removing a pre-existing aux value is also an aux edit, even when the
-  // submitted value is empty; Public v1 cannot silently ignore that edit.
+  // Clearing or adding aux is a real edit, not representable by Public v1.
   render({...nativeTimer, aux: '<epgsearch/>'});
   const clearAux = editor();
   clearAux.elements.manualChannelId.value = 'C-1';
   clearAux.elements.aux.value = '';
   clearAux.listeners.submit({preventDefault() {}});
   await tick();
+  assert.equal(legacy.length, 2);
+  assert.equal(legacy[1].payload.aux, '');
+  assert.equal(publicWrites.length, 5);
+
+  render();
+  const addAux = editor();
+  addAux.elements.manualChannelId.value = 'C-1';
+  addAux.elements.aux.value = '<tvscraper/>';
+  addAux.listeners.submit({preventDefault() {}});
+  await tick();
   assert.equal(legacy.length, 3);
-  assert.equal(legacy[2].payload.aux, '');
-  assert.equal(publicWrites.length, 4);
+  assert.equal(legacy[2].payload.aux, '<tvscraper/>');
+  assert.equal(publicWrites.length, 5);
 
   // Stopping a current recording keeps the existing authorized action.
   render({...nativeTimer, recording: true});
