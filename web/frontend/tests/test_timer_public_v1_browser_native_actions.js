@@ -190,11 +190,26 @@ function editor() {
   assert.equal(specification.enabled, true);
   assert.equal(Object.keys(specification).length, 12);
 
+  // A repeating managed Timer with no opaque aux is a complete native
+  // UPDATE too; it must not silently revert to the legacy endpoint.
+  render();
+  const recurring = editor();
+  recurring.elements.title.value = 'Weekly news';
+  recurring.elements.manualChannelId.value = 'C-1';
+  find(recurring, node => node.name === 'weekday').checked = true;
+  recurring.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(publicWrites[2].action, 'modify');
+  assert.equal(publicWrites[2].input.payload.kind, 'update');
+  assert.equal(publicWrites[2].input.payload.weekdays, 'M------');
+  assert.equal(publicWrites[2].input.payload.day, '');
+  assert.equal(legacy.length, 0);
+
   render();
   button('Timer löschen').listeners.click();
   await tick();
-  assert.equal(publicWrites[2].action, 'delete');
-  assert.equal(publicWrites[2].input.payload, undefined);
+  assert.equal(publicWrites[3].action, 'delete');
+  assert.equal(publicWrites[3].input.payload, undefined);
   assert.equal(legacy.length, 0);
 
   // An unbound Timer has no public ETag, but its old editor still functions.
@@ -204,7 +219,7 @@ function editor() {
   await tick();
   assert.equal(legacy.length, 1);
   assert.equal(legacy[0].action, 'update');
-  assert.equal(publicWrites.length, 3);
+  assert.equal(publicWrites.length, 4);
 
   // Opaque Aux cannot be represented by v1 UPDATE; preserve all bytes.
   bindingState = 'verified';
@@ -222,6 +237,8 @@ function editor() {
   await tick();
   assert.equal(legacy.length, 3);
   assert.equal(legacy[2].action, 'delete');
+  assert.deepEqual(JSON.parse(JSON.stringify(legacy[2].payload)),
+    {backendId: 'default', timerId: '17'});
 
   // A potentially dispatched public write never falls through to legacy.
   render();
