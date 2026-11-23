@@ -68,21 +68,6 @@ bool advanceObservationSnapshotGeneration(std::uint64_t& generation)
 // Fast command polls and ordinary heartbeats must pass the same executor
 // and native transport selection. Construct a fresh value on each call:
 // neither credentials nor local capabilities are cached across generations.
-BackendAgentCommandClientConfig currentCommandConfig(
-    const BackendAgentClientConfig& config)
-{
-    BackendAgentCommandClientConfig command;
-    command.statePath = config.commandStatePath;
-    command.commandTypes = config.commandTypes;
-    command.nativeTimerCreateTransport = config.nativeTimerCreateTransport;
-    command.nativeTimerDeleteTransport = config.nativeTimerDeleteTransport;
-    command.nativeTimerModifyTransport = config.nativeTimerModifyTransport;
-    command.legacyOsdInputTransport = config.legacyOsdInputTransport;
-    command.mediaImportExecutor = config.mediaImportExecutor;
-    command.mediaShrinkExecutor = config.mediaShrinkExecutor;
-    return command;
-}
-
 BackendAgentCommandClientContext currentCommandContext(
     const BackendAgentClientState& state, const std::string& instanceId)
 {
@@ -2135,6 +2120,21 @@ void BackendAgentClientRuntime::publishOsdObservation()
     // or loss of unrelated health/command service when OSD is unavailable.
 }
 
+BackendAgentCommandClientConfig
+BackendAgentClientRuntime::commandClientConfig() const
+{
+    BackendAgentCommandClientConfig command;
+    command.statePath = config_.commandStatePath;
+    command.commandTypes = config_.commandTypes;
+    command.nativeTimerCreateTransport = config_.nativeTimerCreateTransport;
+    command.nativeTimerDeleteTransport = config_.nativeTimerDeleteTransport;
+    command.nativeTimerModifyTransport = config_.nativeTimerModifyTransport;
+    command.legacyOsdInputTransport = config_.legacyOsdInputTransport;
+    command.mediaImportExecutor = config_.mediaImportExecutor;
+    command.mediaShrinkExecutor = config_.mediaShrinkExecutor;
+    return command;
+}
+
 bool BackendAgentClientRuntime::pollCommands(
     std::string& reasonCode)
 {
@@ -2147,7 +2147,7 @@ bool BackendAgentClientRuntime::pollCommands(
     }
 
     const BackendAgentCommandClientConfig commandConfig =
-        currentCommandConfig(config_);
+        commandClientConfig();
 
     const BackendAgentCommandClientContext commandContext =
         currentCommandContext(state_, agentInstanceId_);
@@ -2421,7 +2421,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         return false;
     }
     const BackendAgentCommandClientConfig commandConfig =
-        currentCommandConfig(config_);
+        commandClientConfig();
     const BackendAgentCommandClientContext commandContext =
         currentCommandContext(state_, agentInstanceId_);
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
