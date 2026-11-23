@@ -104,8 +104,8 @@ int main()
     }
 
     {
-        // Even direct modify/delete grants alone do not turn a normal
-        // browser user into an administrator of native V1 timers.
+        // Existing backend-scoped Human timer grants retain legacy
+        // editor parity on Public v1 without requiring role.admin.
         SecurityHttpGateBrowserTestFixture fixture;
         for (const char* permission :
             {"timers.view", "timers.modify", "timers.delete"})
@@ -116,10 +116,39 @@ int main()
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "GET", detail)),
             "timers.view", false);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", modify)),
+            "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "DELETE", detail)),
+            "timers.delete", true);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", modify, false)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "DELETE", detail, false)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST",
+                Timer + "/modifications?backendId=foreign")), 403);
+    }
+
+    {
+        // A Human with timers.create may use public manual CREATE;
+        // browser CSRF and backend scope still apply.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "timers.create", "default"));
+        auto manual = browserRequest(
+            fixture, "POST", "/api/v1/manual/timer-intents");
+        manual.body = R"json({"backendId":"default"})json";
+        assertAllowed(fixture.gate.evaluate(manual), "timers.create", true);
+        manual.headers.erase("X-CSRF-Token");
+        assertDenied(fixture.gate.evaluate(manual), 403);
+        manual = browserRequest(
+            fixture, "POST", "/api/v1/manual/timer-intents");
+        manual.body = R"json({"backendId":"foreign"})json";
+        assertDenied(fixture.gate.evaluate(manual), 403);
         assertDenied(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)), 403);
-        assertDenied(fixture.gate.evaluate(
-            browserRequest(fixture, "DELETE", detail)), 403);
     }
 
     {

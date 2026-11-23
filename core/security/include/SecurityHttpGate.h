@@ -2282,18 +2282,19 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
                 gate.context.session.has_value() &&
                 std::any_of(gate.context.grants.begin(),
                     gate.context.grants.end(),
                     [&scopes](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
+                        return (grant.permission == "role.admin" ||
+                                grant.permission == "timers.modify") &&
                             (grant.backendId == "*" ||
                              grant.backendId == scopes.front());
                     });
-            if (!deviceClient && !browserAdmin)
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.modify";
@@ -2301,10 +2302,10 @@ public:
                 denial.action = "native_timers.modify";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             // This route returns before the shared Browser CSRF gate.
-            if (browserAdmin &&
+            if (browserAuthorized &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2392,18 +2393,19 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
                 gate.context.session.has_value() &&
                 std::any_of(gate.context.grants.begin(),
                     gate.context.grants.end(),
                     [&scopes](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
+                        return (grant.permission == "role.admin" ||
+                                grant.permission == "timers.delete") &&
                             (grant.backendId == "*" ||
                              grant.backendId == scopes.front());
                     });
-            if (!deviceClient && !browserAdmin)
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.delete";
@@ -2411,10 +2413,10 @@ public:
                 denial.action = "native_timers.delete";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             // This route returns before the shared Browser CSRF gate.
-            if (browserAdmin &&
+            if (browserAuthorized &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2764,18 +2766,19 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
                 gate.context.session.has_value() &&
                 std::any_of(gate.context.grants.begin(),
                     gate.context.grants.end(),
                     [&publicEpgTimerBackendId](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
+                        return (grant.permission == "role.admin" ||
+                                grant.permission == "timers.create") &&
                             (grant.backendId == "*" ||
                              grant.backendId == publicEpgTimerBackendId);
                     });
-            if (!deviceClient && !browserAdmin)
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.create";
@@ -2783,7 +2786,7 @@ public:
                 denial.action = "timers.create";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             const bool validBackend =
                 !publicEpgTimerBackendId.empty() &&
