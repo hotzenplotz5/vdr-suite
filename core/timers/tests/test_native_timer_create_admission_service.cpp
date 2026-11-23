@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "EpgTimerIntentDraft.h"
+#include "ManualTimerIntentDraft.h"
 #include "EpgTimerIntentAtomicAdmissionService.h"
 #include "EpgNativeTimerClockAttestation.h"
 #include "EpgNativeTimerPreviewAttestation.h"
@@ -822,8 +823,146 @@ void test_epg_public_atomic_admission_and_replay()
 
 } // namespace
 
+
+void test_manual_draft_atomic_native_create_admission(bool rollBack)
+{
+    Fixture fixture;
+    const auto nativeTemplate = specification();
+    auto nativeSpec = nativeTemplate;
+    nativeSpec.title = "Manual archive, part one";
+    nativeSpec.directory = "TV~Archive";
+    nativeSpec.day = "2026-11-24";
+    nativeSpec.startTime = "2015";
+    nativeSpec.endTime = "2130";
+    nativeSpec.priority = 0;
+    nativeSpec.lifetime = 0;
+    nativeSpec.enabled = false;
+    nativeSpec.vps = true;
+
+    ManualTimerSourceEvidence source;
+    source.backendId = "backend-one";
+    source.sourceType = "vdr";
+    source.sourceId = "suitebridge:local";
+    source.backendChannelId = nativeSpec.channelId;
+    source.timezone = "Europe/Berlin";
+    source.startAt = 1795547700;
+    source.stopAt = 1795552200;
+    const auto draft =
+        makeManualWindowTimerIntentDraft(nativeSpec, source, "actor:owner");
+    assert(draft.valid);
+
+    TimerIntentApplicationRequest applicationRequest;
+    applicationRequest.intent.timerIntentId = "intent:manual-atomic";
+    applicationRequest.intent.state = TimerIntentState::draft;
+    applicationRequest.intent.createdByActorId = "actor:owner";
+    applicationRequest.intent.spec = draft.intent;
+    applicationRequest.intent.createdAt = 100;
+    applicationRequest.intent.updatedAt = 100;
+    applicationRequest.intent.expiresAt = source.stopAt + 86400;
+    applicationRequest.timerAssignmentId = "assignment:manual-atomic";
+    applicationRequest.activatedAt = 101;
+    applicationRequest.scheduledAt = 102;
+    applicationRequest.provisioningAt = 103;
+
+    TimerAssignmentPlanningBackendCandidate candidate;
+    candidate.backendId = source.backendId;
+    candidate.siteId = "site:home";
+    candidate.currentBackendGeneration = 7;
+    candidate.state = TimerAssignmentPlanningBackendState::online;
+    candidate.writeAllowed = true;
+    candidate.executionAuthorityCurrent = true;
+    candidate.executionAuthorityFence = "local:7";
+    candidate.capability.backendGeneration = 7;
+    candidate.capability.revision = "cap:7";
+    candidate.capability.current = true;
+    candidate.capability.timerCreate = true;
+    candidate.capability.timerReadback = true;
+    candidate.health.backendGeneration = 7;
+    candidate.health.revision = "health:7";
+    candidate.health.current = true;
+    candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+    candidate.health.timerWritesAvailable = true;
+    candidate.channel.backendGeneration = 7;
+    candidate.channel.mappingRevision = "mapping:7";
+    candidate.channel.mappingSource = "native-source";
+    candidate.channel.sourceType = source.sourceType;
+    candidate.channel.sourceId = source.sourceId;
+    candidate.channel.sourceChannelId = source.backendChannelId;
+    candidate.channel.backendChannelId = source.backendChannelId;
+    candidate.channel.current = true;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification = draft.desiredNativeTimer;
+    candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    applicationRequest.candidates = {candidate};
+
+    TimerIntentApplicationService application(
+        fixture.intents, fixture.assignments, fixture.bindings);
+    auto lease = fixture.database.acquireTransactionLease();
+    assert(fixture.database.execute("BEGIN IMMEDIATE TRANSACTION;"));
+    const auto selected =
+        application.submitAndSelectPrimaryInCurrentTransaction(applicationRequest);
+    assert(selected.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(selected.assignment.desiredNativeTimerSpecificationPresent);
+    assert(selected.assignment.desiredNativeTimerSpecification.priority == 0);
+    assert(selected.assignment.desiredNativeTimerSpecification.lifetime == 0);
+
+    const auto before = fixture.operations.findByIdempotencyScope(
+        "actor:owner", source.backendId, "TimerAssignment",
+        applicationRequest.timerAssignmentId, "timer.create",
+        "manual-atomic-key");
+    assert(before.status == MutationOperationRepositoryStatus::notFound);
+
+    NativeTimerCreateAdmissionRequest create;
+    create.actorId = "actor:owner";
+    create.idempotencyKey = "manual-atomic-key";
+    create.timerAssignmentId = applicationRequest.timerAssignmentId;
+    create.expectedAssignmentRevision = selected.assignment.assignmentRevision;
+    create.expectedBackendId = source.backendId;
+    create.requestedAt = 103;
+    create.deadline = 500;
+    const auto admitted = fixture.admission.admitInCurrentTransaction(create);
+    assert(admitted.status == NativeTimerCreateAdmissionStatus::prepared);
+    assert(admitted.operation.state == MutationOperationState::accepted);
+    assert(admitted.operation.resourceId == applicationRequest.timerAssignmentId);
+    assert(admitted.payload.expectedSpecification.title == nativeSpec.title);
+    assert(admitted.payload.expectedSpecification.directory == nativeSpec.directory);
+    assert(admitted.payload.expectedSpecification.priority == 0);
+    assert(admitted.payload.expectedSpecification.lifetime == 0);
+    assert(admitted.payload.expectedSpecification.vps);
+    assert(!admitted.payload.expectedSpecification.enabled);
+    assert(!admitted.payload.nativeTimerBindingId.empty());
+
+    if (rollBack)
+    {
+        assert(fixture.database.execute("ROLLBACK;"));
+        assert(fixture.intents.findById(
+            applicationRequest.intent.timerIntentId).status ==
+            TimerIntentRepositoryStatus::notFound);
+        assert(fixture.assignments.findById(
+            applicationRequest.timerAssignmentId).status ==
+            TimerAssignmentRepositoryStatus::notFound);
+        assert(fixture.operations.findByIdempotencyScope(
+            "actor:owner", source.backendId, "TimerAssignment",
+            applicationRequest.timerAssignmentId, "timer.create",
+            "manual-atomic-key").status ==
+            MutationOperationRepositoryStatus::notFound);
+        return;
+    }
+
+    assert(fixture.database.execute("COMMIT;"));
+    const auto stored = fixture.assignments.findById(
+        applicationRequest.timerAssignmentId);
+    assert(stored.ok());
+    assert(stored.assignment.state == TimerAssignmentState::provisioning);
+    const auto replay = fixture.admission.admit(create);
+    assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
+    assert(replay.operation.operationId == admitted.operation.operationId);
+}
+
 int main()
 {
+    test_manual_draft_atomic_native_create_admission(false);
+    test_manual_draft_atomic_native_create_admission(true);
     test_source_epg_draft_to_atomic_native_create_admission(false);
     test_source_epg_draft_to_atomic_native_create_admission(true);
     test_epg_native_time_contract();

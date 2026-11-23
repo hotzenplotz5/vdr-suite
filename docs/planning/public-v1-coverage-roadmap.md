@@ -26,6 +26,16 @@ Anwendung in die persistierte, **noch nicht provisionierte** Assignment.
 Er prüft vollständige Titel-/Ordner-/Optionsfelder und den
 revisionsstabilen Readback/Replay. Keine künstliche Native-CREATE-Ausführung.
 
+Der vorhandene atomare CREATE-Regressionstest
+`test-phase69-atomic-timer-create-admission` führt den manuellen
+Draft mit einer aktuellen Backend-/Kanal-Planning-Candidate nun
+durch `submitAndSelectPrimaryInCurrentTransaction` und
+`NativeTimerCreateAdmissionService::admitInCurrentTransaction`.
+Er prüft die **eine** SQLite-Transaktion für Intent, Assignment und
+Operation inklusive vollständiger Rollback-Freiheit, exakter
+Wunsch-Spezifikation und idempotentem Operation-Replay.
+Der produktive Public-v1-HTTP-Adapter ist damit weiterhin **nicht** aktiviert.
+
 **Offen vor Public-v1-Manuell-CREATE:** autoritative Backend-Kanal-/Uhrevidenz,
 Admission mit exakt payloadgebundener Idempotenz, atomare Intent-/Assignment-/
 Operation-Annahme, Native-Preview/Dispatch/Readback und HTTP-/Browser-Parität.
