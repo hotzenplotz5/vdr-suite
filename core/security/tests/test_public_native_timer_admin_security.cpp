@@ -50,6 +50,8 @@ int main()
     const std::string detail = Timer + "?backendId=default";
     const std::string aux = Timer + "/aux?backendId=default";
     const std::string modify = Timer + "/modifications?backendId=default";
+    const std::string directUpdate = Timer + "/direct-update?backendId=default";
+    const std::string directDelete = Timer + "/direct-delete?backendId=default";
 
     {
         // First-admin bootstrap really provisions role.admin at "*".
@@ -82,6 +84,16 @@ int main()
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)),
             "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directUpdate)),
+            "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directDelete)),
+            "timers.delete", true);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directUpdate, false)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directDelete, false)), 403);
         const auto deleteWithoutCsrf = fixture.gate.evaluate(
             browserRequest(fixture, "DELETE", detail, false));
         assertDenied(deleteWithoutCsrf, 403);
@@ -156,6 +168,10 @@ int main()
         assertDenied(fixture.gate.evaluate(manual), 403);
         assertDenied(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directUpdate)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "POST", directDelete)), 403);
     }
 
     {
