@@ -2,8 +2,11 @@
 
 #include "MutationOperation.h"
 #include "NativeTimerCreateOperationPayload.h"
+#include "ManualTimerIntentDraft.h"
+#include "TimerAssignmentPlanner.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 class Database;
@@ -19,6 +22,8 @@ namespace vdrsuite::timers
 class NativeTimerCreateOperationPreparationService;
 class TimerAssignmentFulfillmentService;
 class TimerAssignmentRepository;
+class TimerIntentApplicationService;
+class TimerIntentRepository;
 
 enum class NativeTimerCreateAdmissionStatus
 {
@@ -36,6 +41,24 @@ enum class NativeTimerCreateAdmissionStatus
     identityGenerationFailed,
     repositoryError,
     invalid,
+};
+
+
+ // Manual one-shot admission reuses the EXISTING native CREATE operation
+ // authority. Input projection/Planner evidence is server-owned; the API
+ // may supply the user's desired window/title, not authoritative Agent facts.
+struct ManualNativeTimerCreateAdmissionRequest
+{
+    std::string actorId;
+    std::string backendId;
+    std::string idempotencyKey;
+    ManualTimerIntentDraft draft;
+    TimerAssignmentPlanningBackendCandidate candidate;
+    std::int64_t requestedAt = 0;
+    std::int64_t deadline = 0;
+    // Re-evaluate current backend/Agent/provider and channel mapping under
+    // the already-established atomic transaction; no implicit retry.
+    std::function<bool()> revalidateSourceAndExecutionAuthority;
 };
 
 struct NativeTimerCreateAdmissionRequest
@@ -75,6 +98,14 @@ public:
 
     NativeTimerCreateAdmissionResult admit(
         const NativeTimerCreateAdmissionRequest& request);
+
+    // One transaction owns manual Intent, selected Assignment and the same
+    // NativeTimerCreateAdmissionService Operation/payload. No second writer
+    // and no second idempotency table: deterministic IDs reserve a key scope.
+    NativeTimerCreateAdmissionResult admitManualWindow(
+        const ManualNativeTimerCreateAdmissionRequest& request,
+        TimerIntentRepository& intents,
+        TimerIntentApplicationService& application);
 
     // Higher-level EPG admission owns BEGIN/COMMIT/ROLLBACK and the
     // database transaction lease. Never commits a partially-created
