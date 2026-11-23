@@ -2959,6 +2959,14 @@ bool parsePublicManualTimerIntentBody(
     }
     if (!json.finished() ||
         (seen.size() != 10U && seen.size() != 11U)) return false;
+    // The optional recurrence mask must never replace a mandatory field
+    // while keeping the same object member count.
+    for (const char* required : {
+        "backendId", "channelId", "title", "directory", "startAt",
+        "stopAt", "priority", "lifetime", "enabled", "vps"
+    })
+        if (std::find(seen.begin(), seen.end(), required) == seen.end())
+            return false;
     constexpr char kWeekdays[] = "MTWTFSS";
     if (input.weekdays.size() != 7U) return false;
     for (std::size_t day = 0U; day < 7U; ++day)

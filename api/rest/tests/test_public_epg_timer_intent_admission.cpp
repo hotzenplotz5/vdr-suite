@@ -51,6 +51,7 @@ static void test_manual_timer_intent_post()
             assert(r.priority==0 && r.lifetime==0);
             assert(r.startAt==1795547700LL && r.stopAt==1795552200LL);
             assert(r.enabled && !r.vps && r.idempotencyKey=="manual-idem-1");
+            assert(r.weekdays == "-------");
             PublicEpgTimerIntentAdmissionResult result;
             result.status=replayStatus;
             result.operation.operationId="op_0123456789abcdef0123456789abcdef";
@@ -154,6 +155,51 @@ static void test_manual_timer_intent_post()
         R"json(,"\u0074itle":"duplicate"})json";
     assert(post(duplicateKey).statusCode == 400);
     assert(unicodeReplayCalls == 1 && unicodeSubmitCalls == 1);
+    // Recurring native weekly CREATE shares the existing idempotency,
+    // CSRF and admission route. The exact mask belongs to each replay.
+    int weeklyReplay = 0, weeklySubmit = 0;
+    api.registerManualTimerIntentReplayLookup(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++weeklyReplay;
+            assert(r.weekdays == "MTWTF--");
+            assert(r.startAt == 1795547700LL &&
+                   r.stopAt == 1795552200LL);
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+            return result;
+        });
+    api.registerManualTimerIntentSubmit(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++weeklySubmit;
+            assert(r.weekdays == "MTWTF--" && r.backendId == "home");
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
+            result.operation.operationId = "op_0123456789abcdef0123456789abcdef";
+            result.operation.state = "accepted";
+            result.operation.backendId = "home";
+            result.operation.resourceRevision = "1";
+            return result;
+        });
+    const std::string weekly = body.substr(0, body.size() - 1) +
+        R"json(,"weekdays":"MTWTF--"})json";
+    assert(post(weekly).statusCode == 202);
+    assert(weeklyReplay == 1 && weeklySubmit == 1);
+    const auto invalidWeekly = [&](const std::string& mask) {
+        const std::string withMask = body.substr(0, body.size() - 1) +
+            R"json(,"weekdays":")json" + mask + R"json("})json";
+        assert(post(withMask).statusCode == 400);
+    };
+    invalidWeekly("T------");
+    invalidWeekly("MTWTFSSS");
+    invalidWeekly("mtwtf--");
+    // No required field can be silently replaced by optional weekdays.
+    std::string missingPriority = weekly;
+    const auto priorityPos = missingPriority.find(R"json(,"priority":0)json");
+    assert(priorityPos != std::string::npos);
+    missingPriority.erase(priorityPos,
+        std::string(R"json(,"priority":0)json").size());
+    assert(post(missingPriority).statusCode == 400);
+    assert(weeklyReplay == 1 && weeklySubmit == 1);
     api.resetManualTimerIntentReplayLookup();
     api.resetManualTimerIntentSubmit();
     ApiResponse get;
