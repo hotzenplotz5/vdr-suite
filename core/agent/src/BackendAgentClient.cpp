@@ -53,6 +53,18 @@ std::int64_t unixNow()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+// Health and channel observations have independent persistent lineages.
+// Only the pure 0 -> 1 / n -> n + 1 progression is common: preserve each
+// caller's own cursor reset, pending journal and exhausted reason code.
+bool advanceObservationSnapshotGeneration(std::uint64_t& generation)
+{
+    if (generation >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+        return false;
+    generation = generation == 0 ? 1 : generation + 1;
+    return true;
+}
+
 std::string generateOpaqueId(const std::string& prefix, std::size_t bytes)
 {
     if (prefix.empty() || bytes < 8 || bytes > 32) return {};
@@ -1480,17 +1492,13 @@ bool BackendAgentClientRuntime::connectWithCredential(
     if (state_.observationBackendGeneration != backendGeneration ||
         disposition == "resync-required")
     {
-        if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.observationSnapshotGeneration))
         {
             reasonCode = "observation_snapshot_generation_exhausted";
             return false;
         }
         state_.observationBackendGeneration = backendGeneration;
-        state_.observationSnapshotGeneration =
-            state_.observationSnapshotGeneration == 0
-                ? 1
-                : state_.observationSnapshotGeneration + 1;
         state_.observationProducerSequence = 0;
         state_.pendingObservationKind.clear();
         state_.pendingObservationSnapshotGeneration = 0;
@@ -1502,17 +1510,13 @@ bool BackendAgentClientRuntime::connectWithCredential(
     if (state_.channelObservationBackendGeneration != backendGeneration ||
         disposition == "resync-required")
     {
-        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.channelObservationSnapshotGeneration))
         {
             reasonCode = "channel_observation_snapshot_generation_exhausted";
             return false;
         }
         state_.channelObservationBackendGeneration = backendGeneration;
-        state_.channelObservationSnapshotGeneration =
-            state_.channelObservationSnapshotGeneration == 0
-                ? 1
-                : state_.channelObservationSnapshotGeneration + 1;
         state_.channelObservationProducerSequence = 0;
         state_.channelObservationResourceRevision.clear();
         if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
@@ -1701,17 +1705,13 @@ bool BackendAgentClientRuntime::publishCapabilities(std::string& reasonCode)
 
 bool BackendAgentClientRuntime::resetObservationLineage(std::string& reasonCode)
 {
-    if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
-            std::numeric_limits<std::int64_t>::max()))
+    if (!advanceObservationSnapshotGeneration(
+            state_.observationSnapshotGeneration))
     {
         reasonCode = "observation_snapshot_generation_exhausted";
         return false;
     }
     state_.observationBackendGeneration = state_.backendGeneration;
-    state_.observationSnapshotGeneration =
-        state_.observationSnapshotGeneration == 0
-            ? 1
-            : state_.observationSnapshotGeneration + 1;
     state_.observationProducerSequence = 0;
     state_.pendingObservationKind.clear();
     state_.pendingObservationSnapshotGeneration = 0;
@@ -1885,20 +1885,18 @@ std::string BackendAgentClientRuntime::pendingChannelObservationPath() const
 bool BackendAgentClientRuntime::resetChannelObservationLineage(
     std::string& reasonCode)
 {
-    if (state_.backendGeneration == 0 ||
-        state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-            std::numeric_limits<std::int64_t>::max()))
+    if (state_.backendGeneration == 0)
     {
-        reasonCode = state_.backendGeneration == 0
-            ? "agent_not_synchronized"
-            : "channel_observation_snapshot_generation_exhausted";
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (!advanceObservationSnapshotGeneration(
+            state_.channelObservationSnapshotGeneration))
+    {
+        reasonCode = "channel_observation_snapshot_generation_exhausted";
         return false;
     }
     state_.channelObservationBackendGeneration = state_.backendGeneration;
-    state_.channelObservationSnapshotGeneration =
-        state_.channelObservationSnapshotGeneration == 0
-            ? 1
-            : state_.channelObservationSnapshotGeneration + 1;
     state_.channelObservationProducerSequence = 0;
     state_.channelObservationResourceRevision.clear();
     if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
@@ -1944,13 +1942,12 @@ bool BackendAgentClientRuntime::preparePendingChannelObservation(
     }
     if (state_.channelObservationProducerSequence != 0)
     {
-        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.channelObservationSnapshotGeneration))
         {
             reasonCode = "channel_observation_snapshot_generation_exhausted";
             return false;
         }
-        ++state_.channelObservationSnapshotGeneration;
         state_.channelObservationProducerSequence = 0;
         state_.channelObservationResourceRevision.clear();
         if (!persist(reasonCode)) return false;
