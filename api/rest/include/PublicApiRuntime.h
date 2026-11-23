@@ -668,6 +668,7 @@ struct PublicNativeTimerItem
     std::string eventId;
     std::string title;
     std::string directory;
+    std::string subtitle;
     std::string day;
     std::string weekdays;
     std::string startTime;
