@@ -434,7 +434,7 @@ void advanceFamily(
             (!nativeTimerObservationMatchesSpecification(
                 payload.expectedSpecification, observation->observedState) ||
              (payload.modifyAux &&
-              observation->observedAux == payload.desiredAux)))
+              observation->observedAux != payload.desiredAux)))
         {
             const auto unchanged = operations.transition(
                 persisted.operationId, persisted.operationRevision,

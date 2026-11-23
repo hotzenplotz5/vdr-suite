@@ -152,6 +152,7 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
                 return result;
             }
             result.observation = observed.observation;
+            result.observation.observedAux = candidate.aux;
         }
         if (result.observation.backendNativeTimerId.empty())
         {
@@ -175,6 +176,7 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
             return result;
         }
         result.observation = mapped.observation;
+        result.observation.observedAux = it->aux;
     }
     result.status = NativeTimerModifyReadStatus::observed;
     return result;
