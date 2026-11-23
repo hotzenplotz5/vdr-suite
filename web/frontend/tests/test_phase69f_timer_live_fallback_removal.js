@@ -21,7 +21,7 @@ function response(status, payload, etag, location) {
 }
 
 const context = {
-  window: null, Headers, URL, URLSearchParams, Set, Promise, Object, Array, String, JSON,
+  window: null, Headers, URL, URLSearchParams, TextEncoder, Set, Promise, Object, Array, String, JSON,
   location: {origin: 'https://suite.example'},
   Error, Number, Boolean, Uint8Array, ArrayBuffer,
   fetch(url, options) {
