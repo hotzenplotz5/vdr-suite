@@ -1,4 +1,5 @@
 #include "../suitebridge_native_timer_modify.h"
+#include "../suitebridge_native_timer_modify_flags.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -29,6 +30,18 @@ std::string execute(const char *operation,const char *capability) {
 }
 }
 int main() {
+  // tfActive=1 / tfVps=4 fixtures; auxiliary bits survive UPDATE.
+  const unsigned outside=0x02U | 0x08U | 0x10U | 0x20U;
+  const unsigned original=outside | 0x01U | 0x04U;
+  using vdrsuite_suitebridge::updatedNativeTimerFlags;
+  require(updatedNativeTimerFlags(original, 0x01U, 0x04U, false, false)==outside,
+      "UPDATE cleared native non-target flags");
+  require(updatedNativeTimerFlags(original, 0x01U, 0x04U, false, true)==
+      (outside | 0x04U), "UPDATE changed preserved flag or VPS");
+  require(updatedNativeTimerFlags(outside, 0x01U, 0x04U, true, true)==original,
+      "UPDATE failed to set active/VPS without dropping extra bits");
+  require(updatedNativeTimerFlags(0U, 0x01U, 0x04U, true, false)==0x01U,
+      "UPDATE default native flags changed");
   Callback callback;
   SuiteBridgeNativeTimerModifyService service("pie_1",&callback);
   auto cap=service.Handle("NTMOD","CAP 1 update");

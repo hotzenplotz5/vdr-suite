@@ -16,8 +16,14 @@ for token in ("NTMOD","vdr.timer.update","vdr.timer.toggle","localStartingPersis
     if token not in source: raise SystemExit("missing modify fence: "+token)
 vdr=read("vdr-plugin-suite-bridge/suitebridge_native_timer_modify_vdr.cpp")
 for token in ("GetTimersWrite","expectedNativeTimerFingerprint","Recording()",
-              "Pending()","SetExplicitModify","SetModified"):
+              "Pending()","SetExplicitModify","SetModified",
+              "updatedNativeTimerFlags(", "static_cast<unsigned>(timer->Flags())"):
     if token not in vdr: raise SystemExit("missing VDR mutation guard: "+token)
+
+# Verify the shared helper is present. It is compiled in the existing
+# SuiteBridge native Timer MODIFY test; the source guard enforces use.
+if not (ROOT/"vdr-plugin-suite-bridge/suitebridge_native_timer_modify_flags.h").is_file():
+    raise SystemExit("native Timer flag preservation helper missing")
 
 # Native timer CAS must hash the exact backend canonical field encoding.
 # In particular, numbers and booleans are length-prefixed fields, not

@@ -2,6 +2,15 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.3 – Nicht bearbeitete Native-Flags erhalten.** Der bestehende
+SuiteBridge-`NTMOD`-UPDATE überträgt die native Flag-Bitmaske aus dem
+CAS-verifizierten Timer und verändert darin ausschließlich `tfActive`
+und `tfVps`. Vorher wurde die Bitmaske vollständig aus diesen beiden
+Werten neu aufgebaut und konnte andere Flags (Instant/Spawned/Avoid)
+unbeabsichtigt löschen. Der bestehende Test `test-native-timer-modify`
+prüft mehrere Kombinationen; kein zweiter Writer, keine Berechtigungsänderung.
+
+
 **F5.5.2 (bestehender Web-Timer-Writer):** Der vorhandene
 `VdrTimerActionRequestParser` scannt JSON-Strings nun einschließlich
 escaped Quotes, Kommas, geschweifter Klammern und Unicode-Escapes korrekt.

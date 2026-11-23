@@ -1,4 +1,5 @@
 #include "suitebridge_native_timer_modify_vdr.h"
+#include "suitebridge_native_timer_modify_flags.h"
 #include "suitebridge_native_timer_identity.h"
 
 #include <vdr/channels.h>
@@ -273,8 +274,10 @@ SuiteBridgeNativeTimerModifyVdrMutationCallback::ModifyTimer(
         return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
                       evidence("invalid-specification",request.commandId));
       }
-      const unsigned flags=(request.enabled?tfActive:tfNone) |
-          (request.vps?tfVps:tfNone);
+      // Preserve CAS-verified non-target flags across native UPDATE.
+      const unsigned flags=vdrsuite_suitebridge::updatedNativeTimerFlags(
+          static_cast<unsigned>(timer->Flags()), tfActive, tfVps,
+          request.enabled, request.vps);
       std::ostringstream definition;
       definition << flags << ':' << request.channelId << ':' << selectedDay << ':'
                  << request.startTime << ':' << request.endTime << ':'
