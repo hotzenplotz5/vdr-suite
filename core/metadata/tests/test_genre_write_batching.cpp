@@ -412,7 +412,7 @@ int main()
             const std::string targetId =
                 GenreIndexRepository::stableTargetId(
                     "program-event", "default",
-                    "C2\\n" + std::to_string(200 + i));
+                    "C2\n" + std::to_string(200 + i));
             assert(browseAssignmentCount(epgDatabase.handle(), targetId) == 1);
         }
     }
