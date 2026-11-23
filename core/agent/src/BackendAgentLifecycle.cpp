@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <set>
@@ -27,6 +28,40 @@ namespace
 {
 constexpr std::int64_t LeaseDurationSeconds = 90;
 constexpr std::int64_t StaleGraceSeconds = 30;
+
+struct HeartbeatLifecycleTimings
+{
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point started = Clock::now();
+    Clock::time_point previous = started;
+    long long agentLookupMs = 0;
+    long long currentLookupMs = 0;
+    long long preAuditMs = 0;
+    long long renewMs = 0;
+    long long resultAuditMs = 0;
+
+    void mark(long long& duration)
+    {
+        const auto now = Clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - previous).count();
+        previous = now;
+    }
+
+    ~HeartbeatLifecycleTimings()
+    {
+        const auto total = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started).count();
+        if (total < 1000) return;
+        // Slow-only, aggregate timings. No agent identifiers or request payloads.
+        std::cerr << "BACKEND_AGENT_HEARTBEAT_SLOW total_ms=" << total
+                  << " agent_lookup_ms=" << agentLookupMs
+                  << " current_lookup_ms=" << currentLookupMs
+                  << " pre_audit_ms=" << preAuditMs
+                  << " renew_ms=" << renewMs
+                  << " result_audit_ms=" << resultAuditMs << std::endl;
+    }
+};
 
 std::string timestamp(std::int64_t value)
 {
@@ -755,7 +790,9 @@ BackendAgentHeartbeatResult BackendAgentLifecycleService::heartbeat(
         result.reasonCode = "invalid_control_plane_time";
         return result;
     }
+    HeartbeatLifecycleTimings timings;
     const auto agent = repository_.findAgent(context.actor.actorId);
+    timings.mark(timings.agentLookupMs);
     if (!agent.has_value() || agent->backendId != backendId)
     {
         result.reasonCode = "agent_binding_mismatch";
@@ -764,6 +801,7 @@ BackendAgentHeartbeatResult BackendAgentLifecycleService::heartbeat(
         return result;
     }
     const auto current = repository_.findAgent(agent->agentId);
+    timings.mark(timings.currentLookupMs);
     const bool duplicate = current.has_value() &&
         heartbeatSequence == current->heartbeatSequence;
     if (!duplicate &&
@@ -771,21 +809,27 @@ BackendAgentHeartbeatResult BackendAgentLifecycleService::heartbeat(
                      "backend.agent.heartbeat", "allow", "lease_renewal_requested",
                      "pending", now))
     {
+        timings.mark(timings.preAuditMs);
         result.reasonCode = "accountability_unavailable";
         return result;
     }
+    timings.mark(timings.preAuditMs);
     if (!repository_.renewLease(
             agent->agentId, agentInstanceId, backendGeneration, heartbeatSequence,
             now, now + LeaseDurationSeconds, result))
     {
+        timings.mark(timings.renewMs);
         result.reasonCode = "lease_persistence_failed";
         appendEvent(context, "agent.lease.result", backendId,
                     "backend.agent.heartbeat", "deny", result.reasonCode, "failed", now);
+        timings.mark(timings.resultAuditMs);
         return result;
     }
+    timings.mark(timings.renewMs);
     appendEvent(context, "agent.lease.result", backendId,
                 "backend.agent.heartbeat", result.accepted ? "allow" : "deny",
                 result.reasonCode, result.accepted ? "succeeded" : "denied", now);
+    timings.mark(timings.resultAuditMs);
     return result;
 }
 

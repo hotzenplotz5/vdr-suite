@@ -314,6 +314,49 @@ void test_protocol_generation_reconnect_and_backend_isolation()
     assert(isolated.reasonCode == "agent_binding_mismatch");
 }
 
+
+void test_slow_heartbeat_identifies_sqlite_writer_lease_wait()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    const auto agent = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(agent.has_value());
+    const auto connected = connectAgent(fixture, *agent);
+    const auto context = agentContext(*agent);
+    const auto first = fixture.service.heartbeat(
+        context, "default", "instance-1", connected.backendGeneration, 1, Now + 5);
+    assert(first.accepted);
+
+    // A duplicate heartbeat bypasses the preliminary accountability write,
+    // allowing the timed renewal to reveal contention at the writer lease.
+    Database concurrent;
+    assert(concurrent.open(fixture.path));
+    std::atomic<bool> held{false};
+    std::thread holder([&] {
+        auto lease = concurrent.acquireTransactionLease();
+        held.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1250));
+    });
+    while (!held.load()) std::this_thread::yield();
+
+    std::ostringstream diagnostics;
+    std::streambuf* previous = std::cerr.rdbuf(diagnostics.rdbuf());
+    const auto duplicate = fixture.service.heartbeat(
+        context, "default", "instance-1", connected.backendGeneration, 1, Now + 6);
+    std::cerr.rdbuf(previous);
+    holder.join();
+    assert(duplicate.accepted);
+    assert(duplicate.duplicate);
+    const std::string output = diagnostics.str();
+    assert(output.find("BACKEND_AGENT_HEARTBEAT_SLOW total_ms=") != std::string::npos);
+    assert(output.find(" renew_ms=") != std::string::npos);
+    assert(output.find("BACKEND_AGENT_RENEW_LEASE_SLOW total_ms=") != std::string::npos);
+    assert(output.find(" lease_wait_ms=") != std::string::npos);
+    assert(output.find(enrollment.agentId) == std::string::npos);
+    assert(output.find(AgentSecret) == std::string::npos);
+    concurrent.close();
+}
+
 void test_capabilities_heartbeat_lease_and_restart_persistence()
 {
     Fixture fixture;
@@ -1372,6 +1415,7 @@ int main()
     test_enrollment_authorization_idempotency_and_binding();
     test_protocol_generation_reconnect_and_backend_isolation();
     test_capabilities_heartbeat_lease_and_restart_persistence();
+    test_slow_heartbeat_identifies_sqlite_writer_lease_wait();
     test_backend_health_observation_ingestion_and_atomicity();
     test_channel_observation_ingestion_and_agent_owned_facts();
     test_generation_fencing_revocation_and_accountability();

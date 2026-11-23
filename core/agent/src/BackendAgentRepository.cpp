@@ -6,6 +6,8 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 #include <limits>
 #include <set>
 #include <string>
@@ -77,6 +79,41 @@ BackendAgentRecord readAgent(sqlite3_stmt* statement)
     agent.incompatible = sqlite3_column_int(statement, 17) != 0;
     return agent;
 }
+
+
+struct HeartbeatRenewLeaseTimings
+{
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point started = Clock::now();
+    Clock::time_point previous = started;
+    long long leaseWaitMs = 0;
+    long long beginMs = 0;
+    long long lookupMs = 0;
+    long long updateMs = 0;
+    long long commitMs = 0;
+
+    void mark(long long& duration)
+    {
+        const auto now = Clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - previous).count();
+        previous = now;
+    }
+
+    ~HeartbeatRenewLeaseTimings()
+    {
+        const auto total = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started).count();
+        if (total < 1000) return;
+        // No SQL parameter values, agent IDs or security data in this diagnostic.
+        std::cerr << "BACKEND_AGENT_RENEW_LEASE_SLOW total_ms=" << total
+                  << " lease_wait_ms=" << leaseWaitMs
+                  << " begin_ms=" << beginMs
+                  << " lookup_ms=" << lookupMs
+                  << " update_ms=" << updateMs
+                  << " commit_ms=" << commitMs << std::endl;
+    }
+};
 
 constexpr const char* AgentColumns =
     "agent_id, backend_id, actor_id, device_id, credential_id, "
@@ -696,15 +733,22 @@ bool BackendAgentRepository::renewLease(
         result.reasonCode = "agent_sequence_out_of_range";
         return true;
     }
+    HeartbeatRenewLeaseTimings timings;
+    auto transactionLease = database_.acquireTransactionLease();
+    timings.mark(timings.leaseWaitMs);
     Transaction transaction(database_);
+    timings.mark(timings.beginMs);
     if (!transaction.active()) return false;
     const auto current = findAgent(agentId);
+    timings.mark(timings.lookupMs);
     if (!current.has_value() || current->revoked || current->incompatible ||
         current->agentInstanceId != agentInstanceId ||
         current->backendGeneration != backendGeneration)
     {
         result.reasonCode = "stale_agent_instance";
-        return transaction.commit();
+        const bool committed = transaction.commit();
+        timings.mark(timings.commitMs);
+        return committed;
     }
     if (heartbeatSequence == current->heartbeatSequence)
     {
@@ -713,17 +757,23 @@ bool BackendAgentRepository::renewLease(
         result.reasonCode = "duplicate_heartbeat";
         result.heartbeatSequence = current->heartbeatSequence;
         result.leaseExpiresAt = current->leaseExpiresAt;
-        return transaction.commit();
+        const bool committed = transaction.commit();
+        timings.mark(timings.commitMs);
+        return committed;
     }
     if (heartbeatSequence < current->heartbeatSequence)
     {
         result.reasonCode = "stale_heartbeat_sequence";
-        return transaction.commit();
+        const bool committed = transaction.commit();
+        timings.mark(timings.commitMs);
+        return committed;
     }
     if (heartbeatSequence != current->heartbeatSequence + 1)
     {
         result.reasonCode = "heartbeat_sequence_gap";
-        return transaction.commit();
+        const bool committed = transaction.commit();
+        timings.mark(timings.commitMs);
+        return committed;
     }
 
     sqlite3_stmt* statement = nullptr;
@@ -734,6 +784,7 @@ bool BackendAgentRepository::renewLease(
         "AND revoked_at = 0 AND incompatible = 0;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
     {
+        timings.mark(timings.updateMs);
         return false;
     }
     const bool bound =
@@ -744,7 +795,10 @@ bool BackendAgentRepository::renewLease(
         bindText(statement, 5, agentId) &&
         bindText(statement, 6, agentInstanceId) &&
         bindInt64(statement, 7, static_cast<std::int64_t>(backendGeneration));
-    if (!bound || !executeStatement(statement) || sqlite3_changes(database_.handle()) != 1)
+    const bool updated =
+        bound && executeStatement(statement) && sqlite3_changes(database_.handle()) == 1;
+    timings.mark(timings.updateMs);
+    if (!updated)
     {
         return false;
     }
@@ -752,7 +806,9 @@ bool BackendAgentRepository::renewLease(
     result.reasonCode = "lease_renewed";
     result.heartbeatSequence = heartbeatSequence;
     result.leaseExpiresAt = leaseExpiresAt;
-    return transaction.commit();
+    const bool committed = transaction.commit();
+    timings.mark(timings.commitMs);
+    return committed;
 }
 
 bool BackendAgentRepository::publishCapabilities(
