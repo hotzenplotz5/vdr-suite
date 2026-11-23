@@ -1,5 +1,33 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6 – VDR-native wiederkehrende Timer (23.11.2026; SOURCE)
+
+PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält die erste
+durchgehende Public-v1-Quellimplementierung für wöchentliche native
+Timer: `POST /api/v1/manual/timer-intents` akzeptiert optional eine
+kanonische VDR-Wochentagsmaske (Montag–Sonntag, `MTWTFSS` mit `-`
+für ausgelassene Tage). `startAt/stopAt` kennzeichnen die **erste
+VDR-lokal verifizierte Ausführung**. Daemon-Clock/Agent-/Provider-Fence,
+atomare Intent/Assignment/Operation und idempotenter Replay bleiben
+der vorhandene Pfad; die Native-Preview besitzt den **separaten**
+Befund `isolated_initial_clear`, der ausdrücklich **keine**
+Konfliktfreiheit für alle künftigen Wiederholungen verspricht.
+Der TimerIntent speichert `recurringSchedule` mit kanonischer
+`BYDAY`-Regel; die tatsächliche Wochenplanung bleibt vollständig
+beim VDR, nicht bei einem neuen Scheduler.
+
+Reference-JS und OpenAPI sind erweitert. Das Web-Timerformular nutzt
+Public v1 für wiederkehrende Timer mit einem explizit gewählten Datum
+der ersten Ausführung und ohne opaque AUX; ansonsten bleibt der
+funktionierende alte Editorpfad. Die native Preview lehnt weiterhin
+nicht sicher prüfbare aktive Fremd-/Wiederholungstimer, native
+VPS-Kandidaten und derzeit inaktive Timer ab. **F5.6.1 ist damit
+noch nicht vollständig abgenommen oder uneingeschränkt paritätisch.**
+Die weiteren vier Timer-Lücken (AUX-Writer, externe/ungebundene Timer,
+Aufnahme-Stopp, vollständige Editor-Migration) bleiben offen.
+Kein realer VDR wurde geändert; PR Draft, kein Merge/Install.
+
+
 ## API.V1.F5.6 – Rechteparität und natives Aux-Read (23.11.2026; SOURCE)
 
 PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält seit

@@ -2,6 +2,22 @@
 
 ## API.V1.F5.6 – Web-Timer-Editor (Quellstand, unvollständig; 23.11.2026)
 
+**F5.6.1 – Native Wochenwiederholung (Source, finaler VDR-Test offen):**
+Die vorhandene manuelle Public-v1-CREATE-Route akzeptiert nun optional
+ein kanonisches natives `weekdays`-Muster. Die erste Ausführung wird
+gegen die VDR-eigene Lokalzeit und einen **separaten initial-only**
+NTPREVIEW-Befund geprüft; spätere Wiederholungen verwaltet ausschließlich
+VDR. Der vorhandene atomare Intent/Assignment/Operation-Writer und
+idempotente Offline-Replay erhalten `recurringSchedule` und die
+native Wochentagsmaske. C++-, HTTP-, Referenzclient- und
+Browser-Regressionen wurden als Quelle ergänzt; realer VDR und
+vollständige CI sind noch nicht als PASS bestätigt. Repeating-Formulare
+mit explizitem erstem Datum und leerem AUX verwenden Public v1,
+sonst bleibt die bestehende native Timeraktion. Die konservative
+Preview verweigert derzeit weiterhin bestehende aktive recurring
+Timer, VPS-/deaktivierte Kandidaten und unsichere Konkurrenz.
+**Keine allgemeine Wiederholungs-/Konflikt-Parität behaupten.**
+
 **F5.6.5 – Rechteparität (Source, noch keine Final-CI/Real-VDR-Abnahme):**
 Der Public-v1-SecurityHttpGate erkennt für Human-Browser-Sessions nun
 vorhandene backendbezogene `timers.create`, `timers.modify` und
@@ -32,19 +48,21 @@ Idempotency-Key und Operation/SSE. Auch Wiederholungstimer können
 als bereits gebundener Timer über Public-v1-UPDATE bearbeitet werden.
 Unverändertes natives VDR-`Aux()` bleibt beim NTMOD-UPDATE erhalten;
 `priority/lifetime=0` bleibt korrekt. Die bestehende
-Public-v1-SecurityHttpGate-Regel erlaubt Browser-Mutationen nur für
-Administratoren (belegt durch `test_public_native_timer_admin_security.cpp`).
+Public-v1-SecurityHttpGate-Regel erlaubt Browser-Mutationen mit den
+vorhandenen backendbezogenen Timer-Grants oder Administratorrolle,
+jeweils unter CSRF (belegt durch `test_public_native_timer_admin_security.cpp`).
 Auf eine definitive HTTP-403-Ablehnung fällt der Web-Editor deshalb nur
 auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
 Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
 
-**Keine Vollmigration / keine Installationsfreigabe:** Wiederkehrendes
-manuelles CREATE, tatsächlich geänderte oder gelöschte `aux`-Inhalte,
+**Keine Vollmigration / keine Installationsfreigabe:** Unbeschränktes
+wiederkehrendes CREATE, tatsächlich geänderte oder gelöschte `aux`-Inhalte,
 externe oder ungebundene Timer und Stoppen einer laufenden Aufnahme
 haben noch keinen funktionsgleichen Public-v1-Writer. Die vorhandene
 Legacy-Funktion bleibt für diese nachgewiesenen Vertragslücken erhalten.
-Der öffentliche Manual-CREATE-Vertrag ist ausdrücklich One-shot, das
-native Binding-Modell führt bewusst kein plugin-spezifisches `aux`,
+Der öffentliche Manual-CREATE-Vertrag besitzt jetzt eine begrenzte
+Weekly-Variante; das native Binding-Modell führt bewusst kein
+plugin-spezifisches `aux`,
 und die öffentlichen Native-Timer-Mutationen setzen eine verifizierte
 Binding-Revision voraus. Der native DELETE-Pfad verbietet Aufnahme-/
 Pending-Zustände. Diese Lücken benötigen Änderungen an den jeweiligen
