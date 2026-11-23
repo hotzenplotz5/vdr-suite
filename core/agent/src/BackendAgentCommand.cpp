@@ -138,14 +138,16 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
              vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
          value.commandType ==
              vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType) &&
-        value.payloadVersion ==
-            vdrsuite::agent::kBackendAgentNativeTimerModifyPayloadVersion &&
+        (value.payloadVersion ==
+             vdrsuite::agent::kBackendAgentNativeTimerModifyPayloadVersion ||
+         value.payloadVersion == 2) &&
         value.verificationPolicy == "readback_required")
     {
         vdrsuite::agent::BackendAgentNativeTimerModifyPayload payload;
         std::string reason;
         return vdrsuite::agent::backendAgentNativeTimerModifyParsePayload(
                    value.payload, payload, reason) &&
+            value.payloadVersion == (payload.modifyAux ? 2U : 1U) &&
             payload.localProviderSelection.backendId == value.backendId &&
             payload.backendId == value.backendId &&
             payload.backendGeneration == value.backendGeneration &&
