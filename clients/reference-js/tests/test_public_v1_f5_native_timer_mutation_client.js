@@ -65,5 +65,43 @@ const client = createClient({
     payload:null}));
   assert.strictEqual(calls.length,3,'invalid writes must not dispatch');
   assert(calls.every(call=>!call.url.includes('/api/vdr/')));
-  console.log('Public-v1 F5 Native Timer modification/delete client PASS');
+  // Slice 3 direct external/unbound actions are synchronous and never
+  // impersonate a managed Binding ETag or an asynchronous Operation.
+  const directCalls = [];
+  const directClient = createClient({
+    baseUrl:'https://suite.example',
+    credentials:'include',
+    fetch:async(url,init)=>{
+      directCalls.push({url,init});
+      assert.equal(init.method,'POST');
+      assert.equal(init.credentials,'include');
+      assert.equal(init.headers['X-CSRF-Token'],'fixture-csrf');
+      assert.equal(init.headers['If-Match'],undefined);
+      assert.equal(init.headers['Idempotency-Key'],undefined);
+      return response(200,{success:true});
+    }
+  });
+  const directOptions={backendId:'default',timerId,
+    headers:{'X-CSRF-Token':'fixture-csrf'}};
+  const externalUpdate=await directClient.updateExternalNativeTimer({
+    ...directOptions,payload:{title:'External',aux:'<epgsearch/>',active:false}
+  });
+  assert.equal(externalUpdate.status,200);
+  assert.equal(externalUpdate.data.success,true);
+  assert.equal(directCalls[0].url,
+    'https://suite.example/api/v1/native-timers/'+timerId+
+    '/direct-update?backendId=default');
+  assert.deepStrictEqual(JSON.parse(directCalls[0].init.body),
+    {title:'External',aux:'<epgsearch/>',active:false,
+     backendId:'default',timerId});
+  await directClient.deleteExternalNativeTimer(directOptions);
+  assert.equal(directCalls[1].url,
+    'https://suite.example/api/v1/native-timers/'+timerId+
+    '/direct-delete?backendId=default');
+  assert.deepStrictEqual(JSON.parse(directCalls[1].init.body),
+    {backendId:'default',timerId});
+  assert.throws(()=>directClient.updateExternalNativeTimer({
+    ...directOptions,payload:{backendId:'foreign',title:'bad'}}));
+  assert.equal(directCalls.length,2);
+    console.log('Public-v1 F5 Native Timer modification/delete client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});
