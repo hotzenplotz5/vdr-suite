@@ -4,6 +4,7 @@
 #include "PublicProblemDetails.h"
 #include "PublicResourcePreconditions.h"
 #include "ServerBuildIdentity.h"
+#include "OsdJsonCursor.h"
 
 #include <algorithm>
 #include <cctype>
@@ -2892,30 +2893,29 @@ bool parsePublicAccountMutationBody(
 // Strict closed JSON with native backend-local day/HHMM deliberately absent.
 // Timestamps are UTC Unix seconds; VDR-local scheduling is attested by
 // SuiteBridge CLOCK before the shared Native CREATE admission is reached.
+// Shared strict JSON Cursor preserves Unicode escapes in manual timer titles
+// and directories, including valid escaped key names. Unlike the older
+// Account-only string scanner, it decodes \\uXXXX before provider submission.
 bool parsePublicManualTimerIntentBody(
     const std::string& body, PublicManualTimerIntentAdmissionRequest& input)
 {
     if (body.empty() || body.size() > 4096U) return false;
-    std::size_t pos = 0U;
+    vdrsuite::agent::osd_json::Cursor json(body);
+    if (!json.consume('{')) return false;
     std::vector<std::string> seen;
-    skipAccountMutationWhitespace(body, pos);
-    if (pos >= body.size() || body[pos++] != '{') return false;
     for (;;)
     {
-        skipAccountMutationWhitespace(body, pos);
         std::string key;
-        if (!parseAccountMutationJsonString(body, pos, key) ||
-            std::find(seen.begin(), seen.end(), key) != seen.end())
-            return false;
+        if (!json.string(key, 64U) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end() ||
+            !json.consume(':')) return false;
         seen.push_back(key);
-        skipAccountMutationWhitespace(body, pos);
-        if (pos >= body.size() || body[pos++] != ':') return false;
-        skipAccountMutationWhitespace(body, pos);
-        if (key == "backendId" || key == "channelId" || key == "title" ||
-            key == "directory")
+
+        if (key == "backendId" || key == "channelId" ||
+            key == "title" || key == "directory")
         {
             std::string value;
-            if (!parseAccountMutationJsonString(body, pos, value)) return false;
+            if (!json.string(value, 1024U)) return false;
             if (key == "backendId") input.backendId = std::move(value);
             else if (key == "channelId") input.channelId = std::move(value);
             else if (key == "title") input.title = std::move(value);
@@ -2924,46 +2924,27 @@ bool parsePublicManualTimerIntentBody(
         else if (key == "enabled" || key == "vps")
         {
             bool enabled = false;
-            if (consumeAccountMutationLiteral(body, pos, "true"))
-                enabled = true;
-            else if (!consumeAccountMutationLiteral(body, pos, "false"))
-                return false;
+            if (!json.boolean(enabled)) return false;
             if (key == "enabled") input.enabled = enabled;
             else input.vps = enabled;
         }
         else if (key == "startAt" || key == "stopAt" ||
                  key == "priority" || key == "lifetime")
         {
-            const std::size_t first = pos;
             std::int64_t value = 0;
-            while (pos < body.size() && body[pos] >= '0' && body[pos] <= '9')
-            {
-                const int digit = body[pos++] - '0';
-                if (value > (std::numeric_limits<std::int64_t>::max() - digit) / 10)
-                    return false;
-                value = value * 10 + digit;
-            }
-            if (first == pos || (pos - first > 1U && body[first] == '0'))
-                return false;
+            if (!json.signedInteger(value) || value < 0) return false;
             if (key == "startAt") input.startAt = value;
             else if (key == "stopAt") input.stopAt = value;
-            else if (value > 99)
-                return false;
+            else if (value > 99) return false;
             else if (key == "priority") input.priority = static_cast<int>(value);
             else input.lifetime = static_cast<int>(value);
         }
         else return false;
-        skipAccountMutationWhitespace(body, pos);
-        if (pos < body.size() && body[pos] == ',')
-        {
-            ++pos;
-            continue;
-        }
-        if (pos >= body.size() || body[pos++] != '}') return false;
+        if (json.consumeIf(',')) continue;
+        if (!json.consume('}')) return false;
         break;
     }
-    skipAccountMutationWhitespace(body, pos);
-    return pos == body.size() && seen.size() == 10U &&
+    return json.finished() && seen.size() == 10U &&
         vdrsuite::public_epg_timer::boundedId(input.backendId, 128U) &&
         vdrsuite::public_epg_timer::boundedId(input.channelId, 160U) &&
         !input.title.empty() && input.title.size() <= 1024U &&

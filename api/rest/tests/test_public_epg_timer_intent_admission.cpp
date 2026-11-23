@@ -99,6 +99,42 @@ static void test_manual_timer_intent_post()
     assert(post(body).statusCode==503);
     submitStatus = PublicEpgTimerIntentAdmissionStatus::notFound;
     assert(post(body).statusCode==404);
+    // Valid JSON Unicode escapes must survive the public manual CREATE
+    // adapter exactly as the existing Web Timer Editor transports titles.
+    // This also proves that an escaped key still cannot bypass the closed
+    // ten-field contract and that replay is not confused with a new write.
+    int unicodeReplayCalls = 0, unicodeSubmitCalls = 0;
+    const std::string escaped = R"json({"backendId":"home","channelId":"S19.2E-1-100","title":"K\\u00f6ln, Spezial","directory":"Serien\\u002fArchiv","startAt":1795547700,"stopAt":1795552200,"priority":0,"lifetime":0,"enabled":false,"vps":true})json";
+    api.registerManualTimerIntentReplayLookup(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++unicodeReplayCalls;
+            assert(r.title == "Köln, Spezial");
+            assert(r.directory == "Serien/Archiv");
+            assert(r.priority == 0 && r.lifetime == 0);
+            assert(!r.enabled && r.vps);
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+            return result;
+        });
+    api.registerManualTimerIntentSubmit(
+        [&](const PublicManualTimerIntentAdmissionRequest& r) {
+            ++unicodeSubmitCalls;
+            assert(r.title == "Köln, Spezial");
+            PublicEpgTimerIntentAdmissionResult result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
+            result.operation.operationId = "op_0123456789abcdef0123456789abcdef";
+            result.operation.state = "accepted";
+            result.operation.backendId = "home";
+            result.operation.resourceRevision = "1";
+            return result;
+        });
+    assert(post(escaped).statusCode == 202);
+    assert(unicodeReplayCalls == 1 && unicodeSubmitCalls == 1);
+    // Malformed Unicode and duplicate decoded keys must never dispatch.
+    const auto badEscape = escaped.substr(0, escaped.size() - 1) +
+        ",\\\"title\\u0020\\\":\\\"bad\\\"}";
+    assert(post(badEscape).statusCode == 400);
+    assert(unicodeReplayCalls == 1 && unicodeSubmitCalls == 1);
     api.resetManualTimerIntentReplayLookup();
     api.resetManualTimerIntentSubmit();
     ApiResponse get;
