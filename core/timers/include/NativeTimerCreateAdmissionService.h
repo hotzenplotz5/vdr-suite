@@ -3,6 +3,9 @@
 #include "MutationOperation.h"
 #include "NativeTimerCreateOperationPayload.h"
 #include "ManualTimerIntentDraft.h"
+#include "EpgNativeTimerTimeGuard.h"
+#include "EpgNativeTimerConflictGuard.h"
+#include "EpgNativeTimerExecutionAuthority.h"
 #include "TimerAssignmentPlanner.h"
 
 #include <cstdint>
@@ -64,6 +67,10 @@ struct ManualNativeTimerCreateAdmissionRequest
     std::string idempotencyKey;
     ManualTimerIntentDraft draft;
     TimerAssignmentPlanningBackendCandidate candidate;
+    vdrsuite::public_epg_timer::ServerOwnedNativeClockEvidence nativeClock;
+    vdrsuite::public_epg_timer::ProspectiveNativeTimerConflictProof conflictProof;
+    BackendAgentRecord authoritativeAgent;
+    vdrsuite::agent::BackendAgentLocalProviderSelection nativeCreateProvider;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
     // Re-evaluate current backend/Agent/provider and channel mapping under

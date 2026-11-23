@@ -3,6 +3,9 @@
 #include "TimerIntentApplicationService.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentDesiredNativeTimerSpecification.h"
+#include "EpgNativeTimerExecutionAuthority.h"
+#include "EpgNativeTimerConflictGuard.h"
+#include "EpgNativeTimerTimeGuard.h"
 
 #include "Database.h"
 #include "MutationOperationIdentity.h"
@@ -664,6 +667,39 @@ NativeTimerCreateAdmissionService::admitManualWindow(
     for (const auto& previous : equivalents.intents)
         if (!timerIntentTerminal(previous.state))
             return fail(NativeTimerCreateAdmissionStatus::operationConflict);
+
+    // Do not let a manual submission bypass the existing native CREATE
+    // clock / Agent lease / prospective conflict evidence required by
+    // EPG-driven CREATE. The HTTP caller cannot provide these facts.
+    const auto& clock = request.nativeClock;
+    if (!vdrsuite::public_epg_timer::currentNativeTimerCreateExecutionAuthority(
+            request.authoritativeAgent, request.nativeCreateProvider,
+            candidate, request.requestedAt) ||
+        !vdrsuite::public_epg_timer::prospectiveNativeTimerConflictClear(
+            request.conflictProof, candidate, request.requestedAt) ||
+        !clock.current ||
+        clock.backendId != request.backendId ||
+        clock.backendGeneration != candidate.currentBackendGeneration ||
+        clock.executionAuthorityFence != candidate.executionAuthorityFence ||
+        clock.providerInstanceEpoch !=
+            request.nativeCreateProvider.providerInstanceEpoch ||
+        clock.observedAt <= 0 ||
+        clock.observedAt > request.requestedAt ||
+        request.requestedAt - clock.observedAt > 15 ||
+        clock.startUtcOffsetSeconds != clock.stopUtcOffsetSeconds)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+    std::string nativeDay, nativeStart, nativeStopDay, nativeStop;
+    if (!vdrsuite::public_epg_timer::projectEpgBoundaryToNative(
+            intentSpec.schedule.startAt, clock.startUtcOffsetSeconds,
+            false, nativeDay, nativeStart) ||
+        !vdrsuite::public_epg_timer::projectEpgBoundaryToNative(
+            intentSpec.schedule.stopAt, clock.stopUtcOffsetSeconds,
+            true, nativeStopDay, nativeStop) ||
+        nativeDay != spec.day || nativeStart != spec.startTime ||
+        nativeStop != spec.endTime ||
+        intentSpec.schedule.stopAt - intentSpec.schedule.startAt >=
+            24 * 3600)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
 
     // The production callback must recheck the live backend authority and
     // native mapping before ANY durable submission. The planner, not this

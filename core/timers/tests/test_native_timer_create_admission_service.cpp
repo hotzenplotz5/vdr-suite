@@ -911,6 +911,55 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
         manual.candidate = candidate;
         manual.requestedAt = 100;
         manual.deadline = 500;
+        // Existing EPG native-CREATE authority and previews are reused;
+        // these are TEST FIXTURES, not productive native evidence.
+        manual.authoritativeAgent.agentId = "agent:owner";
+        manual.authoritativeAgent.backendId = candidate.backendId;
+        manual.authoritativeAgent.agentInstanceId = "agent-instance:7";
+        manual.authoritativeAgent.backendGeneration = 7;
+        manual.authoritativeAgent.heartbeatSequence = 8;
+        manual.authoritativeAgent.capabilityRevision = 2;
+        manual.authoritativeAgent.lastHeartbeatAt = 95;
+        manual.authoritativeAgent.leaseExpiresAt = 130;
+        auto& provider = manual.nativeCreateProvider;
+        provider.backendId = candidate.backendId;
+        provider.authorityDomain = "vdr.timer";
+        provider.providerId = "suitebridge:local";
+        provider.providerKind = "suitebridge";
+        provider.ownershipGeneration = 3;
+        provider.providerInstanceEpoch =
+            "pie_9a2839a085848a27bd72c66481547420";
+        provider.providerGeneration = 1;
+        provider.capabilityRevision = 1;
+        provider.requiredCapability = "vdr.timer.create";
+        manual.candidate.executionAuthorityFence =
+            vdrsuite::public_epg_timer::nativeTimerCreatePlanningAuthorityFence(
+                provider);
+        manual.candidate.executionAuthorityCurrent = true;
+        manual.nativeClock.current = true;
+        manual.nativeClock.backendId = candidate.backendId;
+        manual.nativeClock.backendGeneration = 7;
+        manual.nativeClock.providerInstanceEpoch = provider.providerInstanceEpoch;
+        manual.nativeClock.executionAuthorityFence =
+            manual.candidate.executionAuthorityFence;
+        manual.nativeClock.observedAt = 99;
+        manual.nativeClock.startUtcOffsetSeconds = 3600;
+        manual.nativeClock.stopUtcOffsetSeconds = 3600;
+        manual.conflictProof.current = true;
+        manual.conflictProof.backendId = candidate.backendId;
+        manual.conflictProof.backendGeneration = 7;
+        manual.conflictProof.executionAuthorityFence =
+            manual.candidate.executionAuthorityFence;
+        manual.conflictProof.nativeSpecificationFingerprint =
+            nativeTimerSpecificationFingerprint(nativeSpec);
+        manual.conflictProof.evidenceRevision =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        manual.conflictProof.observedAt = 99;
+        manual.conflictProof.expiresAt = 114;
+        manual.conflictProof.proposedTimerIncluded = true;
+        manual.conflictProof.allExistingTimersConsidered = true;
+        manual.conflictProof.devicesConsidered = true;
+        manual.conflictProof.conflictsFound = false;
         int validations = 0;
         manual.revalidateSourceAndExecutionAuthority = [&]() {
             ++validations;
@@ -979,6 +1028,31 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
         assert(second.admission.admitManualWindow(
             changed, second.intents, secondApplication).status ==
             NativeTimerCreateAdmissionStatus::operationConflict);
+
+        // A new key without current authoritative native proof cannot
+        // create an Operation even with a nominally online candidate.
+        auto noProof = manual;
+        noProof.idempotencyKey = "manual-without-native-proof";
+        noProof.nativeClock.current = false;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-stale-native-preview";
+        noProof.conflictProof.observedAt = 10;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-wrong-provider";
+        noProof.nativeCreateProvider.providerInstanceEpoch = "pie_restarted";
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+
         const auto durable = second.operations.findByIdempotencyScope(
             "actor:owner", source.backendId, "TimerAssignment",
             first.operation.resourceId, "timer.create",
