@@ -134,14 +134,20 @@ void createResult(
     result.completedAt = nowSeconds();
 }
 
+// Timer and Recording domains share only the typed four-field Agent
+// identity, not their receipts, native guards, result or retry state.
+template <typename DomainContext>
+DomainContext nativeCommandIdentity(
+    const BackendAgentCommandClientContext& source)
+{
+    return {source.backendId, source.agentId, source.agentInstanceId,
+            source.backendGeneration};
+}
+
 vdrsuite::agent::BackendAgentNativeTimerCreateCommandContext
 nativeTimerCreateContext(const BackendAgentCommandClientContext& context)
 {
-    return {
-        context.backendId,
-        context.agentId,
-        context.agentInstanceId,
-        context.backendGeneration};
+    return nativeCommandIdentity<vdrsuite::agent::BackendAgentNativeTimerCreateCommandContext>(context);
 }
 
 bool reconcileNativeTimerCreateLocalState(
@@ -188,11 +194,7 @@ bool executeFreshNativeTimerCreateAndPersistOutcome(
 vdrsuite::agent::BackendAgentNativeTimerDeleteCommandContext
 nativeTimerDeleteContext(const BackendAgentCommandClientContext& context)
 {
-    return {
-        context.backendId,
-        context.agentId,
-        context.agentInstanceId,
-        context.backendGeneration};
+    return nativeCommandIdentity<vdrsuite::agent::BackendAgentNativeTimerDeleteCommandContext>(context);
 }
 
 bool reconcileNativeTimerDeleteLocalState(
@@ -239,8 +241,7 @@ bool executeFreshNativeTimerDeleteAndPersistOutcome(
 vdrsuite::agent::BackendAgentNativeTimerModifyCommandContext
 nativeTimerModifyContext(const BackendAgentCommandClientContext& context)
 {
-    return {context.backendId, context.agentId, context.agentInstanceId,
-            context.backendGeneration};
+    return nativeCommandIdentity<vdrsuite::agent::BackendAgentNativeTimerModifyCommandContext>(context);
 }
 
 bool reconcileNativeTimerModifyLocalState(
@@ -274,8 +275,7 @@ bool executeFreshNativeTimerModifyAndPersistOutcome(
 vdrsuite::agent::BackendAgentRecordingMarksModifyCommandContext
 recordingMarksModifyContext(const BackendAgentCommandClientContext& context)
 {
-    return {context.backendId, context.agentId, context.agentInstanceId,
-            context.backendGeneration};
+    return nativeCommandIdentity<vdrsuite::agent::BackendAgentRecordingMarksModifyCommandContext>(context);
 }
 
 bool reconcileRecordingMarksModifyLocalState(
@@ -324,8 +324,7 @@ bool executeFreshRecordingMarksModifyAndPersistOutcome(
 vdrsuite::agent::BackendAgentRecordingCutCommandContext
 recordingCutContext(const BackendAgentCommandClientContext& context)
 {
-    return {context.backendId, context.agentId, context.agentInstanceId,
-            context.backendGeneration};
+    return nativeCommandIdentity<vdrsuite::agent::BackendAgentRecordingCutCommandContext>(context);
 }
 
 bool reconcileRecordingCutLocalState(

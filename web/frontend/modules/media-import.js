@@ -4240,14 +4240,20 @@
       view.previewTimer = null;
     }
     const id = view.select.value;
-    // A repeated preview for this same source must not discard a confirmed
-    // manual TMDb choice. Changing source still resets the online context.
+    // An unchanged opaque source identity retains both manually selected
+    // AND already confirmed automatic TMDb metadata. A refresh of NFO,
+    // capacity or artwork must not silently downgrade a future v2 import
+    // to v1. Changing the source still clears the provider identity.
     const retainedMetadata = view.onlineSourceId === id &&
-      view.onlineUserControlled && view.onlineSelected ? {
+      view.onlineSelected &&
+      (view.onlineUserControlled || view.onlineAutoSelected) ? {
         onlineItems: view.onlineItems, onlineSelected: view.onlineSelected,
         onlineSeries: view.onlineSeries, onlineSeason: view.onlineSeason,
         onlineMode: view.onlineMode, onlineKind: view.onlineKind,
-        onlineQuery: view.onlineQuery, onlineStatus: view.onlineStatus
+        onlineQuery: view.onlineQuery, onlineStatus: view.onlineStatus,
+        onlineAuto: view.onlineAuto,
+        onlineAutoSelected: view.onlineAutoSelected,
+        onlineUserControlled: view.onlineUserControlled
       } : null;
     releaseCompletedAttemptForNextSource(view, id);
     pinUnknownOnSourceChange(view, id);
@@ -4258,10 +4264,7 @@
     ++view.previewGeneration;
     resetOnline(view);
     view.onlineSourceId = id;
-    if (retainedMetadata) {
-      Object.assign(view, retainedMetadata);
-      view.onlineUserControlled = true;
-    }
+    if (retainedMetadata) Object.assign(view, retainedMetadata);
     const source = view.allOrdinary.find(function (item) {
       return item.sourceId === id;
     });
@@ -4287,7 +4290,8 @@
         videoReencodeRequired: false};
       view.previewStatus = 'VDR-Aufnahme bereits vorhanden (Inventarscan).';
       updatePreview(view);
-      if (view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+      if (view.onlineKind === 'series' && !view.onlineAutoSelected)
+        autoIdentifyEpisode(view, source);
       return;
     }
     // A successful technical read is reusable only within this authorized
@@ -4298,7 +4302,8 @@
       view.previewStatus = 'Codec gespeichert; Metadaten und Systemstatus werden aktualisiert …';
       updatePreview(view);
     }
-    if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+    if (source && view.onlineKind === 'series' && !view.onlineAutoSelected)
+      autoIdentifyEpisode(view, source);
     // Display the last result immediately, then refresh adjacent metadata,
     // target state and free space without re-probing the unchanged video.
     // First retrieve an existing Core/SQLite observation WITHOUT forcing a
@@ -4667,6 +4672,9 @@
       agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',
       maintenance_busy: 'Media Tools ist gerade beschäftigt. Vorschau erneut prüfen.',
       inventory_missing: 'Die Quelle ist im aktuellen Backend-Quelleninventar nicht mehr auffindbar.',
+      source_missing: 'Die Quelldatei wurde am ursprünglichen Speicherort nicht gefunden.',
+      source_unreadable: 'Die Quelldatei oder ihr Verzeichnis ist nicht lesbar.',
+      format_unsupported: 'Das Dateiformat wird vom Media-Importer nicht unterstützt.',
       source_invalid: 'Quelldatei oder Quellpfad konnte nicht geprüft werden.',
       source_changed: 'Die Quelldatei wurde seit dem Scan verändert.',
       target_invalid: 'Der VDR-Zielordner konnte nicht sicher ermittelt werden.',
@@ -4970,7 +4978,14 @@
             : view.batch ? '' :
               'Diesen Film importieren? ' + (view.sourceTitles[sourceId] || 'Auswahl') +
               '. Die Datei wird vom Backend erneut geprüft; eine lokale ' +
-              'Umkodierung ist nicht freigegeben.';
+              'Umkodierung ist nicht freigegeben.' +
+              (view.onlinePending && !view.onlineSelected
+                ? ' Der TMDb-Abgleich läuft noch: Bei sofortigem Import ' +
+                  'werden nur lokale Metadaten übernommen.'
+                : !view.onlineSelected
+                  ? ' Es ist keine TMDb-Auswahl bestätigt: Der Import ' +
+                    'verwendet nur lokale Metadaten.'
+                  : ' Die ausgewählten TMDb-Metadaten werden im Auftrag gespeichert.');
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
