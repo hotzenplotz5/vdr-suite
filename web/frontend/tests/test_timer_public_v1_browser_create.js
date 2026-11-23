@@ -302,7 +302,9 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
           status: 200, ok: true, headers: {get() {return null;}},
           text: async () => JSON.stringify({success: true})
         });
-      if (String(url) === 'https://suite.example/api/vdr/timers/actions/update' ||
+      if (String(url) === '/api/vdr/timers/actions/update' ||
+          String(url) === '/api/vdr/timers/actions/delete' ||
+          String(url) === 'https://suite.example/api/vdr/timers/actions/update' ||
           String(url) === 'https://suite.example/api/vdr/timers/actions/delete')
         return Promise.resolve({
           status: 200, ok: true, headers: {get() {return null;}},
@@ -452,7 +454,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(externalCalls[0].url,
     'https://suite.example/api/v1/native-timers/17?backendId=living-room');
   assert.equal(externalCalls[1].url,
-    'https://suite.example/api/vdr/timers/actions/update');
+    '/api/vdr/timers/actions/update');
   assert.equal(externalCalls[1].options.method, 'POST');
   assert.equal(externalCalls[1].options.credentials, 'same-origin');
   assert.equal(externalCalls[1].options.headers['X-CSRF-Token'], 'composition-csrf');
@@ -479,7 +481,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(unboundCalls[0].url,
     'https://suite.example/api/v1/native-timers/17?backendId=living-room');
   assert.equal(unboundCalls[1].url,
-    'https://suite.example/api/vdr/timers/actions/delete');
+    '/api/vdr/timers/actions/delete');
   assert.deepStrictEqual(JSON.parse(unboundCalls[1].options.body),
     {backendId: 'living-room', timerId: '17'});
   assert.equal(unboundCalls[1].options.headers['X-CSRF-Token'], 'composition-csrf');
