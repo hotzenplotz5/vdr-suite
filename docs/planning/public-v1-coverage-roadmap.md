@@ -2,6 +2,15 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.4 – Legacy JSON → Provider-Form-Transport:** Die bereits
+vorhandenen `VdrTimerActionRequestParser` und
+`RestfulApiVdrTimerActionRequestBuilder` werden in einem gemeinsamen
+Regressionstest für manuelles CREATE/UPDATE ausgeführt. Der Test sichert
+XML-artige `aux`-Metadaten, Sonderzeichen im Dateititel, korrekte
+Prozentkodierung und `priority/lifetime=0`. Er verändert keine
+Produktivroute und ersetzt keine fehlende Public-v1-Manuell-CREATE-Admission.
+
+
 **F5.5.3 – Nicht bearbeitete Native-Flags erhalten.** Der bestehende
 SuiteBridge-`NTMOD`-UPDATE überträgt die native Flag-Bitmaske aus dem
 CAS-verifizierten Timer und verändert darin ausschließlich `tfActive`
