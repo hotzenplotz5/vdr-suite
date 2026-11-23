@@ -69,6 +69,7 @@ test-public-v1-native-timer-read-client:
 	node clients/reference-js/tests/test_public_v1_f5_native_timer_mutation_client.js
 	node clients/reference-js/tests/test_public_v1_f5_manual_timer_create_client.js
 	node web/frontend/tests/test_timer_public_v1_browser_create.js
+	node web/frontend/tests/test_timer_public_v1_browser_native_actions.js
 
 test-ci-fast: test-public-v1-native-timer-read-client
 
