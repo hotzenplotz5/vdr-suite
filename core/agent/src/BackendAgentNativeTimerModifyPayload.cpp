@@ -1,6 +1,7 @@
 #include "BackendAgentNativeTimerModifyPayload.h"
 
 #include "BackendAgentCommand.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include <cstddef>
 #include <limits>
@@ -11,6 +12,7 @@ namespace vdrsuite::agent
 {
 namespace {
 constexpr const char* Prefix="native-timer-modify-agent-payload/1|";
+constexpr const char* AuxPrefix="native-timer-modify-agent-payload/2|";
 constexpr std::size_t Count=34;
 void append(std::string& out,const std::string& value) {
     out+=std::to_string(value.size())+":"+value+"|";
@@ -68,6 +70,15 @@ bool backendAgentNativeTimerModifyPayloadValid(
         backendAgentCommandSafeIdentifier(p.backendId) && p.backendGeneration>0 &&
         backendAgentCommandSafeIdentifier(p.backendNativeTimerId) &&
         !p.expectedCurrentFingerprint.empty() &&
+        (!p.modifyAux ||
+            (p.kind == BackendAgentNativeTimerModifyKind::update &&
+             backendAgentNativeTimerDeleteFingerprintTokenValid(
+                 p.expectedAuxFingerprint) &&
+             p.desiredAux.size() <= 1024U &&
+             p.desiredAux.find_first_of("\0\r\n",0U,3U) ==
+                 std::string::npos)) &&
+        (p.modifyAux ||
+            (p.expectedAuxFingerprint.empty() && p.desiredAux.empty())) &&
         p.expectedSpecificationFingerprint==
             backendAgentNativeTimerCreateSpecificationFingerprint(p.specification) &&
         p.controlPlaneClaimedAt>0 &&
@@ -84,7 +95,7 @@ std::string backendAgentNativeTimerModifyPayload(
     const BackendAgentNativeTimerModifyPayload& p)
 {
     if(!backendAgentNativeTimerModifyPayloadValid(p)) return {};
-    std::string out(Prefix);
+    std::string out(p.modifyAux ? AuxPrefix : Prefix);
     append(out,backendAgentNativeTimerModifyKindName(p.kind));
     append(out,p.operationRevision); append(out,p.timerAssignmentId);
     append(out,p.expectedAssignmentRevision); append(out,p.expectedIntentRevision);
@@ -103,6 +114,11 @@ std::string backendAgentNativeTimerModifyPayload(
     append(out,q.providerKind); append(out,q.ownershipGeneration);
     append(out,q.providerInstanceEpoch); append(out,q.providerGeneration);
     append(out,q.capabilityRevision); append(out,q.requiredCapability);
+    if(p.modifyAux){
+        appendBoolean(out,true);
+        append(out,p.expectedAuxFingerprint);
+        append(out,p.desiredAux);
+    }
     return out;
 }
 
@@ -111,18 +127,22 @@ bool backendAgentNativeTimerModifyParsePayload(
     std::string& reason)
 {
     const std::string prefix(Prefix);
-    if(encoded.compare(0,prefix.size(),prefix)!=0) {
+    const std::string auxPrefix(AuxPrefix);
+    const bool withAux=encoded.compare(0,auxPrefix.size(),auxPrefix)==0;
+    if(!withAux&&encoded.compare(0,prefix.size(),prefix)!=0) {
         reason="invalid_native_timer_modify_payload"; return false;
     }
-    std::size_t pos=prefix.size(); std::vector<std::string> f;
+    std::size_t pos=withAux?auxPrefix.size():prefix.size();
+    const std::size_t count=withAux?Count+3U:Count;
+    std::vector<std::string> f;
     while(pos<encoded.size()) {
         std::string value;
-        if(!read(encoded,pos,value)||f.size()>=Count) {
+        if(!read(encoded,pos,value)||f.size()>=count) {
             reason="invalid_native_timer_modify_payload"; return false;
         }
         f.push_back(std::move(value));
     }
-    if(f.size()!=Count) { reason="invalid_native_timer_modify_payload"; return false; }
+    if(f.size()!=count) { reason="invalid_native_timer_modify_payload"; return false; }
     BackendAgentNativeTimerModifyPayload p;
     if(f[0]=="update") p.kind=BackendAgentNativeTimerModifyKind::update;
     else if(f[0]=="toggle") p.kind=BackendAgentNativeTimerModifyKind::toggle;
@@ -149,6 +169,14 @@ bool backendAgentNativeTimerModifyParsePayload(
     auto& q=p.localProviderSelection;
     q.backendId=f[25];q.authorityDomain=f[26];q.providerId=f[27];q.providerKind=f[28];
     q.providerInstanceEpoch=f[30];q.requiredCapability=f[33];
+    if(withAux){
+        p.modifyAux=f[34]=="1";
+        p.expectedAuxFingerprint=f[35];
+        p.desiredAux=f[36];
+        if(!p.modifyAux){
+            reason="invalid_native_timer_modify_payload";return false;
+        }
+    }
     if(!number(f[29],q.ownershipGeneration)||!number(f[31],q.providerGeneration)||
        !number(f[32],q.capabilityRevision)||
        !backendAgentNativeTimerModifyPayloadValid(p)||

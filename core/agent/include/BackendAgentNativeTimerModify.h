@@ -38,6 +38,9 @@ struct BackendAgentNativeTimerModifyCommand
     std::string expectedCurrentFingerprint;
     std::string expectedSpecificationFingerprint;
     BackendAgentNativeTimerCreateSpecification specification;
+    bool modifyAux = false;
+    std::string expectedAuxFingerprint;
+    std::string desiredAux;
     std::string jobId;
     std::string attemptId;
     std::uint64_t claimEpoch = 0;

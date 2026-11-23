@@ -53,6 +53,14 @@ bool backendAgentNativeTimerModifyValidCommand(
         !identity(c.expectedBindingRevision) || !identity(c.backendNativeTimerId) ||
         !backendAgentNativeTimerDeleteFingerprintTokenValid(c.expectedCurrentFingerprint) ||
         !backendAgentNativeTimerCreateSpecificationValid(c.specification) ||
+        (c.modifyAux &&
+            (c.kind != BackendAgentNativeTimerModifyKind::update ||
+             !backendAgentNativeTimerDeleteFingerprintTokenValid(
+                 c.expectedAuxFingerprint) || c.desiredAux.size() > 1024U ||
+             c.desiredAux.find_first_of("\0\r\n",0U,3U) !=
+                 std::string::npos)) ||
+        (!c.modifyAux &&
+            (!c.expectedAuxFingerprint.empty() || !c.desiredAux.empty())) ||
         c.expectedSpecificationFingerprint !=
             backendAgentNativeTimerCreateSpecificationFingerprint(c.specification) ||
         !identity(c.jobId) || !identity(c.attemptId) || c.claimEpoch==0 ||
