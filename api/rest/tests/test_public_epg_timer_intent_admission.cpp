@@ -104,7 +104,7 @@ static void test_manual_timer_intent_post()
     // This also proves that an escaped key still cannot bypass the closed
     // ten-field contract and that replay is not confused with a new write.
     int unicodeReplayCalls = 0, unicodeSubmitCalls = 0;
-    const std::string escaped = R"json({"backendId":"home","channelId":"S19.2E-1-100","title":"K\\u00f6ln, Spezial","directory":"Serien\\u002fArchiv","startAt":1795547700,"stopAt":1795552200,"priority":0,"lifetime":0,"enabled":false,"vps":true})json";
+    const std::string escaped = R"json({"backendId":"home","channelId":"S19.2E-1-100","title":"K\u00f6ln, Spezial","directory":"Serien\u002fArchiv","startAt":1795547700,"stopAt":1795552200,"priority":0,"lifetime":0,"enabled":false,"vps":true})json";
     api.registerManualTimerIntentReplayLookup(
         [&](const PublicManualTimerIntentAdmissionRequest& r) {
             ++unicodeReplayCalls;
@@ -131,9 +131,14 @@ static void test_manual_timer_intent_post()
     assert(post(escaped).statusCode == 202);
     assert(unicodeReplayCalls == 1 && unicodeSubmitCalls == 1);
     // Malformed Unicode and duplicate decoded keys must never dispatch.
-    const auto badEscape = escaped.substr(0, escaped.size() - 1) +
-        ",\\\"title\\u0020\\\":\\\"bad\\\"}";
-    assert(post(badEscape).statusCode == 400);
+    std::string invalidUnicode = escaped;
+    const auto unicodeAt = invalidUnicode.find(R"json(\u00f6)json");
+    assert(unicodeAt != std::string::npos);
+    invalidUnicode.replace(unicodeAt, 6, R"json(\u00g6)json");
+    assert(post(invalidUnicode).statusCode == 400);
+    const auto duplicateKey = escaped.substr(0, escaped.size() - 1) +
+        R"json(,"\u0074itle":"duplicate"})json";
+    assert(post(duplicateKey).statusCode == 400);
     assert(unicodeReplayCalls == 1 && unicodeSubmitCalls == 1);
     api.resetManualTimerIntentReplayLookup();
     api.resetManualTimerIntentSubmit();
