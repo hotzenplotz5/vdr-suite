@@ -569,6 +569,15 @@ NativeTimerCreateAdmissionService::admitManualWindow(
             TimerAssignmentRepositoryStatus::notFound)
         return fail(NativeTimerCreateAdmissionStatus::operationConflict);
 
+    // Match established EPG one-shot deduplication before reserving a
+    // second native operation for the same active semantic intent.
+    const auto equivalents = intents.findEquivalent(intentSpec);
+    if (!equivalents.ok())
+        return fail(NativeTimerCreateAdmissionStatus::repositoryError);
+    for (const auto& previous : equivalents.intents)
+        if (!timerIntentTerminal(previous.state))
+            return fail(NativeTimerCreateAdmissionStatus::operationConflict);
+
     // The production callback must recheck the live backend authority and
     // native mapping before ANY durable submission. The planner, not this
     // method, decides suitability of the candidate.

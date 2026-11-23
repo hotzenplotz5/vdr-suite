@@ -895,6 +895,72 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
     applicationRequest.candidates = {candidate};
 
+
+    // End-to-end manual coordinator: real Intent, Assignment and Operation
+    // repositories; a subsequent replay does not require Agent liveness.
+    if (!rollBack)
+    {
+        Fixture second;
+        TimerIntentApplicationService secondApplication(
+            second.intents, second.assignments, second.bindings);
+        ManualNativeTimerCreateAdmissionRequest manual;
+        manual.actorId = "actor:owner";
+        manual.backendId = source.backendId;
+        manual.idempotencyKey = "manual-public-atomic-key";
+        manual.draft = draft;
+        manual.candidate = candidate;
+        manual.requestedAt = 100;
+        manual.deadline = 500;
+        int validations = 0;
+        manual.revalidateSourceAndExecutionAuthority = [&]() {
+            ++validations;
+            return true;
+        };
+        const auto first = second.admission.admitManualWindow(
+            manual, second.intents, secondApplication);
+        assert(first.status == NativeTimerCreateAdmissionStatus::prepared);
+        assert(validations == 1);
+        assert(first.operation.state == MutationOperationState::accepted);
+        assert(first.operation.actionFamily == "timer.create");
+        assert(first.payload.expectedSpecification.title == nativeSpec.title);
+        assert(first.payload.expectedSpecification.directory == nativeSpec.directory);
+        assert(first.payload.expectedSpecification.priority == 0);
+        assert(first.payload.expectedSpecification.lifetime == 0);
+        assert(!first.payload.expectedSpecification.enabled);
+        assert(first.payload.expectedSpecification.vps);
+
+        manual.revalidateSourceAndExecutionAuthority = [&]() {
+            ++validations;
+            return false;
+        };
+        const auto replay = second.admission.admitManualWindow(
+            manual, second.intents, secondApplication);
+        assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(replay.operation.operationId == first.operation.operationId);
+        assert(validations == 1);
+
+        auto changed = manual;
+        changed.draft.desiredNativeTimer.title = "Different manual title";
+        changed.candidate.desiredNativeTimerSpecification =
+            changed.draft.desiredNativeTimer;
+        assert(second.admission.admitManualWindow(
+            changed, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+
+        changed = manual;
+        changed.idempotencyKey = "manual-public-other-key";
+        changed.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            changed, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::operationConflict);
+        const auto durable = second.operations.findByIdempotencyScope(
+            "actor:owner", source.backendId, "TimerAssignment",
+            first.operation.resourceId, "timer.create",
+            "manual-public-atomic-key");
+        assert(durable.ok());
+        assert(durable.operation.operationId == first.operation.operationId);
+    }
+
     TimerIntentApplicationService application(
         fixture.intents, fixture.assignments, fixture.bindings);
     auto lease = fixture.database.acquireTransactionLease();
