@@ -49,7 +49,29 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,startAt:1.5}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,idempotencyKey:'has space'}));
   assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'If-Match':'"epg1"'}}));
+  // A Unicode string can be short in JS code units but exceed the
+  // server's 1024-byte decoded UTF-8 field limit.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'ö'.repeat(513)}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,directory:'🎥'.repeat(257)}}));
   assert.strictEqual(calls.length,before,'invalid writes cannot dispatch');
   assert(calls.every(call=>!call.url.includes('/api/vdr/')));
+  // Exactly 1024 UTF-8 bytes remain valid, including non-BMP characters.
+  let boundaryCalls=0;
+  const boundaryClient=createClient({baseUrl:'https://suite.example',
+    fetch:async (url, options)=>{
+      boundaryCalls++;
+      assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
+      const posted=JSON.parse(options.body);
+      assert.strictEqual(posted.title,'ö'.repeat(512));
+      assert.strictEqual(posted.directory,'🎥'.repeat(256));
+      return respond(202,{operation:{operationId:'op_limit',state:'accepted'}},
+        '/api/v1/operations/op_limit');
+    }});
+  const boundary=await boundaryClient.submitManualTimerIntent({...input,
+    payload:{...payload,title:'ö'.repeat(512),directory:'🎥'.repeat(256)}});
+  assert.strictEqual(boundary.status,202);
+  assert.strictEqual(boundaryCalls,1);
   console.log('Public-v1 F5.5.5 manual TimerIntent client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});
