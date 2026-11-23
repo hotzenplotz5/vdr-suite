@@ -386,11 +386,11 @@ int main()
             lock.unlock();
             assert(started);
 
-            // This is the same filename-scoped lease and BEGIN IMMEDIATE
-            // path that a non-empty Backend-Agent command poll uses.
+            // Match the shared filename-scoped lease and deferred BEGIN
+            // used by a non-empty Backend-Agent command poll.
             auto lease = pollDatabase.acquireTransactionLease();
             writesAtPoll = trace.targetWrites.load();
-            assert(pollDatabase.execute("BEGIN IMMEDIATE TRANSACTION;"));
+            assert(pollDatabase.execute("BEGIN;"));
             assert(pollDatabase.execute("COMMIT;"));
         });
 
