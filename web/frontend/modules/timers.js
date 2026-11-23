@@ -967,7 +967,11 @@
         });
         return;
       }
-      if (mode === 'update')
+      // Clearing an existing opaque aux value must reach the VDR editor too.
+      // The native Public-v1 specification cannot represent aux deletion.
+      if (mode === 'update' && String(timer.aux || '') !== '')
+        executeAction('update', payload, submit, feedback);
+      else if (mode === 'update')
         executePublicNativeTimerAction('update', payload, submit, feedback);
       else executeAction(mode, payload, submit, feedback);
     });
