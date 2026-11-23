@@ -547,6 +547,19 @@ void PublicApiRuntime::resetNativeTimerModifyAdmission()
     nativeTimerModifyAdmission_ = {};
 }
 
+void PublicApiRuntime::registerNativeTimerDirectAction(
+    NativeTimerDirectAction action)
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+    nativeTimerDirectAction_ = std::move(action);
+}
+
+void PublicApiRuntime::resetNativeTimerDirectAction()
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+    nativeTimerDirectAction_ = {};
+}
+
 void PublicApiRuntime::registerNativeTimerDeleteAdmission(
     NativeTimerDeleteAdmission admission)
 {
