@@ -2,6 +2,25 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.5.1 – Manuelle TimerIntent-Abbildung (ohne öffentlichen Writer):**
+Der bestehende ADR-0044-`manualWindow`-Intent und die unveränderte
+`NativeTimerSpecification` erhalten eine gemeinsame, reine Draft-Projektion
+`ManualTimerIntentDraft`. Sie übernimmt eine serverseitig qualifizierte
+Backend-/Kanalquelle sowie bereits vom Backend ermittelte lokale Zeitbezüge;
+die Daemon-Zeitzone wird **nicht** für VDR-HHMM umgedeutet. Titel, Verzeichnis,
+Tag, HHMM, Priorität, Lebensdauer, Active und VPS bleiben vollständig in
+der gewünschten nativen Assignment-Spezifikation erhalten. Der bestehende
+TimerIntent-Domain-Test sichert diese Abbildung und abweichende
+Kanal-/Zeitevidenz ab. Keine neuen Tabellen, Dienste, Berechtigungen,
+Protokolle oder Timer-Writer.
+
+**Offen vor Public-v1-Manuell-CREATE:** autoritative Backend-Kanal-/Uhrevidenz,
+Admission mit exakt payloadgebundener Idempotenz, atomare Intent-/Assignment-/
+Operation-Annahme, Native-Preview/Dispatch/Readback und HTTP-/Browser-Parität.
+Die Projektion ist **keine** HTTP-Route und keine Installationsfreigabe.
+
+
+
 **F5.5.4 – Legacy JSON → Provider-Form-Transport:** Die bereits
 vorhandenen `VdrTimerActionRequestParser` und
 `RestfulApiVdrTimerActionRequestBuilder` werden in einem gemeinsamen

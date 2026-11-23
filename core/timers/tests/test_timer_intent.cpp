@@ -1,4 +1,5 @@
 #include "TimerIntent.h"
+#include "ManualTimerIntentDraft.h"
 
 #include <cassert>
 #include <string>
@@ -142,6 +143,78 @@ int main()
     assert(timerIntentSemanticIdentity(changed) != identity);
     changed = base; changed.duplicatePolicy.requireOperatorReviewOnAmbiguity = false;
     assert(timerIntentSemanticIdentity(changed) != identity);
+
+    // F5.5.5: map an explicitly entered native one-shot timer to the
+    // existing manualWindow + precise desired Assignment specification.
+    // Backend-local clock/source evidence is supplied by the server, never
+    // derived by parsing local time on the daemon.
+    NativeTimerSpecification native;
+    native.channelId = "S19.2E-1-1019-10301";
+    native.title = "News, Spezial";
+    native.directory = "Nachrichten~Archiv";
+    native.day = "2026-11-24";
+    native.weekdays = "-------";
+    native.startTime = "2015";
+    native.endTime = "2030";
+    native.priority = 0;
+    native.lifetime = 0;
+    native.enabled = false;
+    native.vps = true;
+
+    ManualTimerSourceEvidence source;
+    source.backendId = "default";
+    source.sourceType = "dvb";
+    source.sourceId = "suitebridge:local";
+    source.backendChannelId = native.channelId;
+    source.timezone = "Europe/Berlin";
+    source.startAt = 1795547700;
+    source.stopAt = 1795548600;
+
+    const auto draft = makeManualWindowTimerIntentDraft(native, source, "actor:1");
+    assert(draft.valid);
+    assert(timerIntentValidSpec(draft.intent));
+    assert(draft.intent.intentType == TimerIntentType::manualWindow);
+    assert(draft.intent.programEventId.empty());
+    assert(draft.intent.backendEventRef.eventId.empty());
+    assert(draft.intent.ownerActorId == "actor:1");
+    assert(draft.intent.channelRequirement.sourceType == "dvb");
+    assert(draft.intent.channelRequirement.sourceId == "suitebridge:local");
+    assert(draft.intent.channelRequirement.sourceChannelId == native.channelId);
+    assert(draft.intent.schedule.timezone == "Europe/Berlin");
+    assert(draft.intent.schedule.startAt == source.startAt);
+    assert(draft.intent.schedule.stopAt == source.stopAt);
+    assert(draft.intent.recordingOptions.priority == 0);
+    assert(draft.intent.recordingOptions.lifetimeDays == 0);
+    assert(draft.intent.recordingOptions.vpsPreferred);
+    assert(draft.intent.assignmentPolicy.preferredBackendIds.size() == 1);
+    assert(draft.intent.assignmentPolicy.preferredBackendIds[0] == "default");
+    assert(draft.desiredNativeTimer.title == native.title);
+    assert(draft.desiredNativeTimer.directory == native.directory);
+    assert(draft.desiredNativeTimer.day == native.day);
+    assert(draft.desiredNativeTimer.startTime == native.startTime);
+    assert(draft.desiredNativeTimer.endTime == native.endTime);
+    assert(draft.desiredNativeTimer.priority == 0);
+    assert(draft.desiredNativeTimer.lifetime == 0);
+    assert(!draft.desiredNativeTimer.enabled);
+    assert(draft.desiredNativeTimer.vps);
+    assert(draft.desiredNativeTimer.weekdays == "-------");
+
+    auto wrongSource = source;
+    wrongSource.backendChannelId = "S19.2E-1-1019-99999";
+    assert(!makeManualWindowTimerIntentDraft(native, wrongSource, "actor:1").valid);
+    wrongSource = source;
+    wrongSource.stopAt = wrongSource.startAt;
+    assert(!makeManualWindowTimerIntentDraft(native, wrongSource, "actor:1").valid);
+    wrongSource = source;
+    wrongSource.timezone.clear();
+    assert(!makeManualWindowTimerIntentDraft(native, wrongSource, "actor:1").valid);
+    auto recurringNative = native;
+    recurringNative.weekdays = "MTWTFSS";
+    assert(!makeManualWindowTimerIntentDraft(recurringNative, source, "actor:1").valid);
+    auto missingDay = native;
+    missingDay.day.clear();
+    assert(!makeManualWindowTimerIntentDraft(missingDay, source, "actor:1").valid);
+    assert(!makeManualWindowTimerIntentDraft(native, source, "").valid);
 
     return 0;
 }
