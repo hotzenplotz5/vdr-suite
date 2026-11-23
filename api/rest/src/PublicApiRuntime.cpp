@@ -185,6 +185,26 @@ bool publicNativeTimerAuxPath(const std::string& path, std::string& id)
         path.substr(0U, path.size() - suffix.size()), id);
 }
 
+// The existing synchronous VDR writer is reused for explicitly external
+// or unbound timers; this is NOT a durable managed-Timer Operation.
+bool publicNativeTimerDirectActionPath(
+    const std::string& path, std::string& id, std::string& action)
+{
+    for (const std::string kind : {"update", "delete"})
+    {
+        const std::string suffix = "/direct-" + kind;
+        if (path.size() > suffix.size() &&
+            path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0 &&
+            publicNativeTimerItemPath(
+                path.substr(0U, path.size() - suffix.size()), id))
+        {
+            action = kind;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool publicNativeTimerModificationPath(
     const std::string& path, std::string& id)
 {
@@ -10263,6 +10283,74 @@ bool PublicApiRuntime::tryHandleNativeTimerMutationPost(
     const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
+    std::string directTimerId;
+    std::string directAction;
+    if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backendId=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type", "Expected application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupNativeTimerDetail(
+            {authorizedBackendId, directTimerId});
+        if (found.status == PublicNativeTimerDetailStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicNativeTimerDetailStatus::ok ||
+            found.backendId != authorizedBackendId ||
+            found.timer.id != directTimerId)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        // Managed and adopted Timers keep the durable Public-v1 writer.
+        // External/unbound Timers use exactly the established VDR writer.
+        if (!((found.ownership == "external" &&
+                found.bindingState == "adoption_required") ||
+              (found.ownership == "unbound" &&
+                found.bindingState == "binding_required")))
+        {
+            response = problemResponse(409, "operation_conflict",
+                "Operation conflict",
+                "A managed Timer uses the durable native Timer Operation.",
+                path, requestId, correlationId);
+            return true;
+        }
+        NativeTimerDirectAction direct;
+        {
+            std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+            direct = nativeTimerDirectAction_;
+        }
+        if (!direct)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        response = direct(directAction, actorRef, authorizedBackendId,
+            directTimerId, body);
+        if (response.statusCode == 200)
+            addPublicSuccessHeaders(response, requestId, correlationId);
+        return true;
+    }
+
     std::string modifiedTimerId;
     if (publicNativeTimerModificationPath(path, modifiedTimerId))
     {
