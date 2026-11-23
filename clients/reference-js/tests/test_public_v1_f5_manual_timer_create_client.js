@@ -31,7 +31,8 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
       name=>name.toLowerCase()==='content-type').length,1);
     assert.deepStrictEqual(JSON.parse(options.body),payload);
     return calls.length===1
-      ? respond(202,{operation:{operationId:'op_1',state:'accepted'}},
+      ? respond(202,{operationId:'op_1',state:'accepted',backendId:'default',
+          links:{self:'/api/v1/operations/op_1'}},
           '/api/v1/operations/op_1')
       : respond(409,{code:'idempotency_conflict'});
   }
@@ -42,7 +43,11 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   const accepted=await client.submitManualTimerIntent(input);
   assert.strictEqual(accepted.status,202);
   assert.strictEqual(accepted.location,'/api/v1/operations/op_1');
-  assert.strictEqual(accepted.data.operation.state,'accepted');
+  assert.strictEqual(accepted.data.operationId,'op_1');
+  assert.strictEqual(accepted.data.state,'accepted');
+  assert.strictEqual(accepted.data.backendId,'default');
+  assert.strictEqual(accepted.data.links.self,accepted.location);
+  assert.strictEqual(accepted.data.operation,undefined);
   await assert.rejects(client.submitManualTimerIntent(input),
     err=>err.status===409);
   await assert.rejects(client.submitManualTimerIntent({...input,
@@ -83,12 +88,16 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
       const posted=JSON.parse(options.body);
       assert.strictEqual(posted.title,'ö'.repeat(512));
       assert.strictEqual(posted.directory,'🎥'.repeat(256));
-      return respond(202,{operation:{operationId:'op_limit',state:'accepted'}},
+      return respond(202,{operationId:'op_limit',state:'accepted',backendId:'default',
+        links:{self:'/api/v1/operations/op_limit'}},
         '/api/v1/operations/op_limit');
     }});
   const boundary=await boundaryClient.submitManualTimerIntent({...input,
     payload:{...payload,title:'ö'.repeat(512),directory:'🎥'.repeat(256)}});
   assert.strictEqual(boundary.status,202);
+  assert.strictEqual(boundary.data.operationId,'op_limit');
+  assert.strictEqual(boundary.data.state,'accepted');
+  assert.strictEqual(boundary.data.links.self,boundary.location);
   assert.strictEqual(boundaryCalls,1);
   console.log('Public-v1 F5.5.5 manual TimerIntent client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});
