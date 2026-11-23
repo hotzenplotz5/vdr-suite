@@ -965,6 +965,30 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
             ++validations;
             return true;
         };
+        // A new key without current authoritative native proof cannot
+        // create an Operation even with a nominally online candidate.
+        auto noProof = manual;
+        noProof.idempotencyKey = "manual-without-native-proof";
+        noProof.nativeClock.current = false;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-stale-native-preview";
+        noProof.conflictProof.observedAt = 10;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-wrong-provider";
+        noProof.nativeCreateProvider.providerInstanceEpoch = "pie_restarted";
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+
         const auto first = second.admission.admitManualWindow(
             manual, second.intents, secondApplication);
         assert(first.status == NativeTimerCreateAdmissionStatus::prepared);
@@ -1028,30 +1052,6 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
         assert(second.admission.admitManualWindow(
             changed, second.intents, secondApplication).status ==
             NativeTimerCreateAdmissionStatus::operationConflict);
-
-        // A new key without current authoritative native proof cannot
-        // create an Operation even with a nominally online candidate.
-        auto noProof = manual;
-        noProof.idempotencyKey = "manual-without-native-proof";
-        noProof.nativeClock.current = false;
-        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
-        assert(second.admission.admitManualWindow(
-            noProof, second.intents, secondApplication).status ==
-            NativeTimerCreateAdmissionStatus::backendConflict);
-        noProof = manual;
-        noProof.idempotencyKey = "manual-with-stale-native-preview";
-        noProof.conflictProof.observedAt = 10;
-        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
-        assert(second.admission.admitManualWindow(
-            noProof, second.intents, secondApplication).status ==
-            NativeTimerCreateAdmissionStatus::backendConflict);
-        noProof = manual;
-        noProof.idempotencyKey = "manual-with-wrong-provider";
-        noProof.nativeCreateProvider.providerInstanceEpoch = "pie_restarted";
-        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
-        assert(second.admission.admitManualWindow(
-            noProof, second.intents, secondApplication).status ==
-            NativeTimerCreateAdmissionStatus::backendConflict);
 
         const auto durable = second.operations.findByIdempotencyScope(
             "actor:owner", source.backendId, "TimerAssignment",
