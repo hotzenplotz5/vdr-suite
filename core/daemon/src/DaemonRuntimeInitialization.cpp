@@ -3954,8 +3954,10 @@ bool DaemonRuntime::initialize()
                 response.status = S::invalid;
                 return response;
             }
-            if (nativeTimerObservationMatchesSpecification(
-                specification, binding.observedState))
+            const bool nativeShapeUnchanged =
+                nativeTimerObservationMatchesSpecification(
+                    specification, binding.observedState);
+            if (nativeShapeUnchanged && !request.specification.modifyAux)
             {
                 response.status = S::stateConflict;
                 return response;
@@ -3969,9 +3971,22 @@ bool DaemonRuntime::initialize()
                 return response;
             const std::string action = request.kind == PublicNativeTimerChangeKind::toggle
                 ? "timer.toggle" : "timer.update";
+            const std::string auxDigest = request.specification.modifyAux
+                ? vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    std::to_string(request.specification.expectedAux.size()) +
+                    ":" + request.specification.expectedAux + "|" +
+                    std::to_string(request.specification.aux.size()) + ":" +
+                    request.specification.aux)
+                : std::string();
+            if (request.specification.modifyAux && auxDigest.empty())
+            {
+                response.status = S::invalid;
+                return response;
+            }
             const std::string requestFingerprint =
                 "native-modify/1:" + binding.nativeTimerBindingId + ":" +
-                binding.bindingRevision + ":" + action + ":" + specDigest;
+                binding.bindingRevision + ":" + action + ":" + specDigest +
+                (auxDigest.empty() ? std::string() : ":aux:" + auxDigest);
             if (requestFingerprint.size() > 512U)
             {
                 response.status = S::invalid;
@@ -4032,6 +4047,22 @@ bool DaemonRuntime::initialize()
                 response.status = S::stateConflict;
                 return response;
             }
+            // The native Binding ETag intentionally excludes opaque Aux.
+            // A caller that explicitly edits Aux must have observed the
+            // exact previous value; the VDR-side NTMOD v2 checks again under
+            // its write lock before changing any metadata.
+            if (request.specification.modifyAux &&
+                current->aux != request.specification.expectedAux)
+            {
+                response.status = S::revisionConflict;
+                return response;
+            }
+            if (request.specification.modifyAux && nativeShapeUnchanged &&
+                current->aux == request.specification.aux)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
             const auto verification = nativeTimerPublicDetailRevision(
                 request.backendId, agent->backendGeneration,
                 *current, &binding);
@@ -4070,6 +4101,19 @@ bool DaemonRuntime::initialize()
             candidate.backendNativeTimerId = binding.backendNativeTimerId;
             candidate.expectedCurrentFingerprint = binding.observedFingerprint;
             candidate.expectedSpecification = specification;
+            candidate.modifyAux = request.specification.modifyAux;
+            if (candidate.modifyAux)
+            {
+                candidate.expectedAuxFingerprint =
+                    vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                        request.specification.expectedAux);
+                if (candidate.expectedAuxFingerprint.empty())
+                {
+                    response.status = S::invalid;
+                    return response;
+                }
+                candidate.desiredAux = request.specification.aux;
+            }
             candidate.requestedAt = now;
             candidate.deadline = now + 3600;
 

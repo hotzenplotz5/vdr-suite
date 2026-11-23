@@ -3051,7 +3051,8 @@ bool parsePublicNativeTimerModifyBody(
         skipAccountMutationWhitespace(body, pos);
         if (key == "kind" || key == "channelId" || key == "title" ||
             key == "directory" || key == "day" || key == "weekdays" ||
-            key == "startTime" || key == "endTime")
+            key == "startTime" || key == "endTime" ||
+            key == "expectedAux" || key == "aux")
         {
             std::string value;
             if (!parseAccountMutationJsonString(body, pos, value)) return false;
@@ -3062,6 +3063,8 @@ bool parsePublicNativeTimerModifyBody(
             else if (key == "day") spec.day = std::move(value);
             else if (key == "weekdays") spec.weekdays = std::move(value);
             else if (key == "startTime") spec.startTime = std::move(value);
+            else if (key == "expectedAux") spec.expectedAux = std::move(value);
+            else if (key == "aux") spec.aux = std::move(value);
             else spec.endTime = std::move(value);
         }
         else if (key == "enabled" || key == "vps")
@@ -3099,13 +3102,24 @@ bool parsePublicNativeTimerModifyBody(
     }
     skipAccountMutationWhitespace(body, pos);
     if (pos != body.size()) return false;
+    const bool hasAux =
+        std::find(seen.begin(), seen.end(), "aux") != seen.end();
+    const bool hasOldAux =
+        std::find(seen.begin(), seen.end(), "expectedAux") != seen.end();
+    if (hasAux != hasOldAux) return false;
+    spec.modifyAux = hasAux;
+    if (hasAux &&
+        (spec.aux.size() > 1024U || spec.expectedAux.size() > 2048U ||
+         spec.aux.find_first_of("\0\r\n",0U,3U) != std::string::npos))
+        return false;
     if (kindName == "toggle")
     {
         kind = PublicNativeTimerChangeKind::toggle;
         return seen.size() == 2U &&
             std::find(seen.begin(), seen.end(), "enabled") != seen.end();
     }
-    if (kindName != "update" || seen.size() != 12U ||
+    if (kindName != "update" ||
+        seen.size() != (spec.modifyAux ? 14U : 12U) ||
         spec.channelId.empty() || spec.channelId.size() > 160U ||
         spec.title.size() > 1024U || spec.directory.size() > 1024U ||
         spec.day.size() > 160U || spec.weekdays.size() != 7U ||

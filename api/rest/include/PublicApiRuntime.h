@@ -742,6 +742,11 @@ struct PublicNativeTimerChangeFields
     std::int32_t lifetime = 99;
     bool enabled = true;
     bool vps = false;
+    // An explicit raw AUX replacement is separate from ordinary UPDATE.
+    // The previous value is checked against the native provider under lock.
+    bool modifyAux = false;
+    std::string expectedAux;
+    std::string aux;
 };
 struct PublicNativeTimerModifyRequest {
     std::string actorRef;
