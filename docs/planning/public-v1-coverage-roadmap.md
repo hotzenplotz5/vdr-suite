@@ -1,5 +1,40 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.6 – Web-Timer-Editor (Quellstand, unvollständig; 23.11.2026)
+
+Auf PR #563 wurde die Browser-Komposition im bestehenden Timer-Modul
+schrittweise auf Public API v1 umgestellt. Manuelles einmaliges CREATE
+ohne plugin-spezifisches `aux` nutzt die bereits vorhandene durable
+`/api/v1/manual/timer-intents`-Route und bestätigt den VDR-Zustand
+erst über Operation/SSE. UPDATE, TOGGLE und DELETE verwenden die
+Public-v1-Native-Timer-Routen für `verified` Managed/Adopted Bindings,
+mit serverseitigem ETag, Browser-Session/CSRF, stabilem
+Idempotency-Key und Operation/SSE. Auch Wiederholungstimer können
+als bereits gebundener Timer über Public-v1-UPDATE bearbeitet werden.
+Unverändertes natives VDR-`Aux()` bleibt beim NTMOD-UPDATE erhalten;
+`priority/lifetime=0` bleibt korrekt.
+
+**Keine Vollmigration / keine Installationsfreigabe:** Wiederkehrendes
+manuelles CREATE, tatsächlich geänderte oder gelöschte `aux`-Inhalte,
+externe oder ungebundene Timer und Stoppen einer laufenden Aufnahme
+haben noch keinen funktionsgleichen Public-v1-Writer. Die vorhandene
+Legacy-Funktion bleibt für diese nachgewiesenen Vertragslücken erhalten.
+Der öffentliche Manual-CREATE-Vertrag ist ausdrücklich One-shot, das
+native Binding-Modell führt bewusst kein plugin-spezifisches `aux`,
+und die öffentlichen Native-Timer-Mutationen setzen eine verifizierte
+Binding-Revision voraus. Der native DELETE-Pfad verbietet Aufnahme-/
+Pending-Zustände. Diese Lücken benötigen Änderungen an den jeweiligen
+Backend-/Public-v1-Verträgen und reale VDR-Abnahme, nicht nur eine
+Umbenennung von Frontend-Routen.
+
+Regressionsnachweise im Branch: der Browser-Formular-/Karten-Test
+`test_timer_public_v1_browser_native_actions.js`, die reale
+Browser-Adapter/Referenzclient-Komposition im
+`test_timer_public_v1_browser_create.js` und die bestehende
+Public-v1-Acceptance-CI. Die Isolations- und Frontend-Tests sind keine
+Hardwareabnahme. PR #563 bleibt Draft; **F5.6 und F8 bleiben offen**.
+
+
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
 **F5.5.5.3 – Reference-JS-Client (keine Browser-Migration):**
