@@ -57,6 +57,11 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
     payload:{...payload,title:'ö'.repeat(513)}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,
     payload:{...payload,directory:'🎥'.repeat(257)}}));
+  // JSON.stringify escapes invalid UTF-16; the C++ decoder rejects it.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'\uD800'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,directory:'\uDC00'}}));
   // Both fields fit separately; JSON escaping may still exceed 4096 bytes.
   assert.throws(()=>client.submitManualTimerIntent({...input,
     payload:{...payload,title:'\\'.repeat(1024),directory:'\\'.repeat(1024)}}));

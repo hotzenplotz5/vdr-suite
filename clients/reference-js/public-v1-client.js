@@ -1709,6 +1709,8 @@
       const path = '/api/v1/manual/timer-intents';
       const fields = ['backendId', 'channelId', 'title', 'directory',
         'startAt', 'stopAt', 'priority', 'lifetime', 'enabled', 'vps'];
+      // C++ JSON Cursor rejects isolated UTF-16 surrogates in escaped JSON.
+      const invalidSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/;
       if (!p || typeof p !== 'object' || Array.isArray(p) ||
           Object.keys(p).length !== fields.length ||
           Object.keys(p).some(key => !fields.includes(key)) ||
@@ -1721,6 +1723,7 @@
           new TextEncoder().encode(p.title).length > 1024 ||
           typeof p.directory !== 'string' ||
           new TextEncoder().encode(p.directory).length > 1024 ||
+          invalidSurrogate.test(p.title) || invalidSurrogate.test(p.directory) ||
           !Number.isSafeInteger(p.startAt) || p.startAt <= 0 ||
           !Number.isSafeInteger(p.stopAt) ||
           p.stopAt <= p.startAt || p.stopAt - p.startAt >= 86400 ||
