@@ -216,5 +216,64 @@ int main()
     assert(!makeManualWindowTimerIntentDraft(missingDay, source, "actor:1").valid);
     assert(!makeManualWindowTimerIntentDraft(native, source, "").valid);
 
+    // Recurring timers reuse the existing intent/assignment model, while
+    // remaining rejected by the one-shot-only projection.
+    auto repeated = native;
+    repeated.weekdays = "MTWTF--";
+    const auto weekly =
+        makeRecurringTimerIntentDraft(repeated, source, "actor:1");
+    assert(weekly.valid);
+    assert(timerIntentValidSpec(weekly.intent));
+    assert(weekly.intent.intentType == TimerIntentType::recurringSchedule);
+    assert(weekly.intent.schedule.recurrenceRule ==
+        "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+    assert(weekly.intent.schedule.timezone == "Europe/Berlin");
+    assert(weekly.intent.schedule.startAt == source.startAt);
+    assert(weekly.intent.schedule.stopAt == source.stopAt);
+    assert(weekly.intent.channelRequirement.sourceChannelId == native.channelId);
+    assert(weekly.intent.recordingOptions.priority == 0);
+    assert(weekly.intent.recordingOptions.lifetimeDays == 0);
+    assert(weekly.intent.recordingOptions.vpsPreferred);
+    assert(weekly.desiredNativeTimer.weekdays == "MTWTF--");
+    assert(weekly.desiredNativeTimer.day == native.day);
+    assert(!weekly.desiredNativeTimer.enabled);
+    assert(weekly.desiredNativeTimer.vps);
+    assert(timerIntentSemanticIdentity(weekly.intent) !=
+        timerIntentSemanticIdentity(draft.intent));
+
+    repeated.weekdays = "------S";
+    const auto sunday =
+        makeRecurringTimerIntentDraft(repeated, source, "actor:1");
+    assert(sunday.valid);
+    assert(sunday.intent.schedule.recurrenceRule == "FREQ=WEEKLY;BYDAY=SU");
+    repeated.weekdays = "-T----S";
+    const auto tuesdaySunday =
+        makeRecurringTimerIntentDraft(repeated, source, "actor:1");
+    assert(tuesdaySunday.valid);
+    assert(tuesdaySunday.intent.schedule.recurrenceRule ==
+        "FREQ=WEEKLY;BYDAY=TU,SU");
+
+    // Positional ambiguity (both T and S occur twice) is never guessed.
+    repeated.weekdays = "T------";
+    assert(!makeRecurringTimerIntentDraft(repeated, source, "actor:1").valid);
+    repeated.weekdays = "------M";
+    assert(!makeRecurringTimerIntentDraft(repeated, source, "actor:1").valid);
+    repeated.weekdays = "-------";
+    assert(!makeRecurringTimerIntentDraft(repeated, source, "actor:1").valid);
+    repeated.weekdays = "MTWTFSS";
+    auto badSource = source;
+    badSource.backendChannelId = "different-channel";
+    assert(!makeRecurringTimerIntentDraft(repeated, badSource, "actor:1").valid);
+    badSource = source;
+    badSource.timezone.clear();
+    assert(!makeRecurringTimerIntentDraft(repeated, badSource, "actor:1").valid);
+    badSource = source;
+    badSource.stopAt = badSource.startAt;
+    assert(!makeRecurringTimerIntentDraft(repeated, badSource, "actor:1").valid);
+    badSource = source;
+    badSource.stopAt += 24 * 3600;
+    assert(!makeRecurringTimerIntentDraft(repeated, badSource, "actor:1").valid);
+    assert(!makeRecurringTimerIntentDraft(repeated, source, "").valid);
+
     return 0;
 }
