@@ -562,10 +562,9 @@
         return result;
       });
     }).catch(error => {
-      // Public Native v1 requires a Browser administrator, even for Humans
-      // with direct timers.modify/delete grants. HTTP 403 is a proven
-      // pre-dispatch denial by SecurityHttpGate; the existing legacy route
-      // independently enforces the caller's original Timer permissions.
+      // Public Native v1 now accepts existing Human timer grants as well
+      // as administrator sessions. HTTP 403 is a verified pre-dispatch
+      // denial; legacy independently enforces the caller's Timer rights.
       if (!publicWriteAttempted || (error && error.status === 403))
         return executeAction(legacyType, legacyPayload, button, feedback);
       // Never fall through after an uncertain Public-v1 mutation outcome.

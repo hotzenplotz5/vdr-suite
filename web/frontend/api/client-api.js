@@ -436,6 +436,18 @@
     });
   }
 
+  // F5.6.2: raw Aux is a separate unconditional native VDR read.
+  // Unlike timer detail it has no Binding ETag and cannot return 304.
+  function fetchPublicNativeTimerAux(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimerAux({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
   // F5.5: Explicit Public-v1 native mutation client, separate from the
   // synchronous legacy editor. The caller supplies the current binding ETag,
   // one idempotency key and, for UPDATE, the complete native specification.
@@ -999,6 +1011,7 @@
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchPublicNativeTimerPage: fetchPublicNativeTimerPage,
     fetchPublicNativeTimerDetail: fetchPublicNativeTimerDetail,
+    fetchPublicNativeTimerAux: fetchPublicNativeTimerAux,
     fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
     fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
     fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,

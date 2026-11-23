@@ -9,7 +9,10 @@ Backend-Grant und Device-Check. Der darauf folgende F5.6.2-Schritt
 `b600f14e5` projiziert natives `aux` als **eigenes, unbedingtes
 GET-Subresource** aus dem bestehenden VDR-Snapshot, ohne den vorhandenen
 Binding-ETag zu verfälschen. OpenAPI und fokussierte Source-Regressionen
-sind ergänzt; der Reference-JS-Lesepfad wird im Folgecommit nachgeführt.
+sind ergänzt; der Reference-JS-Lesepfad und das Webfrontend-Client-API-Adapter-Interface
+sind ergänzt. Das Timer-Editor-Formular selbst verwendet für Aux-Änderungen
+weiterhin seine bestehende VDR-spezifische Schreibroute; dies ist keine
+Aux-Mutation über Public v1.
 
 **Noch offen:** Aux-Mutation, wiederkehrendes CREATE mit vollständiger
 SuiteBridge-Preview, externe/unge­bundene Timer-Writer, Aufnahme-Stopp,
