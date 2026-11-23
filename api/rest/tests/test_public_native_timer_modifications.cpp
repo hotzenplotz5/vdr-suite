@@ -102,4 +102,63 @@ int main()
     assert(post(path,auxUpdate,etag).statusCode == 202);
     assert(auxAdmissions == 1);
     runtime.resetNativeTimerModifyAdmission();
+
+    // Slice 3: externally created and unbound native VDR Timers use exactly
+    // one existing direct action callback, never a manufactured 202 Operation.
+    runtime.resetNativeTimerDirectAction();
+    runtime.resetNativeTimerDetailLookup();
+    const std::string directUpdate =
+        "/api/v1/native-timers/17/direct-update?backendId=backend-one";
+    const std::string directDelete =
+        "/api/v1/native-timers/17/direct-delete?backendId=backend-one";
+    const std::string directBody =
+        R"json({"backendId":"backend-one","timerId":"17","title":"AUX","aux":"<epgsearch/>"})json";
+    assert(post(directUpdate,directBody).statusCode == 503);
+    std::string bindingState = "binding_required";
+    std::string ownership = "unbound";
+    runtime.registerNativeTimerDetailLookup(
+        [&](const PublicNativeTimerDetailRequest& req) {
+            PublicNativeTimerDetailResult result;
+            result.status = PublicNativeTimerDetailStatus::ok;
+            result.backendId = req.backendId;
+            result.timer.id = req.timerId;
+            result.ownership = ownership;
+            result.bindingState = bindingState;
+            return result;
+        });
+    int directCalls = 0;
+    runtime.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor,
+            const std::string& backend, const std::string& nativeId,
+            const std::string& raw) {
+            ++directCalls;
+            assert((action == "update" || action == "delete"));
+            assert(actor == "tv-device");
+            assert(backend == "backend-one" && nativeId == "17");
+            assert(raw == directBody);
+            ApiResponse result;
+            result.statusCode = 200;
+            result.contentType = "application/json";
+            result.body = R"json({"success":true})json";
+            return result;
+        });
+    assert(post(directUpdate,directBody).statusCode == 200);
+    assert(directCalls == 1);
+    assert(post(directDelete,directBody).statusCode == 200);
+    assert(directCalls == 2);
+    ownership = "external";
+    bindingState = "adoption_required";
+    assert(post(directUpdate,directBody).statusCode == 200);
+    assert(directCalls == 3);
+    ownership = "managed";
+    bindingState = "verified";
+    assert(post(directUpdate,directBody).statusCode == 409);
+    assert(directCalls == 3);
+    ownership = "unbound";
+    bindingState = "binding_required";
+    assert(post(directUpdate+"&limit=1",directBody).statusCode == 400);
+    assert(post(directUpdate,directBody,"","","text/plain").statusCode == 415);
+    assert(post(directUpdate,directBody,"","", "application/json").statusCode == 200);
+    runtime.resetNativeTimerDirectAction();
+    runtime.resetNativeTimerDetailLookup();
 }
