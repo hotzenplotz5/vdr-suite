@@ -10,7 +10,8 @@ constexpr std::int64_t MaximumCandidateWindowSeconds = 24 * 3600;
 Decision evaluate(const NativeSnapshot& s)
 {
   Decision result;
-  if (!s.proposedOneShot || !s.proposedChannelVerified ||
+  if ((s.proposedOneShot == s.proposedRecurring) ||
+      !s.proposedChannelVerified ||
       !s.proposedFreeToAir || s.proposedStart <= 0 ||
       s.proposedStop <= s.proposedStart ||
       s.proposedStop - s.proposedStart >= MaximumCandidateWindowSeconds) {
@@ -56,8 +57,11 @@ Decision evaluate(const NativeSnapshot& s)
     result.reason = "no_proven_nonpreempting_native_device";
     return result;
   }
-  result.disposition = Disposition::candidateClear;
-  result.reason = "isolated_one_shot_native_device_candidate_clear";
+  result.disposition = s.proposedRecurring
+      ? Disposition::recurringInitialClear : Disposition::candidateClear;
+  result.reason = s.proposedRecurring
+      ? "isolated_recurring_initial_native_device_candidate_clear"
+      : "isolated_one_shot_native_device_candidate_clear";
   return result;
 }
 

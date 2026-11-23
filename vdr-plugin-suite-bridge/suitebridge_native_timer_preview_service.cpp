@@ -151,8 +151,18 @@ bool parsePreview(const std::vector<std::string>& a,
     return false;
   request.enabled = a[14] == "1";
   request.vps = a[15] == "1";
+  bool validWeekdays = request.weekdays.size() == 7U;
+  bool recurring = false;
+  constexpr char kWeekdays[] = "MTWTFSS";
+  if (validWeekdays) {
+    for (std::size_t i = 0; i < 7; ++i) {
+      if (request.weekdays[i] == '-') continue;
+      if (request.weekdays[i] != kWeekdays[i]) validWeekdays = false;
+      recurring = true;
+    }
+  }
   if (request.channelId.empty() || title.empty() ||
-      request.weekdays != "-------" || !request.enabled ||
+      !validWeekdays || !request.enabled ||
       request.vps || request.day.size() != 10 ||
       request.day[4] != '-' || request.day[7] != '-' ||
       !validHhmm(request.startTime) ||
@@ -178,6 +188,7 @@ std::string snapshotRevision(
   append(state, std::to_string(observedAt));
   append(state, std::to_string(snapshot.proposedStart));
   append(state, std::to_string(snapshot.proposedStop));
+  append(state, snapshot.proposedRecurring ? "recurring-initial" : "one-shot");
   state = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
       state);
   if (state.empty()) return {};
@@ -233,7 +244,8 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerPreviewService::Handle(
     return reply(550, "vdr-suite-ntpreview-rejected/1 native_capture_failed");
   }
   const Decision evaluated = evaluate(snapshot);
-  if (evaluated.disposition != Disposition::candidateClear)
+  if (evaluated.disposition != Disposition::candidateClear &&
+      evaluated.disposition != Disposition::recurringInitialClear)
     return reply(550, std::string("vdr-suite-ntpreview-rejected/1 ") +
         evaluated.reason);
   const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
@@ -249,6 +261,8 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerPreviewService::Handle(
          << request.unixStart << ' ' << request.unixStop << ' '
          << now << ' ' << revision << ' '
          << evaluated.consideredTimers << ' '
-         << evaluated.consideredDevices << " isolated_clear";
+         << evaluated.consideredDevices <<
+         (evaluated.disposition == Disposition::recurringInitialClear
+              ? " isolated_initial_clear" : " isolated_clear");
   return reply(900, result.str());
 }

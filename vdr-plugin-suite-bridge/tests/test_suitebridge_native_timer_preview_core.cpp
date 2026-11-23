@@ -86,6 +86,20 @@ int main()
   s = isolated();
   s.proposedOneShot = false;
   assert(evaluate(s).disposition == Disposition::unknown);
+  // Recurring candidates have a distinct positive verdict: only their
+  // attested first occurrence is clear, not the whole infinite schedule.
+  s = isolated();
+  s.proposedOneShot = false;
+  s.proposedRecurring = true;
+  const auto initial = evaluate(s);
+  assert(initial.disposition == Disposition::recurringInitialClear);
+  assert(std::string(initial.reason) ==
+      "isolated_recurring_initial_native_device_candidate_clear");
+  s.proposedOneShot = true;
+  assert(evaluate(s).disposition == Disposition::unknown);
+  s.proposedOneShot = false;
+  s.existingTimers.push_back({true, false, 0, 0});
+  assert(evaluate(s).disposition == Disposition::unknown);
   s = isolated();
   s.proposedStop = s.proposedStart + 24 * 3600;
   assert(evaluate(s).disposition == Disposition::unknown);

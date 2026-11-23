@@ -26,10 +26,11 @@ void field(std::string& output, const std::string& s)
 }
 std::string wire(const std::string& epoch = "pie_test",
                  const std::string& channel = "S19.2E-1-1019-10301",
-                 const std::string& day = "2026-10-17")
+                 const std::string& day = "2026-10-17",
+                 const std::string& days = "-------")
 {
   const std::string title = "News", directory = "TV";
-  const std::string days = "-------", startTime = "0740",
+  const std::string startTime = "0740",
                     endTime = "0840";
   std::string f = "native-timer-specification/1|";
   for (const auto& item : {channel, title, directory, day, days,
@@ -81,6 +82,22 @@ int main()
   assert(r.replyCode == 501 && r.payload.find("stale") != std::string::npos);
   r = service.Handle("NTPREVIEW", wire("pie_test", "bad.channel").c_str());
   assert(r.replyCode == 900); // digest matches; native reader decides channel
+  SuiteBridgeNativeTimerPreviewService recurring(
+      "pie_test", [](const SuiteBridgeNativeTimerPreviewVdrRequest& request) {
+        NativeSnapshot s = snapshot(request);
+        s.proposedOneShot = false;
+        s.proposedRecurring = true;
+        return s;
+      });
+  r = recurring.Handle("NTPREVIEW",
+      wire("pie_test", "S19.2E-1-1019-10301",
+           "2026-10-17", "-----SS").c_str());
+  assert(r.replyCode == 900);
+  assert(r.payload.find(" isolated_initial_clear") != std::string::npos);
+  r = recurring.Handle("NTPREVIEW",
+      wire("pie_test", "S19.2E-1-1019-10301",
+           "2026-10-17", "T------").c_str());
+  assert(r.replyCode == 501);
   r = service.Handle("NTPREVIEW", (good + " extra").c_str());
   assert(r.replyCode == 501);
 

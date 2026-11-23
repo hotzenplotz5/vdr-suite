@@ -36,7 +36,9 @@ inline bool nativeMinuteExpandedWindow(std::int64_t start, std::int64_t stop,
   return true;
 }
 
-enum class Disposition { unknown, candidateClear };
+// A recurring positive decision certifies only the attested initial airing.
+// Future VDR-managed weekly occurrences are never claimed conflict-free.
+enum class Disposition { unknown, candidateClear, recurringInitialClear };
 
 struct ExistingTimer {
   bool active = false;
@@ -58,6 +60,7 @@ struct NativeSnapshot {
   std::int64_t proposedStart = 0;
   std::int64_t proposedStop = 0;
   bool proposedOneShot = false;
+  bool proposedRecurring = false;
   bool proposedChannelVerified = false;
   bool proposedFreeToAir = false;
   bool allTimersEnumerated = false;
