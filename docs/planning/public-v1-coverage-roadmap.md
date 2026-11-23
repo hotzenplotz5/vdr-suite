@@ -16,6 +16,19 @@ Der Reference-JS-Client prüft für Titel/Verzeichnis jetzt dieselben
 JavaScript-Regressionstest ist in einer isolierten Laufzeit ausgeführt;
 GitHub-Actions- und Real-VDR-Abnahme bleiben davon unberührt.
 
+**F5.5.5.4 – Operation-Readback-Vertragsprüfung (Source-Stand):**
+Der Manual-CREATE-HTTP-Test prüft die tatsächliche flache Public-v1-
+`DurableOperation`-Antwort (`operationId`, `state`, `backendId`,
+`links.self`) ohne fiktives `operation`-Wrapperobjekt. Der
+Reference-JS-Test nutzt dieselbe Response-Form und prüft zusätzlich
+das explizite Wiederholen einer dauerhaft gespeicherten Operation mit
+`state=outcome_unknown`; HTTP 202 bestätigt weiterhin keine native
+Timer-Erstellung. Die drei bestehenden F5-Referenzclient-Tests wurden
+auf dem HEAD `438525b7` in einer isolierten JavaScript-Laufzeit mit
+`TextEncoder`-/`URLSearchParams`-Kompatibilität ausgeführt: alle PASS.
+Dies ist ausdrücklich **kein regulärer Node-Testlauf, kein C++-Build,
+keine GitHub-Actions-CI und keine Real-VDR-Abnahme**.
+
 **F5.5.5.2 – Public-v1 Manuell-CREATE (Source-Stand; CI/Hardware offen):**
 Die Route POST /api/v1/manual/timer-intents nimmt absolute Unix-Zeiten,
 Kanal, Titel/Verzeichnis, Priorität, Lebensdauer, Enabled und VPS an.
