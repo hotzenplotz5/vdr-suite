@@ -6989,6 +6989,16 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 return true;
             }
         }
+        // Additive feature hint; old servers still serve legacy native writes.
+        bool directActionsAvailable = false;
+        if ((found.ownership == "external" &&
+             found.bindingState == "adoption_required") ||
+            (found.ownership == "unbound" &&
+             found.bindingState == "binding_required"))
+        {
+            std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+            directActionsAvailable = static_cast<bool>(nativeTimerDirectAction_);
+        }
         const auto& t = found.timer;
         response = jsonResponse(
             "{\"backendId\":\"" + jsonEscape(found.backendId) +
@@ -7011,6 +7021,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             ",\"pending\":" + (t.pending ? "true" : "false") +
             ",\"ownership\":\"" + jsonEscape(found.ownership) +
             "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
+            (directActionsAvailable ? ",\\\"directActions\\\":true" : "") +
             "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
             requestId, correlationId);
         if (!tag.empty()) response.headers["ETag"] = tag;
