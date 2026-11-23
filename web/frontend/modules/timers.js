@@ -520,6 +520,7 @@
       ? publicNativeTimerUpdatePayload(payload)
       : {kind: 'toggle', enabled: payload.active};
     const fingerprint = JSON.stringify([type, payload]);
+    let publicWriteAttempted = false;
     button.disabled = true;
     setFeedback(feedback, 'Native Timer-Bindung wird geprüft …', false);
     return Promise.resolve().then(() => api.fetchPublicNativeTimerDetail({
@@ -541,6 +542,9 @@
       }
       const request = {backendId: payload.backendId, timerId: payload.timerId,
         ifMatch: detail.etag, idempotencyKey: attempt.key};
+      // From this point an unknown transport result may already have
+      // mutated VDR; NEVER fall back to a second writer.
+      publicWriteAttempted = true;
       const write = type === 'delete'
         ? api.fetchPublicNativeTimerDelete(request)
         : api.fetchPublicNativeTimerModify(Object.assign(request,
@@ -562,7 +566,7 @@
       // with direct timers.modify/delete grants. HTTP 403 is a proven
       // pre-dispatch denial by SecurityHttpGate; the existing legacy route
       // independently enforces the caller's original Timer permissions.
-      if (error && error.status === 403)
+      if (!publicWriteAttempted || (error && error.status === 403))
         return executeAction(legacyType, legacyPayload, button, feedback);
       // Never fall through after an uncertain Public-v1 mutation outcome.
       setFeedback(feedback, 'Timer-Aktion nicht bestätigt: ' +
