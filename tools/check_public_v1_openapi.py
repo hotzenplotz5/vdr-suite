@@ -52,6 +52,12 @@ AUDITED = {
     "/api/v1/native-timers/{timerId}/aux": {
         "get": "publicNativeTimerAuxPath(path, nativeTimerId))",
     },
+    "/api/v1/native-timers/{timerId}/direct-update": {
+        "post": "if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))",
+    },
+    "/api/v1/native-timers/{timerId}/direct-delete": {
+        "post": "if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))",
+    },
     "/api/v1/native-timers/{timerId}/modifications": {
         "post": "if (publicNativeTimerModificationPath(path, modifiedTimerId))",
     },
