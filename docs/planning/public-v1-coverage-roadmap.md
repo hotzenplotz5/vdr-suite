@@ -1,5 +1,31 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
+
+Der bestehende Browser-Client stellt die bereits produktiv registrierten
+Public-v1-Native-Timer-Mutationen nun **explizit und getrennt** bereit:
+`fetchPublicNativeTimerModify` (UPDATE/TOGGLE) und
+`fetchPublicNativeTimerDelete`. Beide verwenden den unveränderten
+Referenzclient, das aktuelle Browser-CSRF, das vom Aufrufer gelieferte
+starke Binding-ETag und einen eindeutigen Idempotency-Key. HTTP 202 wird
+als asynchrone Operation zurückgegeben, niemals als synchrones `success`.
+OpenAPI beschreibt den bereits bestehenden Browser-Administrator-Zugang
+mit CSRF neben Device-Credentials korrekt. Keine neue Autorisierung,
+kein weiterer Writer und kein neuer Timer/Recording-Dispatch.
+
+Die Web-Formularwerte `priority=0` und `lifetime=0` bleiben beim
+Öffnen des Editors erhalten; zuvor ersetzte `||` diese gültigen Werte
+unbemerkt durch Defaults. Lese-/Schreib-Regressionen sichern dies ab.
+
+**Nicht gleichwertig / weiterhin offen für F5.5/F5.6:** manueller
+CREATE-Editor, extern/ungebunden verwaltete Timer, laufende Aufnahme
+stoppen/löschen, `aux` (plugin-spezifische Daten außerhalb des
+fingerprint-geschützten Binding-Modells), vollständiges
+Operation-/Readback-Verhalten und Rechteparität für Nicht-Administratoren.
+Der existierende synchron arbeitende Web-Timer-Editor bleibt deshalb
+auf `/api/vdr/timers/actions/*`; keine stille Migration. Real-VDR-
+und Installationsabnahme bleibt F8.
+
 ## API.V1.F5.4 – Native-Timer-Felder ohne neue Writer (22.11.2026)
 
 Die bestehenden öffentlichen GET-DTOs für Liste und Detail

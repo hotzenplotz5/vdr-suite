@@ -436,6 +436,38 @@
     });
   }
 
+  // F5.5: Explicit Public-v1 native mutation client, separate from the
+  // synchronous legacy editor. The caller supplies the current binding ETag,
+  // one idempotency key and, for UPDATE, the complete native specification.
+  // The reference client sends exactly once and returns a durable Operation,
+  // never the legacy {success:true} result.
+  function fetchPublicNativeTimerModify(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().modifyNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifMatch: input.ifMatch,
+      idempotencyKey: input.idempotencyKey,
+      payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  function fetchPublicNativeTimerDelete(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().deleteNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifMatch: input.ifMatch,
+      idempotencyKey: input.idempotencyKey,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
   // One public EPG Timer CREATE path for all browser EPG surfaces. The
   // server owns the native timer, VDR margins and conflict decision.
   // Never synthesize If-Match from a cached EPG card or retry a POST.
@@ -940,6 +972,8 @@
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchPublicNativeTimerPage: fetchPublicNativeTimerPage,
     fetchPublicNativeTimerDetail: fetchPublicNativeTimerDetail,
+    fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
+    fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,

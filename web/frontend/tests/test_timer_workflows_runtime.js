@@ -91,6 +91,22 @@ assert.strictEqual(payload.active, false);
 assert.strictEqual(payload.vps, true);
 assert.deepStrictEqual(Array.from(api.validateTimerPayload(payload, true)), []);
 
+// F5.5 parity: zero is a valid value in both Public v1 and the legacy
+// browser editor. Do not replace it with the default when opening the form.
+const zeroTimer = api.normalizeTimer({
+  id: '78', channelId: 'C-1-2-3', title: 'Nullwerte',
+  day: '2026-11-24', startTime: '2015', endTime: '2030',
+  priority: 0, lifetime: 0
+}, 0);
+assert.strictEqual(zeroTimer.priority, 0);
+assert.strictEqual(zeroTimer.lifetime, 0);
+const zeroPayload = api.timerActionPayload(zeroTimer, {});
+assert.strictEqual(zeroPayload.priority, 0);
+assert.strictEqual(zeroPayload.lifetime, 0);
+assert.deepStrictEqual(Array.from(api.validateTimerPayload(zeroPayload, true)), []);
+assert.ok(source.includes("textInput('priority', timer.priority, 'number')"));
+assert.ok(source.includes("textInput('lifetime', timer.lifetime, 'number')"));
+
 const recordingTimer = api.normalizeTimer({
   id: '77',
   channelId: 'C-1-2-3',

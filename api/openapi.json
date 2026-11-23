@@ -10994,10 +10994,10 @@
         ],
         "operationId": "deletePublicNativeVdrTimer",
         "summary": "Delete a verified managed VDR native Timer asynchronously",
-        "description": "Exact backend-scoped Device-only timers.delete mutation. Requires a matching strong ETag from GET and a unique Idempotency-Key. Reserves an ADR-0042 timer.delete operation, dispatched once through the current backend Agent and provider-fenced SuiteBridge. Completion requires a full native Timer absence inventory; uncertain outcomes are reconciled, never blindly retried. Externally owned and unbound Timers are refused pending explicit adoption. Only managed/adopted TimerAssignments with an exact durable Binding are eligible.",
+        "description": "Exact backend-scoped Device or administrator Browser-session timers.delete mutation. Requires a matching strong ETag from GET and a unique Idempotency-Key. Reserves an ADR-0042 timer.delete operation, dispatched once through the current backend Agent and provider-fenced SuiteBridge. Completion requires a full native Timer absence inventory; uncertain outcomes are reconciled, never blindly retried. Externally owned and unbound Timers are refused pending explicit adoption. Only managed/adopted TimerAssignments with an exact durable Binding are eligible.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Device credential required, exact timers.delete@backendId grant and audited protected mutation"
+          "authorization": "Device credential with exact timers.delete@backendId, or existing administrator Browser session with CSRF and effective timers.delete@backendId; audited mutation"
         },
         "parameters": [
           {
@@ -11087,10 +11087,14 @@
         },
         "security": [
           {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
             "deviceCredential": []
           }
         ],
-        "x-vdr-suite-auth-profile": "device"
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
       }
     },
     "/api/v1/native-timers/{timerId}/modifications": {
@@ -11100,10 +11104,10 @@
         ],
         "operationId": "modifyPublicNativeVdrTimer",
         "summary": "Asynchronously update or activate/deactivate a verified bound native Timer",
-        "description": "Device-only, exact-backend timers.modify action. No implicit external adoption. Strong If-Match and Idempotency-Key are mandatory. UPDATE requires the complete target native Timer specification; TOGGLE accepts only kind and enabled and preserves remaining fields from the verified binding. Once accepted, one provider-fenced Agent command executes, and the mutation succeeds only after exact native Timer specification readback. Uncertain executor results are reconciled, not blindly retried.",
+        "description": "Device or administrator Browser-session, exact-backend timers.modify action. No implicit external adoption. Strong If-Match and Idempotency-Key are mandatory. UPDATE requires the complete target native Timer specification; TOGGLE accepts only kind and enabled and preserves remaining fields from the verified binding. Once accepted, one provider-fenced Agent command executes, and the mutation succeeds only after exact native Timer specification readback. Uncertain executor results are reconciled, not blindly retried.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Device credential and exact timers.modify@backendId; audited mutation"
+          "authorization": "Device credential with exact timers.modify@backendId, or existing administrator Browser session with CSRF and effective timers.modify@backendId; audited mutation"
         },
         "parameters": [
           {
@@ -11296,10 +11300,14 @@
         },
         "security": [
           {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
             "deviceCredential": []
           }
         ],
-        "x-vdr-suite-auth-profile": "device"
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
       }
     },
     "/api/v1/epg/artwork": {

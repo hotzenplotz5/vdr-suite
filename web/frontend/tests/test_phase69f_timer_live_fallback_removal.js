@@ -9,11 +9,12 @@ const clientPath = path.resolve(__dirname, '..', 'api', 'client-api.js');
 const source = fs.readFileSync(clientPath, 'utf8');
 const requests = [];
 
-function response(status, payload, etag) {
+function response(status, payload, etag, location) {
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: { get(name) { return name === 'ETag' ? (etag || null) : null; } },
+    headers: { get(name) { return name === 'ETag' ? (etag || null) :
+      name === 'Location' ? (location || null) : null; } },
     text() { return Promise.resolve(status === 304 ? '' : JSON.stringify(payload)); },
     arrayBuffer() { return Promise.resolve(new ArrayBuffer(0)); }
   };
@@ -27,6 +28,13 @@ const context = {
     const target = String(url);
     requests.push({url: target, options});
     if (target.startsWith('https://suite.example/api/v1/native-timers')) {
+      if (options.method === 'POST' || options.method === 'DELETE') {
+        if (options.headers['Idempotency-Key'] === 'idem-conflict')
+          return Promise.resolve(response(409, {error: {code: 'operation_conflict'}}));
+        const id = options.method === 'POST' ? 'op_modify_f55' : 'op_delete_f55';
+        return Promise.resolve(response(202, {operation: {operationId: id, state: 'accepted'}},
+          null, '/api/v1/operations/' + id));
+      }
       if (target.includes('backendId=offline')) return Promise.resolve(response(503, {
         error: {code: 'backend_unavailable', message: 'Native timer unavailable'}
       }));
@@ -60,6 +68,9 @@ const context = {
   }
 };
 context.window = context;
+context.VdrSuiteBrowserSession = {
+  csrfHeaders() { return {'X-CSRF-Token': 'browser-fixture-csrf'}; }
+};
 
 vm.createContext(context);
 const referencePath = path.resolve(__dirname, '..', '..', '..',
@@ -144,7 +155,54 @@ async function run() {
   }));
   assert.strictEqual(requests.length, 5);
 
-  console.log('test_phase69f_timer_live_fallback_removal and F5.3 public reads passed');
+  // F5.5: explicit browser-admin Public-v1 write adapters retain the server
+  // operation contract, inject existing session CSRF, and never replace CRUD.
+  const currentTag = detail.etag;
+  const targetSpec = {
+    kind: 'update', channelId: 'C-1-2-3', title: 'Tagesschau',
+    directory: 'News~Tagesschau', day: '2026-11-24', weekdays: '-------',
+    startTime: '2015', endTime: '2030', priority: 0, lifetime: 0,
+    enabled: true, vps: true
+  };
+  const modified = await api.fetchPublicNativeTimerModify({
+    backendId: 'living-room', timerId: 'timer:abc-12', ifMatch: currentTag,
+    idempotencyKey: 'idem-modify', payload: targetSpec
+  });
+  assert.strictEqual(modified.status, 202);
+  assert.strictEqual(modified.data.operation.operationId, 'op_modify_f55');
+  assert.strictEqual(modified.location, '/api/v1/operations/op_modify_f55');
+  assert.strictEqual(requests.length, 6);
+  assert.strictEqual(requests[5].options.method, 'POST');
+  assert.strictEqual(requests[5].url,
+    'https://suite.example/api/v1/native-timers/timer:abc-12/modifications?backendId=living-room');
+  assert.deepStrictEqual(JSON.parse(requests[5].options.body), targetSpec);
+  assert.strictEqual(requests[5].options.headers['If-Match'], currentTag);
+  assert.strictEqual(requests[5].options.headers['Idempotency-Key'], 'idem-modify');
+  assert.strictEqual(requests[5].options.headers['X-CSRF-Token'], 'browser-fixture-csrf');
+  assert.strictEqual(requests[5].options.credentials, 'same-origin');
+  const removed = await api.fetchPublicNativeTimerDelete({
+    backendId: 'living-room', timerId: 'timer:abc-12', ifMatch: currentTag,
+    idempotencyKey: 'idem-delete'
+  });
+  assert.strictEqual(removed.status, 202);
+  assert.strictEqual(removed.data.operation.operationId, 'op_delete_f55');
+  assert.strictEqual(requests.length, 7);
+  assert.strictEqual(requests[6].options.method, 'DELETE');
+  assert.strictEqual(requests[6].options.body, undefined);
+  assert.strictEqual(requests[6].options.headers['X-CSRF-Token'], 'browser-fixture-csrf');
+  const conflict = await captureFailure(() => api.fetchPublicNativeTimerModify({
+    backendId: 'living-room', timerId: 'timer:abc-12', ifMatch: currentTag,
+    idempotencyKey: 'idem-conflict', payload: targetSpec
+  }));
+  assert.strictEqual(conflict.status, 409);
+  assert.strictEqual(requests.length, 8, '409 must not trigger a legacy retry');
+  assert.throws(() => api.fetchPublicNativeTimerDelete({
+    backendId: 'living-room', timerId: '../other', ifMatch: currentTag,
+    idempotencyKey: 'idem-invalid'
+  }));
+  assert.strictEqual(requests.length, 8, 'invalid IDs must not dispatch');
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  console.log('test_phase69f_timer_live_fallback_removal F5.3/F5.5 passed');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

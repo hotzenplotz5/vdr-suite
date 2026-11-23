@@ -702,8 +702,8 @@
     grid.appendChild(createField('Datum', textInput('day', timer.day, 'date')));
     grid.appendChild(createField('Start', textInput('start', timeToInput(timer.start), 'time')));
     grid.appendChild(createField('Ende', textInput('stop', timeToInput(timer.stop), 'time')));
-    grid.appendChild(createField('Priorität', textInput('priority', timer.priority || 50, 'number')));
-    grid.appendChild(createField('Lebensdauer', textInput('lifetime', timer.lifetime || 99, 'number')));
+    grid.appendChild(createField('Priorität', textInput('priority', timer.priority, 'number')));
+    grid.appendChild(createField('Lebensdauer', textInput('lifetime', timer.lifetime, 'number')));
     grid.appendChild(checkboxField('active', 'Aktiv', mode === 'create' ? true : timer.active));
     grid.appendChild(checkboxField('vps', 'VPS/PDC verwenden', timer.vps));
     grid.appendChild(createField('Aux/Metadaten', textInput('aux', timer.aux), true));
