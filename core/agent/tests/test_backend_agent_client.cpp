@@ -18,6 +18,7 @@
 #include <deque>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <sys/stat.h>
@@ -653,6 +654,54 @@ void test_backend_health_observation_lost_response_and_resync_recovery()
     assert(runtime.state().pendingObservationKind.empty());
 
     removeTree(root);
+}
+
+// BAS.7: reconnect must not wrap either persisted observation lineage.
+// Health and channels have different journals and keep their own error codes.
+void test_observation_lineage_generation_exhaustion()
+{
+    const auto maximum = static_cast<std::uint64_t>(
+        std::numeric_limits<std::int64_t>::max());
+    for (int kind = 0; kind < 2; ++kind)
+    {
+        const bool channel = kind == 1;
+        const std::string root = channel
+            ? "/tmp/vdr-suite-agent-client-channel-generation-exhausted"
+            : "/tmp/vdr-suite-agent-client-health-generation-exhausted";
+        removeTree(root);
+        assert(mkdir(root.c_str(), 0700) == 0);
+        const BackendAgentClientConfig config = configFor(root);
+        BackendAgentClientState state;
+        state.agentId = "agt_client";
+        state.backendId = "default";
+        state.credentialId = "agc_client";
+        state.credentialSecret = Secret;
+        state.credentialGeneration = 1;
+        state.backendGeneration = 1;
+        state.observationBackendGeneration = 1;
+        state.observationSnapshotGeneration = channel ? 1 : maximum;
+        state.channelObservationBackendGeneration = 1;
+        state.channelObservationSnapshotGeneration = channel ? maximum : 1;
+        std::string reason;
+        assert(BackendAgentClientRuntime::writeIdentityAtomically(
+            config.identityPath, state, reason));
+
+        FakeTransport transport;
+        transport.responses.push_back(success(
+            200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+                 "\"backendGeneration\":2,\"credentialGeneration\":1,"
+                 "\"heartbeatSequence\":0,\"capabilityRevision\":1,"
+                 "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+        BackendAgentClientRuntime runtime(config, transport);
+        assert(!runtime.synchronize(reason));
+        assert(reason == (channel
+            ? "channel_observation_snapshot_generation_exhausted"
+            : "observation_snapshot_generation_exhausted"));
+        assert(transport.paths == std::vector<std::string>({
+            "/api/agent/v1/connect"}));
+        assert(transport.responses.empty());
+        removeTree(root);
+    }
 }
 
 void test_legacy_identity_migrates_without_observation_cursor()
@@ -1603,6 +1652,7 @@ int main()
     test_enrollment_connect_capability_heartbeat_and_restart();
     test_credential_rotation_and_lost_response_recovery();
     test_backend_health_observation_lost_response_and_resync_recovery();
+    test_observation_lineage_generation_exhaustion();
     test_legacy_identity_migrates_without_observation_cursor();
     test_channel_source_and_strict_json_contract();
     test_channel_observation_publication_change_and_pending_retry();
