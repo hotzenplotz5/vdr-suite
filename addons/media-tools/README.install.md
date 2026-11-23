@@ -25,6 +25,25 @@ Die gemeinsame technische Grundlage umfasst:
 - Optional die vorhandenen H.264-Import- und H.265-Shrink-Parameter in `backend-agent.conf`, ohne einen zweiten Settings-Speicher.
 - Separate Entscheidungen für **Installieren**, **Aktivieren**, **Benutzerrechte** und **einen konkreten Medienauftrag**. Die Installation startet keinen Import von selbst.
 
+### Erstkonfiguration der Importverzeichnisse nach Paketinstallation
+
+Ein MLD-/Debian-/Ubuntu-Add-on-Paket soll keine host-spezifische
+`/etc/vdr-suite/addon-sources/media-import.tsv` ausliefern. Solange diese
+Datei fehlt (und die vorhandenen geschützten Konfigurationsverzeichnisse
+sowie die lokale Agent-Backend-ID gültig sind), liefert der bereits
+autorisierte Admin-Endpunkt `GET /api/v1/addons/rectools/sources` eine leere
+Erstkonfiguration statt `sources_unavailable`. Unter **Einstellungen →
+Media Tools → Importverzeichnisse** kann der Administrator dann einen
+tatsächlich vorhandenen Importordner hinzufügen und speichern. Die
+Serverseite benutzt für das Aufnahmeziel ausschließlich die bereits
+ermittelte lokale VDR-Root-Autorität (explizite Backend-Konfiguration
+oder SuiteBridge `VPATH 1`), keinen Distribution-Default und keinen
+freien Browser-Zielpfad. Fehlt dieser Wert, zeigt der Editor das an,
+speichert aber noch kein Quelleninventar. Ein gültiges vorhandenes
+Inventar bleibt unverändert; ein beschädigtes vorhandenes Inventar wird
+nicht als leer interpretiert. Erstes Speichern erstellt die lokale
+root-eigene Konfiguration, aktiviert aber weder Add-on noch Worker.
+
 ## Vor einer Installation oder einem Update
 
 1. **Bestand erkennen:** Gibt es bereits VDR-Suite, Backend-Agent, Media-Tools-Worker, ein manuelles Layout oder paketverwaltete Dateien? Bei vorhandener Installation ist ein Erstinstallationsskript nicht automatisch der richtige Weg.
