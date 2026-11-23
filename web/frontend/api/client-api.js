@@ -455,6 +455,19 @@
     });
   }
 
+  // The public write returns HTTP 202, not a completed Timer mutation.
+  // Read the existing durable Operation once; SSE is the frontend's
+  // preferred completion signal when the edit workflow is migrated.
+  function fetchPublicNativeTimerOperation(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getOperation({
+      operationId: input.operationId,
+      ifNoneMatch: input.ifNoneMatch,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
   function fetchPublicNativeTimerDelete(options) {
     const input = normalizeOptions(options);
     return publicNativeTimerClient().deleteNativeTimer({
@@ -974,6 +987,7 @@
     fetchPublicNativeTimerDetail: fetchPublicNativeTimerDetail,
     fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
     fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
+    fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,

@@ -9,6 +9,8 @@ Public-v1-Native-Timer-Mutationen nun **explizit und getrennt** bereit:
 Referenzclient, das aktuelle Browser-CSRF, das vom Aufrufer gelieferte
 starke Binding-ETag und einen eindeutigen Idempotency-Key. HTTP 202 wird
 als asynchrone Operation zurückgegeben, niemals als synchrones `success`.
+`fetchPublicNativeTimerOperation` liest den bestehenden dauerhaften
+Operation-Status einmalig, inklusive ETag/304; kein neues Polling.
 OpenAPI beschreibt den bereits bestehenden Browser-Administrator-Zugang
 mit CSRF neben Device-Credentials korrekt. Keine neue Autorisierung,
 kein weiterer Writer und kein neuer Timer/Recording-Dispatch.
@@ -21,10 +23,22 @@ unbemerkt durch Defaults. Lese-/Schreib-Regressionen sichern dies ab.
 CREATE-Editor, extern/ungebunden verwaltete Timer, laufende Aufnahme
 stoppen/löschen, `aux` (plugin-spezifische Daten außerhalb des
 fingerprint-geschützten Binding-Modells), vollständiges
-Operation-/Readback-Verhalten und Rechteparität für Nicht-Administratoren.
+Browser-SSE-/Operation-Ergebnisintegration und Rechteparität für Nicht-Administratoren.
 Der existierende synchron arbeitende Web-Timer-Editor bleibt deshalb
 auf `/api/vdr/timers/actions/*`; keine stille Migration. Real-VDR-
 und Installationsabnahme bleibt F8.
+
+| Fähigkeit des vorhandenen Web-Editors | Public-v1-Quellstand | F5.5/F5.6-Gate |
+| --- | --- | --- |
+| Liste/Detail, Sortierung, Status | GET /native-timers, Snapshot; F5.4-Grundfelder | Metadaten-/Sortierparität noch nicht vollständig |
+| Manuelles CREATE mit Kanal, Titel, Zeit, `aux` | EPG-TimerIntent nur für serverseitiges EPG-Ereignis | Manuelles CREATE fehlt |
+| UPDATE + aktiv/inaktiv für bestehende Timer | Nur verified managed/adopted Binding, ETag, Operation | Externe/ungeprüfte Timer bleiben nicht editierbar |
+| Timer löschen, bei Aufnahme ggf. Aufnahme stoppen | Native DELETE nur für gültige gebundene Timer, mit asynchronem Readback | Aufnahme-/externes-Timer-Verhalten fehlt |
+| Aux anzeigen/bearbeiten, EPGSearch-/TVScraper-Metadaten | Absichtlich nicht im Public DTO/Fingerprint; native MODIFY übernimmt bestehenden VDR-`Aux()`-Wert | Sichere Anzeige und Änderung nicht gleichwertig |
+| Synchrone Erfolgsmeldung und Refresh | HTTP 202 + einmaliges Operation GET vorhanden | UI-Ergebnisbestätigung über bestehende SSE-/Lifecycle-Anbindung fehlt |
+| Editorrechte von Human Accounts | Native Public-Write: Browser-Administrator + CSRF oder Device mit Backend-Grant | Nicht-Admin-Parität ungeprüft |
+
+Diese Tabelle ist ein **Quellcode-Abgleich**, kein Real-VDR-Abnahmebeleg.
 
 ## API.V1.F5.4 – Native-Timer-Felder ohne neue Writer (22.11.2026)
 

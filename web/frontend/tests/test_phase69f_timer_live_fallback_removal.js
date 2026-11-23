@@ -27,6 +27,11 @@ const context = {
   fetch(url, options) {
     const target = String(url);
     requests.push({url: target, options});
+    if (target.startsWith('https://suite.example/api/v1/operations/')) {
+      const etag = '"operation-revision-1"';
+      return Promise.resolve(response(options.headers['If-None-Match'] === etag ? 304 : 200,
+        {operationId: 'op_modify_f55', state: 'succeeded'}, etag));
+    }
     if (target.startsWith('https://suite.example/api/v1/native-timers')) {
       if (options.method === 'POST' || options.method === 'DELETE') {
         if (options.headers['Idempotency-Key'] === 'idem-conflict')
@@ -201,6 +206,27 @@ async function run() {
     idempotencyKey: 'idem-invalid'
   }));
   assert.strictEqual(requests.length, 8, 'invalid IDs must not dispatch');
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  const operation = await api.fetchPublicNativeTimerOperation({
+    operationId: 'op_modify_f55'
+  });
+  assert.strictEqual(operation.status, 200);
+  assert.strictEqual(operation.data.operationId, 'op_modify_f55');
+  assert.strictEqual(operation.data.state, 'succeeded');
+  assert.strictEqual(operation.etag, '"operation-revision-1"');
+  assert.strictEqual(requests.length, 9);
+  assert.strictEqual(requests[8].url,
+    'https://suite.example/api/v1/operations/op_modify_f55');
+  assert.strictEqual(requests[8].options.method, 'GET');
+  assert.strictEqual(requests[8].options.credentials, 'same-origin');
+  const unchanged = await api.fetchPublicNativeTimerOperation({
+    operationId: 'op_modify_f55', ifNoneMatch: operation.etag
+  });
+  assert.strictEqual(unchanged.status, 304);
+  assert.strictEqual(unchanged.data, null);
+  assert.strictEqual(requests[9].options.headers['If-None-Match'], operation.etag);
+  assert.throws(() => api.fetchPublicNativeTimerOperation({operationId: '../invalid'}));
+  assert.strictEqual(requests.length, 10, 'invalid operation ID must not dispatch');
   assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
   console.log('test_phase69f_timer_live_fallback_removal F5.3/F5.5 passed');
 }
