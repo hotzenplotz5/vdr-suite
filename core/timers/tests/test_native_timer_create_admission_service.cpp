@@ -1096,6 +1096,8 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
             "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
         ManualNativeTimerCreateReplayRequest recurringLookup = lookup;
         recurringLookup.idempotencyKey = recurring.idempotencyKey;
+        // Earlier negative replay intentionally mutated lookup.title.
+        recurringLookup.title = recurringNative.title;
         recurringLookup.weekdays = recurringNative.weekdays;
         const auto recurringReplay = second.admission.replayManualWindow(
             recurringLookup, second.intents);
