@@ -227,6 +227,9 @@ private:
     bool preparePendingBackendHealthObservation(std::string& reasonCode);
     bool promotePendingBackendHealthObservation(std::string& reasonCode);
     bool resetObservationLineage(std::string& reasonCode);
+    // Fresh command configuration for heartbeat and fast poll; live config
+    // remains owned by this runtime, not a persistent command cache.
+    BackendAgentCommandClientConfig commandClientConfig() const;
     bool pollCommands(std::string& reasonCode);
     bool persist(std::string& reasonCode);
     void log(const std::string& message) const;
