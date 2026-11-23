@@ -306,11 +306,65 @@ retention fix; it does **not** isolate that fix as the only causal change,
 prove the native `info` file matches, or exercise native Timer/Marks/Cut
 writes.
 
-**BAS.10 still OPEN:** run the focused media import browser composition
-test, the isolated root-only synthetic Media Import Agent fixture, and
-the native `info` readback when relevant. Verify non-mutating
-Health/Channel/OSD/heartbeat continuity on yaVDR as appropriate without
-automatic timer changes, cuts or re-imports. Do not equate hosted CI
-with real hardware end-to-end mutation acceptance. No additional Agent
-service, protocol, security gate or modified `AGENTS.md` was created.
-`main` and the parallel Public API v1 branch remain untouched.
+**BAS.10 test evidence – real yaVDR (23.11.2026):** The operator
+fast-forwarded the existing `work/bas-simplification` checkout from
+`34c16b2e` to `da29777ab4074ba05ccb4bb0644c68f364ca3050`.
+The focused `node web/frontend/tests/test_media_import_composition.js`
+printed `A7.5 real web composition and media import lifecycle: PASS`
+and `BAS10_FRONTEND=PASS`. The isolated C++ Agent fixture
+`make build-media-tools-agent-composition-test` plus
+`TMPDIR=/root .build/addons/test_backend_agent_media_import_runtime`
+completed `BAS10_AGENT_INTEGRATION=PASS`. These are local tests, not the
+unrelated failing full frontend CI job.
+
+**Native recording-info readback – PASS:** The already imported
+`/srv/vdr/video.00/Serien/Rom/…S01E02…/info` includes
+`T Rom`, `S Wie Titus Pullo die Republik stürzte` and the episode
+description. A separate `Lost Treasures of Rome` `info` was also read,
+without writing files or repeating an import.
+
+**Exact Agent-only installation and live smoke – PASS:** On yaVDR,
+`make backend-agent` completed `BAS10_BUILD=PASS`; the installed
+`/usr/sbin/vdr-suite-backend-agent` compared byte-identically to the
+built binary (`BAS10_BINARY=PASS`). The previous executable was saved
+at `/root/vdr-suite-bas10.YDYog7ik/backend-agent`, and only
+`vdr-suite-backend-agent.service` was restarted. The systemd unit
+became `active/running` (observed PID `5920`) and logged
+`Backend Agent synchronized` at `07:51:28+01:00`.
+The configured `ADAPTERS=channels-conf` and
+`OBSERVATION_DOMAINS=backend-health,channels,osd` use a 30-second
+heartbeat. No daemon/VDR restart, Timer/Recording mutation or reimport
+was performed as part of this BAS.10 upgrade.
+
+**Durable backend observation readback – PASS:** A read-only query
+against the actual `/var/lib/vdr-suite/vdr-suite.db` reported:
+backend generation `1329`, heartbeat sequence `20`, heartbeat age
+`22 s`, lease remaining `68 s` (`BAS10_LEASE=PASS`);
+Health snapshot `679`, producer sequence `20`, age `22 s`
+(`BAS10_HEALTH=PASS`); Channel snapshot `679`, producer sequence
+`1`, `343` accepted channel facts (`BAS10_CHANNELS=PASS`).
+Channel cursor age `611 s` is compatible with the existing
+unchanged-`channels.conf` skip policy; this particular readback
+does not prove a new Channel snapshot was delivered after upgrade.
+Both cursor generations matched the current backend generation.
+
+**Residual scope and classification:** BAS.10's focused build,
+frontend composition, isolated Agent fixture, real installed binary,
+synchronization, lease, Health/Channels and imported native `info`
+are verified. The OSD domain is **configured**, but no fresh
+authorized OSD-frame readback or current-frame availability is
+demonstrated; retain that as an explicit observation-specific gap,
+not an assumed PASS. Real native Timer/Marks/Cut mutations on hardware
+were intentionally not requested. Earlier `agent_protocol_rejected`
+messages occurred during daemon startup; the separate
+`command_poll.lease_wait duration_ms=3246` coincided with Control
+Plane shared database-lease contention and is a performance finding,
+not a proven BAS.7–9 regression. The full frontend aggregate still
+has the unrelated pre-existing MU.9E `role.admin` failure. Do not
+weaken that check or claim all CI green.
+
+**BAS.10 status:** critical delivered Agent and durable observation
+acceptance **PASS**, OSD live-frame confirmation **OPEN**, and PR #564
+remains **Draft** pending explicit maintainer merge authorization.
+`main` and the API-v1 branch stay untouched. No extra refactor,
+deployment or retesting of already accepted cases is required.
