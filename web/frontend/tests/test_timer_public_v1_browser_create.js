@@ -270,7 +270,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
             return name === 'ETag' ? '"native-timer-binding/1:fixture:2:3"' : null;
           }},
           text: async () => JSON.stringify({
-            backendId: 'living-room', timerId: '17', bindingState: nativeBindingState
+            backendId: 'living-room', timerId: '17', bindingState: nativeBindingState,
+            directActions: nativeDirectAvailable
           })
         });
       if (String(url) ===
@@ -293,6 +294,14 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
             backendId: 'living-room'
           })
         });
+      if (String(url) ===
+          'https://suite.example/api/v1/native-timers/17/direct-update?backendId=living-room' ||
+          String(url) ===
+          'https://suite.example/api/v1/native-timers/17/direct-delete?backendId=living-room')
+        return Promise.resolve({
+          status: 200, ok: true, headers: {get() {return null;}},
+          text: async () => JSON.stringify({success: true})
+        });
       if (String(url) === 'https://suite.example/api/vdr/timers/actions/update' ||
           String(url) === 'https://suite.example/api/vdr/timers/actions/delete')
         return Promise.resolve({
@@ -312,6 +321,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     }
   };
   let nativeBindingState = 'verified';
+  let nativeDirectAvailable = false;
   // External and unbound native Timer reads retain the established writer.
   // Verify that the REAL browser/reference client routes their actions
   // through the existing authorized VDR endpoint, not a false v1 Operation.
@@ -473,5 +483,46 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.deepStrictEqual(JSON.parse(unboundCalls[1].options.body),
     {backendId: 'living-room', timerId: '17'});
   assert.equal(unboundCalls[1].options.headers['X-CSRF-Token'], 'composition-csrf');
+    // The capability advertised by the new daemon switches the same browser
+  // to Public-v1 direct actions without ever dispatching legacy as well.
+  nativeBindingState = 'adoption_required';
+  nativeDirectAvailable = true;
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'External Public news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 50, lifetime: 99, enabled: true, aux: '<epgsearch/>'
+  }]});
+  const newExternalToggle = find(root, item =>
+    item.tagName === 'button' && item.textContent === 'Deaktivieren');
+  assert(newExternalToggle);
+  const beforeNativeDirect = httpRequests.length;
+  newExternalToggle.listeners.click();
+  await tick();
+  const newExternalCalls = httpRequests.slice(beforeNativeDirect);
+  assert.equal(newExternalCalls.length,2);
+  assert.equal(newExternalCalls[1].url,
+    'https://suite.example/api/v1/native-timers/17/direct-update?backendId=living-room');
+  assert.equal(newExternalCalls[1].options.method,'POST');
+  assert.equal(newExternalCalls[1].options.headers['X-CSRF-Token'],'composition-csrf');
+  assert.equal(JSON.parse(newExternalCalls[1].options.body).aux,'<epgsearch/>');
+  nativeBindingState = 'binding_required';
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'Unbound Public news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 50, lifetime: 99, enabled: true, aux: ''
+  }]});
+  const newUnboundDelete = find(root, item =>
+    item.tagName === 'button' && item.textContent === 'Timer löschen');
+  assert(newUnboundDelete);
+  const beforeDirectDelete = httpRequests.length;
+  newUnboundDelete.listeners.click();
+  await tick();
+  const newUnboundCalls = httpRequests.slice(beforeDirectDelete);
+  assert.equal(newUnboundCalls.length,2);
+  assert.equal(newUnboundCalls[1].url,
+    'https://suite.example/api/v1/native-timers/17/direct-delete?backendId=living-room');
+  assert.deepStrictEqual(JSON.parse(newUnboundCalls[1].options.body),
+    {backendId:'living-room',timerId:'17'});
+  assert.equal(newUnboundCalls[1].options.headers['X-CSRF-Token'],'composition-csrf');
     console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });
