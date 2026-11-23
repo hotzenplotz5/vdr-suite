@@ -6890,7 +6890,8 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "\",\"eventId\":\"" + jsonEscape(t.eventId) +
             "\",\"title\":\"" + jsonEscape(t.title) +
                 "\",\"directory\":\"" + jsonEscape(t.directory) +
-            "\",\"day\":\"" + jsonEscape(t.day) +
+                        ",\"subtitle\":\"" + jsonEscape(t.subtitle) +
+"\",\"day\":\"" + jsonEscape(t.day) +
             "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
             "\",\"startTime\":\"" + jsonEscape(t.startTime) +
             "\",\"endTime\":\"" + jsonEscape(t.endTime) +
@@ -6960,7 +6961,8 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "\",\"eventId\":\"" + jsonEscape(t.eventId) +
                 "\",\"title\":\"" + jsonEscape(t.title) +
                 "\",\"directory\":\"" + jsonEscape(t.directory) +
-                "\",\"day\":\"" + jsonEscape(t.day) +
+                                ",\"subtitle\":\"" + jsonEscape(t.subtitle) +
+"\",\"day\":\"" + jsonEscape(t.day) +
                 "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
                 "\",\"startTime\":\"" + jsonEscape(t.startTime) +
                 "\",\"endTime\":\"" + jsonEscape(t.endTime) +
