@@ -2,6 +2,14 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.5.3 – Reference-JS-Client (keine Browser-Migration):**
+`submitManualTimerIntent` verwendet den unveränderten HTTP-POST
+ohne EPG-If-Match, mit vollständiger One-shot-Spezifikation,
+Client-CSRF, Idempotency-Key, Operation-Location und keinem Retry.
+Der bestehende `test-public-v1-native-timer-read-client`-Target
+enthält den fokussierten Regressionstest. F5.6-Webfrontend-Umstellung
+bleibt unabhängig.
+
 **F5.5.5.2 – Public-v1 Manuell-CREATE (Source-Stand; CI/Hardware offen):**
 Die Route POST /api/v1/manual/timer-intents nimmt absolute Unix-Zeiten,
 Kanal, Titel/Verzeichnis, Priorität, Lebensdauer, Enabled und VPS an.

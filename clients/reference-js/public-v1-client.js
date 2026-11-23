@@ -1699,6 +1699,59 @@
     }
 
 
+
+    // F5.5.5: Submit one explicit manual native TimerIntent. This is an
+    // Operation resource, NOT a synchronous Timer-creation confirmation.
+    // Preserve the caller's key on a retry; never replay a native write here.
+    function submitManualTimerIntent(input) {
+      const o = input && typeof input === 'object' ? input : {};
+      const p = o.payload;
+      const path = '/api/v1/manual/timer-intents';
+      const fields = ['backendId', 'channelId', 'title', 'directory',
+        'startAt', 'stopAt', 'priority', 'lifetime', 'enabled', 'vps'];
+      if (!p || typeof p !== 'object' || Array.isArray(p) ||
+          Object.keys(p).length !== fields.length ||
+          Object.keys(p).some(key => !fields.includes(key)) ||
+          fields.some(key => !Object.prototype.hasOwnProperty.call(p, key)) ||
+          typeof p.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(p.backendId) ||
+          typeof p.channelId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(p.channelId) ||
+          typeof p.title !== 'string' || p.title.length < 1 ||
+          p.title.length > 1024 ||
+          typeof p.directory !== 'string' || p.directory.length > 1024 ||
+          !Number.isSafeInteger(p.startAt) || p.startAt <= 0 ||
+          !Number.isSafeInteger(p.stopAt) ||
+          p.stopAt <= p.startAt || p.stopAt - p.startAt >= 86400 ||
+          !Number.isInteger(p.priority) || p.priority < 0 || p.priority > 99 ||
+          !Number.isInteger(p.lifetime) || p.lifetime < 0 || p.lifetime > 99 ||
+          typeof p.enabled !== 'boolean' || typeof p.vps !== 'boolean' ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[!-~]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('Manual TimerIntent requires exact one-shot payload and Idempotency-Key');
+
+      const headers = Object.assign({Accept: 'application/json'},
+        defaultHeaders, copyHeaders(o.headers));
+      if (headers['If-Match'] !== undefined ||
+          headers['if-match'] !== undefined)
+        throw new Error('Manual TimerIntent CREATE has no EPG If-Match');
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers,
+        credentials: o.credentials !== undefined
+          ? o.credentials : normalized.credentials,
+        cache: 'no-store', signal: o.signal,
+        body: JSON.stringify(p)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        // HTTP 202 acknowledges only the durable Operation, not a Timer.
+        return {status: response.status, data,
+          location: headerValue(response, 'Location')};
+      }));
+    }
+
     // Native timers are current VDR snapshot resources, not TimerAssignments.
     // Keep their backendId/offset paging distinct from SearchTimer/Assignment
     // cursors and preserve the server's conditional ETag semantics on detail.
@@ -2426,6 +2479,9 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      submitManualTimerIntent(options) {
+        return submitManualTimerIntent(options);
       },
       submitTimerCreate(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
