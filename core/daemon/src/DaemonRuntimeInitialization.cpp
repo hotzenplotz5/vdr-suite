@@ -4395,7 +4395,7 @@ bool DaemonRuntime::initialize()
             ApiResponse response;
             response.statusCode = 503;
             response.contentType = "application/json";
-            response.body = "{\\"success\\":false}";
+            response.body = R"json({"success":false})json";
             if (actorRef.empty() || !vdrTimerActionRequestParser_ ||
                 !vdrTimerActionController_ ||
                 !vdrTimerActionExecutorAdapterRegistry_)
@@ -4405,7 +4405,7 @@ bool DaemonRuntime::initialize()
                 parsed.backendId != backendId || parsed.timerId != timerId)
             {
                 response.statusCode = 400;
-                response.body = "{\\"success\\":false,\\"error\\":\\"timer_identity_mismatch\\"}";
+                response.body = R"json({"success":false,"error":"timer_identity_mismatch"})json";
                 return response;
             }
             if (action == "update")
@@ -4415,7 +4415,7 @@ bool DaemonRuntime::initialize()
                 return vdrTimerActionController_->removeBody(
                     body, *vdrTimerActionExecutorAdapterRegistry_);
             response.statusCode = 400;
-            response.body = "{\\"success\\":false,\\"error\\":\\"invalid_action\\"}";
+            response.body = R"json({"success":false,"error":"invalid_action"})json";
             return response;
         });
 
