@@ -217,11 +217,24 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(legacy.length, 1);
   assert.strictEqual(legacy[0].weekdays, 'M------');
 
+  // An explicitly selected first Monday can now go via the same native
+  // Public-v1 CREATE Operation, without a legacy timer write.
+  fields.day.value = '2026-11-30';
+  fields.aux.value = '';
+  submit();
+  await tick();
+  assert.strictEqual(calls.length, 5);
+  assert.strictEqual(legacy.length, 1);
+  assert.strictEqual(calls[4].payload.weekdays, 'M------');
+  assert.strictEqual(calls[4].payload.startAt,
+    new Date(2026, 10, 30, 20, 15).getTime()/1000);
+
   weekday.checked = false;
+  fields.day.value = '2026-11-25';
   fields.aux.value = '<epgsearch/>';
   submit();
   await tick();
-  assert.strictEqual(calls.length, 4);
+  assert.strictEqual(calls.length, 5);
   assert.strictEqual(legacy.length, 2);
   assert.strictEqual(legacy[1].aux, '<epgsearch/>');
   // F5.6 production composition: same rendered Timer form, actual

@@ -298,11 +298,14 @@
     };
   }
 
-  // A manual Public-v1 TimerIntent expresses one absolute local-time window.
-  // Repeating timers and opaque VDR aux still retain the existing full editor.
-  function manualOneShotSpecification(payload) {
-    if (!payload || normalizeWeekdays(payload.weekdays) !== '-------' ||
-        String(payload.aux || '') !== '') return null;
+  // The VDR-owning backend checks the first occurrence's weekday and
+  // local-time projection. Without an explicit first date, recurring forms
+  // retain their existing native editor instead of guessing a timezone.
+  function manualTimerIntentSpecification(payload) {
+    if (!payload || String(payload.aux || '') !== '') return null;
+    const weekdays = normalizeWeekdays(payload.weekdays);
+    if (!/^[M-][T-][W-][T-][F-][S-][S-]$/.test(weekdays))
+      return null;
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(payload.day || ''));
     if (!match) return null;
     const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
@@ -316,6 +319,8 @@
     if (starts.getFullYear() !== year || starts.getMonth() !== month - 1 ||
         starts.getDate() !== day || starts.getHours() !== Math.floor(start / 100) ||
         starts.getMinutes() !== start % 100) return null;
+    if (weekdays !== '-------' && weekdays[(starts.getDay() + 6) % 7] === '-')
+      return null;
     let stops = at(stop, 0);
     if (stops <= starts) stops = at(stop, 1);
     const duration = (stops.getTime() - starts.getTime()) / 1000;
@@ -327,8 +332,14 @@
       backendId: payload.backendId, channelId: payload.channelId,
       title: payload.title, directory: payload.directory,
       startAt, stopAt, priority: payload.priority, lifetime: payload.lifetime,
-      enabled: payload.active, vps: payload.vps
+      enabled: payload.active, vps: payload.vps,
+      ...(weekdays === '-------' ? {} : {weekdays})
     };
+  }
+
+  function manualOneShotSpecification(payload) {
+    return payload && normalizeWeekdays(payload.weekdays) === '-------'
+      ? manualTimerIntentSpecification(payload) : null;
   }
 
   function newManualTimerIdempotencyKey() {
@@ -957,7 +968,13 @@
         setFeedback(feedback, errors.join(' '), true);
         return;
       }
-      const manual = mode === 'create' ? manualOneShotSpecification(payload) : null;
+      const manual = mode === 'create'
+        ? manualTimerIntentSpecification({
+          ...payload,
+          // The native editor intentionally leaves recurring day empty.
+          // Use the separately entered first-airing date only for Public v1.
+          day: form.elements.day.value.trim()
+        }) : null;
       if (manual) {
         const fingerprint = JSON.stringify(manual);
         try {
@@ -1244,6 +1261,7 @@
     directoryOptions: directoryOptions,
     timerActionPayload: timerActionPayload,
     manualOneShotSpecification: manualOneShotSpecification,
+    manualTimerIntentSpecification: manualTimerIntentSpecification,
     publicNativeTimerUpdatePayload: publicNativeTimerUpdatePayload,
     timerDeleteLabel: timerDeleteLabel,
     timerDeletePrompt: timerDeletePrompt,
