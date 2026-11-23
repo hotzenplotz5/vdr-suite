@@ -280,6 +280,18 @@ incidental findings and CI delays are not invented mandatory stop gates.
 Mark missing facts **UNVERIFIED**, inferences as inferences with evidence,
 and incomplete tests explicitly; never claim success before confirmation.
 
+**Execution capability and permission claims require evidence:** Before claiming
+an authorized operation is impossible, inspect the available tools and, when
+safe and authorized, attempt the relevant operation. Distinguish clearly:
+(a) no suitable tool in this session; (b) a concrete attempted call and its
+actual error; (c) a verified missing workflow trigger; (d) not attempted,
+therefore unknown. Only a real permission-denied response supports claiming
+insufficient account permissions. Missing tools are not missing permissions;
+a missing `workflow_dispatch` trigger alone does not rule out other valid
+GitHub Actions triggers. Never invent a call, error, result or limitation,
+and never create an artificial commit or unsafe side effect to force CI.
+Continue independent authorized work rather than turn uncertainty into a gate.
+
 **Mandatory evidence before code, tests or executable instructions:**
 - Verify the correct repository, current branch, **exact remote head SHA**,
   checkout root, tested candidate SHA and presence of all needed fixes.
