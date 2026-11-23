@@ -1742,6 +1742,13 @@
         defaultHeaders, copyHeaders(o.headers));
       if (Object.keys(headers).some(name => name.toLowerCase() === 'if-match'))
         throw new Error('Manual TimerIntent CREATE has no EPG If-Match');
+      // Fetch Headers treats names case-insensitively. Avoid two conflicting
+      // copies of transport-owned fields from caller/default headers.
+      Object.keys(headers).forEach(name => {
+        const lower = name.toLowerCase();
+        if (lower === 'content-type' || lower === 'idempotency-key')
+          delete headers[name];
+      });
       headers['Content-Type'] = 'application/json';
       headers['Idempotency-Key'] = o.idempotencyKey;
       return fetchImpl(buildUrl(baseUrl, path), {

@@ -25,6 +25,10 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
     assert.strictEqual(options.headers['X-CSRF-Token'],'fixture-csrf');
     assert.strictEqual(options.headers['If-Match'],undefined);
     assert.strictEqual(options.headers['Idempotency-Key'],'manual-once-1');
+    assert.strictEqual(Object.keys(options.headers).filter(
+      name=>name.toLowerCase()==='idempotency-key').length,1);
+    assert.strictEqual(Object.keys(options.headers).filter(
+      name=>name.toLowerCase()==='content-type').length,1);
     assert.deepStrictEqual(JSON.parse(options.body),payload);
     return calls.length===1
       ? respond(202,{operation:{operationId:'op_1',state:'accepted'}},
@@ -40,6 +44,9 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   assert.strictEqual(accepted.location,'/api/v1/operations/op_1');
   assert.strictEqual(accepted.data.operation.state,'accepted');
   await assert.rejects(client.submitManualTimerIntent(input),
+    err=>err.status===409);
+  await assert.rejects(client.submitManualTimerIntent({...input,
+    headers:{...input.headers,'IDEMPOTENCY-KEY':'wrong-key','content-type':'text/plain'}}),
     err=>err.status===409);
   const before=calls.length;
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,aux:'unsafe'}}));
