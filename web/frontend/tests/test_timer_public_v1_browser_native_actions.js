@@ -231,13 +231,25 @@ function editor() {
   assert.equal(legacy.length, 2);
   assert.equal(legacy[1].payload.aux, '<epgsearch/>');
 
+  // Removing a pre-existing aux value is also an aux edit, even when the
+  // submitted value is empty; Public v1 cannot silently ignore that edit.
+  render({...nativeTimer, aux: '<epgsearch/>'});
+  const clearAux = editor();
+  clearAux.elements.manualChannelId.value = 'C-1';
+  clearAux.elements.aux.value = '';
+  clearAux.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(legacy.length, 3);
+  assert.equal(legacy[2].payload.aux, '');
+  assert.equal(publicWrites.length, 4);
+
   // Stopping a current recording keeps the existing authorized action.
   render({...nativeTimer, recording: true});
   button('Aufnahme stoppen').listeners.click();
   await tick();
-  assert.equal(legacy.length, 3);
-  assert.equal(legacy[2].action, 'delete');
-  assert.deepEqual(JSON.parse(JSON.stringify(legacy[2].payload)),
+  assert.equal(legacy.length, 4);
+  assert.equal(legacy[3].action, 'delete');
+  assert.deepEqual(JSON.parse(JSON.stringify(legacy[3].payload)),
     {backendId: 'default', timerId: '17'});
 
   // A potentially dispatched public write never falls through to legacy.
@@ -250,6 +262,6 @@ function editor() {
   pending.listeners.click();
   await tick();
   assert.equal(publicWrites.at(-1).input.idempotencyKey, firstKey);
-  assert.equal(legacy.length, 3);
+  assert.equal(legacy.length, 4);
   console.log('Timer browser Public-v1 native actions + legacy parity PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
