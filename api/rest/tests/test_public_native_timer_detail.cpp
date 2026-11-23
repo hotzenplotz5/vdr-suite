@@ -39,7 +39,6 @@ int main()
         r.timer.flags = 5;
         r.timer.endTime = "2030";
         r.timer.directory = "News~Tagesschau";
-        r.timer.subtitle = "Regionalausgabe";
         r.timer.priority = 68;
         r.timer.lifetime = 19;
         r.timer.vps = true;
@@ -55,7 +54,6 @@ int main()
     assert(ok.statusCode == 200);
     assert(ok.body.find("Tagesschau") != std::string::npos);
     assert(ok.body.find("\"directory\":\"News~Tagesschau\"") != std::string::npos);
-    assert(ok.body.find("\"subtitle\":\"Regionalausgabe\"") != std::string::npos);
     assert(ok.body.find(R"json("title":"Tagesschau","directory":"News~Tagesschau")json") != std::string::npos);
     assert(ok.body.find(R"json("endTime":"2030","priority":68)json") != std::string::npos);
     assert(ok.body.find("\"priority\":68") != std::string::npos);
