@@ -278,17 +278,28 @@ function setEnsureFields(root, permission, backendId) {
     });
   }
   const originalGrants = cloneItems();
+  // A role must not cause the browser to invent effective permission policy.
+  // Only an exact current-scope grant suppresses an option; the server still
+  // determines which permission values are supported and authorized.
   grantItems = [{permission: 'role.admin', backendId: '*'}];
   let roleRoot = await renderRoot();
-  assert.deepStrictEqual(choicesForScope(roleRoot, '*'), ['', 'role.read-only']);
-  assert.deepStrictEqual(choicesForScope(roleRoot, 'default'), ['', 'role.read-only']);
-  assert.deepStrictEqual(choicesForScope(roleRoot, 'bedroom'), ['', 'role.read-only']);
+  for (const scope of ['*', 'default', 'bedroom']) {
+    const choices = choicesForScope(roleRoot, scope);
+    assert(!choices.includes('role.admin'),
+      'already granted global role must not be duplicated');
+    assert(choices.includes('role.read-only'));
+    assert(choices.includes('channels.view'),
+      'role inheritance must not hide server-supported permissions');
+  }
 
   grantItems = [{permission: 'role.admin', backendId: 'default'}];
   roleRoot = await renderRoot();
-  assert.deepStrictEqual(choicesForScope(roleRoot, 'default'), ['', 'role.read-only']);
-  assert(choicesForScope(roleRoot, '*').includes('timers.view'),
-    'backend administrator must not hide global permissions');
+  assert(!choicesForScope(roleRoot, 'default').includes('role.admin'),
+    'exact backend role grant must not be duplicated');
+  assert(choicesForScope(roleRoot, 'default').includes('timers.view'),
+    'backend role must not imply a browser-owned permission filter');
+  assert(choicesForScope(roleRoot, '*').includes('role.admin'),
+    'backend role must not hide the separate global role scope');
   assert(choicesForScope(roleRoot, 'bedroom').includes('channels.view'),
     'backend administrator must not hide another backend');
 
