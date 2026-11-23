@@ -3817,7 +3817,6 @@ bool DaemonRuntime::initialize()
                 item.eventId = timer.eventId;
                 item.title = timer.title;
                 item.directory = timer.directory;
-                item.subtitle = timer.subtitle;
                 item.day = timer.day;
                 item.weekdays = timer.weekdays;
                 item.startTime = timer.startTime;

@@ -364,7 +364,6 @@ int main()
             timer.startTime = "2000";
             timer.endTime = "2015";
             timer.directory = "Drama~Serie";
-            timer.subtitle = "Abendbericht";
             timer.flags = 5;
             timer.priority = 71;
             timer.lifetime = 24;
@@ -378,7 +377,6 @@ int main()
     assert(timers.body.find("\"timerId\":\"42\"") != std::string::npos);
     assert(timers.body.find("\"recording\":false") != std::string::npos);
     assert(timers.body.find("\"directory\":\"Drama~Serie\"") != std::string::npos);
-    assert(timers.body.find("\"subtitle\":\"Abendbericht\"") != std::string::npos);
     assert(timers.body.find("\"eventId\":\"ev-1967\"") != std::string::npos);
     assert(timers.body.find("\"flags\":5") != std::string::npos);
     assert(timers.body.find(R"json("title":"Nachrichten","directory":"Drama~Serie")json") != std::string::npos);

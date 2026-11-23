@@ -99,14 +99,6 @@ Komposition prüft nun zusätzlich die unveränderte Übergabe an den
 bestehenden Writer. Dies behebt **keine** noch fehlende
 Public-v1-Writer-/GET-Parität für Aux.
 
-**F5.5.1 – Native-Timer-Subtitle (Collection, Source-Stand):**
-Der bereits vorhandene VDR-Snapshot enthält `subtitle`; die Public-v1-
-Native-Timer-Liste gibt diesen Wert nun lesend weiter. Die konditionale
-Detailroute bleibt unverändert: Ihr Binding-ETag umfasst `subtitle`
-nicht, weshalb eine zusätzliche Detailprojektion ohne passende Revision
-veraltete `304`-Antworten riskieren würde. Keine neue Datenquelle,
-Berechtigung oder Mutation. C++-Quelltests ergänzt, Build/CI offen.
-
 **F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
 aus dem bestehenden `VdrTimer`-Snapshot in Liste und Detail projiziert.
 Beide Felder gehören bereits zum versionierten Binding-Fingerprint;
