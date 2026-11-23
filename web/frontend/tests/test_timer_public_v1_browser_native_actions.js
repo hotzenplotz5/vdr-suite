@@ -59,6 +59,7 @@ let opState = 'accepted';
 let failWrite = false;
 let denyWrite = false;
 let denyDetail = false;
+let unavailableDetail = false;
 let reloads = 0;
 let id = 0;
 const clientApi = {
@@ -66,6 +67,8 @@ const clientApi = {
     publicReads.push(input);
     if (denyDetail)
       return Promise.reject(Object.assign(new Error('v1 view denied'), {status: 403}));
+    if (unavailableDetail)
+      return Promise.reject(Object.assign(new Error('v1 read unavailable'), {status: 503}));
     return Promise.resolve({
       status: 200,
       etag: bindingState === 'verified' ? '"native-timer-binding/1:fixture:2:3"' : null,
@@ -301,6 +304,17 @@ function editor() {
   assert.equal(publicWrites.length, previousWrites);
   assert.equal(legacy.length, 6);
   assert.equal(legacy[5].action, 'update');
+
+  // An unavailable READ is not a failed native write; old Timer permissions
+  // remain usable. An uncertain WRITE (tested above) never receives fallback.
+  denyDetail = false;
+  unavailableDetail = true;
+  render();
+  button('Deaktivieren').listeners.click();
+  await tick();
+  assert.equal(publicWrites.length, previousWrites);
+  assert.equal(legacy.length, 7);
+  assert.equal(legacy[6].action, 'update');
 
   console.log('Timer browser Public-v1 native actions + legacy parity PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
