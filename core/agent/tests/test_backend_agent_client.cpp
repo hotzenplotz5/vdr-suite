@@ -1134,6 +1134,20 @@ void test_low_latency_command_poll_between_heartbeats()
         "/api/agent/v1/commands/poll");
     assert(transport.paths[requestsBeforeRun + 4] ==
         "/api/agent/v1/commands/poll");
+    // BAS.9: both the heartbeat and rapid polls must use the current
+    // authenticated backend identity, not a separately captured context.
+    for (const std::size_t offset : std::vector<std::size_t>{0, 3, 4})
+    {
+        const std::size_t index = requestsBeforeRun + offset;
+        assert(transport.bodies[index].find("\"backendId\":\"default\"") !=
+               std::string::npos);
+        assert(transport.bodies[index].find(
+            "\"agentInstanceId\":\"" + runtime.agentInstanceId() + "\"") !=
+            std::string::npos);
+        assert(transport.bodies[index].find("\"backendGeneration\":1") !=
+               std::string::npos);
+        assert(transport.credentialSecrets[index] == Secret);
+    }
     assert(
         transport.bodies.back().find("\"refreshCapabilities\":false") !=
         std::string::npos);
