@@ -122,6 +122,8 @@
                 ? 'Dieses Backend liegt auf einem anderen Server.'
                 : code === 'import_in_progress'
                   ? 'Gerade läuft ein Import. Bitte danach erneut speichern.'
+                  : code === 'video_root_unavailable'
+                    ? 'Aufnahmeziel des lokalen VDR noch nicht ermittelt.'
                   : code === 'invalid_sources' || code === 'overlapping_roots'
                     ? 'Ordner ungültig, fehlen oder überschneiden sich.'
                     : 'Importverzeichnisse können nicht gespeichert oder geladen werden.');
@@ -132,7 +134,8 @@
               typeof data.videoRoot !== 'string' ||
               !/^[0-9a-f]{16}$/.test(data.revision || '') ||
               !Array.isArray(data.sources) ||
-              data.sources.length < 1 || data.sources.length > 17 ||
+              (data.sources.length === 0 && data.initialSetup !== true) ||
+              data.sources.length > 17 ||
               !data.sources.every(function (item) {
                 return item && sourcePath(item.path) && sourceName(item.name);
               })) throw new Error('Ungültige Importverzeichnis-Antwort');
@@ -172,7 +175,7 @@
 
     function refreshControls() {
       add.disabled = busy || !state || rows.length >= 17;
-      save.disabled = busy || !state;
+      save.disabled = busy || !state || !state.videoRoot || rows.length === 0;
     }
     function renderRows() {
       rowsContainer.replaceChildren();
@@ -233,11 +236,16 @@
         rows = value.sources.map(function (item) {
           return {path: item.path, name: item.name};
         });
-        destination.textContent = 'Aufnahmeziel: ' + value.videoRoot +
-          ' (bleibt unverändert)';
+        destination.textContent = value.videoRoot
+          ? 'Aufnahmeziel: ' + value.videoRoot + ' (bleibt unverändert)'
+          : 'Aufnahmeziel des lokalen VDR noch nicht ermittelt. ' +
+            'Bitte Backend-/SuiteBridge-Konfiguration prüfen.';
         section.hidden = false;
         renderRows();
-        status.textContent = 'Einstellungen geladen.';
+        status.textContent = value.initialSetup === true
+          ? 'Noch keine Importverzeichnisse eingerichtet. ' +
+            'Bitte einen Importordner hinzufügen und speichern.'
+          : 'Einstellungen geladen.';
       }).catch(function (error) {
         state = null;
         // A failed backend configuration read is visible to an already
@@ -258,7 +266,8 @@
       status.textContent = 'Neuen Ordner eintragen und speichern.';
     });
     save.addEventListener('click', function () {
-      if (busy || !state || rows.length === 0 || rows.length > 17) return;
+      if (busy || !state || !state.videoRoot ||
+          rows.length === 0 || rows.length > 17) return;
       for (let i = 0; i < rows.length; ++i) {
         if (!sourcePath(rows[i].path) || !sourceName(rows[i].name) ||
             overlap(rows[i].path, state.videoRoot) ||
