@@ -1061,13 +1061,13 @@ public:
             nativeDirectPath("/direct-delete");
         const std::string modificationSuffix = "/modifications";
         const bool isPublicNativeTimerModify =
-            isPost && path.compare(0U, nativeTimerItemPrefix.size(),
+            (isPost && path.compare(0U, nativeTimerItemPrefix.size(),
                 nativeTimerItemPrefix) == 0 &&
             path.size() > nativeTimerItemPrefix.size() + modificationSuffix.size() &&
             path.compare(path.size() - modificationSuffix.size(),
                 modificationSuffix.size(), modificationSuffix) == 0 &&
             path.find('/', nativeTimerItemPrefix.size()) ==
-                path.size() - modificationSuffix.size() ||
+                path.size() - modificationSuffix.size()) ||
             isPublicNativeTimerDirectUpdate;
         const bool isPublicNativeTimerDelete =
             (request.method == "DELETE" && isPublicNativeTimerItem) ||
