@@ -224,5 +224,83 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(calls.length, 4);
   assert.strictEqual(legacy.length, 2);
   assert.strictEqual(legacy[1].aux, '<epgsearch/>');
+  // F5.6 production composition: same rendered Timer form, actual
+  // browser client-api.js and bundled Public-v1 reference client.
+  const httpRequests = [];
+  const productionWindow = {
+    location: {origin: 'https://suite.example'},
+    VdrSuiteBrowserSession: {
+      csrfHeaders() { return {'X-CSRF-Token': 'composition-csrf'}; }
+    }
+  };
+  const httpContext = {
+    window: productionWindow, Headers, URL, URLSearchParams, TextEncoder,
+    Uint8Array, Array, Object, String, Boolean, Number, JSON, Promise,
+    fetch(url, options) {
+      httpRequests.push({url: String(url), options});
+      if (String(url) === 'https://suite.example/api/v1/manual/timer-intents')
+        return Promise.resolve({
+          status: 202, ok: true,
+          headers: {get(name) {
+            return name === 'Location' ? '/api/v1/operations/op_manual_f56' : null;
+          }},
+          text: async () => JSON.stringify({
+            operationId: 'op_manual_f56', state: 'accepted',
+            backendId: 'living-room',
+            links: {self: '/api/v1/operations/op_manual_f56'}
+          })
+        });
+      if (String(url) === 'https://suite.example/api/v1/operations/op_manual_f56')
+        return Promise.resolve({
+          status: 200, ok: true,
+          headers: {get() { return null; }},
+          text: async () => JSON.stringify({
+            operationId: 'op_manual_f56', state: 'succeeded',
+            backendId: 'living-room'
+          })
+        });
+      throw new Error('Unexpected production request: ' + String(url));
+    }
+  };
+  const reference = path.join(__dirname, '..', '..', '..', 'clients',
+    'reference-js', 'public-v1-client.js');
+  const browserClient = path.join(__dirname, '..', 'api', 'client-api.js');
+  vm.runInNewContext(fs.readFileSync(reference, 'utf8'), httpContext,
+    {filename: reference});
+  vm.runInNewContext(fs.readFileSync(browserClient, 'utf8'), httpContext,
+    {filename: browserClient});
+  const realClient = Object.assign({}, productionWindow.VdrSuiteClientApi, {
+    createClientOperationUpdateSource:
+      clientApi.createClientOperationUpdateSource
+  });
+  browser.configureContext({
+    detailDataElement: root, clientApi: realClient,
+    getSelectedBackendId() { return 'living-room'; },
+    reload() { reloads++; }
+  });
+  fields.title.value = 'Composition news';
+  fields.aux.value = '';
+  operationState = 'accepted';
+  submit();
+  await tick();
+  assert.strictEqual(httpRequests[0].url,
+    'https://suite.example/api/v1/manual/timer-intents');
+  assert.strictEqual(httpRequests[0].options.method, 'POST');
+  assert.strictEqual(httpRequests[0].options.credentials, 'same-origin');
+  assert.strictEqual(httpRequests[0].options.headers['X-CSRF-Token'],
+    'composition-csrf');
+  assert(httpRequests[0].options.headers['Idempotency-Key'].startsWith('manual-web-'));
+  assert.strictEqual(httpRequests[0].options.headers['If-Match'], undefined);
+  const submitted = JSON.parse(httpRequests[0].options.body);
+  assert.strictEqual(submitted.title, 'Composition news');
+  assert.strictEqual(submitted.backendId, 'living-room');
+  assert.strictEqual(submitted.directory, 'News~Evening');
+  assert.strictEqual(httpRequests[1].url,
+    'https://suite.example/api/v1/operations/op_manual_f56');
+  assert.strictEqual(httpRequests[1].options.method, 'GET');
+  assert.strictEqual(httpRequests.length, 2);
+  assert.strictEqual(legacy.length, 2,
+    'real Browser+reference composition must not call legacy CREATE');
+
   console.log('Timer browser F5.6 one-shot Public-v1 Operation/SSE integration PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });
