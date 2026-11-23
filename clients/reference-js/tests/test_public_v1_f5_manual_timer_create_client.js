@@ -49,6 +49,8 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,startAt:1.5}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,idempotencyKey:'has space'}));
   assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'If-Match':'"epg1"'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'IF-MATCH':'"epg1"'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'iF-mAtCh':'"epg1"'}}));
   // A Unicode string can be short in JS code units but exceed the
   // server's 1024-byte decoded UTF-8 field limit.
   assert.throws(()=>client.submitManualTimerIntent({...input,
