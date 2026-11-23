@@ -1,6 +1,8 @@
 # HbbTV Discovery und optionales VDR-Suite-Addon — Roadmap (Entwurf)
 
-**Stand:** 23.11.2026 · **Status:** PLANUNG / NICHT IMPLEMENTIERT · **Typ:** nicht nummerierter optionaler Produkt-Workstream
+**Stand:** 23.11.2026 · **Status:** ZURÜCKGESTELLT / NICHT BEAUFTRAGT · **Typ:** historische Option, kein aktiver Workstream
+
+**Maintainer-Entscheidung 23.11.2026:** Der Aufwand für ein separates Discovery-Plugin oder die HbbTV-Addon-Extraktion ist derzeit zu hoch. **HDE.0–HDE.4, HBA.0–HBA.4 und HBA.X sind vollständig zurückgestellt.** Stattdessen bleiben die vorhandenen Komponenten und die bestehende VDR-Suite-Architektur erhalten. Die laufende Aufgabe ist ausschließlich, unsere bestehenden HbbTV-Patches in `hotzenplotz5/vdr-plugin-web`, `cefbrowser` und `remotetranscode` auf Upstream abzustimmen, gezielt zu testen und zu paketieren. Keine neue Plugin-/Addon-Architektur, kein neuer Branch und keine Migration.
 
 Diese Roadmap dokumentiert zwei getrennte Fragen:
 1. Ausgliederung der **read-only AIT/HbbTV-Discovery** aus `vdr-plugin-web` in ein kleines eigenständiges natives VDR-Plugin.
