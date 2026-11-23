@@ -174,6 +174,17 @@ bool publicNativeTimerItemPath(const std::string& path, std::string& id)
         });
 }
 
+// Native VDR plugin metadata changes independently of Binding revisions.
+bool publicNativeTimerAuxPath(const std::string& path, std::string& id)
+{
+    const std::string suffix("/aux");
+    if (path.size() <= suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    return publicNativeTimerItemPath(
+        path.substr(0U, path.size() - suffix.size()), id);
+}
+
 bool publicNativeTimerModificationPath(
     const std::string& path, std::string& id)
 {
@@ -6810,6 +6821,53 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
 {
     const std::string path = requestPath(requestTarget);
     std::string nativeTimerId;
+    if (publicNativeTimerAuxPath(path, nativeTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendIds.size() != 1U ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+        // A Binding ETag cannot validate opaque provider Aux changes.
+        // Read this fresh snapshot subresource without a conditional ETag.
+        if (!ifNoneMatch.empty())
+        {
+            response = invalidRequestProblem(path,
+                "Aux does not support If-None-Match.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupNativeTimerDetail(
+            {authorizedBackendIds.front(), nativeTimerId});
+        if (found.status == PublicNativeTimerDetailStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicNativeTimerDetailStatus::ok ||
+            found.backendId != authorizedBackendIds.front() ||
+            found.timer.id != nativeTimerId)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(found.backendId) +
+            "\",\"timerId\":\"" + jsonEscape(found.timer.id) +
+            "\",\"aux\":\"" + jsonEscape(found.timer.aux) + "\"}",
+            requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
     if (publicNativeTimerItemPath(path, nativeTimerId))
     {
         if (actorRef.empty())
@@ -9959,7 +10017,8 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string nativeTimerId;
-    if (publicNativeTimerItemPath(path, nativeTimerId))
+    if (publicNativeTimerItemPath(path, nativeTimerId) ||
+        publicNativeTimerAuxPath(path, nativeTimerId))
     {
         if (tryHandleNativeTimerReadGet(
                 requestTarget, actorRef, requestId, correlationId,
@@ -13390,7 +13449,8 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicEpgEventDetailPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
-        publicNativeTimerItemPath(path, timerAssignmentId) ||
+        (publicNativeTimerItemPath(path, timerAssignmentId) ||
+         publicNativeTimerAuxPath(path, timerAssignmentId)) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
@@ -13701,7 +13761,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicManualTimerIntentPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
-        publicNativeTimerItemPath(path, timerAssignmentId) ||
+        (publicNativeTimerItemPath(path, timerAssignmentId) ||
+         publicNativeTimerAuxPath(path, timerAssignmentId)) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||

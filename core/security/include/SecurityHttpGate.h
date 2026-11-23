@@ -1054,9 +1054,20 @@ public:
                 path.size() - modificationSuffix.size();
         const bool isPublicNativeTimerDelete =
             request.method == "DELETE" && isPublicNativeTimerItem;
+        const std::string nativeAuxSuffix = "/aux";
+        const bool isPublicNativeTimerAuxRead =
+            request.method == "GET" &&
+            path.compare(0U, nativeTimerItemPrefix.size(),
+                nativeTimerItemPrefix) == 0 &&
+            path.size() > nativeTimerItemPrefix.size() + nativeAuxSuffix.size() &&
+            path.compare(path.size() - nativeAuxSuffix.size(),
+                nativeAuxSuffix.size(), nativeAuxSuffix) == 0 &&
+            path.find('/', nativeTimerItemPrefix.size()) ==
+                path.size() - nativeAuxSuffix.size();
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
-            (path == "/api/v1/native-timers" || isPublicNativeTimerItem);
+            (path == "/api/v1/native-timers" || isPublicNativeTimerItem ||
+             isPublicNativeTimerAuxRead);
         const bool isPublicDeviceEventRead =
             request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =

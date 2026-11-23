@@ -10971,6 +10971,101 @@
         "x-vdr-suite-auth-profile": "device"
       }
     },
+    "/api/v1/native-timers/{timerId}/aux": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getPublicNativeVdrTimerAux",
+        "summary": "Read opaque VDR-native Aux metadata without a Binding ETag",
+        "description": "Exact backend-scoped timers.view read of the current native VDR snapshot, including plugin-owned epgsearch/TVScraper Aux metadata. Independent unconditional subresource: the existing Binding fingerprint intentionally excludes Aux and therefore must not be reused for conditional GET. No ETag, no mutation; does not make Aux part of the backend-neutral Timer model.",
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current VDR snapshot Aux. Cache-Control: no-store; no ETag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "timerId",
+                    "aux"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "timerId": {
+                      "type": "string"
+                    },
+                    "aux": {
+                      "type": "string",
+                      "description": "Raw provider-specific Aux, may be empty"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backend scope or unsupported conditional GET"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Missing timers.view for backend"
+          },
+          "404": {
+            "description": "Native Timer not found"
+          },
+          "405": {
+            "description": "GET only"
+          },
+          "503": {
+            "description": "Snapshot or backend read unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "timers.view@backendId; exact backend scope"
+        }
+      }
+    },
     "/api/v1/native-timers/{timerId}": {
       "get": {
         "tags": [

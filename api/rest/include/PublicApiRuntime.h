@@ -668,6 +668,9 @@ struct PublicNativeTimerItem
     std::string eventId;
     std::string title;
     std::string directory;
+    // Raw VDR Aux belongs to the independent unconditional /aux resource,
+    // not the canonical native Binding fingerprint or Timer detail ETag.
+    std::string aux;
     std::string day;
     std::string weekdays;
     std::string startTime;

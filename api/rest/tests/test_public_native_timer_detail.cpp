@@ -26,6 +26,7 @@ int main()
 
     assert(get(uri).statusCode == 503);
     bool bound = true;
+    std::string currentAux = R"xml(<epgsearch note="quoted">original</epgsearch>)xml";
     auto status = PublicNativeTimerDetailStatus::ok;
     api.registerNativeTimerDetailLookup([&](const PublicNativeTimerDetailRequest& req)
     {
@@ -35,6 +36,7 @@ int main()
         r.backendId = req.backendId;
         r.timer.id = req.timerId;
         r.timer.title = "Tagesschau";
+        r.timer.aux = currentAux;
         r.timer.eventId = "117721";
         r.timer.flags = 5;
         r.timer.endTime = "2030";
@@ -63,6 +65,18 @@ int main()
     assert(ok.body.find("\"eventId\":\"117721\"") != std::string::npos);
     assert(ok.body.find("\"flags\":5") != std::string::npos);
     assert(ok.body.find("\"aux\"") == std::string::npos);
+    const std::string auxUri =
+        "/api/v1/native-timers/17/aux?backendId=backend-one";
+    const auto aux = get(auxUri);
+    assert(aux.statusCode == 200);
+    assert(aux.headers.at("Cache-Control") == "no-store");
+    assert(aux.headers.count("ETag") == 0U);
+    assert(aux.body.find(
+        R"json("aux":"<epgsearch note=\"quoted\">original</epgsearch>")json")
+        != std::string::npos);
+    assert(get(auxUri, "\"old\"").statusCode == 400);
+    assert(get(auxUri + "&limit=1").statusCode == 400);
+    assert(get(auxUri, "", "").statusCode == 401);
     assert(ok.body.find("resourceRevision") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
     assert(ok.headers.at("X-Request-ID") == "request");
@@ -72,6 +86,10 @@ int main()
         "native-timer-binding/1:bind:3:8"));
     const auto cached = get(uri, tag);
     assert(cached.statusCode == 304 && cached.body.empty());
+    // Aux may change while the Binding revision remains identical.
+    currentAux = "<tv>changed</tv>";
+    assert(get(uri, tag).statusCode == 304);
+    assert(get(auxUri).body.find("<tv>changed</tv>") != std::string::npos);
     assert(cached.headers.at("ETag") == tag);
     assert(cached.headers.at("Cache-Control") == "no-store");
     assert(cached.headers.at("X-Request-ID") == "request");
@@ -83,8 +101,10 @@ int main()
     assert(get("/api/v1/native-timers/17?backendId=other").statusCode == 400);
     status = PublicNativeTimerDetailStatus::notFound;
     assert(get(uri).statusCode == 404);
+    assert(get(auxUri).statusCode == 404);
     status = PublicNativeTimerDetailStatus::unavailable;
     assert(get(uri).statusCode == 503);
+    assert(get(auxUri).statusCode == 503);
     status = PublicNativeTimerDetailStatus::ok;
     bound = false;
     const auto unbound = get(uri);

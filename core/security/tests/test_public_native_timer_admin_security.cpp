@@ -48,6 +48,7 @@ void assertDenied(const SecurityGateDecision& decision, int status)
 int main()
 {
     const std::string detail = Timer + "?backendId=default";
+    const std::string aux = Timer + "/aux?backendId=default";
     const std::string modify = Timer + "/modifications?backendId=default";
 
     {
@@ -58,6 +59,9 @@ int main()
 
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "GET", detail)),
+            "timers.view", false);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "GET", aux)),
             "timers.view", false);
 
         const auto missingCsrf = fixture.gate.evaluate(
@@ -117,6 +121,9 @@ int main()
             browserRequest(fixture, "GET", detail)),
             "timers.view", false);
         assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "GET", aux)),
+            "timers.view", false);
+        assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)),
             "timers.modify", true);
         assertAllowed(fixture.gate.evaluate(
@@ -155,6 +162,8 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assertDenied(fixture.gate.evaluate(
             browserRequest(fixture, "GET", detail)), 403);
+        assertDenied(fixture.gate.evaluate(
+            browserRequest(fixture, "GET", aux)), 403);
         assertDenied(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)), 403);
         assertDenied(fixture.gate.evaluate(
