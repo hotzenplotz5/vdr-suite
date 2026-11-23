@@ -7021,8 +7021,8 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             ",\"pending\":" + (t.pending ? "true" : "false") +
             ",\"ownership\":\"" + jsonEscape(found.ownership) +
             "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
-            (directActionsAvailable ? ",\\\"directActions\\\":true" : "") +
-            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
+            "\"" + (directActionsAvailable ? ",\"directActions\":true" : "") +
+            ",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
             requestId, correlationId);
         if (!tag.empty()) response.headers["ETag"] = tag;
         return true;
