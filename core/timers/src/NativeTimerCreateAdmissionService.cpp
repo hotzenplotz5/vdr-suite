@@ -531,7 +531,10 @@ NativeTimerCreateAdmissionService::replayManualWindow(
         found.operation.actionFamily == kActionFamily &&
         found.operation.idempotencyKey == request.idempotencyKey &&
         intent.intent.createdByActorId == request.actorId &&
-        saved.intentType == TimerIntentType::manualWindow &&
+        saved.intentType ==
+            (request.weekdays == "-------"
+                ? TimerIntentType::manualWindow
+                : TimerIntentType::recurringSchedule) &&
         saved.ownerActorId == request.actorId &&
         saved.assignmentPolicy.preferredBackendIds ==
             std::vector<std::string>{request.backendId} &&
@@ -549,6 +552,7 @@ NativeTimerCreateAdmissionService::replayManualWindow(
         native.channelId == request.channelId &&
         native.title == request.title &&
         native.directory == request.directory &&
+        native.weekdays == request.weekdays &&
         native.priority == request.priority &&
         native.lifetime == request.lifetime &&
         native.enabled == request.enabled &&
@@ -571,12 +575,29 @@ NativeTimerCreateAdmissionService::admitManualWindow(
     const auto& spec = request.draft.desiredNativeTimer;
     const auto& intentSpec = request.draft.intent;
     const auto& candidate = request.candidate;
+    // The persisted recurrence rule must be derived from the exact VDR
+    // weekday mask, not invented by a client or mixed with a one-shot draft.
+    ManualTimerSourceEvidence source;
+    source.backendId = request.backendId;
+    source.sourceType = intentSpec.channelRequirement.sourceType;
+    source.sourceId = intentSpec.channelRequirement.sourceId;
+    source.backendChannelId =
+        intentSpec.channelRequirement.sourceChannelId;
+    source.timezone = intentSpec.schedule.timezone;
+    source.startAt = intentSpec.schedule.startAt;
+    source.stopAt = intentSpec.schedule.stopAt;
+    const bool recurring = spec.weekdays != "-------";
+    const auto projected = recurring
+        ? makeRecurringTimerIntentDraft(spec, source, request.actorId)
+        : makeManualWindowTimerIntentDraft(spec, source, request.actorId);
     if (!request.draft.valid ||
         !identity(request.actorId) || !identity(request.backendId) ||
         !identity(request.idempotencyKey) ||
         !nativeTimerSpecificationValid(spec) ||
         !timerIntentValidSpec(intentSpec) ||
-        intentSpec.intentType != TimerIntentType::manualWindow ||
+        !projected.valid ||
+        timerIntentSemanticIdentity(projected.intent) !=
+            timerIntentSemanticIdentity(intentSpec) ||
         intentSpec.ownerActorId != request.actorId ||
         intentSpec.assignmentPolicy.preferredBackendIds !=
             std::vector<std::string>{request.backendId} ||

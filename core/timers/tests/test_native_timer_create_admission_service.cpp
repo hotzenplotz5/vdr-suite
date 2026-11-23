@@ -1059,6 +1059,70 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
             "manual-public-atomic-key");
         assert(durable.ok());
         assert(durable.operation.operationId == first.operation.operationId);
+
+        // The very same atomic coordinator can persist a recurring Intent,
+        // native weekly specification and one CREATE Operation once a
+        // backend-originated exact-specification preview exists. Synthetic
+        // proof here is TEST ONLY; the productive SuiteBridge preview still
+        // refuses recurring requests until it can attest the native schedule.
+        auto recurringNative = nativeSpec;
+        recurringNative.weekdays = "MTWTF--";
+        const auto recurringDraft =
+            makeRecurringTimerIntentDraft(recurringNative, source, manual.actorId);
+        assert(recurringDraft.valid);
+        auto recurring = manual;
+        recurring.idempotencyKey = "manual-public-recurring-key";
+        recurring.draft = recurringDraft;
+        recurring.candidate.desiredNativeTimerSpecification = recurringNative;
+        recurring.conflictProof.nativeSpecificationFingerprint =
+            nativeTimerSpecificationFingerprint(recurringNative);
+        recurring.revalidateSourceAndExecutionAuthority = []() { return true; };
+        const auto recurrentResult = second.admission.admitManualWindow(
+            recurring, second.intents, secondApplication);
+        assert(recurrentResult.status == NativeTimerCreateAdmissionStatus::prepared);
+        assert(recurrentResult.payload.expectedSpecification.weekdays == "MTWTF--");
+        const auto recurrentIntentId =
+            std::string("manual-intent:") +
+            manualNativeTimerSubmissionDigest(
+                recurring.actorId, recurring.backendId, recurring.idempotencyKey)
+                .substr(7U);
+        const auto persistedRecurring = second.intents.findById(recurrentIntentId);
+        assert(persistedRecurring.ok());
+        assert(persistedRecurring.intent.spec.intentType ==
+            TimerIntentType::recurringSchedule);
+        assert(persistedRecurring.intent.spec.schedule.recurrenceRule ==
+            "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+        ManualNativeTimerCreateReplayRequest recurringLookup = lookup;
+        recurringLookup.idempotencyKey = recurring.idempotencyKey;
+        recurringLookup.weekdays = recurringNative.weekdays;
+        const auto recurringReplay = second.admission.replayManualWindow(
+            recurringLookup, second.intents);
+        assert(recurringReplay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(recurringReplay.operation.operationId ==
+            recurrentResult.operation.operationId);
+        recurringLookup.weekdays = "-------";
+        assert(second.admission.replayManualWindow(
+            recurringLookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        recurringLookup.weekdays = "MTWT---";
+        assert(second.admission.replayManualWindow(
+            recurringLookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+
+        auto mismatchedRule = recurring;
+        mismatchedRule.idempotencyKey = "manual-wrong-recurring-rule";
+        mismatchedRule.draft.intent.schedule.recurrenceRule =
+            "FREQ=WEEKLY;BYDAY=SA,SU";
+        assert(second.admission.admitManualWindow(
+            mismatchedRule, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::invalid);
+        mismatchedRule = recurring;
+        mismatchedRule.idempotencyKey = "manual-wrong-recurring-mask";
+        mismatchedRule.draft.desiredNativeTimer.weekdays = "MTWTFSS";
+        mismatchedRule.candidate.desiredNativeTimerSpecification.weekdays = "MTWTFSS";
+        assert(second.admission.admitManualWindow(
+            mismatchedRule, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::invalid);
     }
 
     TimerIntentApplicationService application(

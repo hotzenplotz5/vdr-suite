@@ -47,14 +47,17 @@ enum class NativeTimerCreateAdmissionStatus
 };
 
 
- // Manual one-shot admission reuses the EXISTING native CREATE operation
- // authority. Input projection/Planner evidence is server-owned; the API
- // may supply the user's desired window/title, not authoritative Agent facts.
+ // Manual and recurring draft admission reuse the EXISTING native CREATE
+ // operation authority. Input projection/Planner evidence is server-owned;
+ // the API may supply desired fields but not authoritative Agent facts.
 
 struct ManualNativeTimerCreateReplayRequest
 {
     std::string actorId, backendId, idempotencyKey;
     std::string channelId, title, directory;
+    // Explicit native recurrence mask; the original one-shot contract
+    // continues to use ------- by default.
+    std::string weekdays = "-------";
     std::int64_t startAt = 0, stopAt = 0;
     std::int32_t priority = 50, lifetime = 99;
     bool enabled = true, vps = false;
