@@ -30,11 +30,15 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
     assert.strictEqual(Object.keys(options.headers).filter(
       name=>name.toLowerCase()==='content-type').length,1);
     assert.deepStrictEqual(JSON.parse(options.body),payload);
-    return calls.length===1
-      ? respond(202,{operationId:'op_1',state:'accepted',backendId:'default',
-          links:{self:'/api/v1/operations/op_1'}},
-          '/api/v1/operations/op_1')
-      : respond(409,{code:'idempotency_conflict'});
+    if (calls.length===1)
+      return respond(202,{operationId:'op_1',state:'accepted',backendId:'default',
+        links:{self:'/api/v1/operations/op_1'}},
+        '/api/v1/operations/op_1');
+    if (calls.length===4)
+      return respond(202,{operationId:'op_1',state:'outcome_unknown',backendId:'default',
+        links:{self:'/api/v1/operations/op_1'}},
+        '/api/v1/operations/op_1');
+    return respond(409,{code:'idempotency_conflict'});
   }
 });
 (async()=>{
@@ -53,6 +57,13 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   await assert.rejects(client.submitManualTimerIntent({...input,
     headers:{...input.headers,'IDEMPOTENCY-KEY':'wrong-key','content-type':'text/plain'}}),
     err=>err.status===409);
+  // The same committed Operation can be recovered without claiming a Timer
+  // exists; outcome_unknown must stay observable to the caller.
+  const recovered=await client.submitManualTimerIntent(input);
+  assert.strictEqual(recovered.status,202);
+  assert.strictEqual(recovered.location,accepted.location);
+  assert.strictEqual(recovered.data.operationId,accepted.data.operationId);
+  assert.strictEqual(recovered.data.state,'outcome_unknown');
   const before=calls.length;
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,aux:'unsafe'}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,priority:undefined}}));
