@@ -1733,8 +1733,7 @@
 
       const headers = Object.assign({Accept: 'application/json'},
         defaultHeaders, copyHeaders(o.headers));
-      if (headers['If-Match'] !== undefined ||
-          headers['if-match'] !== undefined)
+      if (Object.keys(headers).some(name => name.toLowerCase() === 'if-match'))
         throw new Error('Manual TimerIntent CREATE has no EPG If-Match');
       headers['Content-Type'] = 'application/json';
       headers['Idempotency-Key'] = o.idempotencyKey;
