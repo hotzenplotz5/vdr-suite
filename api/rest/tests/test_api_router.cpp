@@ -338,6 +338,11 @@ public:
         return executor_.callCount();
     }
 
+    VdrTimerOperationRequest lastRequest() const
+    {
+        return executor_.lastRequest();
+    }
+
 private:
     std::string backendIdValue_;
     MockVdrTimerActionExecutor executor_;
@@ -2001,6 +2006,18 @@ int main()
     assert(timerUpdateResponse.contentType == "application/json");
     assert(timerUpdateResponse.body.find("\"type\":\"update\"")
            != std::string::npos);
+
+    // Productive router -> existing controller/parser -> existing native
+    // timer executor must forward JSON-escaped metadata without truncation.
+    const ApiResponse metadataUpdate = router.handlePost(
+        "/api/vdr/timers/actions/update",
+        R"json({"backendId":"router-backend","timerId":"router-timer-1","channelId":"router-channel-1","title":"Serie, Teil } 2: \"Finale\"","aux":"<plugin x=\"a,b}\" path=\"C:\\video\">Text\n2</plugin>","priority":0,"lifetime":0})json");
+    assert(metadataUpdate.statusCode == 200);
+    assert(metadataUpdate.body.find("\"success\":true") != std::string::npos);
+    const auto forwardedTimer = routerTimerAdapter->lastRequest();
+    assert(forwardedTimer.title == "Serie, Teil } 2: \"Finale\"");
+    assert(forwardedTimer.aux == "<plugin x=\"a,b}\" path=\"C:\\video\">Text\n2</plugin>");
+    assert(forwardedTimer.priority == 0 && forwardedTimer.lifetime == 0);
 
     const std::string timerDeleteBody =
         "{"

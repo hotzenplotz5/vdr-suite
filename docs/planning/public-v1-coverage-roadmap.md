@@ -8,7 +8,9 @@ escaped Quotes, Kommas, geschweifter Klammern und Unicode-Escapes korrekt.
 Vorher zerlegte er den `aux`-/Titelfeldwert bereits an einem internen
 Komma oder `}`; der produktive Timer-Controller bleibt unverändert.
 Fokussierte Tests verwenden pluginartige `aux`-Metadaten und
-`priority/lifetime=0`. Dies behebt **keine** noch fehlende
+`priority/lifetime=0`; die produktive Router-/Controller-/Executor-
+Komposition prüft nun zusätzlich die unveränderte Übergabe an den
+bestehenden Writer. Dies behebt **keine** noch fehlende
 Public-v1-Writer-/GET-Parität für Aux.
 
 **F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
