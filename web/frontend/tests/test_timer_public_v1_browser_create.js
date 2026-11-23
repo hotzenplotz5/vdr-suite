@@ -87,7 +87,7 @@ const clientApi = {
     }});
   },
   createClientOperationUpdateSource(operationId) {
-    assert.strictEqual(operationId, 'op_manual_f56');
+    assert(['op_manual_f56', 'op_native_f56'].includes(operationId));
     const source = {
       listeners: {}, closed: false,
       addEventListener(name, callback) { this.listeners[name] = callback; },
@@ -250,6 +250,36 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
             links: {self: '/api/v1/operations/op_manual_f56'}
           })
         });
+      if (String(url) === 'https://suite.example/api/v1/native-timers/17?backendId=living-room')
+        return Promise.resolve({
+          status: 200, ok: true,
+          headers: {get(name) {
+            return name === 'ETag' ? '"native-timer-binding/1:fixture:2:3"' : null;
+          }},
+          text: async () => JSON.stringify({
+            backendId: 'living-room', timerId: '17', bindingState: 'verified'
+          })
+        });
+      if (String(url) ===
+          'https://suite.example/api/v1/native-timers/17/modifications?backendId=living-room')
+        return Promise.resolve({
+          status: 202, ok: true,
+          headers: {get(name) {
+            return name === 'Location' ? '/api/v1/operations/op_native_f56' : null;
+          }},
+          text: async () => JSON.stringify({
+            operation: {operationId: 'op_native_f56', state: 'accepted'}
+          })
+        });
+      if (String(url) === 'https://suite.example/api/v1/operations/op_native_f56')
+        return Promise.resolve({
+          status: 200, ok: true,
+          headers: {get() {return null;}},
+          text: async () => JSON.stringify({
+            operationId: 'op_native_f56', state: 'succeeded',
+            backendId: 'living-room'
+          })
+        });
       if (String(url) === 'https://suite.example/api/v1/operations/op_manual_f56')
         return Promise.resolve({
           status: 200, ok: true,
@@ -307,5 +337,36 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(legacy.length, 2,
     'real Browser+reference composition must not call legacy CREATE');
 
-  console.log('Timer browser F5.6 one-shot Public-v1 Operation/SSE integration PASS');
+  // Real production browser adapter + reference client for native TOGGLE:
+  // GET strong ETag, POST with Browser CSRF and Idempotency-Key, SSE readback.
+  browser.renderList({timers: [{
+    timerId: '17', channelId: 'C-1', title: 'Native news',
+    day: '2026-11-24', startTime: 2015, endTime: 2030,
+    priority: 0, lifetime: 0, enabled: true, aux: ''
+  }]});
+  const disable = find(root, item =>
+    item.tagName === 'button' && item.textContent === 'Deaktivieren');
+  assert(disable, 'native Timer toggle visible');
+  disable.listeners.click();
+  await tick();
+  const nativeRequests = httpRequests.slice(2);
+  assert.equal(nativeRequests[0].url,
+    'https://suite.example/api/v1/native-timers/17?backendId=living-room');
+  assert.equal(nativeRequests[0].options.method, 'GET');
+  assert.equal(nativeRequests[1].url,
+    'https://suite.example/api/v1/native-timers/17/modifications?backendId=living-room');
+  assert.equal(nativeRequests[1].options.method, 'POST');
+  assert.equal(nativeRequests[1].options.credentials, 'same-origin');
+  assert.equal(nativeRequests[1].options.headers['X-CSRF-Token'], 'composition-csrf');
+  assert.equal(nativeRequests[1].options.headers['If-Match'],
+    '"native-timer-binding/1:fixture:2:3"');
+  assert(nativeRequests[1].options.headers['Idempotency-Key'].startsWith('manual-web-'));
+  assert.deepStrictEqual(JSON.parse(nativeRequests[1].options.body),
+    {kind: 'toggle', enabled: false});
+  assert.equal(nativeRequests[2].url,
+    'https://suite.example/api/v1/operations/op_native_f56');
+  assert.equal(nativeRequests[2].options.method, 'GET');
+  assert.equal(legacy.length, 2, 'native Public-v1 TOGGLE never dispatched legacy');
+
+  console.log('Timer browser F5.6 create and native toggle browser/reference composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });
