@@ -11208,7 +11208,11 @@
                         "adoption_required"
                       ]
                     },
-                    "links": {
+                    "directActions": {
+            "type": "boolean",
+            "description": "Present and true only when the existing direct VDR action is available for external or unbound Timers; permission is separately checked."
+          },
+          "links": {
                       "type": "object",
                       "required": [
                         "self"
@@ -11354,6 +11358,245 @@
           },
           "503": {
             "description": "Backend, provider, snapshot, operation storage or Agent unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
+      }
+    },
+    "/api/v1/native-timers/{timerId}/direct-update": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "directUpdateExternalNativeTimer",
+        "summary": "Update an external or unbound VDR native Timer through the existing direct writer",
+        "description": "Only snapshot-verified external/unbound native Timers. Uses the existing VdrTimerActionController and established backend executor, not a second writer or implicit adoption. Synchronous 200 native action result, not an ADR-0042 durable Operation; no If-Match, Idempotency-Key or automatic retry. Unknown transport outcomes require independent observation before further user action. Managed/adopted Timers continue using the durable /modifications or DELETE resource. Browser CSRF and existing scoped timers.modify permissions remain mandatory.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing timers.modify@backendId for Device or Human Browser, exact backend scope and Browser CSRF; audited mutation"
+        },
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "timerId"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "timerId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "channelId": {
+                    "type": "string"
+                  },
+                  "day": {
+                    "type": "string"
+                  },
+                  "weekdays": {
+                    "type": "string"
+                  },
+                  "start": {
+                    "type": "integer"
+                  },
+                  "stop": {
+                    "type": "integer"
+                  },
+                  "priority": {
+                    "type": "integer"
+                  },
+                  "lifetime": {
+                    "type": "integer"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "vps": {
+                    "type": "boolean"
+                  },
+                  "aux": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous existing native VDR result with success:true or success:false; never a durable Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed body or backend/timer identity mismatch"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Existing scoped timer action grant or Browser CSRF missing"
+          },
+          "404": {
+            "description": "Native Timer not found"
+          },
+          "409": {
+            "description": "Managed/adopted Timer must use the durable action route"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "VDR native action, snapshot or backend unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
+      }
+    },
+    "/api/v1/native-timers/{timerId}/direct-delete": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "directDeleteExternalNativeTimer",
+        "summary": "Delete an external or unbound VDR native Timer through the existing direct writer",
+        "description": "Only snapshot-verified external/unbound native Timers. Uses the existing VdrTimerActionController and established backend executor, not a second writer or implicit adoption. Synchronous 200 native action result, not an ADR-0042 durable Operation; no If-Match, Idempotency-Key or automatic retry. Unknown transport outcomes require independent observation before further user action. Managed/adopted Timers continue using the durable /modifications or DELETE resource. Browser CSRF and existing scoped timers.delete permissions remain mandatory.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing timers.delete@backendId for Device or Human Browser, exact backend scope and Browser CSRF; audited mutation"
+        },
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "timerId"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "timerId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous existing native VDR result with success:true or success:false; never a durable Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed body or backend/timer identity mismatch"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Existing scoped timer action grant or Browser CSRF missing"
+          },
+          "404": {
+            "description": "Native Timer not found"
+          },
+          "409": {
+            "description": "Managed/adopted Timer must use the durable action route"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "VDR native action, snapshot or backend unavailable"
           }
         },
         "security": [
