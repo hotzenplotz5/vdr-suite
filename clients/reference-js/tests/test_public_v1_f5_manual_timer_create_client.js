@@ -110,5 +110,30 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   assert.strictEqual(boundary.data.state,'accepted');
   assert.strictEqual(boundary.data.links.self,boundary.location);
   assert.strictEqual(boundaryCalls,1);
-  console.log('Public-v1 F5.5.5 manual TimerIntent client PASS');
+  // Recurring and one-shot submissions share the exact public route.
+  let recurringCalls=0;
+  const recurringClient=createClient({baseUrl:'https://suite.example',
+    fetch:async (url,options)=>{
+      recurringCalls++;
+      assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
+      assert.strictEqual(options.method,'POST');
+      assert.deepStrictEqual(JSON.parse(options.body),
+        {...payload,weekdays:'MTWTF--'});
+      assert.strictEqual(options.headers['Idempotency-Key'],'manual-once-1');
+      return respond(202,{operationId:'op_week',state:'accepted',
+        backendId:'default',links:{self:'/api/v1/operations/op_week'}},
+        '/api/v1/operations/op_week');
+    }});
+  const weeklyInput={...input,payload:{...payload,weekdays:'MTWTF--'}};
+  const weekly=await recurringClient.submitManualTimerIntent(weeklyInput);
+  assert.strictEqual(weekly.status,202);
+  assert.strictEqual(weekly.data.operationId,'op_week');
+  assert.strictEqual(recurringCalls,1);
+  for(const bad of ['T------','MTWTFSSS','mtwtf--','x------','']){
+    assert.throws(()=>recurringClient.submitManualTimerIntent({
+      ...weeklyInput,payload:{...weeklyInput.payload,weekdays:bad}
+    }));
+  }
+  assert.strictEqual(recurringCalls,1);
+  console.log('Public-v1 F5.6 manual/weekly TimerIntent client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});
