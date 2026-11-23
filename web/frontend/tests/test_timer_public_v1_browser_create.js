@@ -262,8 +262,11 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
       throw new Error('Unexpected production request: ' + String(url));
     }
   };
-  // In a browser window.fetch is the same transport as global fetch.
-  productionWindow.fetch = httpContext.fetch;
+  // A browser's window and globalThis are the same object (unlike
+  // separately constructed Node VM objects). Keep UMD and client-api aligned.
+  httpContext.location = productionWindow.location;
+  httpContext.VdrSuiteBrowserSession = productionWindow.VdrSuiteBrowserSession;
+  httpContext.window = httpContext;
   const reference = path.join(__dirname, '..', '..', '..', 'clients',
     'reference-js', 'public-v1-client.js');
   const browserClient = path.join(__dirname, '..', 'api', 'client-api.js');
@@ -271,7 +274,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     {filename: reference});
   vm.runInNewContext(fs.readFileSync(browserClient, 'utf8'), httpContext,
     {filename: browserClient});
-  const realClient = Object.assign({}, productionWindow.VdrSuiteClientApi, {
+  const realClient = Object.assign({}, httpContext.VdrSuiteClientApi, {
     createClientOperationUpdateSource:
       clientApi.createClientOperationUpdateSource
   });
