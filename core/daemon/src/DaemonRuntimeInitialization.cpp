@@ -6345,15 +6345,29 @@ bool DaemonRuntime::initialize()
     // Local admin source configuration uses the same authenticated
     // Browser-Session role.admin/CSRF gate as addon activation. The existing
     // Agent periodically rereads its root-owned inventory; no restart.
-    auto addonSourceMutation = [](
+    // Reuse the existing, backend-scoped recording-root authority (explicit
+    // config or SuiteBridge VPATH discovery), not a guessed distro path.
+    const auto trustedLocalMediaVideoRoot = [this]() -> std::string {
+        std::string local;
+        if (!vdrsuite::mediatools::local_source_admin::localBackend(local))
+            return {};
+        for (const auto& context : backendRuntimeContexts_) {
+            if (context->backendId == local)
+                return context->nativeRecordingInfoRoot;
+        }
+        return {};
+    };
+    auto addonSourceMutation = [trustedLocalMediaVideoRoot](
         const RequestSecurityContext&, const std::string& body) -> ApiResponse
     {
-        return vdrsuite::mediatools::local_source_admin::save(body);
+        return vdrsuite::mediatools::local_source_admin::save(
+            body, trustedLocalMediaVideoRoot());
     };
-    auto addonSourceLookup = [](
+    auto addonSourceLookup = [trustedLocalMediaVideoRoot](
         const RequestSecurityContext&, const std::string& uri) -> ApiResponse
     {
-        return vdrsuite::mediatools::local_source_admin::read(uri);
+        return vdrsuite::mediatools::local_source_admin::read(
+            uri, trustedLocalMediaVideoRoot());
     };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(
