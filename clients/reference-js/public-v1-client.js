@@ -1700,7 +1700,7 @@
 
 
 
-    // F5.5.5: Submit one explicit manual native TimerIntent. This is an
+    // F5.6: Submit a manual one-shot or VDR-weekly native TimerIntent. This is an
     // Operation resource, NOT a synchronous Timer-creation confirmation.
     // Preserve the caller's key on a retry; never replay a native write here.
     function submitManualTimerIntent(input) {
@@ -1709,11 +1709,13 @@
       const path = '/api/v1/manual/timer-intents';
       const fields = ['backendId', 'channelId', 'title', 'directory',
         'startAt', 'stopAt', 'priority', 'lifetime', 'enabled', 'vps'];
+      const hasWeekdays = !!p && Object.prototype.hasOwnProperty.call(p, 'weekdays');
+      const allowed = hasWeekdays ? fields.concat('weekdays') : fields;
       // C++ JSON Cursor rejects isolated UTF-16 surrogates in escaped JSON.
       const invalidSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/;
       if (!p || typeof p !== 'object' || Array.isArray(p) ||
-          Object.keys(p).length !== fields.length ||
-          Object.keys(p).some(key => !fields.includes(key)) ||
+          Object.keys(p).length !== allowed.length ||
+          Object.keys(p).some(key => !allowed.includes(key)) ||
           fields.some(key => !Object.prototype.hasOwnProperty.call(p, key)) ||
           typeof p.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(p.backendId) ||
@@ -1730,9 +1732,11 @@
           !Number.isInteger(p.priority) || p.priority < 0 || p.priority > 99 ||
           !Number.isInteger(p.lifetime) || p.lifetime < 0 || p.lifetime > 99 ||
           typeof p.enabled !== 'boolean' || typeof p.vps !== 'boolean' ||
+          (hasWeekdays && (typeof p.weekdays !== 'string' ||
+            !/^[M-][T-][W-][T-][F-][S-][S-]$/.test(p.weekdays))) ||
           typeof o.idempotencyKey !== 'string' ||
           !/^[!-~]{1,160}$/.test(o.idempotencyKey))
-        throw new Error('Manual TimerIntent requires exact one-shot payload and Idempotency-Key');
+        throw new Error('Manual TimerIntent requires exact one-shot/weekly payload and Idempotency-Key');
 
       const requestBody = JSON.stringify(p);
       if (new TextEncoder().encode(requestBody).length > 4096)
