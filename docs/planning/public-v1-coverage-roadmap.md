@@ -12,7 +12,12 @@ mit serverseitigem ETag, Browser-Session/CSRF, stabilem
 Idempotency-Key und Operation/SSE. Auch Wiederholungstimer können
 als bereits gebundener Timer über Public-v1-UPDATE bearbeitet werden.
 Unverändertes natives VDR-`Aux()` bleibt beim NTMOD-UPDATE erhalten;
-`priority/lifetime=0` bleibt korrekt.
+`priority/lifetime=0` bleibt korrekt. Die bestehende
+Public-v1-SecurityHttpGate-Regel erlaubt Browser-Mutationen nur für
+Administratoren (belegt durch `test_public_native_timer_admin_security.cpp`).
+Auf eine definitive HTTP-403-Ablehnung fällt der Web-Editor deshalb nur
+auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
+Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
 
 **Keine Vollmigration / keine Installationsfreigabe:** Wiederkehrendes
 manuelles CREATE, tatsächlich geänderte oder gelöschte `aux`-Inhalte,
