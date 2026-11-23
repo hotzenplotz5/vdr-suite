@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <set>
@@ -27,6 +28,40 @@ namespace
 {
 constexpr std::int64_t LeaseDurationSeconds = 90;
 constexpr std::int64_t StaleGraceSeconds = 30;
+
+struct HeartbeatLifecycleTimings
+{
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point started = Clock::now();
+    Clock::time_point previous = started;
+    long long agentLookupMs = 0;
+    long long currentLookupMs = 0;
+    long long preAuditMs = 0;
+    long long renewMs = 0;
+    long long resultAuditMs = 0;
+
+    void mark(long long& duration)
+    {
+        const auto now = Clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - previous).count();
+        previous = now;
+    }
+
+    ~HeartbeatLifecycleTimings()
+    {
+        const auto total = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started).count();
+        if (total < 1000) return;
+        // Slow-only, aggregate timings. No agent identifiers or request payloads.
+        std::cerr << "BACKEND_AGENT_HEARTBEAT_SLOW total_ms=" << total
+                  << " agent_lookup_ms=" << agentLookupMs
+                  << " current_lookup_ms=" << currentLookupMs
+                  << " pre_audit_ms=" << preAuditMs
+                  << " renew_ms=" << renewMs
+                  << " result_audit_ms=" << resultAuditMs << std::endl;
+    }
+};
 
 std::string timestamp(std::int64_t value)
 {
@@ -164,14 +199,18 @@ BackendAgentLifecycleService::BackendAgentLifecycleService(
     SecurityIdentityProvisioningRepository& provisioningRepository,
     SecurityIdentityRepository& identityRepository,
     CredentialVerifierRepository& credentialVerifierRepository,
-    AccountabilityEventRepository& accountabilityRepository)
+    AccountabilityEventRepository& accountabilityRepository,
+    BackendAgentRepository* heartbeatRepository,
+    AccountabilityEventRepository* heartbeatAccountabilityRepository)
     : database_(database),
       repository_(repository),
       backendRegistryService_(backendRegistryService),
       provisioningRepository_(provisioningRepository),
       identityRepository_(identityRepository),
       credentialVerifierRepository_(credentialVerifierRepository),
-      accountabilityRepository_(accountabilityRepository)
+      accountabilityRepository_(accountabilityRepository),
+      heartbeatRepository_(heartbeatRepository),
+      heartbeatAccountabilityRepository_(heartbeatAccountabilityRepository)
 {
 }
 
@@ -225,7 +264,8 @@ bool BackendAgentLifecycleService::appendEvent(
     const std::string& decision,
     const std::string& reasonCode,
     const std::string& outcome,
-    std::int64_t now) const
+    std::int64_t now,
+    AccountabilityEventRepository* repositoryOverride) const
 {
     AccountabilityEvent event;
     event.eventId = backendAgentGenerateOpaqueId("aae_", 12);
@@ -245,7 +285,9 @@ bool BackendAgentLifecycleService::appendEvent(
     event.decision = decision;
     event.reasonCode = reasonCode;
     event.outcome = outcome;
-    return !event.eventId.empty() && accountabilityRepository_.append(event);
+    AccountabilityEventRepository& owner = repositoryOverride == nullptr
+        ? accountabilityRepository_ : *repositoryOverride;
+    return !event.eventId.empty() && owner.append(event);
 }
 
 RequestSecurityContext BackendAgentLifecycleService::systemEnrollmentContext(
@@ -755,37 +797,51 @@ BackendAgentHeartbeatResult BackendAgentLifecycleService::heartbeat(
         result.reasonCode = "invalid_control_plane_time";
         return result;
     }
-    const auto agent = repository_.findAgent(context.actor.actorId);
+    HeartbeatLifecycleTimings timings;
+    BackendAgentRepository& heartbeatRepository =
+        heartbeatRepository_ == nullptr ? repository_ : *heartbeatRepository_;
+    const auto agent = heartbeatRepository.findAgent(context.actor.actorId);
+    timings.mark(timings.agentLookupMs);
     if (!agent.has_value() || agent->backendId != backendId)
     {
         result.reasonCode = "agent_binding_mismatch";
         appendEvent(context, "agent.lease.result", backendId,
-                    "backend.agent.heartbeat", "deny", result.reasonCode, "denied", now);
+                    "backend.agent.heartbeat", "deny", result.reasonCode, "denied", now,
+                    heartbeatAccountabilityRepository_);
         return result;
     }
-    const auto current = repository_.findAgent(agent->agentId);
+    const auto current = heartbeatRepository.findAgent(agent->agentId);
+    timings.mark(timings.currentLookupMs);
     const bool duplicate = current.has_value() &&
         heartbeatSequence == current->heartbeatSequence;
     if (!duplicate &&
         !appendEvent(context, "agent.lease.renewed", backendId,
                      "backend.agent.heartbeat", "allow", "lease_renewal_requested",
-                     "pending", now))
+                     "pending", now, heartbeatAccountabilityRepository_))
     {
+        timings.mark(timings.preAuditMs);
         result.reasonCode = "accountability_unavailable";
         return result;
     }
-    if (!repository_.renewLease(
+    timings.mark(timings.preAuditMs);
+    if (!heartbeatRepository.renewLease(
             agent->agentId, agentInstanceId, backendGeneration, heartbeatSequence,
             now, now + LeaseDurationSeconds, result))
     {
+        timings.mark(timings.renewMs);
         result.reasonCode = "lease_persistence_failed";
         appendEvent(context, "agent.lease.result", backendId,
-                    "backend.agent.heartbeat", "deny", result.reasonCode, "failed", now);
+                    "backend.agent.heartbeat", "deny", result.reasonCode, "failed", now,
+                    heartbeatAccountabilityRepository_);
+        timings.mark(timings.resultAuditMs);
         return result;
     }
+    timings.mark(timings.renewMs);
     appendEvent(context, "agent.lease.result", backendId,
                 "backend.agent.heartbeat", result.accepted ? "allow" : "deny",
-                result.reasonCode, result.accepted ? "succeeded" : "denied", now);
+                result.reasonCode, result.accepted ? "succeeded" : "denied", now,
+                heartbeatAccountabilityRepository_);
+    timings.mark(timings.resultAuditMs);
     return result;
 }
 

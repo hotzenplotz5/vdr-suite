@@ -297,7 +297,9 @@ public:
         SecurityIdentityProvisioningRepository& provisioningRepository,
         SecurityIdentityRepository& identityRepository,
         CredentialVerifierRepository& credentialVerifierRepository,
-        AccountabilityEventRepository& accountabilityRepository);
+        AccountabilityEventRepository& accountabilityRepository,
+        BackendAgentRepository* heartbeatRepository = nullptr,
+        AccountabilityEventRepository* heartbeatAccountabilityRepository = nullptr);
 
     bool createEnrollment(
         const RequestSecurityContext& context,
@@ -393,7 +395,8 @@ private:
         const std::string& decision,
         const std::string& reasonCode,
         const std::string& outcome,
-        std::int64_t now) const;
+        std::int64_t now,
+        AccountabilityEventRepository* repositoryOverride = nullptr) const;
     RequestSecurityContext systemEnrollmentContext(
         const std::string& agentId,
         const std::string& deviceId,
@@ -416,6 +419,8 @@ private:
     SecurityIdentityRepository& identityRepository_;
     CredentialVerifierRepository& credentialVerifierRepository_;
     AccountabilityEventRepository& accountabilityRepository_;
+    BackendAgentRepository* heartbeatRepository_;
+    AccountabilityEventRepository* heartbeatAccountabilityRepository_;
 };
 
 std::string backendAgentHashSecret(const std::string& secret);

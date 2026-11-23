@@ -631,6 +631,19 @@ bool DaemonRuntime::initialize()
     backendAgentAuthReadIdentityRepository_ =
         std::make_unique<SecurityIdentityRepository>(backendAgentAuthReadDatabase_);
 
+    // Heartbeat must not use the main sqlite3 handle occupied by EPG/genre
+    // warmup. Keep the same durable rows, writer lease and audit semantics.
+    if (!backendAgentHeartbeatDatabase_.open(config_.databasePath())) {
+        std::cerr << "failed to open Backend Agent heartbeat connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentHeartbeatRepository_ =
+        std::make_unique<BackendAgentRepository>(backendAgentHeartbeatDatabase_);
+    backendAgentHeartbeatAccountabilityRepository_ =
+        std::make_unique<AccountabilityEventRepository>(
+            backendAgentHeartbeatDatabase_);
+
     humanAccountRepository_ =
         std::make_unique<HumanAccountRepository>(database_);
     if (!humanAccountRepository_->ensureSchema())
@@ -686,7 +699,9 @@ bool DaemonRuntime::initialize()
             *backendAgentProvisioningRepository_,
             *backendAgentIdentityRepository_,
             *backendAgentCredentialVerifierRepository_,
-            *backendAgentAccountabilityRepository_);
+            *backendAgentAccountabilityRepository_,
+            backendAgentHeartbeatRepository_.get(),
+            backendAgentHeartbeatAccountabilityRepository_.get());
     embeddedBackendLifecycleService_ =
         std::make_unique<EmbeddedBackendLifecycleService>(database_);
     if (!embeddedBackendLifecycleService_->ensureSchema()) {

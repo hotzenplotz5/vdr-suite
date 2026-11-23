@@ -269,6 +269,8 @@ private:
     // Polls have a dedicated SQLite handle, separate from the main cache
     // writers. Both handles still share the existing database transaction lease.
     Database backendAgentCommandPollDatabase_;
+    // Heartbeat read/write operations must not use the cache worker's sqlite3 handle.
+    Database backendAgentHeartbeatDatabase_;
     std::unique_ptr<vdrsuite::operations::MutationOperationRepository>
         mutationOperationRepository_;
     std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
@@ -343,6 +345,8 @@ private:
     std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
     // Read-only counterparts for the HTTP Basic authentication path only.
     std::unique_ptr<BackendAgentRepository> backendAgentAuthReadRepository_;
+    std::unique_ptr<BackendAgentRepository> backendAgentHeartbeatRepository_;
+    std::unique_ptr<AccountabilityEventRepository> backendAgentHeartbeatAccountabilityRepository_;
     std::unique_ptr<CredentialVerifierRepository> backendAgentAuthReadVerifierRepository_;
     std::unique_ptr<SecurityIdentityRepository> backendAgentAuthReadIdentityRepository_;
     std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;

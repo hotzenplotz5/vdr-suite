@@ -300,7 +300,14 @@ require(
 )
 require(
     "EpgSynchronizationBatchSize" in synchronization
-    and "begin += EpgSynchronizationBatchSize" in synchronization,
+    and (
+        "begin += EpgSynchronizationBatchSize" in synchronization
+        or (
+            "EpgWriteLeaseBudget" in synchronization
+            and "nextBegin = index + 1" in synchronization
+            and "begin = nextBegin" in synchronization
+        )
+    ),
     "EPG genre synchronization must commit in bounded batches",
 )
 require(

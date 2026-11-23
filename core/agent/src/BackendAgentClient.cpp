@@ -53,6 +53,28 @@ std::int64_t unixNow()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+// Health and channel observations have independent persistent lineages.
+// Only the pure 0 -> 1 / n -> n + 1 progression is common: preserve each
+// caller's own cursor reset, pending journal and exhausted reason code.
+bool advanceObservationSnapshotGeneration(std::uint64_t& generation)
+{
+    if (generation >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+        return false;
+    generation = generation == 0 ? 1 : generation + 1;
+    return true;
+}
+
+// Fast command polls and ordinary heartbeats must pass the same executor
+// and native transport selection. Construct a fresh value on each call:
+// neither credentials nor local capabilities are cached across generations.
+BackendAgentCommandClientContext currentCommandContext(
+    const BackendAgentClientState& state, const std::string& instanceId)
+{
+    return {state.agentId, state.credentialSecret, state.backendId,
+            instanceId, state.backendGeneration};
+}
+
 std::string generateOpaqueId(const std::string& prefix, std::size_t bytes)
 {
     if (prefix.empty() || bytes < 8 || bytes > 32) return {};
@@ -1480,17 +1502,13 @@ bool BackendAgentClientRuntime::connectWithCredential(
     if (state_.observationBackendGeneration != backendGeneration ||
         disposition == "resync-required")
     {
-        if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.observationSnapshotGeneration))
         {
             reasonCode = "observation_snapshot_generation_exhausted";
             return false;
         }
         state_.observationBackendGeneration = backendGeneration;
-        state_.observationSnapshotGeneration =
-            state_.observationSnapshotGeneration == 0
-                ? 1
-                : state_.observationSnapshotGeneration + 1;
         state_.observationProducerSequence = 0;
         state_.pendingObservationKind.clear();
         state_.pendingObservationSnapshotGeneration = 0;
@@ -1502,17 +1520,13 @@ bool BackendAgentClientRuntime::connectWithCredential(
     if (state_.channelObservationBackendGeneration != backendGeneration ||
         disposition == "resync-required")
     {
-        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.channelObservationSnapshotGeneration))
         {
             reasonCode = "channel_observation_snapshot_generation_exhausted";
             return false;
         }
         state_.channelObservationBackendGeneration = backendGeneration;
-        state_.channelObservationSnapshotGeneration =
-            state_.channelObservationSnapshotGeneration == 0
-                ? 1
-                : state_.channelObservationSnapshotGeneration + 1;
         state_.channelObservationProducerSequence = 0;
         state_.channelObservationResourceRevision.clear();
         if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
@@ -1701,17 +1715,13 @@ bool BackendAgentClientRuntime::publishCapabilities(std::string& reasonCode)
 
 bool BackendAgentClientRuntime::resetObservationLineage(std::string& reasonCode)
 {
-    if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
-            std::numeric_limits<std::int64_t>::max()))
+    if (!advanceObservationSnapshotGeneration(
+            state_.observationSnapshotGeneration))
     {
         reasonCode = "observation_snapshot_generation_exhausted";
         return false;
     }
     state_.observationBackendGeneration = state_.backendGeneration;
-    state_.observationSnapshotGeneration =
-        state_.observationSnapshotGeneration == 0
-            ? 1
-            : state_.observationSnapshotGeneration + 1;
     state_.observationProducerSequence = 0;
     state_.pendingObservationKind.clear();
     state_.pendingObservationSnapshotGeneration = 0;
@@ -1885,20 +1895,18 @@ std::string BackendAgentClientRuntime::pendingChannelObservationPath() const
 bool BackendAgentClientRuntime::resetChannelObservationLineage(
     std::string& reasonCode)
 {
-    if (state_.backendGeneration == 0 ||
-        state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-            std::numeric_limits<std::int64_t>::max()))
+    if (state_.backendGeneration == 0)
     {
-        reasonCode = state_.backendGeneration == 0
-            ? "agent_not_synchronized"
-            : "channel_observation_snapshot_generation_exhausted";
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (!advanceObservationSnapshotGeneration(
+            state_.channelObservationSnapshotGeneration))
+    {
+        reasonCode = "channel_observation_snapshot_generation_exhausted";
         return false;
     }
     state_.channelObservationBackendGeneration = state_.backendGeneration;
-    state_.channelObservationSnapshotGeneration =
-        state_.channelObservationSnapshotGeneration == 0
-            ? 1
-            : state_.channelObservationSnapshotGeneration + 1;
     state_.channelObservationProducerSequence = 0;
     state_.channelObservationResourceRevision.clear();
     if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
@@ -1944,13 +1952,12 @@ bool BackendAgentClientRuntime::preparePendingChannelObservation(
     }
     if (state_.channelObservationProducerSequence != 0)
     {
-        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        if (!advanceObservationSnapshotGeneration(
+                state_.channelObservationSnapshotGeneration))
         {
             reasonCode = "channel_observation_snapshot_generation_exhausted";
             return false;
         }
-        ++state_.channelObservationSnapshotGeneration;
         state_.channelObservationProducerSequence = 0;
         state_.channelObservationResourceRevision.clear();
         if (!persist(reasonCode)) return false;
@@ -2113,6 +2120,21 @@ void BackendAgentClientRuntime::publishOsdObservation()
     // or loss of unrelated health/command service when OSD is unavailable.
 }
 
+BackendAgentCommandClientConfig
+BackendAgentClientRuntime::commandClientConfig() const
+{
+    BackendAgentCommandClientConfig command;
+    command.statePath = config_.commandStatePath;
+    command.commandTypes = config_.commandTypes;
+    command.nativeTimerCreateTransport = config_.nativeTimerCreateTransport;
+    command.nativeTimerDeleteTransport = config_.nativeTimerDeleteTransport;
+    command.nativeTimerModifyTransport = config_.nativeTimerModifyTransport;
+    command.legacyOsdInputTransport = config_.legacyOsdInputTransport;
+    command.mediaImportExecutor = config_.mediaImportExecutor;
+    command.mediaShrinkExecutor = config_.mediaShrinkExecutor;
+    return command;
+}
+
 bool BackendAgentClientRuntime::pollCommands(
     std::string& reasonCode)
 {
@@ -2124,26 +2146,11 @@ bool BackendAgentClientRuntime::pollCommands(
         return false;
     }
 
-    BackendAgentCommandClientConfig commandConfig;
-    commandConfig.statePath = config_.commandStatePath;
-    commandConfig.commandTypes = config_.commandTypes;
-    commandConfig.nativeTimerCreateTransport =
-        config_.nativeTimerCreateTransport;
-    commandConfig.nativeTimerDeleteTransport =
-        config_.nativeTimerDeleteTransport;
-    commandConfig.nativeTimerModifyTransport =
-        config_.nativeTimerModifyTransport;
-    commandConfig.legacyOsdInputTransport =
-        config_.legacyOsdInputTransport;
-    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
-    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
+    const BackendAgentCommandClientConfig commandConfig =
+        commandClientConfig();
 
-    BackendAgentCommandClientContext commandContext{
-        state_.agentId,
-        state_.credentialSecret,
-        state_.backendId,
-        agentInstanceId_,
-        state_.backendGeneration};
+    const BackendAgentCommandClientContext commandContext =
+        currentCommandContext(state_, agentInstanceId_);
 
     if (!commandAvailabilityReady_)
     {
@@ -2173,18 +2180,19 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     std::string& reasonCode)
 {
     if (!config_.mediaImportExecutor) return true;
+    // The source observation returns the same verified installation evidence
+    // that is published to Core. Do not verify the handler a second time
+    // before the exact same read-only snapshot.
     vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
-    if (!config_.mediaImportExecutor->verifiedInstallation(installed))
-        installed = {};
     std::vector<std::string> ids;
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
     vdrsuite::mediatools::MediaImportSourcePreview selectedPreview;
     bool partial = true;
-    if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceObservationCached(
+    if (!config_.mediaImportExecutor->listTrustedSourceObservationWithEvidence(
             ids, described, partial, pendingMediaImportPreviewSourceId_,
             pendingMediaImportPreviewCodecHint_,
-            pendingMediaImportPreviewDurationHint_, selectedPreview)) {
+            pendingMediaImportPreviewDurationHint_, selectedPreview, installed) ||
+        installed.sha256.empty()) {
         ids.clear(); // Withdrawal/unreadable ledger removes all listings.
         described.clear();
         partial = true;
@@ -2412,20 +2420,10 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "agent_not_synchronized";
         return false;
     }
-    BackendAgentCommandClientConfig commandConfig;
-    commandConfig.statePath = config_.commandStatePath;
-    commandConfig.commandTypes = config_.commandTypes;
-    commandConfig.nativeTimerCreateTransport =
-        config_.nativeTimerCreateTransport;
-    commandConfig.nativeTimerDeleteTransport =
-        config_.nativeTimerDeleteTransport;
-    commandConfig.nativeTimerModifyTransport =
-        config_.nativeTimerModifyTransport;
-    commandConfig.legacyOsdInputTransport =
-        config_.legacyOsdInputTransport;
-    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
-    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
-    BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
+    const BackendAgentCommandClientConfig commandConfig =
+        commandClientConfig();
+    const BackendAgentCommandClientContext commandContext =
+        currentCommandContext(state_, agentInstanceId_);
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
         // An unacknowledged assignment from an older Agent generation must

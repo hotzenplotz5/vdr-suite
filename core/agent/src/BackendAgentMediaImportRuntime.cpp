@@ -70,9 +70,12 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceIds(
     std::vector<std::string>& out)
 {
     out.clear();
-    if (!available()) return false;
+    // available() would scan the entire inventory before this read scans it
+    // again. Preserve install/context validation and the nonempty contract.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        return inventory_.listTrustedSourceIds(backendId_, out);
+        return inventory_.listTrustedSourceIds(backendId_, out) && !out.empty();
     } catch (...) {
         out.clear();
         return false;
@@ -83,9 +86,12 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceLabels(
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& out)
 {
     out.clear();
-    if (!available()) return false;
+    // A single inventory read supplies the labels; available() needlessly
+    // walked all source roots again just to test for a nonempty listing.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        return inventory_.listTrustedSourceLabels(backendId_, out);
+        return inventory_.listTrustedSourceLabels(backendId_, out) && !out.empty();
     } catch (...) {
         out.clear();
         return false;
@@ -118,7 +124,22 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservationCached(
     const std::string& codecHint, std::uint64_t durationHint,
     vdrsuite::mediatools::MediaImportSourcePreview& preview)
 {
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    return listTrustedSourceObservationWithEvidence(
+        ids, labels, partial, selectedSourceId,
+        codecHint, durationHint, preview, installed);
+}
+
+bool BackendAgentMediaImportRuntime::listTrustedSourceObservationWithEvidence(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial, const std::string& selectedSourceId,
+    const std::string& codecHint, std::uint64_t durationHint,
+    vdrsuite::mediatools::MediaImportSourcePreview& preview,
+    vdrsuite::mediatools::MediaToolsInstallationEvidence& installed)
+{
     using namespace vdrsuite::mediatools;
+    installed = {};
     ids.clear();
     labels.clear();
     partial = true;
@@ -126,7 +147,6 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservationCached(
     preview.sourceId = selectedSourceId;
     // Reuse the existing installation/context check but avoid available(),
     // whose inventory.hasTrustedSource() performs another complete scan.
-    MediaToolsInstallationEvidence installed;
     if (!verifiedInstallation(installed)) return false;
     try {
         auto lock = MediaToolsImportRunLock::tryAcquire(
@@ -178,7 +198,10 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.failureCode = "source_invalid";
         return false;
     }
-    if (!available()) {
+    // Resolve and preview the selected source through one inventory walk.
+    // The existing install/context/maintenance proof still applies.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) {
         out.failureCode = "agent_unavailable";
         return false;
     }
@@ -211,8 +234,15 @@ bool BackendAgentMediaImportRuntime::inspectResolvedSource(
     out.sourceId = sourceId;
     try {
         out.failureCode = "source_invalid";
-        const auto plan = inspectImportPreview(
-            {local.sourceRoot, local.videoRoot, local.sourceFile});
+        const auto plan = [&]() {
+            try {
+                return inspectImportPreview(
+                    {local.sourceRoot, local.videoRoot, local.sourceFile});
+            } catch (const std::exception& error) {
+                out.failureCode = mediaImportSourceInspectionFailure(error);
+                throw;
+            }
+        }();
         out.failureCode = "source_changed";
         if (plan.sourceDevice != local.sourceDevice ||
             plan.sourceInode != local.sourceInode ||

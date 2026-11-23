@@ -7,10 +7,36 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <filesystem>
+#include <system_error>
+#include <exception>
 
 class IBackendAgentControlPlaneTransport;
 
 namespace vdrsuite::agent {
+
+// BAS.3: classify the exception already raised by the existing source
+// inspector. This is a diagnostic only, never an admission decision. The
+// caller still returns the same bounded, path-free preview failureCode.
+inline const char* mediaImportSourceInspectionFailure(const std::exception& error)
+{
+    const auto* filesystem =
+        dynamic_cast<const std::filesystem::filesystem_error*>(&error);
+    if (filesystem) {
+        if (filesystem->code() == std::errc::no_such_file_or_directory)
+            return "source_missing";
+        if (filesystem->code() == std::errc::permission_denied)
+            return "source_unreadable";
+    }
+    const std::string_view message(error.what());
+    if (message == "unsupported source extension")
+        return "format_unsupported";
+    if (message == "source changed or is not a nonempty regular file")
+        return "source_changed";
+    return "source_invalid";
+}
+
 // The Agent composition's *only* local Media Import executor.
 // Not installed by COMMAND_TYPES, manifests, or package presence. The
 // shipped binary constructs it only after explicit CLI opt-in.
@@ -50,6 +76,13 @@ public:
         bool& partial, const std::string& selectedSourceId,
         const std::string& codecHint, std::uint64_t durationHint,
         vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
+    bool listTrustedSourceObservationWithEvidence(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview,
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& installed) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;

@@ -8,6 +8,13 @@ const frontend = path.join(__dirname, '..');
 const index = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const app = fs.readFileSync(path.join(frontend, 'app.js'), 'utf8');
 const view = fs.readFileSync(path.join(frontend, 'modules/media-import.js'), 'utf8');
+// BAS.3 uses the existing preview failureCode, not a new endpoint or
+// client-side guess about source identity or permissions.
+for (const code of ['source_missing', 'source_unreadable',
+  'format_unsupported', 'source_changed', 'ffprobe_failed',
+  'target_not_writable', 'inventory_missing']) {
+  assert(view.includes(code + ':'), code + ' must have a localized preview diagnosis');
+}
 const daemonRuntime = fs.readFileSync(path.join(frontend, '../../core/daemon/src/DaemonRuntimeInitialization.cpp'), 'utf8');
 const previewOwner = daemonRuntime.split('registerMediaImportPreviewLookup(')[1]
   .split('registerMediaImportCapabilityLookup(')[0];
@@ -147,6 +154,7 @@ async function settle() {
 let allow = true;
 let confirmLocal = true;
 let confirmCalls = 0;
+let lastConfirmation = '';
 let sourcesStatus = 200;
 let state = 'dispatching';
 let cleanupState = '';
@@ -507,7 +515,11 @@ const context = {
     }
   },
   location: {origin: 'https://suite.test'},
-  confirm() { ++confirmCalls; return confirmLocal; },
+  confirm(message) {
+    ++confirmCalls;
+    lastConfirmation = String(message || '');
+    return confirmLocal;
+  },
   setTimeout(fn, delay) {
     timerCallbacks.push(fn);
     timerDelays.push(delay);
@@ -3243,6 +3255,26 @@ function renderHevcHomeActivity() {}
     'exact S01E01 is automatically identified from provider results');
   assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
     'automatic attribution is labelled separately from manual selection');
+  // Regression (Rome S01E01, 22.11.2026): the same opaque source can
+  // receive another technical/NFO/capacity preview after the one confirmed
+  // TMDb match. This must not clear its exact v2 metadata or cause a
+  // second resolver request; only changing to a different source resets it.
+  const autoReadsBeforeSameSourceRefresh = onlineRequests.length;
+  const sourceChecksBeforeSameSourceRefresh = requests.filter(function (entry) {
+    return entry.path.includes('/' + SOURCE + '/preview');
+  }).length;
+  onlineSelect.listeners.change();
+  await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeSameSourceRefresh,
+    'same-source preview refresh reuses the confirmed automatic TMDb episode');
+  assert(requests.filter(function (entry) {
+    return entry.path.includes('/' + SOURCE + '/preview');
+  }).length > sourceChecksBeforeSameSourceRefresh,
+    'same-source regression exercises an actual new technical preview');
+  const retainedAutomatic = findClass(mount, 'media-import-online-confirmed');
+  assert(retainedAutomatic &&
+    retainedAutomatic.children[0].textContent.includes('Pilot'),
+    'automatic TMDb identity survives same-source preview refresh instead of silently downgrading v2 to v1');
   // Previously completed technical checks are visible across episode changes
   // and are not repeated within this source scan.
   const checksFor = function (sourceId) {
@@ -3295,8 +3327,15 @@ function renderHevcHomeActivity() {}
   previewAvailableBytes = 9000000000;
   previewNfoPlot = 'NFO wurde nach dem ersten Codec-Check aktualisiert.';
   const metadataChecksBefore = checksFor(SOURCE);
+  const autoReadsBeforeSameSource = onlineRequests.length;
   reloadedEpisodes.listeners.change();
   await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeSameSource,
+    'same-source NFO/capacity refresh retains the confirmed automatic TMDb match');
+  const confirmedAfterSameSource = findClass(mount, 'media-import-online-confirmed');
+  assert(confirmedAfterSameSource &&
+    confirmedAfterSameSource.children[0].textContent.includes('Pilot'),
+    'repeated preview must not discard an automatic episode identity');
   assert.strictEqual(checksFor(SOURCE), metadataChecksBefore + 1,
     'same source requests current metadata and capacity exactly once');
   const newCapacityFact = findClass(mount, 'media-import-preview-facts').children
@@ -3309,8 +3348,11 @@ function renderHevcHomeActivity() {}
   previewAvailableBytes = 12000000000;
   previewNfoPlot = 'Eine Handlung aus der tatsächlichen .nfo-Datei.';
   const beforeManualRecheck = checksFor(SOURCE);
+  const autoReadsBeforeManualRecheck = onlineRequests.length;
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
+  assert.strictEqual(onlineRequests.length, autoReadsBeforeManualRecheck,
+    'manual technical recheck keeps the same already-confirmed automatic TMDb identity');
   assert.strictEqual(checksFor(SOURCE), beforeManualRecheck + 1,
     'the explicit recheck does exactly one fresh technical request');
   // Local source artwork stays authoritative, while the episode still has
@@ -3353,7 +3395,13 @@ function renderHevcHomeActivity() {}
     'automatic metadata lookup never imports, marks or changes VDR media');
   // Multiple equally plausible provider IDs must not be silently chosen.
   onlineMode = 'ambiguous';
+  // Change the opaque source first: a same-source technical refresh is
+  // intentionally no longer allowed to erase a confirmed TMDb selection.
+  onlineSelect.value = SOURCE_B;
+  onlineSelect.listeners.change();
+  await settle();
   const beforeAmbiguousRequests = onlineRequests.length;
+  onlineSelect.value = SOURCE;
   onlineSelect.listeners.change();
   await settle();
   assert.strictEqual(onlineRequests.length - beforeAmbiguousRequests, 1,
@@ -3369,6 +3417,16 @@ function renderHevcHomeActivity() {}
   await settle();
   const resolveOldAuto = resolveOnlineReply;
   assert.strictEqual(typeof resolveOldAuto, 'function');
+  const beforePendingImport = submits;
+  confirmLocal = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(lastConfirmation.includes('TMDb-Abgleich läuft noch') &&
+    lastConfirmation.includes('nur lokale Metadaten'),
+    'an unresolved automatic lookup is disclosed in the existing import confirmation');
+  assert.strictEqual(submits, beforePendingImport,
+    'cancelling the ordinary import confirmation creates no operation');
+  confirmLocal = true;
   onlineMode = 'offline';
   onlineSelect.value = SOURCE_B;
   onlineSelect.listeners.change();
@@ -3502,6 +3560,15 @@ function renderHevcHomeActivity() {}
   await settle();
   assert(findClass(mount, 'media-import-online-status').textContent.includes('lokale Daten'));
   assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null);
+  confirmLocal = false;
+  const offlineSubmits = submits;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(lastConfirmation.includes('keine TMDb-Auswahl bestätigt') &&
+    lastConfirmation.includes('nur lokale Metadaten'),
+    'offline import remains possible with a clear local-only notice in the existing confirmation');
+  assert.strictEqual(submits, offlineSubmits);
+  confirmLocal = true;
   assert(findClass(mount, 'media-import-local-metadata') &&
     findClass(mount, 'media-import-artwork'),
     'offline fallback retains local information and images');

@@ -293,6 +293,21 @@ void verifyDurableAgentLifecycle()
 }
 
 int main() {
+    // BAS.3: source-inspection exceptions preserve distinct path-free
+    // diagnostics; this only labels failures, it never permits execution.
+    assert(std::string(mediaImportSourceInspectionFailure(
+        fs::filesystem_error("missing",std::make_error_code(
+            std::errc::no_such_file_or_directory))))=="source_missing");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        fs::filesystem_error("denied",std::make_error_code(
+            std::errc::permission_denied))))=="source_unreadable");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("unsupported source extension")))=="format_unsupported");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("source changed or is not a nonempty regular file")))
+        =="source_changed");
+    assert(std::string(mediaImportSourceInspectionFailure(
+        std::runtime_error("unclassified source failure")))=="source_invalid");
     Fixture f;
     Transport transport;
     BackendAgentCommandClientContext current;
@@ -311,6 +326,31 @@ int main() {
     config.mediaImportExecutor=&runtime;
     assert(runtime.available());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.size()==1);
+
+    // BAS.2: legacy Agent read helpers use one inventory walk apiece,
+    // preserving the former nonempty-source and installation semantics.
+    std::vector<std::string> directIds;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> directLabels;
+    vdrsuite::mediatools::MediaImportSourcePreview directPreview;
+    assert(runtime.listTrustedSourceIds(directIds));
+    assert(directIds.size()==1 && directIds[0]=="inventory_Token_0001");
+    assert(runtime.listTrustedSourceLabels(directLabels));
+    assert(directLabels.size()==1 && directLabels[0].sourceId==directIds[0]);
+    assert(!runtime.inspectTrustedSource(directIds[0],directPreview));
+    assert(directPreview.sourceId==directIds[0] &&
+           directPreview.failureCode=="ffprobe_failed");
+
+    // An empty inventory remains unavailable to these legacy helpers.
+    // The missing selection is diagnostic, never an import authorization.
+    const fs::path absentSource=f.source.string()+".temporarily-absent";
+    fs::rename(f.source,absentSource);
+    assert(!runtime.available());
+    assert(!runtime.listTrustedSourceIds(directIds) && directIds.empty());
+    assert(!runtime.listTrustedSourceLabels(directLabels) && directLabels.empty());
+    assert(!runtime.inspectTrustedSource("inventory_Token_0001",directPreview));
+    assert(directPreview.failureCode=="inventory_missing");
+    fs::rename(absentSource,f.source);
+    assert(runtime.available());
 
     // One observation reads the trusted inventory once and reuses its exact
     // selected descriptor for a read-only preview. This synthetic .ts file
@@ -336,8 +376,27 @@ int main() {
            observedPreview.status == "unavailable" &&
            observedPreview.failureCode == "inventory_missing");
 
+    // BAS.2: the live heartbeat receives installation evidence and the
+    // source observation in one call; do not run another approval proof.
+    vdrsuite::mediatools::MediaToolsInstallationEvidence observationInstall;
+    assert(runtime.listTrustedSourceObservationWithEvidence(
+        observedIds, observedLabels, observedPartial,
+        "inventory_Token_0001", "", 0, observedPreview,
+        observationInstall));
+    assert(observationInstall.origin == "manual" &&
+           !observationInstall.version.empty() &&
+           observationInstall.sha256.size() == 64 &&
+           observedIds.size() == 1 &&
+           observedLabels[0].sourceId == observedIds[0] &&
+           observedPreview.failureCode == "ffprobe_failed");
+
     fs::remove(f.runLock);
     assert(!runtime.available());
+    assert(!runtime.listTrustedSourceObservationWithEvidence(
+        observedIds, observedLabels, observedPartial,
+        "inventory_Token_0001", "", 0, observedPreview,
+        observationInstall));
+    assert(observationInstall.sha256.empty() && observedIds.empty());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
     {std::ofstream lockFile(f.runLock,std::ios::trunc|std::ios::binary);}
     assert(::chmod(f.runLock.c_str(),0644)==0);

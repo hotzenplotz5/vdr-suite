@@ -425,13 +425,8 @@
           permissionInput.replaceChildren();
           appendOption(permissionInput, '',
             t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
-          // The current server-supported Human permissions are covered by
-          // role.admin in AuthorizationService, except distinct role grants.
-          // Only the picker changes; the server remains the grant authority.
-          const isAdmin = activeGrants.some(function(grant) {
-            return grant && grant.permission === 'role.admin' &&
-              (grant.backendId === '*' || grant.backendId === scope);
-          });
+          // The server supplies the permission catalogue; do not infer
+          // effective role coverage in the browser from a named role.
           const available = [];
           permissionCategories.forEach(function(category) {
             const choices = permissionOptions.filter(function(option) {
@@ -450,8 +445,7 @@
                 return grant && grant.permission === option.permission &&
                   (grant.backendId === '*' || grant.backendId === scope);
               })) return false;
-              if (isAdmin && (option.permission === 'role.admin' ||
-                  option.category === 'permission' || option.category === 'addon')) return false;
+
               // Add-on rights require effective provider visibility.
               if (option.category === 'addon') {
                 const addons = Array.isArray(overview.addonPermissions)

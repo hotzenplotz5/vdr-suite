@@ -1,5 +1,14 @@
 # VDR-Suite Current State
 
+## BAS – Backend-Agent Simplification (22.11.2026; getrennt von API v1)
+
+**Maintainer-Freigabe:** BAS.1–BAS.5 hat Vorrang und wird auf dem genehmigten Branch `work/bas-simplification` entwickelt, ab `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`. Public API v1 entwickelt parallel ausschließlich auf `work/api-v1-finalisierung-f2-f8`. **Kein Merge und keine Runtime-Installation.**
+
+BAS.1 dokumentiert die tatsächlichen Quell-/Preview-/Agent-/Operation-/SSE-Pfade. BAS.2 entfernt nachgewiesene doppelte volle Inventarscans in alten Agent-Lesemethoden und die doppelte Installationsverifikation innerhalb einer Heartbeat-Quellbeobachtung; bestehende Ausführungsautorisierung und Quellenprüfung bleiben. BAS.3 ergänzt konkrete, pfadfreie Preview-Fehlercodes und Webdiagnosen. BAS.4 hält die unabhängigen Authentifizierungs-/Autorisierungs-/Fencing-/Readback-Prüfungen ausdrücklich aufrecht. BAS.5 hat eine getrennte CI-/Hardware-Abnahmematrix; **Regressionen und realer yaVDR-Endlauf sind für den neuen BAS-Kandidaten noch nicht bestätigt**. Die noch offenen Media-Tools-Teilbereiche und produktive Paketmigration bleiben **OFFEN / ZURÜCKGESTELLT**, nicht durch BAS abgeschlossen.
+
+[Technischer BAS-Nachweis und Abnahmematrix](development/bas-backend-agent-simplification.md).
+
+
 ## API.V1.F5.4 – Native-Timer-Feldparität (22.11.2026)
 
 Die bestehenden Public-v1-Listen- und Detail-GETs projizieren
