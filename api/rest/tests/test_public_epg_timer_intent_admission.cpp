@@ -76,6 +76,20 @@ static void test_manual_timer_intent_post()
     assert(accepted.headers.at("Location") ==
         "/api/v1/operations/op_0123456789abcdef0123456789abcdef");
     assert(accepted.headers.at("Cache-Control")=="no-store");
+    // Public-v1 returns the flat DurableOperation resource.
+    // HTTP 202 acknowledges a durable Operation, not native Timer success.
+    assert(accepted.body.find(
+        R"json("operationId":"op_0123456789abcdef0123456789abcdef")json") !=
+        std::string::npos);
+    assert(accepted.body.find(R"json("state":"accepted")json") !=
+        std::string::npos);
+    assert(accepted.body.find(R"json("backendId":"home")json") !=
+        std::string::npos);
+    assert(accepted.body.find(
+        R"json("links":{"self":"/api/v1/operations/op_0123456789abcdef0123456789abcdef"})json") !=
+        std::string::npos);
+    assert(accepted.body.find(R"json("operation":)json") ==
+        std::string::npos);
     replayStatus = PublicEpgTimerIntentAdmissionStatus::replayed;
     api.resetManualTimerIntentSubmit();
     const auto recovered = post(body);
