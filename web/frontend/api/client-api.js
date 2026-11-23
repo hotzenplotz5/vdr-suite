@@ -493,6 +493,27 @@
     });
   }
 
+  // Slice 3: direct external/unbound native actions retain the single
+  // established VDR writer and return a synchronous result, not HTTP 202.
+  function fetchPublicNativeTimerDirectUpdate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().updateExternalNativeTimer({
+      backendId: input.backendId, timerId: input.timerId,
+      payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
+  function fetchPublicNativeTimerDirectDelete(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().deleteExternalNativeTimer({
+      backendId: input.backendId, timerId: input.timerId,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
   // F5.6: manual one-shot Timer CREATE uses the same Public-v1 client,
   // current Browser session/CSRF and caller's stable Idempotency-Key.
   // A 202 is only an Operation; no legacy mutation or automatic retry.
@@ -1014,6 +1035,8 @@
     fetchPublicNativeTimerAux: fetchPublicNativeTimerAux,
     fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
     fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
+    fetchPublicNativeTimerDirectUpdate: fetchPublicNativeTimerDirectUpdate,
+    fetchPublicNativeTimerDirectDelete: fetchPublicNativeTimerDirectDelete,
     fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,
     fetchPublicManualTimerCreate: fetchPublicManualTimerCreate,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
