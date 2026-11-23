@@ -6,33 +6,118 @@
 
 namespace
 {
-std::string unquote(
-    const std::string& value)
+// Decode the browser's JSON.stringify values without interpreting commas,
+// closing braces, or escaped quote characters inside a Timer title/Aux blob
+// as top-level object delimiters.
+bool parseHexQuad(const std::string& body, std::size_t& pos, unsigned& code)
 {
-    if (value.size() >= 2 &&
-        value.front() == '"' &&
-        value.back() == '"')
+    if (body.size() - pos < 4U) return false;
+    code = 0U;
+    for (unsigned i = 0U; i < 4U; ++i)
     {
-        return value.substr(1, value.size() - 2);
+        const char c = body[pos++];
+        const int digit =
+            (c >= '0' && c <= '9') ? c - '0' :
+            (c >= 'a' && c <= 'f') ? c - 'a' + 10 :
+            (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+        if (digit < 0) return false;
+        code = (code << 4U) | static_cast<unsigned>(digit);
     }
-
-    return value;
+    return true;
 }
 
-std::string trim(
-    const std::string& value)
+void appendUtf8(std::string& output, unsigned code)
 {
-    const std::size_t first =
-        value.find_first_not_of(" \t\n\r");
-
-    if (first == std::string::npos)
+    if (code < 0x80U)
+        output.push_back(static_cast<char>(code));
+    else if (code < 0x800U)
     {
-        return "";
+        output.push_back(static_cast<char>(0xc0U | (code >> 6U)));
+        output.push_back(static_cast<char>(0x80U | (code & 0x3fU)));
     }
+    else if (code < 0x10000U)
+    {
+        output.push_back(static_cast<char>(0xe0U | (code >> 12U)));
+        output.push_back(static_cast<char>(0x80U | ((code >> 6U) & 0x3fU)));
+        output.push_back(static_cast<char>(0x80U | (code & 0x3fU)));
+    }
+    else
+    {
+        output.push_back(static_cast<char>(0xf0U | (code >> 18U)));
+        output.push_back(static_cast<char>(0x80U | ((code >> 12U) & 0x3fU)));
+        output.push_back(static_cast<char>(0x80U | ((code >> 6U) & 0x3fU)));
+        output.push_back(static_cast<char>(0x80U | (code & 0x3fU)));
+    }
+}
 
-    const std::size_t last =
-        value.find_last_not_of(" \t\n\r");
+bool parseJsonString(
+    const std::string& body, std::size_t& pos, std::string& output)
+{
+    if (pos >= body.size() || body[pos++] != '"') return false;
+    output.clear();
+    while (pos < body.size())
+    {
+        const unsigned char c = static_cast<unsigned char>(body[pos++]);
+        if (c == '"') return true;
+        if (c < 0x20U) return false;
+        if (c != '\\')
+        {
+            output.push_back(static_cast<char>(c));
+            continue;
+        }
+        if (pos >= body.size()) return false;
+        const char escape = body[pos++];
+        switch (escape)
+        {
+        case '"': output.push_back('"'); break;
+        case '\\': output.push_back('\\'); break;
+        case '/': output.push_back('/'); break;
+        case 'b': output.push_back('\b'); break;
+        case 'f': output.push_back('\f'); break;
+        case 'n': output.push_back('\n'); break;
+        case 'r': output.push_back('\r'); break;
+        case 't': output.push_back('\t'); break;
+        case 'u':
+        {
+            unsigned code = 0U;
+            if (!parseHexQuad(body, pos, code)) return false;
+            if (code >= 0xd800U && code <= 0xdbffU)
+            {
+                if (body.size() - pos < 6U ||
+                    body[pos] != '\\' || body[pos + 1U] != 'u')
+                    return false;
+                pos += 2U;
+                unsigned low = 0U;
+                if (!parseHexQuad(body, pos, low) ||
+                    low < 0xdc00U || low > 0xdfffU)
+                    return false;
+                code = 0x10000U +
+                    ((code - 0xd800U) << 10U) + (low - 0xdc00U);
+            }
+            else if (code >= 0xdc00U && code <= 0xdfffU)
+                return false;
+            appendUtf8(output, code);
+            break;
+        }
+        default: return false;
+        }
+    }
+    return false;
+}
 
+void skipWhitespace(const std::string& body, std::size_t& pos)
+{
+    while (pos < body.size() &&
+        (body[pos] == ' ' || body[pos] == '\t' ||
+         body[pos] == '\n' || body[pos] == '\r'))
+        ++pos;
+}
+
+std::string trim(const std::string& value)
+{
+    const std::size_t first = value.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos) return "";
+    const std::size_t last = value.find_last_not_of(" \t\n\r");
     return value.substr(first, last - first + 1);
 }
 
@@ -40,75 +125,51 @@ std::map<std::string, std::string> parseFlatObject(
     const std::string& body)
 {
     std::map<std::string, std::string> values;
-
-    std::size_t position = 0;
-
-    while (position < body.size())
+    std::size_t pos = 0U;
+    skipWhitespace(body, pos);
+    if (pos >= body.size() || body[pos++] != '{') return {};
+    skipWhitespace(body, pos);
+    if (pos < body.size() && body[pos] == '}')
     {
-        const std::size_t keyStart =
-            body.find('"', position);
-
-        if (keyStart == std::string::npos)
-        {
-            break;
-        }
-
-        const std::size_t keyEnd =
-            body.find('"', keyStart + 1);
-
-        if (keyEnd == std::string::npos)
-        {
-            break;
-        }
-
-        const std::size_t colon =
-            body.find(':', keyEnd + 1);
-
-        if (colon == std::string::npos)
-        {
-            break;
-        }
-
-        const std::string key =
-            body.substr(keyStart + 1, keyEnd - keyStart - 1);
-
-        const std::size_t comma =
-            body.find(',', colon + 1);
-
-        const std::size_t objectEnd =
-            body.find('}', colon + 1);
-
-        std::size_t valueEnd =
-            body.size();
-
-        if (comma != std::string::npos)
-        {
-            valueEnd = comma;
-        }
-
-        if (objectEnd != std::string::npos &&
-            objectEnd < valueEnd)
-        {
-            valueEnd = objectEnd;
-        }
-
-        const std::string rawValue =
-            trim(body.substr(colon + 1, valueEnd - colon - 1));
-
-        if (!key.empty())
-        {
-            values[key] = unquote(rawValue);
-        }
-
-        if (comma == std::string::npos)
-        {
-            break;
-        }
-
-        position = comma + 1;
+        ++pos;
+        skipWhitespace(body, pos);
+        return pos == body.size() ? values :
+            std::map<std::string, std::string>{};
     }
-
-    return values;
+    while (pos < body.size())
+    {
+        std::string key;
+        if (!parseJsonString(body, pos, key)) return {};
+        skipWhitespace(body, pos);
+        if (pos >= body.size() || body[pos++] != ':') return {};
+        skipWhitespace(body, pos);
+        std::string value;
+        if (pos < body.size() && body[pos] == '"')
+        {
+            if (!parseJsonString(body, pos, value)) return {};
+        }
+        else
+        {
+            const std::size_t first = pos;
+            while (pos < body.size() &&
+                   body[pos] != ',' && body[pos] != '}')
+                ++pos;
+            value = trim(body.substr(first, pos - first));
+            if (value.empty()) return {};
+        }
+        values[key] = value;
+        skipWhitespace(body, pos);
+        if (pos < body.size() && body[pos] == '}')
+        {
+            ++pos;
+            skipWhitespace(body, pos);
+            return pos == body.size() ? values :
+                std::map<std::string, std::string>{};
+        }
+        if (pos >= body.size() || body[pos++] != ',') return {};
+        skipWhitespace(body, pos);
+    }
+    return {};
 }
 
 std::string getValue(

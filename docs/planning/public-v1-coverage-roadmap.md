@@ -2,6 +2,15 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.2 (bestehender Web-Timer-Writer):** Der vorhandene
+`VdrTimerActionRequestParser` scannt JSON-Strings nun einschließlich
+escaped Quotes, Kommas, geschweifter Klammern und Unicode-Escapes korrekt.
+Vorher zerlegte er den `aux`-/Titelfeldwert bereits an einem internen
+Komma oder `}`; der produktive Timer-Controller bleibt unverändert.
+Fokussierte Tests verwenden pluginartige `aux`-Metadaten und
+`priority/lifetime=0`. Dies behebt **keine** noch fehlende
+Public-v1-Writer-/GET-Parität für Aux.
+
 **F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
 aus dem bestehenden `VdrTimer`-Snapshot in Liste und Detail projiziert.
 Beide Felder gehören bereits zum versionierten Binding-Fingerprint;
