@@ -488,7 +488,7 @@
   const nativeMutationAttempts = new WeakMap();
 
   function publicNativeTimerUpdatePayload(payload) {
-    if (!payload || String(payload.aux || '') !== '') return null;
+    if (!payload) return null;
     return {
       kind: 'update', channelId: payload.channelId, title: payload.title,
       directory: payload.directory, day: payload.day,
@@ -508,8 +508,7 @@
     const legacyPayload = type === 'delete'
       ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
     const api = resolvedClientApi();
-    if ((type === 'update' && String(payload.aux || '') !== '') ||
-        (type === 'delete' && payload.recording === true) ||
+    if ((type === 'delete' && payload.recording === true) ||
         !api || typeof api.fetchPublicNativeTimerDetail !== 'function' ||
         typeof api.fetchPublicNativeTimerOperation !== 'function' ||
         (type === 'delete'
@@ -967,9 +966,10 @@
         });
         return;
       }
-      // Clearing an existing opaque aux value must reach the VDR editor too.
-      // The native Public-v1 specification cannot represent aux deletion.
-      if (mode === 'update' && String(timer.aux || '') !== '')
+      // Native MODIFY preserves existing VDR Aux() verbatim. Only an actual
+      // aux change requires the existing VDR-specific editor/write contract.
+      if (mode === 'update' &&
+          String(timer.aux || '') !== String(payload.aux || ''))
         executeAction('update', payload, submit, feedback);
       else if (mode === 'update')
         executePublicNativeTimerAction('update', payload, submit, feedback);
