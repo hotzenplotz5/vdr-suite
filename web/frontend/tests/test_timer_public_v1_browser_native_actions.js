@@ -57,11 +57,15 @@ const sources = [];
 let bindingState = 'verified';
 let opState = 'accepted';
 let failWrite = false;
+let denyWrite = false;
+let denyDetail = false;
 let reloads = 0;
 let id = 0;
 const clientApi = {
   fetchPublicNativeTimerDetail(input) {
     publicReads.push(input);
+    if (denyDetail)
+      return Promise.reject(Object.assign(new Error('v1 view denied'), {status: 403}));
     return Promise.resolve({
       status: 200,
       etag: bindingState === 'verified' ? '"native-timer-binding/1:fixture:2:3"' : null,
@@ -71,6 +75,8 @@ const clientApi = {
   fetchPublicNativeTimerModify(input) {
     publicWrites.push({action: 'modify', input});
     if (failWrite) return Promise.reject(new Error('unknown transport outcome'));
+    if (denyWrite)
+      return Promise.reject(Object.assign(new Error('v1 admin denied'), {status: 403}));
     return Promise.resolve({status: 202, data: {
       operation: {operationId: 'op_native_' + (++id), state: 'accepted'}
     }});
@@ -275,5 +281,26 @@ function editor() {
   await tick();
   assert.equal(publicWrites.at(-1).input.idempotencyKey, firstKey);
   assert.equal(legacy.length, 4);
+
+  // Public native v1 is administrator-only in the current SecurityHttpGate.
+  // A definitive 403 must not revoke existing independently checked Human
+  // Timer rights on the established browser action route.
+  failWrite = false;
+  denyWrite = true;
+  render();
+  button('Deaktivieren').listeners.click();
+  await tick();
+  assert.equal(legacy.length, 5);
+  assert.equal(legacy[4].action, 'update');
+  denyWrite = false;
+  denyDetail = true;
+  const previousWrites = publicWrites.length;
+  render();
+  button('Deaktivieren').listeners.click();
+  await tick();
+  assert.equal(publicWrites.length, previousWrites);
+  assert.equal(legacy.length, 6);
+  assert.equal(legacy[5].action, 'update');
+
   console.log('Timer browser Public-v1 native actions + legacy parity PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
