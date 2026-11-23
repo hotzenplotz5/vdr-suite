@@ -481,6 +481,20 @@
     });
   }
 
+  // F5.6: manual one-shot Timer CREATE uses the same Public-v1 client,
+  // current Browser session/CSRF and caller's stable Idempotency-Key.
+  // A 202 is only an Operation; no legacy mutation or automatic retry.
+  function fetchPublicManualTimerCreate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().submitManualTimerIntent({
+      payload: input.payload,
+      idempotencyKey: input.idempotencyKey,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
   // One public EPG Timer CREATE path for all browser EPG surfaces. The
   // server owns the native timer, VDR margins and conflict decision.
   // Never synthesize If-Match from a cached EPG card or retry a POST.
@@ -988,6 +1002,7 @@
     fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
     fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
     fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,
+    fetchPublicManualTimerCreate: fetchPublicManualTimerCreate,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,

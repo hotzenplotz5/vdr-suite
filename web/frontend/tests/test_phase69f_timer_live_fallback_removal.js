@@ -32,6 +32,14 @@ const context = {
       return Promise.resolve(response(options.headers['If-None-Match'] === etag ? 304 : 200,
         {operationId: 'op_modify_f55', state: 'succeeded'}, etag));
     }
+    if (target === 'https://suite.example/api/v1/manual/timer-intents') {
+      if (JSON.parse(options.body).title === 'Fail')
+        return Promise.resolve(response(503, {error: {code: 'backend_unavailable'}}));
+      return Promise.resolve(response(202, {
+        operationId: 'op_manual_f55', state: 'accepted', backendId: 'living-room',
+        links: {self: '/api/v1/operations/op_manual_f55'}
+      }, null, '/api/v1/operations/op_manual_f55'));
+    }
     if (target.startsWith('https://suite.example/api/v1/native-timers')) {
       if (options.method === 'POST' || options.method === 'DELETE') {
         if (options.headers['Idempotency-Key'] === 'idem-conflict')
@@ -231,7 +239,44 @@ async function run() {
   assert.throws(() => api.fetchPublicNativeTimerOperation({operationId: '../invalid'}));
   assert.strictEqual(requests.length, 10, 'invalid operation ID must not dispatch');
   assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
-  console.log('test_phase69f_timer_live_fallback_removal F5.3/F5.5 passed');
+  // F5.6 manual browser adapter: no EPG If-Match and no Legacy CREATE.
+  const manualPayload = {
+    backendId: 'living-room', channelId: 'C-1-2-3',
+    title: 'Evening news', directory: 'News', startAt: 1795550400,
+    stopAt: 1795554000, priority: 50, lifetime: 99, enabled: true, vps: false
+  };
+  const manual = await api.fetchPublicManualTimerCreate({
+    payload: manualPayload, idempotencyKey: 'manual-browser-once-1'
+  });
+  assert.strictEqual(manual.status, 202);
+  assert.strictEqual(manual.location, '/api/v1/operations/op_manual_f55');
+  assert.strictEqual(manual.data.operationId, 'op_manual_f55');
+  assert.strictEqual(manual.data.state, 'accepted');
+  assert.strictEqual(manual.data.backendId, 'living-room');
+  assert.strictEqual(manual.data.links.self, manual.location);
+  assert.strictEqual(manual.data.operation, undefined);
+  assert.strictEqual(requests[10].url,
+    'https://suite.example/api/v1/manual/timer-intents');
+  assert.strictEqual(requests[10].options.method, 'POST');
+  assert.strictEqual(requests[10].options.credentials, 'same-origin');
+  assert.strictEqual(requests[10].options.headers['X-CSRF-Token'], 'browser-fixture-csrf');
+  assert.strictEqual(requests[10].options.headers['Idempotency-Key'], 'manual-browser-once-1');
+  assert.strictEqual(requests[10].options.headers['If-Match'], undefined);
+  assert.deepStrictEqual(JSON.parse(requests[10].options.body), manualPayload);
+  const failedManual = await captureFailure(() => api.fetchPublicManualTimerCreate({
+    payload: {...manualPayload, title: 'Fail'},
+    idempotencyKey: 'manual-browser-once-2'
+  }));
+  assert.strictEqual(failedManual.status, 503);
+  assert.strictEqual(requests.length, 12, '503 must not trigger a second write');
+  assert.strictEqual(requests.filter(r =>
+    r.url === '/api/vdr/timers/actions/create').length, 0);
+  assert.throws(() => api.fetchPublicManualTimerCreate({
+    payload: {...manualPayload, aux: 'opaque'}, idempotencyKey: 'manual-browser-invalid'
+  }));
+  assert.strictEqual(requests.length, 12, 'invalid fields must not dispatch');
+
+  console.log('test_phase69f_timer_live_fallback_removal F5.3/F5.5/F5.6 passed');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
