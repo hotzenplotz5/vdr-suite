@@ -2,6 +2,14 @@
 
 ## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
 
+**F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
+aus dem bestehenden `VdrTimer`-Snapshot in Liste und Detail projiziert.
+Beide Felder gehören bereits zum versionierten Binding-Fingerprint;
+Public API v1 führt weder neue Berechtigungen noch einen zweiten Timer-Writer
+ein. C++-Liste/Detail sowie Browser-Client-Regressionen prüfen die Felder.
+Die provider-spezifische `aux`-Bearbeitung ist damit **nicht** gelöst.
+
+
 Der bestehende Browser-Client stellt die bereits produktiv registrierten
 Public-v1-Native-Timer-Mutationen nun **explizit und getrennt** bereit:
 `fetchPublicNativeTimerModify` (UPDATE/TOGGLE) und
@@ -30,7 +38,7 @@ und Installationsabnahme bleibt F8.
 
 | Fähigkeit des vorhandenen Web-Editors | Public-v1-Quellstand | F5.5/F5.6-Gate |
 | --- | --- | --- |
-| Liste/Detail, Sortierung, Status | GET /native-timers, Snapshot; F5.4-Grundfelder | Metadaten-/Sortierparität noch nicht vollständig |
+| Liste/Detail, Sortierung, Status | GET /native-timers, Snapshot; F5.4-Grundfelder sowie eventId/native flags | Aux/Untertitel-/Sortierparität noch nicht vollständig |
 | Manuelles CREATE mit Kanal, Titel, Zeit, `aux` | EPG-TimerIntent nur für serverseitiges EPG-Ereignis | Manuelles CREATE fehlt |
 | UPDATE + aktiv/inaktiv für bestehende Timer | Nur verified managed/adopted Binding, ETag, Operation | Externe/ungeprüfte Timer bleiben nicht editierbar |
 | Timer löschen, bei Aufnahme ggf. Aufnahme stoppen | Native DELETE nur für gültige gebundene Timer, mit asynchronem Readback | Aufnahme-/externes-Timer-Verhalten fehlt |

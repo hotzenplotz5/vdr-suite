@@ -49,7 +49,7 @@ const context = {
         return Promise.resolve(response(cached ? 304 : 200, {
           backendId: 'living-room', timerId: 'timer:abc-12',
           title: 'Tagesschau', directory: 'News~Tagesschau',
-          priority: 68, lifetime: 19, vps: true,
+          eventId: '117721', flags: 5, priority: 68, lifetime: 19, vps: true,
           ownership: 'managed', bindingState: 'verified'
         }, etag));
       }
@@ -57,8 +57,8 @@ const context = {
         backendId: 'living-room',
         items: [{timerId: 'timer:abc-12', title: 'Tagesschau',
           channelId: 'C-1-2-3', startTime: '2015', endTime: '2030',
-          directory: 'News~Tagesschau', priority: 68, lifetime: 19,
-          vps: true, enabled: true}],
+          directory: 'News~Tagesschau', eventId: '117721', flags: 5,
+          priority: 68, lifetime: 19, vps: true, enabled: true}],
         page: {offset: 0, limit: 30, hasMore: false, nextOffset: null},
         meta: {partial: false}
       }));
@@ -125,7 +125,8 @@ async function run() {
   assert.strictEqual(requests[1].options.credentials, 'same-origin');
   assert.strictEqual(requests[1].options.headers['X-CSRF-Token'], undefined);
   for (const [field, value] of Object.entries({
-    directory: 'News~Tagesschau', priority: 68, lifetime: 19, vps: true
+    directory: 'News~Tagesschau', eventId: '117721', flags: 5,
+    priority: 68, lifetime: 19, vps: true
   })) {
     assert.strictEqual(page.items[0][field], value);
   }
@@ -141,6 +142,8 @@ async function run() {
   assert.strictEqual(detail.data.priority, page.items[0].priority);
   assert.strictEqual(detail.data.lifetime, page.items[0].lifetime);
   assert.strictEqual(detail.data.vps, page.items[0].vps);
+  assert.strictEqual(detail.data.eventId, page.items[0].eventId);
+  assert.strictEqual(detail.data.flags, page.items[0].flags);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(detail.data, 'aux'), false);
   const cached = await api.fetchPublicNativeTimerDetail({
     backendId: 'living-room', timerId: 'timer:abc-12', ifNoneMatch: detail.etag

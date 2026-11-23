@@ -6798,6 +6798,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             "\",\"timerId\":\"" + jsonEscape(t.id) +
             "\",\"channelId\":\"" + jsonEscape(t.channelId) +
             "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+                "\",\"eventId\":\"" + jsonEscape(t.eventId) +
             "\",\"title\":\"" + jsonEscape(t.title) +
                 "\",\"directory\":\"" + jsonEscape(t.directory) +
             "\",\"day\":\"" + jsonEscape(t.day) +
@@ -6805,6 +6806,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             "\",\"startTime\":\"" + jsonEscape(t.startTime) +
             "\",\"endTime\":\"" + jsonEscape(t.endTime) +
                 "\",\"priority\":" + std::to_string(t.priority) +
+                ",\"flags\":" + std::to_string(t.flags) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
             ",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +
@@ -6866,6 +6868,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
             body += "{\"timerId\":\"" + jsonEscape(t.id) +
                 "\",\"channelId\":\"" + jsonEscape(t.channelId) +
                 "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+                "\",\"eventId\":\"" + jsonEscape(t.eventId) +
                 "\",\"title\":\"" + jsonEscape(t.title) +
                 "\",\"directory\":\"" + jsonEscape(t.directory) +
                 "\",\"day\":\"" + jsonEscape(t.day) +
@@ -6873,6 +6876,7 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "\",\"startTime\":\"" + jsonEscape(t.startTime) +
                 "\",\"endTime\":\"" + jsonEscape(t.endTime) +
                 "\",\"priority\":" + std::to_string(t.priority) +
+                ",\"flags\":" + std::to_string(t.flags) +
                 ",\"lifetime\":" + std::to_string(t.lifetime) +
                 ",\"enabled\":" + (t.enabled ? "true" : "false") +
                 ",\"vps\":" + (t.vps ? "true" : "false") +
