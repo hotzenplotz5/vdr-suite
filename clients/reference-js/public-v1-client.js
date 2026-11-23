@@ -1731,6 +1731,10 @@
           !/^[!-~]{1,160}$/.test(o.idempotencyKey))
         throw new Error('Manual TimerIntent requires exact one-shot payload and Idempotency-Key');
 
+      const requestBody = JSON.stringify(p);
+      if (new TextEncoder().encode(requestBody).length > 4096)
+        throw new Error('Manual TimerIntent JSON body exceeds 4096 UTF-8 bytes');
+
       const headers = Object.assign({Accept: 'application/json'},
         defaultHeaders, copyHeaders(o.headers));
       if (Object.keys(headers).some(name => name.toLowerCase() === 'if-match'))
@@ -1742,7 +1746,7 @@
         credentials: o.credentials !== undefined
           ? o.credentials : normalized.credentials,
         cache: 'no-store', signal: o.signal,
-        body: JSON.stringify(p)
+        body: requestBody
       }).then(response => parseJsonBody(response).then(data => {
         if (!response.ok)
           throw new VdrSuitePublicClientError(path, response.status, data, response);
