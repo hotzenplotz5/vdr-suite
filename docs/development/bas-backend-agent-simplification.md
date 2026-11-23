@@ -269,3 +269,48 @@ rewriting any security guard, the shared config composition moved to the
 private runtime member method above; original injected Create/Delete/Modify
 pointers are still copied fresh into each command request. The architecture
 job on the exact post-fix HEAD remains to be checked independently.
+
+## BAS.10 – Cross-domain integration acceptance ledger (23.11.2026)
+
+**Exact tested source:** `9d7d9a9a7aea8366c02c8f324647e9bcf219c845`
+on the existing `work/bas-simplification` branch; draft PR #564.
+[CI run 45088384542](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45088384542)
+completed with five passing jobs: `fast-regression-test`,
+`packaging-regression-test`, `architecture-check`,
+`make-test-audit`, and `docs-check`. Fast-regression job
+`137412096045` ran `make test-backend-agent-client` and the
+`test_backend_agent_client` binary **PASS** (twice); its existing
+SuiteBridge observation service/worker, native Timer and Recording
+Marks/Cut tests also executed. Packaging passed. This is actual
+hosted-CI evidence, not a live VDR observation or a complete frontend pass.
+
+**Known baseline failure:** the sixth job, `frontend-regression-test`
+(job `137412096353`), stopped at the pre-existing unrelated
+`MU.9E Backend Grant mutation UI check failed: ui contains forbidden
+marker: role.admin` in an untouched settings-admin frontend file. This
+same mismatch was already present on `main`. Do not weaken the
+permission check or modify account administration in BAS merely to
+make this job green. Because the aggregate stops early, the BAS-specific
+`node web/frontend/tests/test_media_import_composition.js` must not
+be labelled as executed or passing for this exact HEAD.
+
+**Real yaVDR evidence supplied by the maintainer:** existing imported
+`Rom S01E01` from 22.11.2026 19:41 used payload v1 with no v2
+TMDb metadata; the later independent `Rom S01E02` import at 20:36
+completed `succeeded` with payload **v8**, v2 `episode` snapshot,
+series `Rom`, title `Wie Titus Pullo die Republik stürzte`,
+season 1 episode 2 and a nonempty poster reference. Home then
+displayed both episodes with the correct series poster. This proves a
+real successful metadata-bearing import after the same-source selection
+retention fix; it does **not** isolate that fix as the only causal change,
+prove the native `info` file matches, or exercise native Timer/Marks/Cut
+writes.
+
+**BAS.10 still OPEN:** run the focused media import browser composition
+test, the isolated root-only synthetic Media Import Agent fixture, and
+the native `info` readback when relevant. Verify non-mutating
+Health/Channel/OSD/heartbeat continuity on yaVDR as appropriate without
+automatic timer changes, cuts or re-imports. Do not equate hosted CI
+with real hardware end-to-end mutation acceptance. No additional Agent
+service, protocol, security gate or modified `AGENTS.md` was created.
+`main` and the parallel Public API v1 branch remain untouched.
