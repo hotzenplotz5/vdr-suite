@@ -1328,7 +1328,7 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
-            isPublicNativeTimerModify ||
+            isPublicNativeTimerModify || isPublicNativeTimerDelete ||
             isAddonActivationMutation || isAddonSourceMutation ||
             isAddonEncodingMutation ||
             isRemoteAction || isTimerCreateAction ||
