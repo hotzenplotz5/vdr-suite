@@ -22,7 +22,7 @@ HttpServerRequest createRequest(SecurityHttpGateBrowserTestFixture& fixture,
         : "{\"backendId\":\"" + backendId +
           "\",\"channelId\":\"c\",\"eventId\":\"e\"}";
     request.headers["Content-Type"] = "application/json";
-    request.headers["If-Match"] = "\"vsr-1\"";
+    if (!manual) request.headers["If-Match"] = "\"vsr-1\"";
     request.headers["Idempotency-Key"] = "idem";
     fixture.addBrowserAuthentication(request, csrf);
     return request;
