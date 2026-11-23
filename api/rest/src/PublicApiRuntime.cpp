@@ -12521,6 +12521,12 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
                 path, requestId, correlationId);
             return true;
         }
+        if (body.empty() || body.size() > 4096U)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid manual TimerIntent body size.", requestId, correlationId);
+            return true;
+        }
         JsonSyntaxValidator syntax(body);
         if (!syntax.valid())
         {
@@ -12592,6 +12598,8 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
             response = publicTimerCreateProblem(422, "validation_error",
                 "Validation failed", "Invalid manual TimerIntent.",
                 path, requestId, correlationId);
+        else if (saved.status == S::notFound)
+            response = notFoundProblem(path, requestId, correlationId);
         else if (saved.status == S::idempotencyConflict)
             response = publicTimerCreateProblem(409, "idempotency_conflict",
                 "Idempotency conflict", "Manual timer key conflict.",

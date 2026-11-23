@@ -97,6 +97,8 @@ static void test_manual_timer_intent_post()
     assert(post(body).statusCode==409);
     submitStatus = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
     assert(post(body).statusCode==503);
+    submitStatus = PublicEpgTimerIntentAdmissionStatus::notFound;
+    assert(post(body).statusCode==404);
     api.resetManualTimerIntentReplayLookup();
     api.resetManualTimerIntentSubmit();
     ApiResponse get;
