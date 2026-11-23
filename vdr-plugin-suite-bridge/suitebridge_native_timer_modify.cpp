@@ -148,8 +148,10 @@ bool validWeekdays(const std::string &value)
 bool parseExecute(const char *option, SuiteBridgeNativeTimerModifyRequest &request)
 {
   const std::vector<std::string> v = split(option);
-  if (v.size() != 41 || v[0] != "EXEC" ||
-      v[1] != "vdr-suite-native/1" || v[3] != "1") return false;
+  const bool auxVersion = v.size() == 44 && v[3] == "2";
+  if ((v.size() != 41 || v[3] != "1") && !auxVersion)
+    return false;
+  if (v[0] != "EXEC" || v[1] != "vdr-suite-native/1") return false;
   if (v[2] == UpdateOperation) request.kind = SuiteBridgeNativeTimerModifyKind::Update;
   else if (v[2] == ToggleOperation) request.kind = SuiteBridgeNativeTimerModifyKind::Toggle;
   else return false;
@@ -171,6 +173,15 @@ bool parseExecute(const char *option, SuiteBridgeNativeTimerModifyRequest &reque
   request.authorityDomain=v[32]; request.providerId=v[33]; request.providerKind=v[34];
   request.providerInstanceEpoch=v[36]; request.requiredCapability=v[39];
 
+  if (auxVersion) {
+    if (request.kind != SuiteBridgeNativeTimerModifyKind::Update ||
+        v[41] != "1" ||
+        !safeFingerprint(v[42]) ||
+        !decodeText(v[43], request.desiredAux, 1024))
+      return false;
+    request.modifyAux = true;
+    request.expectedAuxFingerprint = v[42];
+  }
   return smallValue(v[20], request.priority) &&
       smallValue(v[21], request.lifetime) &&
       booleanValue(v[22], request.enabled) && booleanValue(v[23], request.vps) &&
@@ -219,6 +230,11 @@ std::string canonicalRequest(const SuiteBridgeNativeTimerModifyRequest &r)
   append(c,r.ownershipGeneration); append(c,r.providerInstanceEpoch);
   append(c,r.providerGeneration); append(c,r.capabilityRevision);
   append(c,r.requiredCapability); append(c,r.localStartingPersistedAt);
+  if (r.modifyAux) {
+    append(c, "aux-update/2");
+    append(c, r.expectedAuxFingerprint);
+    append(c, r.desiredAux);
+  }
   return c.str();
 }
 

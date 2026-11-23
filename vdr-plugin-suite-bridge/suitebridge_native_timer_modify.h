@@ -36,6 +36,11 @@ struct SuiteBridgeNativeTimerModifyRequest final {
   std::uint32_t lifetime = 0;
   bool enabled = false;
   bool vps = false;
+  // NTMOD EXEC v2 only: explicitly edit Aux with a live native CAS.
+  // v1 UPDATE/TOGGLE continue to preserve the current VDR Aux verbatim.
+  bool modifyAux = false;
+  std::string expectedAuxFingerprint;
+  std::string desiredAux;
   std::string jobId;
   std::string attemptId;
   std::uint64_t claimEpoch = 0;

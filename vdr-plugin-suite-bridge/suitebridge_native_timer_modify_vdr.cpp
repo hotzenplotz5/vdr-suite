@@ -254,6 +254,16 @@ SuiteBridgeNativeTimerModifyVdrMutationCallback::ModifyTimer(
       return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
                     evidence("fingerprint-mismatch",request.commandId));
     }
+    // The normal binding fingerprint intentionally excludes opaque Aux.
+    // Compare the exact prior-Aux digest while holding VDR's native write
+    // lock so epgsearch/TVScraper metadata cannot be silently overwritten.
+    if (request.modifyAux &&
+        sha256Token(timer->Aux() ? timer->Aux() : "") !=
+            request.expectedAuxFingerprint) {
+      stateKey.Remove(false);
+      return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
+                    evidence("aux-changed",request.commandId));
+    }
     if (timer->Recording() || timer->Pending()) {
       stateKey.Remove(false);
       return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
@@ -282,7 +292,10 @@ SuiteBridgeNativeTimerModifyVdrMutationCallback::ModifyTimer(
       definition << flags << ':' << request.channelId << ':' << selectedDay << ':'
                  << request.startTime << ':' << request.endTime << ':'
                  << request.priority << ':' << request.lifetime << ':'
-                 << selectedFile << ':' << (timer->Aux()?timer->Aux():"");
+                 << selectedFile << ':'
+                 << (request.modifyAux
+                         ? request.desiredAux
+                         : std::string(timer->Aux()?timer->Aux():""));
       if (!candidate.Parse(definition.str().c_str())) {
         stateKey.Remove(false);
         return result(SuiteBridgeNativeTimerModifyMutationDisposition::RejectedWithoutEffect,
