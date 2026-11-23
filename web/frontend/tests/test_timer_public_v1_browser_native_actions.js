@@ -55,6 +55,8 @@ const operationReads = [];
 const legacy = [];
 const sources = [];
 let bindingState = 'verified';
+let directActionsAvailable = false;
+const directWrites = [];
 let opState = 'accepted';
 let failWrite = false;
 let denyWrite = false;
@@ -72,7 +74,7 @@ const clientApi = {
     return Promise.resolve({
       status: 200,
       etag: bindingState === 'verified' ? '"native-timer-binding/1:fixture:2:3"' : null,
-      data: {bindingState}
+      data: {bindingState, directActions: directActionsAvailable}
     });
   },
   fetchPublicNativeTimerModify(input) {
@@ -89,6 +91,14 @@ const clientApi = {
     return Promise.resolve({status: 202, data: {
       operation: {operationId: 'op_native_' + (++id), state: 'accepted'}
     }});
+  },
+  fetchPublicNativeTimerDirectUpdate(input) {
+    directWrites.push({action:'update',input});
+    return Promise.resolve({success:true});
+  },
+  fetchPublicNativeTimerDirectDelete(input) {
+    directWrites.push({action:'delete',input});
+    return Promise.resolve({success:true});
   },
   fetchPublicNativeTimerOperation(input) {
     operationReads.push(input);
@@ -263,6 +273,34 @@ function editor() {
   assert.equal(legacy.length, 4);
   assert.equal(legacy[3].action, 'delete');
   assert.equal(publicWrites.length, 4, 'unbound DELETE needs no invented binding');
+
+  // A server advertising the new direct Public-v1 capability performs ONE
+  // write via the canonical native writer. No legacy dispatch, no 202/SSE.
+  bindingState = 'adoption_required';
+  directActionsAvailable = true;
+  render({...nativeTimer, aux:'<epgsearch/>'});
+  button('Deaktivieren').listeners.click();
+  await tick();
+  assert.equal(directWrites.length,1);
+  assert.equal(directWrites[0].action,'update');
+  assert.equal(directWrites[0].input.backendId,'default');
+  assert.equal(directWrites[0].input.payload.aux,'<epgsearch/>');
+  assert.equal(directWrites[0].input.payload.active,false);
+  assert.equal(legacy.length,4);
+  render(nativeTimer);
+  button('Timer löschen').listeners.click();
+  await tick();
+  assert.equal(directWrites.length,2);
+  assert.equal(directWrites[1].action,'delete');
+  assert.equal(legacy.length,4);
+  bindingState = 'binding_required';
+  render(nativeTimer);
+  button('Deaktivieren').listeners.click();
+  await tick();
+  assert.equal(directWrites.length,3);
+  assert.equal(directWrites[2].action,'update');
+  assert.equal(publicWrites.length,4);
+  directActionsAvailable = false;
 
   // From here the managed-only fixtures continue with the original
   // legacy count; all subsequent assertions account for these three
