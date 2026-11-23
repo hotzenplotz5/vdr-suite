@@ -314,6 +314,49 @@ void test_protocol_generation_reconnect_and_backend_isolation()
     assert(isolated.reasonCode == "agent_binding_mismatch");
 }
 
+
+void test_slow_heartbeat_identifies_sqlite_writer_lease_wait()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    const auto agent = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(agent.has_value());
+    const auto connected = connectAgent(fixture, *agent);
+    const auto context = agentContext(*agent);
+    const auto first = fixture.service.heartbeat(
+        context, "default", "instance-1", connected.backendGeneration, 1, Now + 5);
+    assert(first.accepted);
+
+    // A duplicate heartbeat bypasses the preliminary accountability write,
+    // allowing the timed renewal to reveal contention at the writer lease.
+    Database concurrent;
+    assert(concurrent.open(fixture.path));
+    std::atomic<bool> held{false};
+    std::thread holder([&] {
+        auto lease = concurrent.acquireTransactionLease();
+        held.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1250));
+    });
+    while (!held.load()) std::this_thread::yield();
+
+    std::ostringstream diagnostics;
+    std::streambuf* previous = std::cerr.rdbuf(diagnostics.rdbuf());
+    const auto duplicate = fixture.service.heartbeat(
+        context, "default", "instance-1", connected.backendGeneration, 1, Now + 6);
+    std::cerr.rdbuf(previous);
+    holder.join();
+    assert(duplicate.accepted);
+    assert(duplicate.duplicate);
+    const std::string output = diagnostics.str();
+    assert(output.find("BACKEND_AGENT_HEARTBEAT_SLOW total_ms=") != std::string::npos);
+    assert(output.find(" renew_ms=") != std::string::npos);
+    assert(output.find("BACKEND_AGENT_RENEW_LEASE_SLOW total_ms=") != std::string::npos);
+    assert(output.find(" lease_wait_ms=") != std::string::npos);
+    assert(output.find(enrollment.agentId) == std::string::npos);
+    assert(output.find(AgentSecret) == std::string::npos);
+    concurrent.close();
+}
+
 void test_capabilities_heartbeat_lease_and_restart_persistence()
 {
     Fixture fixture;
@@ -1246,6 +1289,107 @@ void test_http_protocol_and_redaction()
     assert(server.handleRequest(ordinary).statusCode == 299);
 }
 
+
+void test_find_agent_slow_lookup_attributes_main_connection_mutex_wait()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    sqlite3_mutex* connectionMutex = sqlite3_db_mutex(fixture.database.handle());
+    assert(connectionMutex != nullptr);
+
+    std::atomic<bool> locked{false};
+    std::thread blocker([&] {
+        sqlite3_mutex_enter(connectionMutex);
+        locked.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        sqlite3_mutex_leave(connectionMutex);
+    });
+    while (!locked.load()) std::this_thread::yield();
+
+    std::ostringstream timings;
+    std::streambuf* previousError = std::cerr.rdbuf(timings.rdbuf());
+    const auto found = fixture.agentRepository.findAgent(enrollment.agentId);
+    std::cerr.rdbuf(previousError);
+    blocker.join();
+
+    assert(found.has_value());
+    const std::string output = timings.str();
+    const std::string marker = "BACKEND_AGENT_LOOKUP_SLOW total_ms=";
+    const auto markerAt = output.find(marker);
+    assert(markerAt != std::string::npos);
+    const std::string prepareMarker = " prepare_ms=";
+    const auto prepareAt = output.find(prepareMarker, markerAt);
+    assert(prepareAt != std::string::npos);
+    const auto prepareMs = std::stoll(
+        output.substr(prepareAt + prepareMarker.size()));
+    assert(prepareMs >= 1000);
+    assert(output.find(" step_ms=") != std::string::npos);
+    assert(output.find(" finalize_ms=") != std::string::npos);
+    assert(output.find(enrollment.agentId) == std::string::npos);
+    assert(output.find(AgentSecret) == std::string::npos);
+}
+
+
+void test_heartbeat_uses_independent_sqlite_connection()
+{
+    Fixture fixture;
+    assert(fixture.database.execute("PRAGMA journal_mode=WAL;"));
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    const auto agent = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(agent.has_value());
+    const auto connected = connectAgent(fixture, *agent);
+
+    Database heartbeatDatabase;
+    assert(heartbeatDatabase.open(fixture.path));
+    BackendAgentRepository heartbeatRepository(heartbeatDatabase);
+    AccountabilityEventRepository heartbeatAudit(heartbeatDatabase);
+    BackendAgentLifecycleService heartbeatService(
+        fixture.database,
+        fixture.agentRepository,
+        fixture.backendRegistryService,
+        fixture.provisioningRepository,
+        fixture.identityRepository,
+        fixture.verifierRepository,
+        fixture.accountabilityRepository,
+        &heartbeatRepository,
+        &heartbeatAudit);
+
+    sqlite3_mutex* mainMutex = sqlite3_db_mutex(fixture.database.handle());
+    assert(mainMutex != nullptr);
+    std::atomic<bool> mainHandleHeld{false};
+    std::thread busyCacheWorker([&] {
+        sqlite3_mutex_enter(mainMutex);
+        mainHandleHeld.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        sqlite3_mutex_leave(mainMutex);
+    });
+    while (!mainHandleHeld.load()) std::this_thread::yield();
+
+    const auto started = std::chrono::steady_clock::now();
+    const auto renewed = heartbeatService.heartbeat(
+        agentContext(*agent), "default", "instance-1",
+        connected.backendGeneration, 1, Now + 5);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    busyCacheWorker.join();
+
+    assert(renewed.accepted);
+    assert(!renewed.duplicate);
+    assert(elapsed < 700);
+    const auto persisted = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(persisted.has_value() && persisted->heartbeatSequence == 1);
+    const auto duplicate = heartbeatService.heartbeat(
+        agentContext(*agent), "default", "instance-1",
+        connected.backendGeneration, 1, Now + 6);
+    assert(duplicate.accepted && duplicate.duplicate);
+    const auto rejected = heartbeatService.heartbeat(
+        agentContext(*agent), "default", "instance-1",
+        connected.backendGeneration, 3, Now + 7);
+    assert(!rejected.accepted && rejected.reasonCode == "heartbeat_sequence_gap");
+    heartbeatDatabase.close();
+    std::cout << "AGENT_HEARTBEAT_SQLITE_CONNECTION_ISOLATION=PASS\n";
+}
+
 void test_http_authentication_read_does_not_wait_for_main_connection()
 {
     Fixture fixture;
@@ -1372,6 +1516,7 @@ int main()
     test_enrollment_authorization_idempotency_and_binding();
     test_protocol_generation_reconnect_and_backend_isolation();
     test_capabilities_heartbeat_lease_and_restart_persistence();
+    test_slow_heartbeat_identifies_sqlite_writer_lease_wait();
     test_backend_health_observation_ingestion_and_atomicity();
     test_channel_observation_ingestion_and_agent_owned_facts();
     test_generation_fencing_revocation_and_accountability();
@@ -1379,6 +1524,8 @@ int main()
     test_revoked_agent_can_be_replaced_without_losing_history();
     test_http_protocol_and_redaction();
     test_http_authentication_read_does_not_wait_for_main_connection();
+    test_heartbeat_uses_independent_sqlite_connection();
+    test_find_agent_slow_lookup_attributes_main_connection_mutex_wait();
     test_accountability_failure_is_fail_closed();
     test_enrollment_transaction_rolls_back_partial_identity();
     std::cout << "test_backend_agent_lifecycle passed" << std::endl;

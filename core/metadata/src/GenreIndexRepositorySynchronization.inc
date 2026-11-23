@@ -629,72 +629,105 @@ bool GenreIndexRepository::synchronizeEpgCache(
                   << readMs << " items=" << rows.size() << std::endl;
 
     constexpr std::size_t EpgSynchronizationBatchSize = 16;
+    // Keep the fast path for small batches, but commit after a slow row
+    // instead of holding the shared writer lease through the remaining 15.
+    // A single row (evidence + browse classification) stays atomic.
+    constexpr auto EpgWriteLeaseBudget = std::chrono::milliseconds(50);
     std::size_t unchangedCount = 0;
     std::size_t changedCount = 0;
-    for (std::size_t begin = 0; begin < rows.size(); begin += EpgSynchronizationBatchSize)
+    for (std::size_t begin = 0; begin < rows.size();)
     {
         const std::size_t end = std::min(
             rows.size(),
             begin + EpgSynchronizationBatchSize);
+        std::size_t nextBegin = end;
 
         {
             std::lock_guard<std::recursive_mutex> lock(mutex_);
             const auto leaseStarted = std::chrono::steady_clock::now();
             auto transactionLease = database_.acquireTransactionLease();
 
-            // Read and decide under the existing SQLite lease. Unchanged
-            // batches never open a write transaction.
-            std::vector<std::size_t> changed;
+            bool transactionOpen = false;
+            std::chrono::steady_clock::time_point transactionStarted;
+            std::size_t batchChanged = 0;
+
+            // Check evidence and perform updates in source order. Only open a
+            // transaction if a changed row is found; do not re-write no-ops.
             for (std::size_t index = begin; index < end; ++index)
             {
                 if (epgDvbEvidenceAlreadyCurrent(database_.handle(), rows[index]))
+                {
                     ++unchangedCount;
+                }
                 else
-                    changed.push_back(index);
-            }
-            if (changed.empty()) continue;
+                {
+                    if (!transactionOpen)
+                    {
+                        transactionStarted = std::chrono::steady_clock::now();
+                        if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+                            return false;
+                        transactionOpen = true;
+                    }
 
-            changedCount += changed.size();
-            const auto transactionStarted = std::chrono::steady_clock::now();
-            if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
-            for (const std::size_t index : changed)
+                    if (!replaceEvidenceLocked(rows[index]) ||
+                        !reconcileEpgBrowseClassificationLocked(
+                            database_.handle(),
+                            stableTargetId(
+                                rows[index].targetType,
+                                rows[index].backendId,
+                                rows[index].resourceKey)))
+                    {
+                        database_.execute("ROLLBACK;");
+                        return false;
+                    }
+                    ++changedCount;
+                    ++batchChanged;
+                }
+
+                // We cannot interrupt a single atomic event update. Once its
+                // work (or an expensive evidence check) exceeds the budget,
+                // finish this transaction and let Agent polls take the lease.
+                const auto budgetStart = transactionOpen
+                    ? transactionStarted
+                    : leaseStarted;
+                if (std::chrono::steady_clock::now() - budgetStart >=
+                        EpgWriteLeaseBudget &&
+                    index + 1 < end)
+                {
+                    nextBegin = index + 1;
+                    break;
+                }
+            }
+
+            if (transactionOpen)
             {
-                if (!replaceEvidenceLocked(rows[index]) ||
-                    !reconcileEpgBrowseClassificationLocked(
-                        database_.handle(),
-                        stableTargetId(
-                            rows[index].targetType,
-                            rows[index].backendId,
-                            rows[index].resourceKey)))
+                if (!database_.execute("COMMIT;"))
                 {
                     database_.execute("ROLLBACK;");
                     return false;
                 }
-            }
-            if (!database_.execute("COMMIT;"))
-            {
-                database_.execute("ROLLBACK;");
-                return false;
-            }
-            const auto batchCommitted = std::chrono::steady_clock::now();
-            const auto leaseWaitMs =
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    transactionStarted - leaseStarted).count();
-            const auto heldMs =
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    batchCommitted - transactionStarted).count();
-            if (leaseWaitMs >= 1000 || heldMs >= 1000)
-            {
-                std::cerr << "EPG_GENRE_SYNC_SLOW phase=batch"
-                          << " lease_wait_ms=" << leaseWaitMs
-                          << " held_ms=" << heldMs
-                          << " begin=" << begin
-                          << " count=" << changed.size() << std::endl;
+                const auto batchCommitted = std::chrono::steady_clock::now();
+                const auto leaseWaitMs =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        transactionStarted - leaseStarted).count();
+                const auto heldMs =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        batchCommitted - transactionStarted).count();
+                if (leaseWaitMs >= 1000 || heldMs >= 1000)
+                {
+                    std::cerr << "EPG_GENRE_SYNC_SLOW phase=batch"
+                              << " lease_wait_ms=" << leaseWaitMs
+                              << " held_ms=" << heldMs
+                              << " begin=" << begin
+                              << " count=" << batchChanged << std::endl;
+                }
             }
         }
 
-        if (end < rows.size())
+        begin = nextBegin;
+        if (begin < rows.size())
         {
+            // The lease has been released; give any queued Agent poll a turn.
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }

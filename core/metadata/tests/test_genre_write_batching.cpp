@@ -3,10 +3,15 @@
 
 #include <sqlite3.h>
 
+#include <atomic>
 #include <cassert>
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <iostream>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace
 {
@@ -54,6 +59,45 @@ int traceTransactions(
         ++counts.rollbacks;
     }
 
+    return 0;
+}
+
+// Exercise the same per-file transaction lease used by Agent command polling.
+// Inject expensive per-event SQLite work without depending on machine speed.
+struct SlowSyncTrace
+{
+    TransactionCounts counts;
+    std::mutex mutex;
+    std::condition_variable firstWriteCondition;
+    bool firstWrite = false;
+    std::atomic<int> targetWrites{0};
+};
+
+int traceSlowSync(
+    unsigned traceType,
+    void* context,
+    void* statementPointer,
+    void* extra)
+{
+    if (context == nullptr || statementPointer == nullptr)
+        return 0;
+
+    auto& trace = *static_cast<SlowSyncTrace*>(context);
+    traceTransactions(traceType, &trace.counts, statementPointer, extra);
+
+    if (traceType != SQLITE_TRACE_STMT) return 0;
+    const char* sql = sqlite3_sql(static_cast<sqlite3_stmt*>(statementPointer));
+    if (sql == nullptr ||
+        std::string(sql).rfind("INSERT INTO suite_metadata_targets ", 0) != 0)
+        return 0;
+
+    ++trace.targetWrites;
+    {
+        std::lock_guard<std::mutex> lock(trace.mutex);
+        trace.firstWrite = true;
+    }
+    trace.firstWriteCondition.notify_one();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return 0;
 }
 
@@ -298,6 +342,83 @@ int main()
     std::remove(filename.c_str());
     std::remove((filename + "-wal").c_str());
     std::remove((filename + "-shm").c_str());
+
+    // Slow EPG evidence writes must release the common SQLite writer lease
+    // between rows. A concurrent Agent-style poll must run before all four
+    // changed rows are processed, not after one long 16-row transaction.
+    const std::string concurrentFilename =
+        "/tmp/vdr-suite-genre-lease-budget-test.sqlite";
+    std::remove(concurrentFilename.c_str());
+    std::remove((concurrentFilename + "-wal").c_str());
+    std::remove((concurrentFilename + "-shm").c_str());
+    {
+        Database epgDatabase;
+        Database pollDatabase;
+        assert(epgDatabase.open(concurrentFilename));
+        assert(pollDatabase.open(concurrentFilename));
+        createSourceSchemas(epgDatabase);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            assert(epgDatabase.execute(
+                "INSERT INTO epg_events VALUES("
+                "'default','C2','" + std::to_string(200 + i) +
+                "','Example movie','','Description',"
+                "'1700000000','1700005400',5400,'Film/Thriller');"));
+        }
+
+        GenreIndexRepository syncRepository(epgDatabase);
+        assert(syncRepository.ensureSchema());
+
+        SlowSyncTrace trace;
+        assert(sqlite3_trace_v2(
+            epgDatabase.handle(), SQLITE_TRACE_STMT,
+            traceSlowSync, &trace) == SQLITE_OK);
+
+        std::atomic<int> writesAtPoll{-1};
+        std::thread poll([&]
+        {
+            std::unique_lock<std::mutex> lock(trace.mutex);
+            const bool started = trace.firstWriteCondition.wait_for(
+                lock,
+                std::chrono::seconds(5),
+                [&] { return trace.firstWrite; });
+            lock.unlock();
+            assert(started);
+
+            // Match the shared filename-scoped lease and deferred BEGIN
+            // used by a non-empty Backend-Agent command poll.
+            auto lease = pollDatabase.acquireTransactionLease();
+            writesAtPoll = trace.targetWrites.load();
+            assert(pollDatabase.execute("BEGIN;"));
+            assert(pollDatabase.execute("COMMIT;"));
+        });
+
+        const bool synchronized = syncRepository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL);
+        poll.join();
+        assert(sqlite3_trace_v2(
+            epgDatabase.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+        assert(synchronized);
+        assert(trace.targetWrites == 4);
+        // Four deliberately slow event writes, each atomic, then retirement.
+        assert(trace.counts.begins == 5);
+        assert(trace.counts.commits == 5);
+        assert(trace.counts.rollbacks == 0);
+        assert(writesAtPoll > 0 && writesAtPoll < 4);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const std::string targetId =
+                GenreIndexRepository::stableTargetId(
+                    "program-event", "default",
+                    "C2\n" + std::to_string(200 + i));
+            assert(browseAssignmentCount(epgDatabase.handle(), targetId) == 1);
+        }
+    }
+    std::remove(concurrentFilename.c_str());
+    std::remove((concurrentFilename + "-wal").c_str());
+    std::remove((concurrentFilename + "-shm").c_str());
 
     std::cout << "genre write batching ok\n";
     return 0;
