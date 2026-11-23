@@ -113,6 +113,7 @@ const contextWindow = {
     return bytes;
   }},
   setTimeout() {},
+  confirm() { return true; }, // Browser confirmation for explicit delete fixture
   VdrSuitePlatform: {
     hasModule() { return false; },
     registerModule() {}
