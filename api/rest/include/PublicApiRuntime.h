@@ -1582,6 +1582,12 @@ public:
         const PublicNativeTimerDeleteRequest&)>;
     using NativeTimerModifyAdmission = std::function<PublicNativeTimerModifyResult(
         const PublicNativeTimerModifyRequest&)>;
+    // Existing direct VDR action owner for timers not adopted into Suite.
+    // A direct result is synchronous, never an ADR-0042 Operation.
+    using NativeTimerDirectAction = std::function<ApiResponse(
+        const std::string& action, const std::string& actorRef,
+        const std::string& backendId, const std::string& timerId,
+        const std::string& body)>;
     // A7.2: the Core actor/backend authority is the only source of truth.
     enum class MediaImportSourceStatus { ok, forbidden, unavailable };
     struct MediaImportSourceResult {
@@ -1865,6 +1871,8 @@ public:
 
     void registerNativeTimerModifyAdmission(NativeTimerModifyAdmission admit);
     void resetNativeTimerModifyAdmission();
+    void registerNativeTimerDirectAction(NativeTimerDirectAction action);
+    void resetNativeTimerDirectAction();
     void registerNativeTimerDeleteAdmission(NativeTimerDeleteAdmission admit);
     void resetNativeTimerDeleteAdmission();
     bool tryHandleDelete(
@@ -2282,6 +2290,8 @@ private:
     NativeTimerDeleteAdmission nativeTimerDeleteAdmission_;
     mutable std::mutex nativeTimerModifyMutex_;
     NativeTimerModifyAdmission nativeTimerModifyAdmission_;
+    mutable std::mutex nativeTimerDirectMutex_;
+    NativeTimerDirectAction nativeTimerDirectAction_;
     mutable std::mutex mediaImportSourceLookupMutex_;
     MediaImportSourceLookup mediaImportSourceLookup_;
     mutable std::mutex mediaImportPreviewLookupMutex_;
