@@ -4385,6 +4385,40 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // Slice 3: reuse the established backend-native VDR action controller.
+    // No second writer, implicit adoption or fabricated durable Operation.
+    PublicApiRuntime::instance().registerNativeTimerDirectAction(
+        [this](const std::string& action, const std::string& actorRef,
+            const std::string& backendId, const std::string& timerId,
+            const std::string& body)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\\"success\\":false}";
+            if (actorRef.empty() || !vdrTimerActionRequestParser_ ||
+                !vdrTimerActionController_ ||
+                !vdrTimerActionExecutorAdapterRegistry_)
+                return response;
+            const auto parsed = vdrTimerActionRequestParser_->parse(body);
+            if (backendId.empty() || timerId.empty() ||
+                parsed.backendId != backendId || parsed.timerId != timerId)
+            {
+                response.statusCode = 400;
+                response.body = "{\\"success\\":false,\\"error\\":\\"timer_identity_mismatch\\"}";
+                return response;
+            }
+            if (action == "update")
+                return vdrTimerActionController_->updateBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
+            if (action == "delete")
+                return vdrTimerActionController_->removeBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
+            response.statusCode = 400;
+            response.body = "{\\"success\\":false,\\"error\\":\\"invalid_action\\"}";
+            return response;
+        });
+
     PublicApiRuntime::instance().registerNativeTimerDetailLookup(
         [this](const PublicNativeTimerDetailRequest& request)
         {
