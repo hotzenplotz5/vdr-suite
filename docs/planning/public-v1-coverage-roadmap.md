@@ -14,6 +14,12 @@ TimerIntent-Domain-Test sichert diese Abbildung und abweichende
 Kanal-/Zeitevidenz ab. Keine neuen Tabellen, Dienste, Berechtigungen,
 Protokolle oder Timer-Writer.
 
+Der bereits bestehende Test `test-phase64-timer-assignment-planner`
+verwendet die manuelle Draft-Projektion mit derselben produktiven
+`planTimerAssignment`-Funktion und verifiziert die vollständigen
+gewünschten Native-Felder, die Ablehnung einer falschen
+Kanalquelle und einer veralteten Backend-Generation.
+
 **Offen vor Public-v1-Manuell-CREATE:** autoritative Backend-Kanal-/Uhrevidenz,
 Admission mit exakt payloadgebundener Idempotenz, atomare Intent-/Assignment-/
 Operation-Annahme, Native-Preview/Dispatch/Readback und HTTP-/Browser-Parität.

@@ -1,4 +1,5 @@
 #include "TimerAssignmentPlanner.h"
+#include "ManualTimerIntentDraft.h"
 
 #include <algorithm>
 #include <cassert>
@@ -154,6 +155,65 @@ void assertUnassigned(
 
 int main()
 {
+
+    // F5.5.5: the verified native/manual draft feeds the EXISTING planner,
+    // without any alternate assignment choice or native CREATE writer.
+    {
+        auto candidate = makeCandidate("backend:a");
+        auto native = candidate.desiredNativeTimerSpecification;
+        native.title = "Manuell, Archiv";
+        native.directory = "TV~Nachrichten";
+        native.day = "2026-11-24";
+        native.startTime = "2030";
+        native.endTime = "2115";
+        native.priority = 0;
+        native.lifetime = 0;
+        native.enabled = false;
+        native.vps = true;
+
+        ManualTimerSourceEvidence source;
+        source.backendId = "backend:a";
+        source.sourceType = "dvb";
+        source.sourceId = "suitebridge:local";
+        source.backendChannelId = native.channelId;
+        source.timezone = "Europe/Berlin";
+        source.startAt = 1795548600;
+        source.stopAt = 1795551300;
+        const auto draft = makeManualWindowTimerIntentDraft(
+            native, source, "actor:owner");
+        assert(draft.valid);
+
+        auto intent = makeIntent();
+        intent.spec = draft.intent;
+        assert(timerIntentValid(intent));
+
+        candidate.channel.sourceType = source.sourceType;
+        candidate.channel.sourceId = source.sourceId;
+        candidate.channel.sourceChannelId = source.backendChannelId;
+        candidate.desiredNativeTimerSpecification = draft.desiredNativeTimer;
+        TimerAssignmentPlanningRequest request;
+        request.intent = intent;
+        request.candidates = {candidate};
+
+        const auto selected = planTimerAssignment(request);
+        assertSelected(selected, "backend:a");
+        assert(selected.selectedNativeTimerSpecificationPresent);
+        assert(selected.selectedNativeTimerSpecification.title == native.title);
+        assert(selected.selectedNativeTimerSpecification.directory == native.directory);
+        assert(selected.selectedNativeTimerSpecification.priority == 0);
+        assert(selected.selectedNativeTimerSpecification.lifetime == 0);
+        assert(!selected.selectedNativeTimerSpecification.enabled);
+        assert(selected.selectedNativeTimerSpecification.vps);
+
+        request.candidates[0].channel.sourceChannelId = "wrong-native-channel";
+        const auto mismatched = planTimerAssignment(request);
+        assertUnassigned(mismatched, "channel_source_mismatch");
+
+        request.candidates[0] = candidate;
+        request.candidates[0].currentBackendGeneration++;
+        const auto stale = planTimerAssignment(request);
+        assert(stale.outcome == TimerAssignmentPlanningOutcome::unassigned);
+    }
     {
         TimerAssignmentPlanningRequest request;
         request.intent = makeIntent();
