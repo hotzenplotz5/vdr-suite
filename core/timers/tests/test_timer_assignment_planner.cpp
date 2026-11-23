@@ -207,7 +207,9 @@ int main()
 
         request.candidates[0].channel.sourceChannelId = "wrong-native-channel";
         const auto mismatched = planTimerAssignment(request);
-        assertUnassigned(mismatched, "channel_source_mismatch");
+        assertUnassigned(mismatched, "no_eligible_backend");
+        assert(containsFragment(mismatched.decisionEvidence.exclusions,
+            "channel_source_mismatch"));
 
         request.candidates[0] = candidate;
         request.candidates[0].currentBackendGeneration++;
