@@ -54,20 +54,24 @@ function refreshMediaImportVisibility(backendId) {
     return Promise.resolve(false);
   const epoch = ++mediaImportCapabilityEpoch;
   const known = mediaImportKnownBackendId === backendId;
-  const wasAvailable = Boolean(mediaImportTab && !mediaImportTab.hidden &&
-    !mediaImportTab.disabled);
-  // The tab is a navigation surface, not an Agent lease. Keep it
-  // accessible while the daemon/Agent recovers. The authenticated source
-  // endpoints and every mutation perform their own checks.
+  // A new session/backend must not advertise an add-on without even one
+  // successful, actor-scoped capability observation. Once observed, preserve
+  // navigation across transient Agent outages instead of adding a new gate.
   if (mediaImportTab) {
-    mediaImportTab.hidden = false;
-    mediaImportTab.disabled = false;
+    mediaImportTab.hidden = !known;
+    mediaImportTab.disabled = !known;
   }
   const moduleApi = mediaImportModule();
   if (!mediaImportTab || !moduleApi ||
       typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
 
   function unavailable() {
+    if (!known) {
+      mediaImportTab.hidden = true;
+      mediaImportTab.disabled = true;
+      mediaImportTab.title = '';
+      return false;
+    }
     // A capability observation is not authorization to destroy an existing
     // view. In particular, intermittent lease/transport failures must not
     // wipe a source list or make the whole add-on unusable.
@@ -265,7 +269,7 @@ const moduleLabels = {
   timers: frontendTranslate('module.timers', 'Timer'),
   recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
   searchtimers: frontendTranslate('module.searchTimers', 'Suchtimer'),
-  'media-import': 'Media Import'
+  'media-import': 'Media Tools'
 };
 
 function addText(element, text) {
