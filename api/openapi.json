@@ -10786,7 +10786,7 @@
         "description": "Read-only authorized Human Browser or Device preview using SearchTimerPreviewService and ready backend EPG cache; supports existing channel, duration, local time and weekday filters. Not an exact recording/blacklist/duplicate forecast. Unmodeled recording fields fail as 400.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device, searchtimers.view@backend and epg.view@backend or Human Browser Session with the same effective backend-scoped permissions"
+          "authorization": "verified Device or authorized Human Browser Session, searchtimers.view@backend plus epg.view@backend or media.live.play@backend on the same backend"
         },
         "parameters": [
           {
@@ -11110,7 +11110,7 @@
             "description": "Invalid or unsupported preview field"
           },
           "401": {
-            "description": "Missing Device authentication"
+            "description": "Missing Device or Browser Session authentication"
           },
           "403": {
             "description": "Missing independent SearchTimer/EPG grant"
@@ -11121,10 +11121,13 @@
         },
         "security": [
           {
+            "browserSession": []
+          },
+          {
             "deviceCredential": []
           }
         ],
-        "x-vdr-suite-auth-profile": "device"
+        "x-vdr-suite-auth-profile": "browserDevice"
       }
     },
     "/api/v1/native-timers/{timerId}/aux": {

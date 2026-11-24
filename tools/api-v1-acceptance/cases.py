@@ -89,13 +89,6 @@ def require_device(a):
         raise Blocked("this Device-owned playback route requires a Device credential; an administrator Browser Session is not a Device")
 
 
-def require_searchtimer_device(a):
-    # SecurityHttpGate requires a verified Device Service Actor before
-    # evaluating searchtimers.view. A Browser admin cannot satisfy this.
-    if "device" not in a.cfg:
-        raise Blocked("Public-v1 SearchTimer GET requires a verified Device credential (device_credential_required); administrator Browser Session cannot substitute")
-
-
 def browser_admin_login(a):
     if not a.admin_user:
         raise Skip("no administrator login selected")
@@ -480,7 +473,7 @@ def authorized_operation(a):
 
 
 def searchtimers(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     d = get(a, V1 + "/search-timers", backend=a.backend, limit=5)
     items = collection(d, V1 + "/search-timers", 5)
     a.require(no_private_paths(d), "private SearchTimer data leaked")
@@ -493,7 +486,7 @@ def searchtimers(a):
 
 
 def search_detail(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     path = endpoint(V1 + "/search-timers/" + a.context["searchtimer"],
                     backend=a.backend)
     data, _ = a.get_json(path)
@@ -502,7 +495,7 @@ def search_detail(a):
 
 
 def search_version(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     path = endpoint(V1 + "/search-timers/" + a.context["searchtimer"] + "/version",
                     backend=a.backend)
     data, hdr = a.get_json(path)
@@ -514,7 +507,7 @@ def search_version(a):
 
 
 def search_preview(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     path = endpoint(V1 + "/search-timers/" + a.context["searchtimer"] + "/preview",
                     backend=a.backend, limit=3)
     data, _ = a.get_json(path)
@@ -524,7 +517,7 @@ def search_preview(a):
 
 
 def draft_preview(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     # Explicit GET, no rule is created; query string never appears in logs.
     path = endpoint(V1 + "/search-timers/draft-preview", backend=a.backend,
                     query="VDRSuiteAcceptanceNoMatch", mode=0, compareTitle=1,
@@ -728,7 +721,7 @@ def artwork_unknown(a):
 
 
 def searchtimer_bad_public_id(a):
-    require_searchtimer_device(a)
+    require_actor(a)
     path = endpoint(V1 + "/search-timers/st_bad", backend=a.backend)
     status_negative(a, path, (400,))
 

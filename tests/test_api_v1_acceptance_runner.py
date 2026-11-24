@@ -614,7 +614,7 @@ class RunnerTests(unittest.TestCase):
                     status_negative(a,"/api/v1/search-timers/st_bad?backend=default",(400,))
             self.assertEqual(e.exception.kind,"permission_denied")
 
-    def test_admin_searchtimer_requires_device_without_attempted_get(self):
+    def test_admin_searchtimer_read_uses_literal_draft_schema_and_server_grants(self):
         from cases import searchtimers, draft_preview, searchtimer_bad_public_id
         with tempfile.TemporaryDirectory() as out:
             args = argparse.Namespace(profile="readonly",backend="default",
@@ -622,12 +622,35 @@ class RunnerTests(unittest.TestCase):
                 approval_file=None,expected_daemon_commit="a"*40,
                 admin_user="vdr-suite")
             a = Acceptance(args,{})
-            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
-            with patch.object(a.client,"get",side_effect=AssertionError("forbidden Device GET")):
+            a.spec = json.loads((Path(__file__).resolve().parents[1] /
+                                "api/openapi.json").read_text(encoding="utf-8"))
+            draft = a.spec["paths"]["/api/v1/search-timers/draft-preview"]["get"]
+            self.assertEqual(draft["security"],
+                             [{"browserSession":[]},{"deviceCredential":[]}])
+            with patch.object(a.client,"get") as get:
                 for check in (searchtimers,draft_preview,searchtimer_bad_public_id):
-                    with self.assertRaises(Blocked) as result:
+                    with self.assertRaises(Blocked):
                         check(a)
-                    self.assertIn("Device credential",result.exception.detail)
+                get.assert_not_called()
+            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
+            valid = {"backendId":"default","totalCount":0,"channelCount":0,
+                     "items":[],"meta":{"partial":False,"epgInput":"ready",
+                                       "evaluation":"epg-match-only"}}
+            headers = {"content-type":"application/json"}
+            with patch.object(a.client,"get",side_effect=[
+                    (200,valid,headers),(403,{},{}),(400,{},{})]) as get:
+                draft_preview(a)
+                with self.assertRaises(Blocked) as result:
+                    draft_preview(a)
+                self.assertEqual(result.exception.kind,"permission_denied")
+                searchtimer_bad_public_id(a)
+                self.assertEqual(get.call_count,3)
+                self.assertIn("/api/v1/search-timers/draft-preview?",
+                              get.call_args_list[0].args[0])
+            with patch.object(a.client,"get",return_value=(200,
+                    dict(valid,totalCount="invalid"),headers)):
+                with self.assertRaises(Problem):
+                    draft_preview(a)
 
     def test_domain_pass_precedes_intentionally_skipped_write(self):
         with tempfile.TemporaryDirectory() as out:
