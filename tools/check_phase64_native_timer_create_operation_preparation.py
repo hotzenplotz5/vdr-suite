@@ -45,7 +45,13 @@ for token in [
     'native-timer-create-operation-payload/1|',
     'native-timer-create-operation-payload-fingerprint/1|',
     "normalizedHhmm",
-    "fields.reserve(18)",
+    "fields.reserve(20)",
+    "fields.size() != 18",
+    'fields[18] != "aux"',
+    "fields[19].empty()",
+    "nativeTimerCreateAuxValid(payload.aux)",
+    'appendField(output, "aux")',
+    "parsed.aux = fields[19]",
     "serializeNativeTimerCreateOperationPayload(parsed) != serialized",
 ]:
     if token not in payload_cpp:
