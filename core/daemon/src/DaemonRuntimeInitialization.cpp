@@ -5089,6 +5089,7 @@ bool DaemonRuntime::initialize()
             lookup.title = request.title;
             lookup.directory = request.directory;
             lookup.weekdays = request.weekdays;
+            lookup.aux = request.aux;
             lookup.startAt = request.startAt;
             lookup.stopAt = request.stopAt;
             lookup.priority = request.priority;
@@ -5321,6 +5322,7 @@ bool DaemonRuntime::initialize()
             admission.backendId = request.backendId;
             admission.idempotencyKey = request.idempotencyKey;
             admission.draft = draft;
+            admission.aux = request.aux;
             admission.candidate = candidate;
             admission.nativeClock = clock;
             admission.conflictProof = proof;

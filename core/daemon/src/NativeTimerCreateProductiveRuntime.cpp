@@ -125,8 +125,9 @@ bool reserveClaimAndActivate(
     std::int64_t now,
     NativeTimerCreateProductiveRuntimeSummary& summary)
 {
-    const auto nativeSpecification = agentSpecification(
+    auto nativeSpecification = agentSpecification(
         payload.expectedSpecification);
+    nativeSpecification.aux = payload.aux;
     const std::string agentFingerprint =
         backendAgentNativeTimerCreateSpecificationFingerprint(
             nativeSpecification);

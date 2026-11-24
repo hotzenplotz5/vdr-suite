@@ -65,7 +65,7 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
   assert.strictEqual(recovered.data.operationId,accepted.data.operationId);
   assert.strictEqual(recovered.data.state,'outcome_unknown');
   const before=calls.length;
-  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,aux:'unsafe'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,aux:'<vdr-suite-managed-timer-spoof/>'}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,priority:undefined}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,lifetime:100}}));
   assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,stopAt:payload.startAt}}));
@@ -118,13 +118,13 @@ const client = createClient({baseUrl:'https://suite.example',credentials:'includ
       assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
       assert.strictEqual(options.method,'POST');
       assert.deepStrictEqual(JSON.parse(options.body),
-        {...payload,weekdays:'MTWTF--'});
+        {...payload,weekdays:'MTWTF--',aux:'<epgsearch>plugin:data</epgsearch>'});
       assert.strictEqual(options.headers['Idempotency-Key'],'manual-once-1');
       return respond(202,{operationId:'op_week',state:'accepted',
         backendId:'default',links:{self:'/api/v1/operations/op_week'}},
         '/api/v1/operations/op_week');
     }});
-  const weeklyInput={...input,payload:{...payload,weekdays:'MTWTF--'}};
+  const weeklyInput={...input,payload:{...payload,weekdays:'MTWTF--',aux:'<epgsearch>plugin:data</epgsearch>'}};
   const weekly=await recurringClient.submitManualTimerIntent(weeklyInput);
   assert.strictEqual(weekly.status,202);
   assert.strictEqual(weekly.data.operationId,'op_week');

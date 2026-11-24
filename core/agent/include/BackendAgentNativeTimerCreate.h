@@ -30,6 +30,8 @@ struct BackendAgentNativeTimerCreateSpecification
     std::int32_t lifetime = 99;
     bool enabled = true;
     bool vps = false;
+    // Opaque CREATE-only metadata; schedule fingerprint deliberately excludes it.
+    std::string aux;
 };
 
 struct BackendAgentNativeTimerCreateCommand

@@ -20,7 +20,16 @@ struct NativeTimerCreateOperationPayload
     std::uint64_t backendGeneration = 0;
 
     NativeTimerSpecification expectedSpecification;
+    // Provider-local CREATE metadata, not part of the Binding or preview.
+    std::string aux;
 };
+
+inline bool nativeTimerCreateAuxValid(const std::string& aux)
+{
+    return aux.size() <= 1024U &&
+        aux.find_first_of("\0\r\n", 0U, 3U) == std::string::npos &&
+        aux.find("<vdr-suite-managed-timer") == std::string::npos;
+}
 
 bool nativeTimerCreateOperationPayloadValid(
     const NativeTimerCreateOperationPayload& payload);

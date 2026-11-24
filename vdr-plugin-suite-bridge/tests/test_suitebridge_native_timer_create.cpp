@@ -85,6 +85,7 @@ public:
   SuiteBridgeCommandResult reentrantReply;
   std::string lastExpectedSpecificationFingerprint;
   std::string lastTitle;
+  std::string lastAux;
 
   SuiteBridgeNativeTimerCreateMutationResult CreateTimer(
       const SuiteBridgeNativeTimerCreateRequest &request) override
@@ -93,6 +94,7 @@ public:
     lastExpectedSpecificationFingerprint =
         request.expectedSpecificationFingerprint;
     lastTitle = request.title;
+    lastAux = request.aux;
     if (reenter) {
       assert(service != nullptr);
       reentrantReply = service->Handle("NTCREATE", reentrantRequest.c_str());
@@ -106,6 +108,18 @@ public:
 int main()
 {
   const std::string baseRequest = request("cmd_1", "fp_1", "op_1");
+  {
+    CountingCallback callback;
+    SuiteBridgeNativeTimerCreateService service("pie_1", &callback);
+    const auto withAux = baseRequest + " aux " + hexToken("<epgsearch>plugin:data</epgsearch>");
+    const auto first = service.Handle("NTCREATE", withAux.c_str());
+    assert(first.replyCode == 557);
+    assert(callback.lastAux == "<epgsearch>plugin:data</epgsearch>");
+    assert(service.Handle("NTCREATE", withAux.c_str()).replyCode == 557);
+    const auto changed = baseRequest + " aux " + hexToken("changed");
+    assert(service.Handle("NTCREATE", changed.c_str()).replyCode == 559);
+    assert(callback.calls == 1);
+  }
 
   {
     // Deterministic unit test; TZ affects this process only.

@@ -367,7 +367,7 @@
         ],
         "operationId": "createManualTimerIntent",
         "summary": "Admit a manual one-shot or VDR-weekly native TimerIntent",
-        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native day/HHMM/aux or parallel writer. An optional canonical weekday mask uses native VDR scheduling; startAt/stopAt represent the first attested airing, not a proof that future repeats are conflict-free. Currently source-only pending CI and hardware acceptance. The complete serialized JSON body is capped at 4096 UTF-8 bytes.",
+        "description": "Reuses existing native CREATE: backend-scoped authoritative channel/CLOCK/NTPREVIEW, Agent/provider-fenced TimerIntent/Assignment/Operation and exact native readback. HTTP 202 is an accepted Operation, not timer success. Reuse the identical key and body to recover a committed operation after backend loss; never blindly re-issue unknown outcomes. No EPG event, client-owned native day/HHMM or parallel writer. Optional provider-local aux is retained in the durable CREATE payload, appended before the internal correlation marker, and verified by native readback. An optional canonical weekday mask uses native VDR scheduling; startAt/stopAt represent the first attested airing, not a proof that future repeats are conflict-free. Currently source-only pending CI and hardware acceptance. The complete serialized JSON body is capped at 4096 UTF-8 bytes.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing native_timers.create: paired Device with exact timers.create@backendId, or Human Browser with timers.create@backendId or administrator role.admin@backendId/role.admin@*, with CSRF."
@@ -427,6 +427,11 @@
                     "type": "string",
                     "maxLength": 1024,
                     "description": "Native timer directory, maximum 1024 decoded UTF-8 bytes."
+                  },
+                  "aux": {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "description": "Optional opaque VDR plugin metadata, maximum 1024 decoded UTF-8 bytes. Reserved Suite ownership marker is server-owned. Omission or empty retains the original CREATE contract."
                   },
                   "weekdays": {
                     "type": "string",

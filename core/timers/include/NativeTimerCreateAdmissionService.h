@@ -61,6 +61,7 @@ struct ManualNativeTimerCreateReplayRequest
     std::int64_t startAt = 0, stopAt = 0;
     std::int32_t priority = 50, lifetime = 99;
     bool enabled = true, vps = false;
+    std::string aux;
 };
 
 struct ManualNativeTimerCreateAdmissionRequest
@@ -79,6 +80,7 @@ struct ManualNativeTimerCreateAdmissionRequest
     // Re-evaluate current backend/Agent/provider and channel mapping under
     // the already-established atomic transaction; no implicit retry.
     std::function<bool()> revalidateSourceAndExecutionAuthority;
+    std::string aux;
 };
 
 struct NativeTimerCreateAdmissionRequest
@@ -90,6 +92,7 @@ struct NativeTimerCreateAdmissionRequest
     std::string expectedBackendId;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
+    std::string aux;
 };
 
 struct NativeTimerCreateAdmissionResult

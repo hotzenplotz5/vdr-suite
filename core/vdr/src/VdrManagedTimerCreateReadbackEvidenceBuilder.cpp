@@ -96,6 +96,7 @@ VdrManagedTimerCreateReadbackEvidenceBuilder::build(
         candidate.timerAssignmentId = correlation.correlation.timerAssignmentId;
         candidate.nativeTimerBindingId = correlation.correlation.nativeTimerBindingId;
         candidate.observation = mapped.observation;
+        candidate.providerAux = correlation.providerAux;
         evidence.candidates.push_back(std::move(candidate));
     }
 

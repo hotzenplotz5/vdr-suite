@@ -75,6 +75,10 @@ std::string canonicalBody(const NativeTimerCreateOperationPayload& payload)
     appendSigned(output, specification.lifetime);
     appendBool(output, specification.enabled);
     appendBool(output, specification.vps);
+    if (!payload.aux.empty()) {
+        appendField(output, "aux");
+        appendField(output, payload.aux);
+    }
     return output;
 }
 
@@ -163,7 +167,8 @@ bool nativeTimerCreateOperationPayloadValid(
         && validIdentity(payload.nativeTimerBindingId)
         && validIdentity(payload.backendId)
         && payload.backendGeneration > 0
-        && nativeTimerSpecificationValid(payload.expectedSpecification);
+        && nativeTimerSpecificationValid(payload.expectedSpecification)
+        && nativeTimerCreateAuxValid(payload.aux);
 }
 
 std::string serializeNativeTimerCreateOperationPayload(
@@ -183,15 +188,17 @@ bool parseNativeTimerCreateOperationPayload(
 
     std::size_t position = prefix.size();
     std::vector<std::string> fields;
-    fields.reserve(18);
+    fields.reserve(20);
     while (position < serialized.size())
     {
         std::string field;
         if (!readField(serialized, position, field)) return false;
         fields.push_back(std::move(field));
-        if (fields.size() > 18) return false;
+        if (fields.size() > 20) return false;
     }
-    if (fields.size() != 18) return false;
+    if (fields.size() != 18 &&
+        (fields.size() != 20 || fields[18] != "aux" || fields[19].empty()))
+        return false;
 
     NativeTimerCreateOperationPayload parsed;
     parsed.timerAssignmentId = fields[0];
@@ -218,6 +225,7 @@ bool parseNativeTimerCreateOperationPayload(
         return false;
     }
 
+    if (fields.size() == 20) parsed.aux = fields[19];
     if (!nativeTimerCreateOperationPayloadValid(parsed)) return false;
     if (serializeNativeTimerCreateOperationPayload(parsed) != serialized)
         return false;

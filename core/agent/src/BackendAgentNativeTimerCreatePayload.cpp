@@ -158,6 +158,10 @@ std::string backendAgentNativeTimerCreatePayload(
     appendUnsigned(output, selection.providerGeneration);
     appendUnsigned(output, selection.capabilityRevision);
     appendField(output, selection.requiredCapability);
+    if (!specification.aux.empty()) {
+        appendField(output, "aux");
+        appendField(output, specification.aux);
+    }
     return output;
 }
 
@@ -174,18 +178,20 @@ bool backendAgentNativeTimerCreateParsePayload(
     }
     std::size_t position = prefix.size();
     std::vector<std::string> fields;
-    fields.reserve(kFieldCount);
+    fields.reserve(kFieldCount + 2U);
     while (position < encoded.size())
     {
         std::string field;
-        if (!readField(encoded, position, field) || fields.size() >= kFieldCount)
+        if (!readField(encoded, position, field) || fields.size() >= kFieldCount + 2U)
         {
             reasonCode = "invalid_native_timer_create_payload";
             return false;
         }
         fields.push_back(std::move(field));
     }
-    if (fields.size() != kFieldCount)
+    if (fields.size() != kFieldCount &&
+        (fields.size() != kFieldCount + 2U || fields[kFieldCount] != "aux" ||
+         fields[kFieldCount + 1U].empty()))
     {
         reasonCode = "invalid_native_timer_create_payload";
         return false;
@@ -233,6 +239,8 @@ bool backendAgentNativeTimerCreateParsePayload(
         !parseUnsigned(fields[26], selection.capabilityRevision))
     { reasonCode = "invalid_native_timer_create_payload"; return false; }
     selection.requiredCapability = fields[27];
+    if (fields.size() == kFieldCount + 2U)
+        specification.aux = fields[kFieldCount + 1U];
 
     if (!backendAgentNativeTimerCreatePayloadValid(candidate) ||
         backendAgentNativeTimerCreatePayload(candidate) != encoded)

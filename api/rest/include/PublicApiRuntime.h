@@ -1239,6 +1239,7 @@ struct PublicManualTimerIntentAdmissionRequest
 {
     std::string actorRef, backendId, idempotencyKey;
     std::string channelId, title, directory;
+    std::string aux;
     // Native VDR weekdays, Monday through Sunday; ------- is one-shot.
     std::string weekdays = "-------";
     std::int64_t startAt = 0, stopAt = 0;

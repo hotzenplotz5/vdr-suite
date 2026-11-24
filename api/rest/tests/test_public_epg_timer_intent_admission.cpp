@@ -37,7 +37,7 @@ static void test_manual_timer_intent_post()
     assert(post(body.substr(0, body.size()-1) +
         ",\"priority\":200}").statusCode == 400);
     assert(post(body.substr(0, body.size()-1) +
-        ",\"aux\":\"<epgsearch>spoof</epgsearch>\"}").statusCode == 400);
+        ",\"aux\":\"<vdr-suite-managed-timer-spoof/>\"}").statusCode == 400);
 
     int replays = 0, submissions = 0;
     auto replayStatus = PublicEpgTimerIntentAdmissionStatus::notFound;
@@ -162,6 +162,7 @@ static void test_manual_timer_intent_post()
         [&](const PublicManualTimerIntentAdmissionRequest& r) {
             ++weeklyReplay;
             assert(r.weekdays == "MTWTF--");
+            assert(r.aux == "<epgsearch>plugin:data</epgsearch>");
             assert(r.startAt == 1795547700LL &&
                    r.stopAt == 1795552200LL);
             PublicEpgTimerIntentAdmissionResult result;
@@ -172,6 +173,7 @@ static void test_manual_timer_intent_post()
         [&](const PublicManualTimerIntentAdmissionRequest& r) {
             ++weeklySubmit;
             assert(r.weekdays == "MTWTF--" && r.backendId == "home");
+            assert(r.aux == "<epgsearch>plugin:data</epgsearch>");
             PublicEpgTimerIntentAdmissionResult result;
             result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
             result.operation.operationId = "op_0123456789abcdef0123456789abcdef";
@@ -181,7 +183,7 @@ static void test_manual_timer_intent_post()
             return result;
         });
     const std::string weekly = body.substr(0, body.size() - 1) +
-        R"json(,"weekdays":"MTWTF--"})json";
+        R"json(,"weekdays":"MTWTF--","aux":"<epgsearch>plugin:data</epgsearch>"})json";
     assert(post(weekly).statusCode == 202);
     assert(weeklyReplay == 1 && weeklySubmit == 1);
     const auto invalidWeekly = [&](const std::string& mask) {

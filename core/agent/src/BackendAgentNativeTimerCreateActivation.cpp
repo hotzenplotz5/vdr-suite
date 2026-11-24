@@ -198,6 +198,7 @@ BackendAgentNativeTimerCreateActivationService::activateDispatching(
         operationPayload.nativeTimerBindingId != agentPayload.nativeTimerBindingId ||
         operationPayload.backendId != assignment.backendId ||
         operationPayload.backendGeneration != assignment.backendGeneration ||
+        operationPayload.aux != agentPayload.specification.aux ||
         specificationFingerprint.empty() ||
         specificationFingerprint != agentPayload.expectedSpecificationFingerprint ||
         specificationFingerprint !=

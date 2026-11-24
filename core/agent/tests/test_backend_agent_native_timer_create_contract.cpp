@@ -80,6 +80,15 @@ int main()
     assert(parsed.expectedSpecificationFingerprint == fingerprint);
     assert(parsed.specification.startTime == "0915");
     assert(backendAgentNativeTimerCreatePayload(parsed) == encoded);
+    auto auxPayload = expectedPayload;
+    auxPayload.specification.aux = "<epgsearch>plugin:data</epgsearch>";
+    const auto auxEncoded = backendAgentNativeTimerCreatePayload(auxPayload);
+    assert(!auxEncoded.empty() && auxEncoded != encoded);
+    assert(backendAgentNativeTimerCreateParsePayload(auxEncoded, parsed, reason));
+    assert(parsed.specification.aux == auxPayload.specification.aux);
+    assert(backendAgentNativeTimerCreatePayload(parsed) == auxEncoded);
+    assert(backendAgentNativeTimerCreateParsePayload(encoded, parsed, reason));
+    assert(parsed.specification.aux.empty());
 
     BackendAgentNativeTimerCreatePayload badProvider = expectedPayload;
     badProvider.localProviderSelection.requiredCapability = "vdr.timer.delete";

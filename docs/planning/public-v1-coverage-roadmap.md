@@ -1,5 +1,20 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.6.5 – AUX-CREATE (Source, Abnahme offen)
+
+| Web-Editor-Feld / Vorgang | Public-v1 CREATE |
+| --- | --- |
+| One-shot / native Wochenmaske, Titel, Verzeichnis, Zeit | Bestehender Manual-Intent- und Preview-Pfad |
+| Optionales Plugin-AUX (z. B. epgsearch) | Durable CREATE-Payload, Agent, NTCREATE, native Korrelation und bytegenauer Readback ohne Suite-Marker |
+| Wiederholung desselben Keys | Gleiche Bytes: bestehende Operation; andere Bytes: Konflikt |
+| Normale Grants, CSRF, SSE | Unverändert; kein zweiter Writer |
+
+Konkurrenzvergleich: VDR-eigener Timereditor ist die verbindliche
+Baseline; Kodi/Plex-Kompatibilität für opaque VDR-Plugin-AUX ist nicht
+verifiziert. Kein fremdes AUX-Schema und keine zusätzliche Berechtigung.
+Die bereits bestehenden Preview-Grenzen bleiben unverändert. CI/Real-VDR
+und vollständige F5/F8-Abnahme bleiben offen.
+
 ## API.V1.F5.6.4 – Laufende Aufnahme stoppen (24.11.2026; Source)
 
 Die bestehende Public-v1-Native-DELETE-Operation wird für verifiziert

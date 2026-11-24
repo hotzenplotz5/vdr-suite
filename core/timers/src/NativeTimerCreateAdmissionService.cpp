@@ -57,6 +57,7 @@ bool validRequest(const NativeTimerCreateAdmissionRequest& request)
         && identity(request.timerAssignmentId)
         && identity(request.expectedAssignmentRevision)
         && identity(request.expectedBackendId)
+        && nativeTimerCreateAuxValid(request.aux)
         && request.requestedAt > 0
         && (request.deadline == 0 || request.deadline >= request.requestedAt);
 }
@@ -78,6 +79,11 @@ std::string requestFingerprint(
     appendField(fingerprint, request.expectedBackendId);
     appendField(fingerprint, request.timerAssignmentId);
     appendField(fingerprint, request.expectedAssignmentRevision);
+    if (!request.aux.empty()) {
+        const auto digest = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(request.aux);
+        if (digest.empty()) return {};
+        appendField(fingerprint, digest);
+    }
     return fingerprint.size() <= kMaxRequestFingerprintLength
         ? fingerprint
         : std::string();
@@ -112,6 +118,7 @@ bool payloadMatchesReplay(
         && payload.backendGeneration == operation.backendGeneration
         && payload.expectedAssignmentRevision == operation.expectedRevision
         && specificationFingerprint == operation.expectedResourceFingerprint
+        && payload.aux == request.aux
         && !payload.nativeTimerBindingId.empty()
         && specificationFingerprint.size() > 0;
 }
@@ -451,6 +458,7 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admitImpl(
         provisioned.assignment.backendGeneration;
     preparation.expectedSpecification =
         provisioned.assignment.desiredNativeTimerSpecification;
+    preparation.aux = request.aux;
     preparation.requestedAt = request.requestedAt;
     preparation.deadline = request.deadline;
 
@@ -488,7 +496,7 @@ NativeTimerCreateAdmissionService::replayManualWindow(
     using namespace vdrsuite::operations;
     if (!identity(request.actorId) || !identity(request.backendId) ||
         !identity(request.idempotencyKey) ||
-        request.channelId.empty() ||
+        request.channelId.empty() || !nativeTimerCreateAuxValid(request.aux) ||
         request.startAt <= 0 || request.stopAt <= request.startAt)
         return result(NativeTimerCreateAdmissionStatus::invalid);
 
@@ -557,6 +565,7 @@ NativeTimerCreateAdmissionService::replayManualWindow(
         native.lifetime == request.lifetime &&
         native.enabled == request.enabled &&
         native.vps == request.vps &&
+        parsed.aux == request.aux &&
         found.operation.expectedResourceFingerprint ==
             nativeTimerSpecificationFingerprint(native);
     if (!matches)
@@ -594,6 +603,7 @@ NativeTimerCreateAdmissionService::admitManualWindow(
         !identity(request.actorId) || !identity(request.backendId) ||
         !identity(request.idempotencyKey) ||
         !nativeTimerSpecificationValid(spec) ||
+        !nativeTimerCreateAuxValid(request.aux) ||
         !timerIntentValidSpec(intentSpec) ||
         !projected.valid ||
         timerIntentSemanticIdentity(projected.intent) !=
@@ -657,6 +667,7 @@ NativeTimerCreateAdmissionService::admitManualWindow(
                 spec) &&
             timerAssignmentDesiredNativeTimerSpecificationEquivalent(
                 parsed.expectedSpecification, spec) &&
+            parsed.aux == request.aux &&
             found.operation.actorId == request.actorId &&
             found.operation.backendId == request.backendId &&
             found.operation.resourceId == assignmentId &&
@@ -765,6 +776,7 @@ NativeTimerCreateAdmissionService::admitManualWindow(
     native.expectedBackendId = request.backendId;
     native.requestedAt = request.requestedAt + 3;
     native.deadline = request.deadline;
+    native.aux = request.aux;
     const auto prepared = admitInCurrentTransaction(native);
     if (prepared.status != NativeTimerCreateAdmissionStatus::prepared)
         return fail(prepared.status);

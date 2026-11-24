@@ -989,12 +989,14 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
             noProof, second.intents, secondApplication).status ==
             NativeTimerCreateAdmissionStatus::backendConflict);
 
+        manual.aux = "<epgsearch>plugin:data</epgsearch>";
         const auto first = second.admission.admitManualWindow(
             manual, second.intents, secondApplication);
         assert(first.status == NativeTimerCreateAdmissionStatus::prepared);
         assert(validations == 1);
         assert(first.operation.state == MutationOperationState::accepted);
         assert(first.operation.actionFamily == "timer.create");
+        assert(first.payload.aux == manual.aux);
         assert(first.payload.expectedSpecification.title == nativeSpec.title);
         assert(first.payload.expectedSpecification.directory == nativeSpec.directory);
         assert(first.payload.expectedSpecification.priority == 0);
@@ -1025,10 +1027,15 @@ void test_manual_draft_atomic_native_create_admission(bool rollBack)
         lookup.lifetime = nativeSpec.lifetime;
         lookup.enabled = nativeSpec.enabled;
         lookup.vps = nativeSpec.vps;
+        lookup.aux = manual.aux;
         const auto offlineReplay = second.admission.replayManualWindow(
             lookup, second.intents);
         assert(offlineReplay.status == NativeTimerCreateAdmissionStatus::replayed);
         assert(offlineReplay.operation.operationId == first.operation.operationId);
+        lookup.aux = "changed";
+        assert(second.admission.replayManualWindow(lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        lookup.aux = manual.aux;
         lookup.title = "Changed without source";
         assert(second.admission.replayManualWindow(
             lookup, second.intents).status ==

@@ -2944,7 +2944,7 @@ bool parsePublicManualTimerIntentBody(
 
         if (key == "backendId" || key == "channelId" ||
             key == "title" || key == "directory" ||
-            key == "weekdays")
+            key == "weekdays" || key == "aux")
         {
             std::string value;
             if (!json.string(value, 1024U)) return false;
@@ -2952,6 +2952,7 @@ bool parsePublicManualTimerIntentBody(
             else if (key == "channelId") input.channelId = std::move(value);
             else if (key == "title") input.title = std::move(value);
             else if (key == "weekdays") input.weekdays = std::move(value);
+            else if (key == "aux") input.aux = std::move(value);
             else input.directory = std::move(value);
         }
         else if (key == "enabled" || key == "vps")
@@ -2978,7 +2979,7 @@ bool parsePublicManualTimerIntentBody(
         break;
     }
     if (!json.finished() ||
-        (seen.size() != 10U && seen.size() != 11U)) return false;
+        (seen.size() < 10U || seen.size() > 12U)) return false;
     // The optional recurrence mask must never replace a mandatory field
     // while keeping the same object member count.
     for (const char* required : {
@@ -2996,6 +2997,8 @@ bool parsePublicManualTimerIntentBody(
         vdrsuite::public_epg_timer::boundedId(input.channelId, 160U) &&
         !input.title.empty() && input.title.size() <= 1024U &&
         input.directory.size() <= 1024U &&
+        input.aux.find_first_of("\0\r\n", 0U, 3U) == std::string::npos &&
+        input.aux.find("<vdr-suite-managed-timer") == std::string::npos &&
         input.startAt > 0 && input.stopAt > input.startAt &&
         input.stopAt - input.startAt < 24 * 60 * 60;
 }

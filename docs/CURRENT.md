@@ -1,5 +1,22 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6.5 – AUX beim manuellen/Weekly-CREATE (Source, Abnahme offen)
+
+Public v1 transportiert optionales natives Plugin-AUX vom Web-Timereditor
+über Referenzclient, REST, atomaren CREATE-Auftrag und Agent bis zum
+bestehenden SuiteBridge-NTCREATE-Writer. Der unveränderliche Payload und
+der Agent-Replay binden die Bytes; geändertes AUX mit demselben Key
+konfligiert. Ohne AUX bleibt das alte Wire-/Payload-Format erhalten.
+SuiteBridge ergänzt die bestehende Ownership-Korrelation; der autoritative
+Readback vergleicht die Plugin-Metadaten ohne diese Kennung. Die
+Binding- und Preview-Fingerprints bleiben unverändert. Keine zweite
+Mutation, keine neue Tabelle, keine zusätzlichen Grants.
+
+Quelltests: HTTP, durable Admission/Replay, Agent-Payload, SuiteBridge
+Replay, native Readback und reale Browser-/Referenzclient-Komposition.
+CI und Real-VDR-Abnahme sind noch nicht als bestanden bestätigt.
+Unbeschränkte Wiederholungs-/Konfliktparität und F8 bleiben offen.
+
 ## API.V1.F5.6.4 – Laufende native Timer-Aufnahme stoppen (24.11.2026; SOURCE)
 
 Der bestehende Public-v1-Native-DELETE-Pfad kann für eine exakt

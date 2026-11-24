@@ -1710,7 +1710,8 @@
       const fields = ['backendId', 'channelId', 'title', 'directory',
         'startAt', 'stopAt', 'priority', 'lifetime', 'enabled', 'vps'];
       const hasWeekdays = !!p && Object.prototype.hasOwnProperty.call(p, 'weekdays');
-      const allowed = hasWeekdays ? fields.concat('weekdays') : fields;
+      const hasAux = !!p && Object.prototype.hasOwnProperty.call(p, 'aux');
+      const allowed = fields.concat(hasWeekdays ? ['weekdays'] : [], hasAux ? ['aux'] : []);
       // C++ JSON Cursor rejects isolated UTF-16 surrogates in escaped JSON.
       const invalidSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/;
       if (!p || typeof p !== 'object' || Array.isArray(p) ||
@@ -1726,6 +1727,10 @@
           typeof p.directory !== 'string' ||
           new TextEncoder().encode(p.directory).length > 1024 ||
           invalidSurrogate.test(p.title) || invalidSurrogate.test(p.directory) ||
+          (hasAux && (typeof p.aux !== 'string' ||
+            new TextEncoder().encode(p.aux).length > 1024 ||
+            invalidSurrogate.test(p.aux) || /[\0\r\n]/.test(p.aux) ||
+            p.aux.includes('<vdr-suite-managed-timer'))) ||
           !Number.isSafeInteger(p.startAt) || p.startAt <= 0 ||
           !Number.isSafeInteger(p.stopAt) ||
           p.stopAt <= p.startAt || p.stopAt - p.startAt >= 86400 ||

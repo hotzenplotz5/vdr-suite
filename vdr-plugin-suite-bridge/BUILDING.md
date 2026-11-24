@@ -67,6 +67,12 @@ only when the optional BATCH verb is explicitly unsupported.
 
 ## Live VDR recording margins (read-only)
 
+The existing private NTCREATE EXEC request optionally accepts a trailing
+`aux <hex>` pair for opaque plugin metadata. Empty AUX keeps the original wire
+format. The callback appends the existing managed correlation marker and the
+Core verifies plugin bytes separately on readback. Older receivers reject the
+extended request rather than silently dropping metadata. No second writer.
+
 `PLUG suitebridge NTCREATE MARGINS 1` reads the running VDR's
 `Setup.MarginStart` and `Setup.MarginStop` values, which are also
 persisted in its `setup.conf`. The typed reply includes the plugin's

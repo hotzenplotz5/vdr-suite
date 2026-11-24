@@ -23,6 +23,7 @@ struct NativeTimerCreateReadbackCandidate
     std::string timerAssignmentId;
     std::string nativeTimerBindingId;
     NativeTimerObservation observation;
+    std::string providerAux;
 };
 
 // Evidence from one complete authoritative native Timer inventory.

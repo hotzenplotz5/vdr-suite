@@ -302,7 +302,7 @@
   // local-time projection. Without an explicit first date, recurring forms
   // retain their existing native editor instead of guessing a timezone.
   function manualTimerIntentSpecification(payload) {
-    if (!payload || String(payload.aux || '') !== '') return null;
+    if (!payload) return null;
     const weekdays = normalizeWeekdays(payload.weekdays);
     if (!/^[M-][T-][W-][T-][F-][S-][S-]$/.test(weekdays))
       return null;
@@ -333,7 +333,8 @@
       title: payload.title, directory: payload.directory,
       startAt, stopAt, priority: payload.priority, lifetime: payload.lifetime,
       enabled: payload.active, vps: payload.vps,
-      ...(weekdays === '-------' ? {} : {weekdays})
+      ...(weekdays === '-------' ? {} : {weekdays}),
+      ...(payload.aux ? {aux: String(payload.aux)} : {})
     };
   }
 

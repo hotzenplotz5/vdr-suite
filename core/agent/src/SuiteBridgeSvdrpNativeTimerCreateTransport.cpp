@@ -319,8 +319,10 @@ SuiteBridgeSvdrpTransport::executeNativeTimerCreateContract(
         << specification.priority << ' '
         << specification.lifetime << ' '
         << (specification.enabled ? 1 : 0) << ' '
-        << (specification.vps ? 1 : 0)
-        << "\r\n";
+        << (specification.vps ? 1 : 0);
+    if (!specification.aux.empty())
+        wire << " aux " << hexToken(specification.aux);
+    wire << "\r\n";
 
     return executeRequest(wire.str());
 }

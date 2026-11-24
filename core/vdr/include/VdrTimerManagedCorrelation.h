@@ -22,6 +22,8 @@ struct VdrTimerManagedCorrelationParseResult
     VdrTimerManagedCorrelationStatus status =
         VdrTimerManagedCorrelationStatus::absent;
     VdrTimerManagedCorrelation correlation;
+    // Original opaque bytes excluding the reserved ownership marker.
+    std::string providerAux;
 
     bool ok() const
     {

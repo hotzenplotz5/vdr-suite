@@ -235,9 +235,9 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   fields.aux.value = '<epgsearch/>';
   submit();
   await tick();
-  assert.strictEqual(calls.length, 5);
-  assert.strictEqual(legacy.length, 2);
-  assert.strictEqual(legacy[1].aux, '<epgsearch/>');
+  assert.strictEqual(calls.length, 6);
+  assert.strictEqual(legacy.length, 1);
+  assert.strictEqual(calls[5].payload.aux, '<epgsearch/>');
   // F5.6 production composition: same rendered Timer form, actual
   // browser client-api.js and bundled Public-v1 reference client.
   const httpRequests = [];
@@ -350,7 +350,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     reload() { reloads++; }
   });
   fields.title.value = 'Composition news';
-  fields.aux.value = '';
+  fields.aux.value = '<epgsearch>plugin:data</epgsearch>';
   operationState = 'accepted';
   submit();
   await tick();
@@ -364,13 +364,14 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(httpRequests[0].options.headers['If-Match'], undefined);
   const submitted = JSON.parse(httpRequests[0].options.body);
   assert.strictEqual(submitted.title, 'Composition news');
+  assert.strictEqual(submitted.aux, '<epgsearch>plugin:data</epgsearch>');
   assert.strictEqual(submitted.backendId, 'living-room');
   assert.strictEqual(submitted.directory, 'News~Evening');
   assert.strictEqual(httpRequests[1].url,
     'https://suite.example/api/v1/operations/op_manual_f56');
   assert.strictEqual(httpRequests[1].options.method, 'GET');
   assert.strictEqual(httpRequests.length, 2);
-  assert.strictEqual(legacy.length, 2,
+  assert.strictEqual(legacy.length, 1,
     'real Browser+reference composition must not call legacy CREATE');
 
   // Real production browser adapter + reference client for native TOGGLE:
@@ -402,7 +403,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(nativeRequests[2].url,
     'https://suite.example/api/v1/operations/op_native_f56');
   assert.equal(nativeRequests[2].options.method, 'GET');
-  assert.equal(legacy.length, 2, 'native Public-v1 TOGGLE never dispatched legacy');
+  assert.equal(legacy.length, 1, 'native Public-v1 TOGGLE never dispatched legacy');
 
   // Production browser -> reference JS -> HTTP MODIFY composition for an
   // explicit Aux update. The previous plugin metadata is carried only on
@@ -434,7 +435,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     '"native-timer-binding/1:fixture:2:3"');
   assert.equal(auxRequests[2].url,
     'https://suite.example/api/v1/operations/op_native_f56');
-  assert.equal(legacy.length, 2, 'Aux edit may not launch a second legacy writer');
+  assert.equal(legacy.length, 1, 'Aux edit may not launch a second legacy writer');
   // Slice 3: a native VDR Timer created outside Suite is not a managed
   // TimerAssignment. Browser -> real client-api -> HTTP must remain usable
   // without inventing a binding ETag or issuing a duplicate native write.
