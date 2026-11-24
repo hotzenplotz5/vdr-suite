@@ -10,6 +10,7 @@ let selectedBackend = null;
 let selectedModule = 'overview';
 let mediaImportCapabilityEpoch = 0;
 let mediaImportKnownBackendId = '';
+let mediaToolsHomeAllowedBackendId = '';
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
 
 // Keep the live tab order independent of addon activation and delayed capability
@@ -37,7 +38,7 @@ function renderMediaToolsHomeShortcut() {
   let shortcut = host.querySelector('[data-home-media-tools]');
   const visible = browserSessionFrontendActive &&
     selectedModule === 'overview' && selectedBackendId &&
-    mediaImportKnownBackendId === selectedBackendId &&
+    mediaToolsHomeAllowedBackendId === selectedBackendId &&
     mediaImportTab && !mediaImportTab.hidden && !mediaImportTab.disabled;
   if (!visible) {
     if (shortcut) shortcut.remove();
@@ -61,7 +62,10 @@ function renderMediaToolsHomeShortcut() {
 
 function resetMediaImportVisibility(clearSession) {
   ++mediaImportCapabilityEpoch;
-  if (clearSession) mediaImportKnownBackendId = '';
+  if (clearSession) {
+    mediaImportKnownBackendId = '';
+    mediaToolsHomeAllowedBackendId = '';
+  }
   if (mediaImportTab) {
     mediaImportTab.hidden = true;
     mediaImportTab.disabled = true;
@@ -79,67 +83,44 @@ function resetMediaImportVisibility(clearSession) {
 }
 
 function refreshMediaImportVisibility(backendId) {
-  // A signed-out browser must never reopen the tab, even when a previous
-  // backend was known during its old authenticated session.
   if (!browserSessionFrontendActive || !backendId)
     return Promise.resolve(false);
   const epoch = ++mediaImportCapabilityEpoch;
-  const known = mediaImportKnownBackendId === backendId;
-  // A new session/backend must not advertise an add-on without even one
-  // successful, actor-scoped capability observation. Once observed, preserve
-  // navigation across transient Agent outages instead of adding a new gate.
-  if (mediaImportTab) {
-    mediaImportTab.hidden = !known;
-    mediaImportTab.disabled = !known;
-  }
   const moduleApi = mediaImportModule();
   if (!mediaImportTab || !moduleApi ||
-      typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
+      typeof moduleApi.checkCapability !== 'function')
+    return Promise.resolve(false);
 
-  function unavailable() {
-    if (!known) {
-      mediaImportTab.hidden = true;
-      mediaImportTab.disabled = true;
-      mediaImportTab.title = '';
-      renderMediaToolsHomeShortcut();
-      return false;
-    }
-    // A capability observation is not authorization to destroy an existing
-    // view. In particular, intermittent lease/transport failures must not
-    // wipe a source list or make the whole add-on unusable.
-    mediaImportTab.hidden = false;
-    mediaImportTab.disabled = false;
-    mediaImportTab.title = 'Agent-Status momentan unbestätigt. Media Import bleibt ' +
-      'bedienbar; Aktionen werden bei Ausführung vom Backend geprüft.';
-    // Return navigation availability, NOT the Agent command capability.
-    // The actual Core POST owns action authorization.
-    mediaImportKnownBackendId = backendId;
-    renderMediaToolsHomeShortcut();
-    return true;
-  }
-
-  return Promise.resolve().then(function () {
+  // The capability describes whether an action is possible NOW; it is not a
+  // package presence or configured-activation check. Read the existing admin
+  // status when permitted. Non-admins and transient read failures get "unknown",
+  // never a speculative "not installed" or a new browser-level deny.
+  const addon = window.VdrSuiteAddonSettings;
+  const capability = Promise.resolve().then(function () {
     return moduleApi.checkCapability(backendId);
   }).then(function (available) {
-    if (epoch !== mediaImportCapabilityEpoch ||
-        selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
-    if (!available) return unavailable();
-    mediaImportKnownBackendId = backendId;
-    placeMediaImportTab();
-    mediaImportTab.hidden = false;
-    mediaImportTab.disabled = false;
-    mediaImportTab.title = '';
-    renderMediaToolsHomeShortcut();
-    // Never remount a running media-import view just because a capability
-    // response arrived. Opening the tab is the single navigation owner.
+    return {available: available === true};
+  }, function (error) {
+    return {error: error};
+  });
+  const activation = addon && typeof addon.readActivationState === 'function'
+    ? Promise.resolve().then(function () {
+      return addon.readActivationState(backendId);
+    }).then(function (status) {
+      return {status: status};
+    }, function () {
+      return {status: null};
+    }) : Promise.resolve({status: null});
 
-    return true;
-  }).catch(function (error) {
+  return Promise.all([capability, activation]).then(function (observations) {
     if (epoch !== mediaImportCapabilityEpoch ||
-        selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
-    if (error && (error.status === 401 || error.status === 403)) {
-      // An actual authorization denial is not a temporary transport outage.
+        selectedBackendId !== backendId || !browserSessionFrontendActive)
+      return false;
+    const cap = observations[0];
+    const status = observations[1].status;
+    if (cap.error && (cap.error.status === 401 || cap.error.status === 403)) {
       mediaImportKnownBackendId = '';
+      mediaToolsHomeAllowedBackendId = '';
       mediaImportTab.hidden = true;
       mediaImportTab.disabled = true;
       mediaImportTab.title = '';
@@ -147,10 +128,42 @@ function refreshMediaImportVisibility(backendId) {
       renderMediaToolsHomeShortcut();
       return false;
     }
-    return unavailable();
+
+    const available = cap.available === true;
+    // An explicit, intact local package observation may hide the navigation;
+    // loss of an Agent lease is NOT evidence that a package was removed.
+    const absent = status && status.installationState === 'absent' && !available;
+    if (absent) {
+      mediaImportKnownBackendId = '';
+      mediaToolsHomeAllowedBackendId = '';
+      mediaImportTab.hidden = true;
+      mediaImportTab.disabled = true;
+      mediaImportTab.title = '';
+      if (selectedModule === 'media-import') selectModule('overview');
+      renderMediaToolsHomeShortcut();
+      return false;
+    }
+
+    // Otherwise keep the read-only view navigable, including a fresh login
+    // when the Agent is offline. Real writes remain Core-authorized.
+    mediaImportKnownBackendId = backendId;
+    placeMediaImportTab();
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
+    mediaImportTab.title = available ? '' :
+      'Media Tools ist installiert oder der Paketstatus ist ungeklärt. ' +
+      'Aktivierung und Agent-Status in den Einstellungen prüfen.';
+
+    const enabledByAdmin = status &&
+      (status.desiredEnabled === true || status.activatedByInstall === true);
+    if (available || enabledByAdmin)
+      mediaToolsHomeAllowedBackendId = backendId;
+    else if (status && status.desiredEnabled === false)
+      mediaToolsHomeAllowedBackendId = '';
+    renderMediaToolsHomeShortcut();
+    return true;
   });
 }
-
 let homeResumeBackendId = '';
 let currentSnapshot = null;
 let backendDetailSequence = 0;
