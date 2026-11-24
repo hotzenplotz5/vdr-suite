@@ -12,7 +12,10 @@
 Konkurrenzvergleich: VDR-eigener Timereditor ist die verbindliche
 Baseline; Kodi/Plex-Kompatibilität für opaque VDR-Plugin-AUX ist nicht
 verifiziert. Kein fremdes AUX-Schema und keine zusätzliche Berechtigung.
-Die bereits bestehenden Preview-Grenzen bleiben unverändert. CI/Real-VDR
+Die bereits bestehenden Preview-Grenzen bleiben unverändert. Der Browser
+behält für deaktivierte/VPS-Timer den bestehenden VDR-Editorpfad bei, bevor
+irgendein Public-v1-POST erfolgt; kein Fallback nach ungewissem Ausgang.
+Allgemeine Konflikt-/Wiederholungsparität bleibt offen. CI/Real-VDR
 und vollständige F5/F8-Abnahme bleiben offen.
 
 ## API.V1.F5.6.4 – Laufende Aufnahme stoppen (24.11.2026; Source)
@@ -43,13 +46,13 @@ idempotente Offline-Replay erhalten `recurringSchedule` und die
 native Wochentagsmaske. C++-, HTTP-, Referenzclient- und
 Browser-Regressionen wurden als Quelle ergänzt; realer VDR und
 vollständige CI sind noch nicht als PASS bestätigt. Repeating-Formulare
-mit explizitem erstem Datum und leerem AUX verwenden Public v1,
-sonst bleibt die bestehende native Timeraktion. Die konservative
+mit explizitem erstem Datum und kompatibler Preview verwenden Public v1
+(mit AUX seit F5.6.5), sonst bleibt die bestehende native Timeraktion. Die konservative
 Preview verweigert derzeit weiterhin bestehende aktive recurring
 Timer, VPS-/deaktivierte Kandidaten und unsichere Konkurrenz.
 **Keine allgemeine Wiederholungs-/Konflikt-Parität behaupten.**
 
-**F5.6.5 – Rechteparität (Source, noch keine Final-CI/Real-VDR-Abnahme):**
+**F5.6 – Rechteparität (früherer Source-Stand; Hardware offen):**
 Der Public-v1-SecurityHttpGate erkennt für Human-Browser-Sessions nun
 vorhandene backendbezogene `timers.create`, `timers.modify` und
 `timers.delete` neben `role.admin` an. Bestehende CSRF-, Device-Grant-,
@@ -72,14 +75,14 @@ Durable Payload und Agent-Recovery tragen die opt-in-AUX-Änderung;
 Readback bestätigt neben den Timerfeldern den tatsächlichen AUX-Wert.
 Die Browser-Form sendet hierfür eine Public-v1-Mutation, keinen zweiten
 Legacy-Writer. **Kein neuer Table, kein zweiter Timer-Schreiber.**
-AUX beim CREATE, externe/ungebundene Timer und Real-VDR-Acceptance
-bleiben offen. Insbesondere ist der neue Quellpfad kein Beweis für
-produktive Plugin-Kompatibilität.
+Zum damaligen F5.6.2-Stand waren AUX beim CREATE und externe/ungebundene
+Timer noch offen; siehe F5.6.3 und F5.6.5 für die späteren Source-Schritte.
+Real-VDR-Acceptance bleibt offen.
 
 
 Auf PR #563 wurde die Browser-Komposition im bestehenden Timer-Modul
 schrittweise auf Public API v1 umgestellt. Manuelles einmaliges CREATE
-ohne plugin-spezifisches `aux` nutzt die bereits vorhandene durable
+mit kompatibler Preview und optionalem plugin-spezifischem `aux` nutzt die vorhandene durable
 `/api/v1/manual/timer-intents`-Route und bestätigt den VDR-Zustand
 erst über Operation/SSE. UPDATE, TOGGLE und DELETE verwenden die
 Public-v1-Native-Timer-Routen für `verified` Managed/Adopted Bindings,
@@ -96,18 +99,13 @@ auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
 Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
 
 **Keine Vollmigration / keine Installationsfreigabe:** Unbeschränktes
-wiederkehrendes CREATE, native AUX-Mutation bei CREATE oder
-externen/ungebundenen Timern und Stoppen einer laufenden Aufnahme
-haben noch keinen funktionsgleichen Public-v1-Writer. Die vorhandene
-Legacy-Funktion bleibt für diese nachgewiesenen Vertragslücken erhalten.
-Der öffentliche Manual-CREATE-Vertrag besitzt jetzt eine begrenzte
-Weekly-Variante; das native Binding-Modell führt bewusst kein
-plugin-spezifisches `aux`,
-und die öffentlichen Native-Timer-Mutationen setzen eine verifizierte
-Binding-Revision voraus. Der native DELETE-Pfad verbietet Aufnahme-/
-Pending-Zustände. Diese Lücken benötigen Änderungen an den jeweiligen
-Backend-/Public-v1-Verträgen und reale VDR-Abnahme, nicht nur eine
-Umbenennung von Frontend-Routen.
+wiederkehrendes CREATE sowie beliebige konkurrierende/VPS-/inaktive
+CREATE-Kandidaten sind vom konservativen Preview-Vertrag noch nicht
+vollständig abgedeckt. F5.6.3, F5.6.4 und F5.6.5 ergänzen die historischen
+Lücken für externe Timer, Aufnahme-Stopp und AUX beim CREATE im jeweils
+beschriebenen Source-Umfang. Der native Binding-Fingerprint bleibt frei
+von plugin-spezifischem `aux`; die CREATE-spezifische Operation verifiziert
+AUX separat. Die reale VDR-Abnahme steht aus.
 
 Regressionsnachweise im Branch: der Browser-Formular-/Karten-Test
 `test_timer_public_v1_browser_native_actions.js`, die reale

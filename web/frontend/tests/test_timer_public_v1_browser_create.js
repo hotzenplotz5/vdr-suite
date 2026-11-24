@@ -530,5 +530,40 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.deepStrictEqual(JSON.parse(newUnboundCalls[1].options.body),
     {backendId:'living-room',timerId:'17'});
   assert.equal(newUnboundCalls[1].options.headers['X-CSRF-Token'],'composition-csrf');
-    console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
+  // Known unsupported preview shapes must preserve the previously
+  // working editor action, with AUX, before any Public-v1 POST.
+  browser.configureContext({
+    detailDataElement: root, clientApi,
+    getSelectedBackendId() { return 'living-room'; },
+    reload() { reloads++; }
+  });
+  browser.renderList({timers: []});
+  const unsupportedForm = find(root, item => item.tagName === 'form');
+  assert(unsupportedForm);
+  const unsupported = unsupportedForm.elements;
+  unsupported.title.value = 'Inactive metadata';
+  unsupported.manualChannelId.value = 'S19.2E-1-2-3';
+  unsupported.day.value = '2026-11-25';
+  unsupported.start.value = '20:15';
+  unsupported.stop.value = '20:45';
+  unsupported.aux.value = '<epgsearch>plugin:data</epgsearch>';
+  unsupported.active.checked = false;
+  unsupported.vps.checked = false;
+  const beforeUnsupported = calls.length;
+  const beforeLegacy = legacy.length;
+  unsupportedForm.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(calls.length, beforeUnsupported);
+  assert.equal(legacy.length, beforeLegacy + 1);
+  assert.equal(legacy[beforeLegacy].aux, unsupported.aux.value);
+  assert.equal(legacy[beforeLegacy].active, false);
+  unsupported.active.checked = true;
+  unsupported.vps.checked = true;
+  unsupportedForm.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(calls.length, beforeUnsupported);
+  assert.equal(legacy.length, beforeLegacy + 2);
+  assert.equal(legacy[beforeLegacy + 1].aux, unsupported.aux.value);
+  assert.equal(legacy[beforeLegacy + 1].vps, true);
+  console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });

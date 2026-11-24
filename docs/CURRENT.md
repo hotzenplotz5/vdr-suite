@@ -15,6 +15,8 @@ Mutation, keine neue Tabelle, keine zusätzlichen Grants.
 Quelltests: HTTP, durable Admission/Replay, Agent-Payload, SuiteBridge
 Replay, native Readback und reale Browser-/Referenzclient-Komposition.
 CI und Real-VDR-Abnahme sind noch nicht als bestanden bestätigt.
+Der Editor behält bei nachweislich nicht unterstützten deaktivierten/VPS-
+CREATE-Kandidaten den etablierten VDR-Pfad vor jedem Public-v1-POST bei.
 Unbeschränkte Wiederholungs-/Konfliktparität und F8 bleiben offen.
 
 ## API.V1.F5.6.4 – Laufende native Timer-Aufnahme stoppen (24.11.2026; SOURCE)

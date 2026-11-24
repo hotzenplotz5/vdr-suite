@@ -997,7 +997,10 @@
         setFeedback(feedback, errors.join(' '), true);
         return;
       }
-      const manual = mode === 'create'
+      // NTPREVIEW cannot yet attest disabled or VPS candidates. Keep the
+      // established native editor route for these shapes BEFORE any POST;
+      // never fall back after a potentially executed Public-v1 request.
+      const manual = mode === 'create' && payload.active && !payload.vps
         ? manualTimerIntentSpecification({
           ...payload,
           // The native editor intentionally leaves recurring day empty.
