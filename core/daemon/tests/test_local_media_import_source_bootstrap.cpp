@@ -44,10 +44,10 @@ int main() {
     // the real local recording target once; normal source edits cannot.
     std::string requestedRoot;
     const std::string manual =
-        R"({"backendId":"default","revision":"cbf29ce484222325","entries":"%2Fdata%2Fvideo%2FFilme%09Filme","videoRoot":"%2Fdata%2Ftv"})";
+        R"({"backendId":"default","revision":"cbf29ce484222325","entries":"%2Ftmp%09Filme","videoRoot":"%2Fdata%2Ftv"})";
     assert(parseBody(manual, backend, expected, sources, &requestedRoot));
     assert(requestedRoot == "/data/tv");
-    assert(sources.size() == 1 && sources.front().path == "/data/video/Filme");
+    assert(sources.size() == 1 && sources.front().path == "/tmp");
     assert(!parseBody(manual, backend, expected, sources,
                       nullptr));
     const std::string escape =
