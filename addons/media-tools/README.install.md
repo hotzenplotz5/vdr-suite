@@ -34,15 +34,20 @@ sowie die lokale Agent-Backend-ID gültig sind), liefert der bereits
 autorisierte Admin-Endpunkt `GET /api/v1/addons/rectools/sources` eine leere
 Erstkonfiguration statt `sources_unavailable`. Unter **Einstellungen →
 Media Tools → Importverzeichnisse** kann der Administrator dann einen
-tatsächlich vorhandenen Importordner hinzufügen und speichern. Die
-Serverseite benutzt für das Aufnahmeziel ausschließlich die bereits
-ermittelte lokale VDR-Root-Autorität (explizite Backend-Konfiguration
-oder SuiteBridge `VPATH 1`), keinen Distribution-Default und keinen
-freien Browser-Zielpfad. Fehlt dieser Wert, zeigt der Editor das an,
-speichert aber noch kein Quelleninventar. Ein gültiges vorhandenes
-Inventar bleibt unverändert; ein beschädigtes vorhandenes Inventar wird
-nicht als leer interpretiert. Erstes Speichern erstellt die lokale
-root-eigene Konfiguration, aktiviert aber weder Add-on noch Worker.
+tatsächlich vorhandenen Importordner hinzufügen und speichern. Falls VDR-Suite das Aufnahmeziel bereits über die bestehende
+Backend-Konfiguration oder SuiteBridge `VPATH 1` kennt, wird es automatisch
+übernommen und bleibt unveränderlich. Wenn die native Erkennung bei einer
+frischen Installation fehlt, zeigt das Webfrontend **einmalig** das zusätzliche
+Feld `VDR-Aufnahmeverzeichnis`. Hier trägt der Administrator das tatsächliche,
+bereits vorhandene VDR-Aufnahmeverzeichnis ein; es wird nicht aus dem
+Distributionstyp abgeleitet. Der authentifizierte, CSRF-geschützte Speichervorgang
+prüft Verzeichnis und Quellen und übernimmt das Ziel nur beim erstmaligen Anlegen
+der root-eigenen TSV. Danach lässt es sich über die Webverwaltung nicht ändern.
+Die Paketdateien werden nur als **vorhanden**, **abwesend** oder **ungeklärt**
+beobachtet; eine temporär unterbrochene Agent-Verbindung bedeutet niemals
+automatisch „nicht installiert“. Ein gültiges vorhandenes Inventar bleibt
+unverändert; ein beschädigtes vorhandenes Inventar wird nicht als leer
+interpretiert. Erstes Speichern aktiviert weder Add-on noch Worker.
 
 ## Vor einer Installation oder einem Update
 
