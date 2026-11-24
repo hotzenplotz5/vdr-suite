@@ -509,7 +509,7 @@
             "description": "Channel not found on selected authoritative backend"
           },
           "409": {
-            "description": "Idempotency, generation or operation conflict"
+            "description": "Idempotency, generation or operation conflict; native_editor_required means the read-only preview could not attest the schedule and no Operation was admitted."
           },
           "415": {
             "description": "Expected application/json"
@@ -11375,6 +11375,183 @@
           }
         ],
         "x-vdr-suite-auth-profile": "browserDeviceWrite"
+      }
+    },
+    "/api/v1/native-timers/actions/create": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "createNativeTimerDirect",
+        "summary": "Create a native VDR timer using the existing editor",
+        "description": "Synchronous native editor CREATE, including VDR weekly schedules without a first date, VPS, disabled timers and ordinary VDR conflict handling. Reuses the existing VdrTimerActionController and native preflight/readback; does not create a managed TimerAssignment or durable Operation. No automatic retry. The managed manual and EPG admission routes retain their prospective proof contracts. The live epgsearch conflict report is available separately.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing timers.create@backendId for Device or Human Browser, exact body backend scope and Browser CSRF; audited mutation"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "channelId",
+                  "title",
+                  "start",
+                  "stop"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "timerId": {
+                    "type": "string",
+                    "description": "Omit or empty for CREATE"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "channelId": {
+                    "type": "string"
+                  },
+                  "day": {
+                    "type": "string",
+                    "description": "VDR-local date; may be empty for native weekly timers"
+                  },
+                  "weekdays": {
+                    "type": "string",
+                    "description": "Canonical native VDR weekday mask; ------- for one-shot"
+                  },
+                  "start": {
+                    "type": "integer"
+                  },
+                  "stop": {
+                    "type": "integer"
+                  },
+                  "priority": {
+                    "type": "integer"
+                  },
+                  "lifetime": {
+                    "type": "integer"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "vps": {
+                    "type": "boolean"
+                  },
+                  "aux": {
+                    "type": "string"
+                  },
+                  "directory": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous existing native VDR result with success:true or success:false; never a durable Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or body backend mismatch; CREATE does not accept a native timer ID"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Existing scoped timer action grant or Browser CSRF missing"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "VDR native action, snapshot or backend unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserDeviceWrite"
+      }
+    },
+    "/api/v1/native-timers/conflicts/live": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getNativeTimerConflicts",
+        "summary": "Read the selected backend's native epgsearch timer conflicts",
+        "description": "Same VDR conflict report as the established Web editor. Backend-scoped live RESTfulAPI epgsearch read; not a prospective admission proof or conflict-free promise. An unavailable report is distinct from an empty successful report. No write or conditional ETag.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing VDR timer conflict report (source, available, checkAdvised, count, total, conflicts, error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or mismatched backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Existing timers.view grant required"
+          },
+          "503": {
+            "description": "Conflict reader unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing backend-scoped timers.view for Device or Human Browser"
+        }
       }
     },
     "/api/v1/native-timers/{timerId}/direct-update": {

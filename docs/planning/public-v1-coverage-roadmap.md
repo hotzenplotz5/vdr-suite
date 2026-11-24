@@ -1,5 +1,24 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.6.6 – Native Timereditor-Parität (Source-Kandidat)
+
+| Bestehender Webeditor | Public-v1-Pfad |
+| --- | --- |
+| Aktiver, eindeutig projizierbarer Timer, optionale Wochenmaske und AUX | Bestehender dauerhafter Manual-Intent mit NTPREVIEW, Agent, SuiteBridge und Readback |
+| Wochenmaske ohne Ersttermin, inaktiver Timer, VPS/PDC | `POST /api/v1/native-timers/actions/create` über exakt den bestehenden VDR-Aktionscontroller und RESTfulAPI-Executor; native Datum-/Masken-/Flag-/AUX-Felder unverändert |
+| Konflikt oder nicht attestierbare Preview | Nur explizites `409 native_editor_required` vor Admission erlaubt einmaligen direkten nativen CREATE; generische 409/503, verlorene Antworten und ungewisse Operationen niemals erneut dispatchen |
+| Konfliktliste | `GET /api/v1/native-timers/conflicts/live?backendId=...` über den vorhandenen epgsearch-Konfliktreport des ausgewählten Backends; unveränderte Konfliktzahlen/Einträge und Verfügbarkeitsstatus |
+| Rechte | Bestehendes `timers.create` / `timers.view`, Device-/Browser-Scope, CSRF, native Backend-Schreibpolicy |
+
+Keine neue DB, kein zusätzlicher nativer Executor, keine neue Konfliktsimulation.
+Die direkte Aktion liefert das vorhandene synchrone Resultat nach nativer
+CREATE-Preflight/Readback; sie ist keine verwaltete durable Operation.
+Die bestehende konservative EPG-/Manual-Admission bleibt unverändert.
+Konkurrenzvergleich: Der native VDR-/epgsearch-Editor bleibt fachliche
+Referenz für Wochenmasken, VPS und Konfliktberichte; Kodi/Plex-Verhalten
+für VPS und opaque VDR-AUX ist nicht verifiziert.
+CI und gezielte reale VDR-Abnahme sind offen.
+
 ## API.V1.F5.6.5 – AUX-CREATE (Source, Abnahme offen)
 
 | Web-Editor-Feld / Vorgang | Public-v1 CREATE |
@@ -98,10 +117,10 @@ Auf eine definitive HTTP-403-Ablehnung fällt der Web-Editor deshalb nur
 auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
 Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
 
-**Keine Vollmigration / keine Installationsfreigabe:** Unbeschränktes
-wiederkehrendes CREATE sowie beliebige konkurrierende/VPS-/inaktive
-CREATE-Kandidaten sind vom konservativen Preview-Vertrag noch nicht
-vollständig abgedeckt. F5.6.3, F5.6.4 und F5.6.5 ergänzen die historischen
+**Keine Installationsfreigabe:** Unbeschränktes wiederkehrendes CREATE sowie
+konkurrierende/VPS-/inaktive Kandidaten bleiben außerhalb des konservativen
+Preview-Vertrags, werden aber im bestehenden nativen Editorpfad seit F5.6.6
+über Public v1 bedient. F5.6.3, F5.6.4 und F5.6.5 ergänzen die historischen
 Lücken für externe Timer, Aufnahme-Stopp und AUX beim CREATE im jeweils
 beschriebenen Source-Umfang. Der native Binding-Fingerprint bleibt frei
 von plugin-spezifischem `aux`; die CREATE-spezifische Operation verifiziert

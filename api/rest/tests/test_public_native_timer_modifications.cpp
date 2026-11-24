@@ -161,4 +161,31 @@ int main()
     assert(post(directUpdate,directBody,"","", "application/json").statusCode == 200);
     runtime.resetNativeTimerDirectAction();
     runtime.resetNativeTimerDetailLookup();
+
+    const std::string createPath = "/api/v1/native-timers/actions/create";
+    const std::string createBody = R"json({"backendId":"backend-one","channelId":"C-1","title":"Weekly VPS","day":"","weekdays":"M-W-F--","start":2015,"stop":2030,"priority":0,"lifetime":0,"active":false,"vps":true,"aux":"<epgsearch/>"})json";
+    assert(post(createPath,createBody).statusCode == 503);
+    int creates = 0;
+    runtime.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor,
+            const std::string& backend, const std::string& nativeId,
+            const std::string& raw) {
+            ++creates;
+            assert(action == "create" && actor == "tv-device");
+            assert(backend == "backend-one" && nativeId.empty() && raw == createBody);
+            ApiResponse result;
+            result.statusCode = 200;
+            result.contentType = "application/json";
+            result.body = R"json({"success":true,"timerId":"73"})json";
+            return result;
+        });
+    assert(post(createPath+"?backendId=backend-one",createBody).statusCode == 400);
+    assert(post(createPath,"{").statusCode == 400);
+    assert(post(createPath,createBody,"","","text/plain").statusCode == 415);
+    assert(creates == 0);
+    const auto nativeCreated = post(createPath,createBody,"","");
+    assert(nativeCreated.statusCode == 200 && creates == 1);
+    assert(nativeCreated.headers.count("Location") == 0U);
+    assert(nativeCreated.body.find(R"json("timerId":"73")json") != std::string::npos);
+    runtime.resetNativeTimerDirectAction();
 }

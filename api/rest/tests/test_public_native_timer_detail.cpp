@@ -125,6 +125,30 @@ int main()
     bound = false;
     api.resetNativeTimerDirectAction();
     assert(get(uri, tag).statusCode == 400);
+    const std::string conflictUri = "/api/v1/native-timers/conflicts/live?backendId=backend-one";
+    assert(get(conflictUri).statusCode == 503);
+    int reads = 0;
+    api.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor, const std::string& backend,
+            const std::string& nativeId, const std::string& body) {
+            ++reads;
+            assert(action == "conflicts" && actor == "viewer" && backend == "backend-one");
+            assert(nativeId.empty() && body.empty());
+            ApiResponse response;
+            response.statusCode = 200;
+            response.contentType = "application/json";
+            response.body = R"json({"available":true,"count":1,"total":1,"conflicts":[{"conflictTime":1795550400}]})json";
+            return response;
+        });
+    assert(get(conflictUri,"","").statusCode == 401);
+    assert(get(conflictUri,"","viewer","foreign").statusCode == 400);
+    assert(get(conflictUri+"&limit=1").statusCode == 400);
+    assert(reads == 0);
+    const auto conflicts = get(conflictUri);
+    assert(conflicts.statusCode == 200 && reads == 1);
+    assert(conflicts.body.find(R"json("count":1)json") != std::string::npos);
+    assert(conflicts.headers.at("Cache-Control") == "no-store");
+    api.resetNativeTimerDirectAction();
     ApiResponse denied;
     assert(api.tryHandleUnsupportedMethod("DELETE", uri, "req", "corr", denied));
     assert(denied.statusCode == 405);

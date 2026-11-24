@@ -782,16 +782,17 @@ function loadTimerConflictPanel(timers) {
     return;
   }
 
-  clientApi.fetchClientTimerConflicts()
+  const conflictBackendId = selectedEpgBackendId();
+  clientApi.fetchClientTimerConflicts({backendId: conflictBackendId})
     .then(report => {
-      if (selectedModule !== "timers") {
+      if (selectedModule !== "timers" || selectedEpgBackendId() !== conflictBackendId) {
         return;
       }
 
       appendTimerConflictPanel(report, timers, null);
     })
     .catch(error => {
-      if (selectedModule !== "timers") {
+      if (selectedModule !== "timers" || selectedEpgBackendId() !== conflictBackendId) {
         return;
       }
 

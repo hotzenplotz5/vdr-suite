@@ -103,5 +103,24 @@ const client = createClient({
   assert.throws(()=>directClient.updateExternalNativeTimer({
     ...directOptions,payload:{backendId:'foreign',title:'bad'}}));
   assert.equal(directCalls.length,2);
+  const schedule = {backendId:'default', channelId:'C-1', title:'Weekly',
+    directory:'News', day:'', weekdays:'M-W-F--', start:2015, stop:2030,
+    priority:0, lifetime:0, active:false, vps:true, aux:'<epgsearch/>'};
+  const created = await directClient.createNativeTimer({
+    backendId:'default', payload:schedule, headers:{'X-CSRF-Token':'fixture-csrf'}});
+  assert.equal(created.status,200);
+  assert.equal(directCalls[2].url,'https://suite.example/api/v1/native-timers/actions/create');
+  assert.deepStrictEqual(JSON.parse(directCalls[2].init.body),{...schedule,timerId:''});
+  assert.throws(()=>directClient.createNativeTimer({backendId:'default',payload:{...schedule,backendId:'other'}}));
+  assert.throws(()=>directClient.createNativeTimer({backendId:'default',payload:{...schedule,timerId:'17'}}));
+  assert.equal(directCalls.length,3);
+  const conflictClient = createClient({baseUrl:'https://suite.example', fetch:async(url,init)=>{
+    assert.equal(url,'https://suite.example/api/v1/native-timers/conflicts/live?backendId=default');
+    assert.equal(init.method,'GET');
+    return response(200,{available:true,count:1,total:1,conflicts:[{conflictTime:1795550400}]});
+  }});
+  const conflicts = await conflictClient.getNativeTimerConflicts({backendId:'default'});
+  assert.equal(conflicts.count,1);
+  assert.throws(()=>conflictClient.getNativeTimerConflicts({backendId:'../foreign'}));
     console.log('Public-v1 F5 Native Timer modification/delete client PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

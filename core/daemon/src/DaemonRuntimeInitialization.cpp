@@ -4396,18 +4396,42 @@ bool DaemonRuntime::initialize()
             response.statusCode = 503;
             response.contentType = "application/json";
             response.body = R"json({"success":false})json";
-            if (actorRef.empty() || !vdrTimerActionRequestParser_ ||
+            if (actorRef.empty() || backendId.empty()) return response;
+            if (action == "conflicts")
+            {
+                VdrTimerConflictReport report;
+                report.source = "restfulapi-epgsearch";
+                report.error = "live VDR service unavailable";
+                for (const auto& context : backendRuntimeContexts_)
+                    if (context && context->backendId == backendId && context->service)
+                    {
+                        report = context->service->getTimerConflictReport();
+                        break;
+                    }
+                if (vdrSnapshotReadJsonSerializer_)
+                {
+                    response.statusCode = 200;
+                    response.body = vdrSnapshotReadJsonSerializer_->serializeTimerConflictReport(report);
+                }
+                return response;
+            }
+            if (!vdrTimerActionRequestParser_ ||
                 !vdrTimerActionController_ ||
                 !vdrTimerActionExecutorAdapterRegistry_)
                 return response;
             const auto parsed = vdrTimerActionRequestParser_->parse(body);
-            if (backendId.empty() || timerId.empty() ||
-                parsed.backendId != backendId || parsed.timerId != timerId)
+            if (parsed.backendId != backendId || parsed.timerId != timerId ||
+                (action != "create" && timerId.empty()) ||
+                (action == "create" && (!timerId.empty() ||
+                    parsed.aux.find("<vdr-suite-managed-timer") != std::string::npos)))
             {
                 response.statusCode = 400;
                 response.body = R"json({"success":false,"error":"timer_identity_mismatch"})json";
                 return response;
             }
+            if (action == "create")
+                return vdrTimerActionController_->createBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
             if (action == "update")
                 return vdrTimerActionController_->updateBody(
                     body, *vdrTimerActionExecutorAdapterRegistry_);
@@ -5289,12 +5313,21 @@ bool DaemonRuntime::initialize()
             if (!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
                     previewReply, nativeCommand, request.startAt, request.stopAt,
                     *provider, previewReceivedAt, nativePreview, reason))
+            {
+                // Read-only preview, BEFORE admitManualWindow. This is not
+                // a failed or uncertain native mutation. Keep the established
+                // native editor available without relaxing managed admission.
+                result.status = PublicEpgTimerIntentAdmissionStatus::nativeEditorRequired;
                 return result;
+            }
             ProspectiveNativeTimerConflictProof proof;
             if (!attestBackendNativeTimerPreview(
                     nativePreview, *agent, *provider, candidate,
                     previewReceivedAt, proof))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::nativeEditorRequired;
                 return result;
+            }
 
             ManualTimerSourceEvidence source;
             source.backendId = request.backendId;

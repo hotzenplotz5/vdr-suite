@@ -400,7 +400,12 @@
   }
 
   function fetchClientTimerConflicts(options) {
-    return requestJson('/api/vdr/timers/conflicts/live', options);
+    const input = normalizeOptions(options);
+    if (!input.backendId) return requestJson('/api/vdr/timers/conflicts/live', options);
+    return publicNativeTimerClient().getNativeTimerConflicts({
+      backendId: input.backendId, credentials: 'same-origin',
+      cache: 'no-store', signal: input.signal
+    });
   }
 
   // F5.3: reuse the Public-v1 reference client's scoped native Timer reads.
@@ -495,6 +500,15 @@
 
   // Slice 3: direct external/unbound native actions retain the single
   // established VDR writer and return a synchronous result, not HTTP 202.
+  function fetchPublicNativeTimerDirectCreate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().createNativeTimer({
+      backendId: input.payload && input.payload.backendId, payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
   function fetchPublicNativeTimerDirectUpdate(options) {
     const input = normalizeOptions(options);
     return publicNativeTimerClient().updateExternalNativeTimer({
@@ -1035,6 +1049,7 @@
     fetchPublicNativeTimerAux: fetchPublicNativeTimerAux,
     fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
     fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
+    fetchPublicNativeTimerDirectCreate: fetchPublicNativeTimerDirectCreate,
     fetchPublicNativeTimerDirectUpdate: fetchPublicNativeTimerDirectUpdate,
     fetchPublicNativeTimerDirectDelete: fetchPublicNativeTimerDirectDelete,
     fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,

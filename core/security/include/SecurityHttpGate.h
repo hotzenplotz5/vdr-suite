@@ -1085,7 +1085,8 @@ public:
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
             (path == "/api/v1/native-timers" || isPublicNativeTimerItem ||
-             isPublicNativeTimerAuxRead);
+             isPublicNativeTimerAuxRead ||
+             path == "/api/v1/native-timers/conflicts/live");
         const bool isPublicDeviceEventRead =
             request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
@@ -1150,7 +1151,8 @@ public:
         // timers.create authorization, Browser CSRF and audited mutation.
         const bool isPublicEpgTimerIntentCreate =
             isPost && (path == "/api/v1/epg/timer-intents" ||
-                       path == "/api/v1/manual/timer-intents");
+                       path == "/api/v1/manual/timer-intents" ||
+                       path == "/api/v1/native-timers/actions/create");
         const std::string publicEpgTimerBackendId =
             isPublicEpgTimerIntentCreate
                 ? jsonStringValue(request.body, "backendId") : std::string();
@@ -1305,6 +1307,7 @@ public:
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
              path == "/api/v1/native-timers" ||
+             path == "/api/v1/native-timers/conflicts/live" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||

@@ -1,5 +1,19 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6.6 – Native Timereditor-Parität (SOURCE, Abnahme offen)
+
+Native Wochenmasken ohne Ersttermin, inaktive Timer und VPS laufen nun über
+die Public-v1-Aktionsroute des bereits vorhandenen VDR-Timercontrollers
+und dessen CREATE-Preflight/Readback. Positive native Preview behält die
+bisherige durable Manual-Intent-Kette. Nur ein explizites
+`native_editor_required` vor Admission schaltet zum nativen Editorpfad;
+keine Wiederholung nach generischem oder ungewissem Ergebnis.
+Die bestehende epgsearch-Konfliktliste wird backendbezogen über Public v1
+gelesen. Bestehende Grants, CSRF, Backend-Schreibpolicy und native
+Timersemantik bleiben; keine neue Konfliktsimulation oder zweite Persistenz.
+HTTP-, Security-, Referenzclient- und Browser-Kompositionsregressionen
+ergänzt. Die exakte CI und reale VDR-Abnahme sind getrennt zu bestätigen.
+
 ## API.V1.F5.6.5 – AUX beim manuellen/Weekly-CREATE (Source, Abnahme offen)
 
 Public v1 transportiert optionales natives Plugin-AUX vom Web-Timereditor

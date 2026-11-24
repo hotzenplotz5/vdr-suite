@@ -125,6 +125,10 @@ constexpr const char* PublicEpgWindowCursorPrefix = "ew1_";
 constexpr const char* PublicEpgWindowCursorVersion = "epg-window/1|";
 constexpr const char* PublicNativeTimersPath =
     "/api/v1/native-timers";
+constexpr const char* PublicNativeTimerDirectCreatePath =
+    "/api/v1/native-timers/actions/create";
+constexpr const char* PublicNativeTimerConflictsPath =
+    "/api/v1/native-timers/conflicts/live";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
 constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
@@ -10080,6 +10084,38 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    if (path == PublicNativeTimerConflictsPath)
+    {
+        if (actorRef.empty())
+            response = unauthorizedProblem(path, requestId, correlationId);
+        else if (authorizedBackendIds.size() != 1U ||
+                 authorizedBackendIds.front().empty() ||
+                 requestTarget != path + "?backendId=" + authorizedBackendIds.front())
+            response = invalidRequestProblem(path, "Exactly one authorized backendId required.", requestId, correlationId);
+        else
+        {
+            NativeTimerDirectAction read;
+            {
+                std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+                read = nativeTimerDirectAction_;
+            }
+            if (!read)
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+            else
+            {
+                response = read("conflicts", actorRef, authorizedBackendIds.front(), "", "");
+                if (response.statusCode == 200)
+                    addPublicSuccessHeaders(response, requestId, correlationId);
+            }
+        }
+        return true;
+    }
+    if (path == PublicNativeTimerDirectCreatePath)
+    {
+        response = methodNotAllowedProblem(path, requestId, correlationId);
+        return true;
+    }
+
     std::string nativeTimerId;
     if (publicNativeTimerItemPath(path, nativeTimerId) ||
         publicNativeTimerAuxPath(path, nativeTimerId))
@@ -10297,6 +10333,37 @@ bool PublicApiRuntime::tryHandleNativeTimerMutationPost(
     const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
+    if (path == PublicNativeTimerDirectCreatePath)
+    {
+        if (actorRef.empty())
+            response = unauthorizedProblem(path, requestId, correlationId);
+        else if (authorizedBackendId.empty() || requestTarget != path)
+            response = invalidRequestProblem(path, "Authorized body backendId required; no query.", requestId, correlationId);
+        else if (!applicationJsonContentType(contentType))
+            response = problemResponse(415, "unsupported_media_type", "Unsupported media type", "Expected application/json.", path, requestId, correlationId);
+        else if (!JsonSyntaxValidator(body).valid())
+            response = invalidRequestProblem(path, "Invalid JSON.", requestId, correlationId);
+        else
+        {
+            NativeTimerDirectAction direct;
+            {
+                std::lock_guard<std::mutex> lock(nativeTimerDirectMutex_);
+                direct = nativeTimerDirectAction_;
+            }
+            if (!direct)
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+            else
+            {
+                // The existing controller parses the same native editor fields
+                // and validates the body backend against this authorized scope.
+                response = direct("create", actorRef, authorizedBackendId, "", body);
+                if (response.statusCode == 200)
+                    addPublicSuccessHeaders(response, requestId, correlationId);
+            }
+        }
+        return true;
+    }
+
     std::string directTimerId;
     std::string directAction;
     if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))
@@ -12766,7 +12833,12 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
             response.headers["Cache-Control"] = "no-store";
             return true;
         }
-        if (saved.status == S::invalid)
+        if (saved.status == S::nativeEditorRequired)
+            response = publicTimerCreateProblem(409, "native_editor_required",
+                "Native editor required",
+                "Prospective native preview could not attest this schedule; no operation was admitted. The native editor action remains available.",
+                path, requestId, correlationId);
+        else if (saved.status == S::invalid)
             response = publicTimerCreateProblem(422, "validation_error",
                 "Validation failed", "Invalid manual TimerIntent.",
                 path, requestId, correlationId);
@@ -13006,6 +13078,7 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
                 response = publicTimerCreateProblem(503, "backend_unavailable",
                     "Backend unavailable", "Cannot create a timer right now.",
                     path, requestId, correlationId); return true;
+            case S::nativeEditorRequired: // Never emitted by the EPG admission owner.
             case S::serviceUnavailable:
                 response = serviceUnavailableProblem(path, requestId, correlationId);
                 return true;
@@ -13581,6 +13654,8 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicEpgEventDetailPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
+        path == PublicNativeTimerConflictsPath ||
+        path == PublicNativeTimerDirectCreatePath ||
         (publicNativeTimerItemPath(path, timerAssignmentId) ||
          publicNativeTimerAuxPath(path, timerAssignmentId)) ||
         path == PublicChannelCollectionPath ||
@@ -13893,6 +13968,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicManualTimerIntentPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
+        path == PublicNativeTimerConflictsPath ||
+        path == PublicNativeTimerDirectCreatePath ||
         (publicNativeTimerItemPath(path, timerAssignmentId) ||
          publicNativeTimerAuxPath(path, timerAssignmentId)) ||
         path == PublicChannelCollectionPath ||

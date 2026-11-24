@@ -618,7 +618,8 @@
     const clientApi = resolvedClientApi();
     if (!clientApi) return null;
     const name = type === 'create'
-      ? 'fetchClientTimerCreateAction'
+      ? (typeof clientApi.fetchPublicNativeTimerDirectCreate === 'function'
+          ? 'fetchPublicNativeTimerDirectCreate' : 'fetchClientTimerCreateAction')
       : type === 'update'
         ? 'fetchClientTimerUpdateAction'
         : 'fetchClientTimerDeleteAction';
@@ -708,7 +709,7 @@
     readback();
   }
 
-  function executePublicManualCreate(specification, idempotencyKey, button, feedback, onSucceeded) {
+  function executePublicManualCreate(specification, idempotencyKey, button, feedback, onSucceeded, nativePayload) {
     const api = resolvedClientApi();
     if (!api || typeof api.fetchPublicManualTimerCreate !== 'function') {
       setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
@@ -727,6 +728,16 @@
       observeManualTimerOperation(result.data.operationId, feedback, onSucceeded);
       return result;
     }).catch(error => {
+      // Only this typed, pre-admission response proves that no durable
+      // operation was admitted. The existing native editor may create once;
+      // generic 409/503, transport failures and unknown outcomes never retry.
+      if (error && error.status === 409 && error.code === 'native_editor_required' &&
+          nativePayload && typeof api.fetchPublicNativeTimerDirectCreate === 'function') {
+        return executeAction('create', nativePayload, button, feedback).then(result => {
+          if (result && typeof onSucceeded === 'function') onSucceeded();
+          return result;
+        });
+      }
       setFeedback(feedback,
         'Timer-Erstellung nicht bestätigt: ' +
         String(error && error.message ? error.message : error) +
@@ -997,9 +1008,9 @@
         setFeedback(feedback, errors.join(' '), true);
         return;
       }
-      // NTPREVIEW cannot yet attest disabled or VPS candidates. Keep the
-      // established native editor route for these shapes BEFORE any POST;
-      // never fall back after a potentially executed Public-v1 request.
+      // Disabled/VPS and recurring schedules without an explicit first date
+      // use the established native editor owner through Public v1 directly.
+      // No prospective device proof is invented for these schedule shapes.
       const manual = mode === 'create' && payload.active && !payload.vps
         ? manualTimerIntentSpecification({
           ...payload,
@@ -1021,7 +1032,7 @@
         executePublicManualCreate(manual, manualAttemptKey, submit, feedback, () => {
           manualAttemptPayload = '';
           manualAttemptKey = '';
-        });
+        }, payload);
         return;
       }
       // Explicit AUX edits go through the existing durable Public-v1

@@ -45,6 +45,8 @@ AUDITED = {
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
+    "/api/v1/native-timers/actions/create": {"post": "if (path == PublicNativeTimerDirectCreatePath)"},
+    "/api/v1/native-timers/conflicts/live": {"get": "if (path == PublicNativeTimerConflictsPath)"},
     "/api/v1/native-timers/{timerId}": {
         "get": "if (publicNativeTimerItemPath(path, nativeTimerId) ||",
         "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",

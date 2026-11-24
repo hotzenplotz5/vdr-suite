@@ -1816,27 +1816,33 @@
         (suffix || '') + '?backendId=' + encodeURIComponent(options.backendId);
     }
 
-    // External/unbound VDR Timers: one direct, synchronous native action via
-    // the existing controller, not a durable TimerAssignment Operation.
+    // Native VDR editor CREATE and external/unbound actions: one direct,
+    // synchronous native action via the existing controller, not a durable Operation.
     // No auto retry after a transport failure or uncertain native outcome.
     function submitDirectNativeTimerAction(input, action) {
       const options = input && typeof input === 'object' ? input : {};
-      if (action !== 'update' && action !== 'delete')
+      if (!['create', 'update', 'delete'].includes(action))
         throw new Error('Unsupported direct native Timer action');
-      const uri = nativeTimerItemPath(options, '/direct-' + action);
+      const create = action === 'create';
+      if (create && (typeof options.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) || options.timerId))
+        throw new Error('Canonical backendId and no timerId required for CREATE');
+      const uri = create ? '/api/v1/native-timers/actions/create' :
+        nativeTimerItemPath(options, '/direct-' + action);
       const source = options.payload && typeof options.payload === 'object' &&
         !Array.isArray(options.payload) ? options.payload : {};
       if ((source.backendId !== undefined && source.backendId !== options.backendId) ||
-          (source.timerId !== undefined && source.timerId !== options.timerId))
+          (create ? !!source.timerId :
+            source.timerId !== undefined && source.timerId !== options.timerId))
         throw new Error('Native Timer request identity mismatch');
       const payload = action === 'delete'
         ? {backendId: options.backendId, timerId: options.timerId}
         : Object.assign({}, source,
-            {backendId: options.backendId, timerId: options.timerId});
-      if (action === 'update' &&
+            {backendId: options.backendId, timerId: create ? '' : options.timerId});
+      if (action !== 'delete' &&
           (!options.payload || typeof options.payload !== 'object' ||
            Array.isArray(options.payload)))
-        throw new Error('Native Timer direct UPDATE requires payload');
+        throw new Error('Native Timer direct CREATE/UPDATE requires payload');
       const headers = Object.assign({Accept:'application/json'}, defaultHeaders,
         copyHeaders(options.headers), {'Content-Type':'application/json'});
       return fetchImpl(buildUrl(baseUrl, uri), {
@@ -2530,6 +2536,17 @@
       },
       deleteNativeTimer(options) {
         return submitNativeTimerMutation(options, 'DELETE');
+      },
+      createNativeTimer(options) {
+        return submitDirectNativeTimerAction(options, 'create');
+      },
+      getNativeTimerConflicts(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Canonical backendId required');
+        return request('/api/v1/native-timers/conflicts/live?backendId=' +
+          encodeURIComponent(input.backendId), input);
       },
       updateExternalNativeTimer(options) {
         return submitDirectNativeTimerAction(options, 'update');

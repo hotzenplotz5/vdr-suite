@@ -52,6 +52,8 @@ int main()
     const std::string modify = Timer + "/modifications?backendId=default";
     const std::string directUpdate = Timer + "/direct-update?backendId=default";
     const std::string directDelete = Timer + "/direct-delete?backendId=default";
+    const std::string directCreate = "/api/v1/native-timers/actions/create";
+    const std::string conflicts = "/api/v1/native-timers/conflicts/live?backendId=default";
 
     {
         // First-admin bootstrap really provisions role.admin at "*".
@@ -65,6 +67,11 @@ int main()
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "GET", aux)),
             "timers.view", false);
+        assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "GET", conflicts)),
+            "timers.view", false);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "GET",
+            conflicts+"&backendId=foreign")), 400);
 
         const auto missingCsrf = fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify, false));
@@ -136,6 +143,11 @@ int main()
             browserRequest(fixture, "GET", aux)),
             "timers.view", false);
         assertAllowed(fixture.gate.evaluate(
+            browserRequest(fixture, "GET", conflicts)),
+            "timers.view", false);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "GET",
+            conflicts+"&backendId=foreign")), 400);
+        assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)),
             "timers.modify", true);
         assertAllowed(fixture.gate.evaluate(
@@ -160,6 +172,15 @@ int main()
             fixture, "POST", "/api/v1/manual/timer-intents");
         manual.body = R"json({"backendId":"default"})json";
         assertAllowed(fixture.gate.evaluate(manual), "timers.create", true);
+        auto nativeCreate = browserRequest(fixture, "POST", directCreate);
+        nativeCreate.body = R"json({"backendId":"default","active":false,"vps":true})json";
+        assertAllowed(fixture.gate.evaluate(nativeCreate), "timers.create", true);
+        nativeCreate.headers.erase("X-CSRF-Token");
+        assertDenied(fixture.gate.evaluate(nativeCreate), 403);
+        nativeCreate = browserRequest(fixture, "POST", directCreate);
+        nativeCreate.body = R"json({"backendId":"foreign"})json";
+        assertDenied(fixture.gate.evaluate(nativeCreate), 403);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "GET", conflicts)), 403);
         manual.headers.erase("X-CSRF-Token");
         assertDenied(fixture.gate.evaluate(manual), 403);
         manual = browserRequest(

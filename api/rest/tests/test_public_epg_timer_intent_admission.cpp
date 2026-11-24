@@ -108,8 +108,15 @@ static void test_manual_timer_intent_post()
             result.status=submitStatus;
             return result;
         });
+    submitStatus = PublicEpgTimerIntentAdmissionStatus::nativeEditorRequired;
+    const auto nativeRequired = post(body);
+    assert(nativeRequired.statusCode == 409);
+    assert(nativeRequired.body.find("native_editor_required") != std::string::npos);
+    assert(nativeRequired.headers.count("Location") == 0U);
     submitStatus = PublicEpgTimerIntentAdmissionStatus::stateConflict;
-    assert(post(body).statusCode==409);
+    const auto genericConflict = post(body);
+    assert(genericConflict.statusCode==409);
+    assert(genericConflict.body.find("native_editor_required") == std::string::npos);
     submitStatus = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
     assert(post(body).statusCode==503);
     submitStatus = PublicEpgTimerIntentAdmissionStatus::notFound;

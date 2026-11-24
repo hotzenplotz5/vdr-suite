@@ -241,6 +241,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   // F5.6 production composition: same rendered Timer form, actual
   // browser client-api.js and bundled Public-v1 reference client.
   const httpRequests = [];
+  let manualPreviewError = '';
   const productionWindow = {
     location: {origin: 'https://suite.example'},
     VdrSuiteBrowserSession: {
@@ -252,6 +253,15 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     Uint8Array, Array, Object, String, Boolean, Number, JSON, Promise,
     fetch(url, options) {
       httpRequests.push({url: String(url), options});
+      if (String(url) === 'https://suite.example/api/v1/manual/timer-intents' && manualPreviewError)
+        return Promise.resolve({status:409,ok:false,headers:{get(){return null;}},
+          text:async()=>JSON.stringify({code:manualPreviewError,detail:'Native preview not attested'})});
+      if (String(url) === 'https://suite.example/api/v1/native-timers/actions/create')
+        return Promise.resolve({status:200,ok:true,headers:{get(){return null;}},
+          text:async()=>JSON.stringify({success:true,timerId:'73'})});
+      if (String(url) === 'https://suite.example/api/v1/native-timers/conflicts/live?backendId=living-room')
+        return Promise.resolve({status:200,ok:true,headers:{get(){return null;}},
+          text:async()=>JSON.stringify({available:true,count:1,total:1,conflicts:[]})});
       if (String(url) === 'https://suite.example/api/v1/manual/timer-intents')
         return Promise.resolve({
           status: 202, ok: true,
@@ -565,5 +575,70 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(legacy.length, beforeLegacy + 2);
   assert.equal(legacy[beforeLegacy + 1].aux, unsupported.aux.value);
   assert.equal(legacy[beforeLegacy + 1].vps, true);
-  console.log('Timer browser F5.6 create, toggle and Aux browser/reference composition PASS');
+  // Production path for the remaining manual editor shapes: no legacy POST.
+  browser.configureContext({
+    detailDataElement: root, clientApi: realClient,
+    getSelectedBackendId() { return 'living-room'; },
+    reload() { reloads++; }
+  });
+  browser.renderList({timers: []});
+  const nativeForm = find(root,item=>item.tagName==='form');
+  assert(nativeForm);
+  const nf=nativeForm.elements;
+  nf.title.value='Native weekly';
+  nf.manualChannelId.value='S19.2E-1-2-3';
+  nf.manualDirectory.value='News~Evening';
+  nf.day.value='';
+  nf.start.value='20:15';nf.stop.value='20:45';
+  nf.priority.value='0';nf.lifetime.value='0';
+  nf.aux.value='<epgsearch/>';
+  nf.active.checked=false;nf.vps.checked=true;
+  const nativeWeekday=find(nativeForm,item=>item.name==='weekday');
+  nativeWeekday.checked=true;
+  const directStart=httpRequests.length;
+  const previousLegacy=legacy.length;
+  nativeForm.listeners.submit({preventDefault(){}});
+  await tick();
+  assert.equal(httpRequests.length,directStart+1);
+  assert.equal(httpRequests[directStart].url,'https://suite.example/api/v1/native-timers/actions/create');
+  assert.equal(httpRequests[directStart].options.headers['X-CSRF-Token'],'composition-csrf');
+  const nativeBody=JSON.parse(httpRequests[directStart].options.body);
+  assert.equal(nativeBody.day,'');
+  assert.equal(nativeBody.weekdays,'M------');
+  assert.equal(nativeBody.active,false);
+  assert.equal(nativeBody.vps,true);
+  assert.equal(nativeBody.priority,0);
+  assert.equal(nativeBody.lifetime,0);
+  assert.equal(nativeBody.directory,'News~Evening');
+  assert.equal(nativeBody.aux,'<epgsearch/>');
+  assert.equal(legacy.length,previousLegacy);
+
+  // An ordinary candidate without a positive prospective proof has no
+  // admitted Operation. Only the explicit no-admission code selects the
+  // already-authorized native editor. Generic conflicts never retry.
+  nativeWeekday.checked=false; nf.day.value='2026-11-25';
+  nf.active.checked=true;nf.vps.checked=false;
+  nf.title.value='Conflicting native timer';
+  manualPreviewError='operation_conflict';
+  const beforeGeneric=httpRequests.length;
+  nativeForm.listeners.submit({preventDefault(){}});
+  await tick();
+  assert.equal(httpRequests.length,beforeGeneric+1);
+  assert.equal(httpRequests[beforeGeneric].url,'https://suite.example/api/v1/manual/timer-intents');
+  manualPreviewError='native_editor_required';
+  const beforeTyped=httpRequests.length;
+  nativeForm.listeners.submit({preventDefault(){}});
+  await tick();
+  assert.equal(httpRequests.length,beforeTyped+2);
+  assert.equal(httpRequests[beforeTyped].url,'https://suite.example/api/v1/manual/timer-intents');
+  assert.equal(httpRequests[beforeTyped+1].url,'https://suite.example/api/v1/native-timers/actions/create');
+  assert.equal(JSON.parse(httpRequests[beforeTyped+1].options.body).title,nf.title.value);
+  assert.equal(legacy.length,previousLegacy);
+  const report=await realClient.fetchClientTimerConflicts({backendId:'living-room'});
+  assert.equal(report.available,true);
+  assert.equal(report.count,1);
+  assert.equal(httpRequests[httpRequests.length-1].url,
+    'https://suite.example/api/v1/native-timers/conflicts/live?backendId=living-room');
+  assert.equal(httpRequests[httpRequests.length-1].options.method,'GET');
+  console.log('Timer browser F5.6 create, toggle, Aux, native schedule and conflict composition PASS');
 }()).catch(error => { console.error(error); process.exitCode = 1; });

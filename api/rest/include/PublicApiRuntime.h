@@ -1264,7 +1264,9 @@ enum class PublicEpgTimerIntentAdmissionStatus
 {
     accepted, replayed, invalid, notFound, revisionConflict,
     generationConflict, stateConflict, idempotencyConflict,
-    backendUnavailable, serviceUnavailable
+    backendUnavailable, serviceUnavailable,
+    // Manual preview could not attest this request; no admission or write.
+    nativeEditorRequired
 };
 struct PublicEpgTimerIntentAdmissionResult
 {
@@ -1583,8 +1585,9 @@ public:
         const PublicNativeTimerDeleteRequest&)>;
     using NativeTimerModifyAdmission = std::function<PublicNativeTimerModifyResult(
         const PublicNativeTimerModifyRequest&)>;
-    // Existing direct VDR action owner for timers not adopted into Suite.
-    // A direct result is synchronous, never an ADR-0042 Operation.
+    // Existing VDR editor owner: native CREATE, external/unbound actions,
+    // and the backend-scoped read-only epgsearch conflict report.
+    // A direct write result is synchronous, never an ADR-0042 Operation.
     using NativeTimerDirectAction = std::function<ApiResponse(
         const std::string& action, const std::string& actorRef,
         const std::string& backendId, const std::string& timerId,
