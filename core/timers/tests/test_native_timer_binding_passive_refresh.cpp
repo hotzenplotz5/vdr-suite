@@ -301,7 +301,7 @@ int main()
     assert(!stopped.binding.observedState.recording);
 
     // A title change is a real mutation, never a passive metadata refresh.
-    auto titleDrift = evidence(eventRefreshed.binding, 1901);
+    auto titleDrift = evidence(stopped.binding, 1905);
     titleDrift.observedState.title = "Mutated";
     titleDrift.observedFingerprint =
         nativeTimerObservedStateFingerprint(titleDrift.observedState);
