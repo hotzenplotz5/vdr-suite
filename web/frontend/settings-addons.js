@@ -163,6 +163,7 @@
       'Der oberste Eintrag ist das Standardverzeichnis.'));
     const destination = node('p', '');
     const firstRootLabel = node('label', 'VDR-Aufnahmeverzeichnis (einmalig)');
+    firstRootLabel.className = 'settings-media-import-source-row';
     const firstRootInput = node('input');
     firstRootInput.type = 'text';
     firstRootInput.placeholder = 'Tatsächliches VDR-Aufnahmeverzeichnis';
