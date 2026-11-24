@@ -10804,7 +10804,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 2,
+              "minLength": 1,
               "maxLength": 240
             }
           },
@@ -10819,6 +10819,7 @@
                 1,
                 2,
                 3,
+                4,
                 5
               ]
             }
@@ -10877,7 +10878,7 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 30,
+              "maximum": 40,
               "default": 30
             }
           },
@@ -11006,11 +11007,11 @@
             "name": "dayOfWeek",
             "in": "query",
             "required": false,
-            "description": "0 Sunday to 6 Saturday; negative epgsearch weekday bitmask",
+            "description": "0 Sunday to 6 Saturday; negative epgsearch weekday bitmask; unsupported positive values are reported by the existing matcher as warnings.",
             "schema": {
               "type": "integer",
               "minimum": -127,
-              "maximum": 6
+              "maximum": 127
             }
           }
         ],
@@ -11037,7 +11038,7 @@
                     },
                     "items": {
                       "type": "array",
-                      "maxItems": 30,
+                      "maxItems": 40,
                       "items": {
                         "type": "object",
                         "required": [
@@ -11094,6 +11095,11 @@
                           "description": "Existing matcher warnings when a filter cannot be fully evaluated."
                         }
                       }
+                    },
+                    "channelCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Distinct channels across all matched events before limiting returned items."
                     }
                   }
                 }

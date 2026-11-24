@@ -334,6 +334,7 @@ struct PublicSearchTimerPreviewResult
     int totalCount = 0;
     std::vector<PublicSearchTimerPreviewEvent> items;
     std::vector<std::string> warnings;
+    int channelCount = 0;
 };
 
 enum class PublicRecordingCollectionStatus

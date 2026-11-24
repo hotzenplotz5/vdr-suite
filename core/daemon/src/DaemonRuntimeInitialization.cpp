@@ -87,6 +87,7 @@
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -2852,7 +2853,7 @@ bool DaemonRuntime::initialize()
             PublicSearchTimerPreviewResult result;
             if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
                 !searchTimerPreviewEpgCache_ || request.limit == 0U ||
-                request.limit > 30U)
+                request.limit > (request.draft ? 40U : 30U))
                 return result;
             const auto backend =
                 backendRegistryService_->getBackend(request.backendId);
@@ -2898,13 +2899,16 @@ bool DaemonRuntime::initialize()
                         : std::vector<VdrChannel>{};
                 SearchTimerPreviewService service;
                 const auto preview = service.preview(
-                    timer, *events, static_cast<int>(request.limit), 0, channels);
+                    timer, *events, 0, 0, channels);
                 result.warnings = preview.warnings();
                 result.backendId = request.backendId;
                 result.totalCount = preview.totalCount();
+                std::set<std::string> matchedChannels;
                 for (const auto& match : preview.searchResult().matches())
                 {
                     const auto& event = match.event();
+                    if (!event.channelId.empty()) matchedChannels.insert(event.channelId);
+                    if (result.items.size() >= request.limit) continue;
                     PublicSearchTimerPreviewEvent item;
                     item.title = event.title;
                     item.subtitle = event.subtitle;
@@ -2913,6 +2917,7 @@ bool DaemonRuntime::initialize()
                     item.endTime = event.endTime;
                     result.items.push_back(std::move(item));
                 }
+                result.channelCount = static_cast<int>(matchedChannels.size());
                 result.status = PublicSearchTimerPreviewStatus::ok;
                 return result;
             }

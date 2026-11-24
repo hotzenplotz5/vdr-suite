@@ -992,6 +992,23 @@
     return {items, totalCount: items.length, meta: {partial: false}};
   }
 
+  function fetchPublicSearchTimerDraftPreview(options) {
+    const normalized = normalizeOptions(options);
+    const payload = normalized.payload || {};
+    const query = {backend: normalized.backend, query: payload.query,
+      mode: payload.mode, limit: normalized.limit || 30};
+    // Only existing EPG matcher options belong to the read-only preview.
+    for (const key of ['compareTitle','compareSubtitle','compareSummary',
+      'useDuration','useTime','useDayOfWeek']) query[key] = payload[key] ? 1 : 0;
+    for (const key of ['useChannel','channels','channelMin','channelMax',
+      'durationMinMinutes','durationMaxMinutes','startTime','stopTime','dayOfWeek'])
+      query[key] = payload[key];
+    if (payload.mode === 5) query.tolerance = payload.tolerance;
+    return requestJson('/api/v1/search-timers/draft-preview', {
+      query, cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
   async function fetchPublicSearchTimerPreview(options) {
     const normalized = normalizeOptions(options);
     return requestJson(publicSearchTimerPath(normalized, '/preview'), {
@@ -1120,6 +1137,7 @@
     fetchPublicSearchTimerPage: fetchPublicSearchTimerPage,
     fetchPublicSearchTimers: fetchPublicSearchTimers,
     fetchPublicSearchTimerPreview: fetchPublicSearchTimerPreview,
+    fetchPublicSearchTimerDraftPreview: fetchPublicSearchTimerDraftPreview,
     fetchPublicSearchTimerDetail: fetchPublicSearchTimerDetail,
     fetchPublicSearchTimerVersion: fetchPublicSearchTimerVersion,
     mutatePublicSearchTimer: mutatePublicSearchTimer,

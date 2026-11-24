@@ -666,8 +666,9 @@ int main()
             if (request.draft)
             {
                 assert(request.searchTimerId.empty());
-                assert(request.query == "Terra X" || request.query == "zero");
-                assert(request.mode == 1);
+                assert(request.query == "Terra X" || request.query == "zero" || request.query == "X");
+                assert(request.mode == (request.query == "X" ? 4 : 1));
+                if (request.query == "X") assert(request.limit == 40U);
                 assert(request.compareTitle);
                 assert(!request.compareSubtitle);
                 assert(request.compareSummary);
@@ -701,6 +702,7 @@ int main()
             result.backendId = request.backendId;
             result.searchTimerId = request.searchTimerId;
             result.totalCount = 42;
+            result.channelCount = 3;
             PublicSearchTimerPreviewEvent event;
             event.title = "Terra X";
             event.subtitle = "Planet Erde";
@@ -762,6 +764,12 @@ int main()
     assert(draft.body.find("backendNativeId") == std::string::npos);
     assert(draft.headers.at("Cache-Control") == "no-store");
     assert(draft.headers.at("X-Request-ID") == "draft-ok");
+    assert(draft.body.find("\"channelCount\":3") != std::string::npos);
+    ApiResponse regexDraft;
+    assert(runtime.tryHandleGet("/api/v1/search-timers/draft-preview?backend=one&query=X"
+        "&mode=4&compareTitle=1&compareSubtitle=0&compareSummary=1&limit=40",
+        "actor:test", "draft-regex", "", regexDraft, "", "one"));
+    assert(regexDraft.statusCode == 200);
     ApiResponse filteredDraft;
     assert(runtime.tryHandleGet(draftRoute +
         "&useChannel=1&channelMin=C-42&channelMax=C-44&channels=ARD%20%26%20ZDF"
@@ -782,7 +790,7 @@ int main()
             std::string("&startTime=100&startTime=200"),
             std::string("&avoidRepeats=1"),
             std::string("&mode=4"),
-            std::string("&limit=31"),
+            std::string("&limit=41"),
             std::string("&query=other"),
             std::string("&blacklistIds=x")})
     {

@@ -871,8 +871,16 @@
     appendPreviewMetric(summary, 'Engine', publicPreview ? 'EPG-Suche (Public v1)' : String(firstValue(data || {}, ['previewEngine'], '-')));
     appendPreviewMetric(summary, 'EPG', publicPreview ? String(data.meta && data.meta.epgInput || '-') : String(firstValue(epgInput, ['status'], '-')));
     appendPreviewMetric(summary, 'Treffer', String(publicPreview ? data.totalCount : firstValue(statistics, ['totalCount'], matchesForCount.length)));
-    if (!publicPreview) appendPreviewMetric(summary, 'Kanäle', String(firstValue(statistics, ['channelCount'], 0)));
+    if (!publicPreview || Number.isInteger(data.channelCount))
+      appendPreviewMetric(summary, 'Kanäle', String(publicPreview ? data.channelCount : firstValue(statistics, ['channelCount'], 0)));
     target.appendChild(summary);
+    const warnings = publicPreview ? data.meta && data.meta.warnings : epgInput.warnings;
+    if (Array.isArray(warnings) && warnings.length) {
+      const list = document.createElement('ul');
+      list.className = 'searchtimer-preview-warnings';
+      warnings.forEach(warning => list.appendChild(addText(document.createElement('li'), String(warning))));
+      target.appendChild(list);
+    }
 
     const matches = previewMatches(data);
     if (matches.length === 0) {
@@ -906,27 +914,26 @@
     target.appendChild(technical);
   }
 
-  function runPreview(payload, button, target) {
+  async function runPreview(payload, button, target) {
     const api = clientApi();
-    if (!api || typeof api.fetchClientSearchTimerPreview !== 'function') {
+    if (!api || typeof api.fetchPublicSearchTimerDraftPreview !== 'function') {
       setFeedback(target, 'Suchtimer-Vorschau ist nicht verfügbar.', true);
-      return Promise.resolve(null);
+      return null;
     }
     button.disabled = true;
     setFeedback(target, 'Suchtimer-Vorschau wird geladen …', false);
-    return api.fetchClientSearchTimerPreview({
-      backendId: selectedBackendId(),
-      query: Object.assign({}, payload, {text: payload.query, query: payload.query}),
-      cache: 'no-store',
-      credentials: 'same-origin'
-    }).then(result => {
+    const backend = payload.backendId || selectedBackendId();
+    try {
+      const result = await api.fetchPublicSearchTimerDraftPreview({backend, payload, limit: 40});
       target.className = 'searchtimer-feedback success';
       renderPreview(target, result);
+      target.appendChild(addText(document.createElement('p'),
+        'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
       return result;
-    }).catch(error => {
+    } catch (error) {
       setFeedback(target, String(error && error.message ? error.message : error), true);
       return null;
-    }).finally(() => { button.disabled = false; });
+    } finally { button.disabled = false; }
   }
 
   // One authoritative versioned write per explicit user action. A
@@ -1107,7 +1114,7 @@
     } finally { button.disabled = false; }
   }
 
-  // Draft preview is EPG text-only; full CREATE settings are transported
+  // Draft preview evaluates EPG text and filters; full CREATE settings are transported
   // through the common Public-v1 operation, never a legacy browser writer.
   function stagedCreateValidation(payload) {
     const errors = [];
@@ -1150,8 +1157,8 @@
       editing ? 'Suchtimer bearbeiten – nur geänderte Einstellungen werden gespeichert. ' +
         'Aktivieren und Deaktivieren erfolgen weiterhin separat.' :
       'VDR-Suite: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
-      'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
-      'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
+      'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt gefilterte EPG-' +
+      'Treffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
       'Public API v1 mit der angemeldeten Browser-Sitzung.');
     notice.className = 'searchtimer-safety-note';
     form.appendChild(notice);
@@ -1391,7 +1398,7 @@
       }
       previewButton.addEventListener('click', () => {
         const current = buildCreatePayload(form, source);
-        if (String(current.query || '').trim()) runPreview(current, previewButton, previewOutput);
+        if (String(current.query || '').trim()) return runPreview(current, previewButton, previewOutput);
       });
       const save = () => editContext.mutation.execute('update', changes(), editorVersion);
       saveButton.addEventListener('click', save);
@@ -1416,7 +1423,7 @@
     }
     previewButton.addEventListener('click', () => {
       const result = payload();
-      if (result) runPreview(result, previewButton, previewOutput);
+      if (result) return runPreview(result, previewButton, previewOutput);
     });
     let operationId = '';
     let operationEvents = null;

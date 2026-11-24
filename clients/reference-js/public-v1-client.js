@@ -561,8 +561,8 @@
     if (typeof query.backendId !== 'string' ||
         !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId) ||
         typeof query.query !== 'string' ||
-        query.query.length < 2 || query.query.length > 240 ||
-        ![0,1,2,3,5].includes(query.mode) ||
+        query.query.length < 1 || query.query.length > 240 ||
+        ![0,1,2,3,4,5].includes(query.mode) ||
         typeof query.compareTitle !== 'boolean' ||
         typeof query.compareSubtitle !== 'boolean' ||
         typeof query.compareSummary !== 'boolean' ||
@@ -573,7 +573,7 @@
         (query.mode !== 5 && tolerance !== 0))
       throw new Error('invalid SearchTimer draft tolerance');
     if (query.limit !== undefined &&
-        (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 30))
+        (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 40))
       throw new Error('invalid SearchTimer preview limit');
     const params = new URLSearchParams();
     params.set('backend',query.backendId);
@@ -588,7 +588,7 @@
       'startTime','stopTime','dayOfWeek']) {
       if (query[key] === undefined) continue;
       if (!Number.isInteger(query[key]) ||
-          (key === 'dayOfWeek' ? query[key] < -127 || query[key] > 6 :
+          (key === 'dayOfWeek' ? query[key] < -127 || query[key] > 127 :
             query[key] < 0 || (key === 'useChannel' && query[key] > 3)))
         throw new Error('invalid SearchTimer preview ' + key);
       params.set(key,String(query[key]));

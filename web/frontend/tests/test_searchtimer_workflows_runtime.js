@@ -374,7 +374,8 @@ assert.strictEqual(completeMldTimer.channelMax, 'S19.2E-1-1011-11111');
 
 assert.ok(!source.includes('fetch('));
 assert.ok(
-  source.includes('fetchClientSearchTimerPreview')
+  source.includes('fetchPublicSearchTimerDraftPreview') &&
+  !source.includes('fetchClientSearchTimerPreview')
 );
 assert.ok(
   source.includes('fetchClientSearchTimerCreateStaged')
@@ -488,6 +489,8 @@ async function checkEditorFullWrites() {
   };
   const writes = [];
   const operationReads = [];
+  const draftReads = [];
+  let draftError = false;
   const eventStreams = [];
   let operationReadState = 'outcome_unknown';
   class FakeEventSource {
@@ -525,6 +528,13 @@ async function checkEditorFullWrites() {
       return new FakeEventSource(
         '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
         {withCredentials: true});
+    },
+    async fetchPublicSearchTimerDraftPreview(options) {
+      draftReads.push(options);
+      if (draftError) throw new Error('EPG nicht verfügbar');
+      return {backendId: options.backend, totalCount: 1, channelCount: 1,
+        items: [{title:'Vorschautreffer',channelId:'ARD',startTime:'2026-11-17T20:15:00Z'}],
+        meta:{partial:false,epgInput:'ready',warnings:['Testwarnung']}};
     },
     fetchClientSearchTimerCreateStaged(options) {
       writes.push(options);
@@ -595,6 +605,33 @@ async function checkEditorFullWrites() {
   form.elements.blacklistIds.value = '4, 5';
   form.elements.useExtendedEpgInfo.checked = true;
   form.elements.extendedEpgInfo.value = 'category=movie; actor=Jane';
+  function findDraftNode(node, predicate) {
+    if (predicate(node)) return node;
+    for (const child of node.children) {
+      const found = findDraftNode(child, predicate);
+      if (found) return found;
+    }
+    return null;
+  }
+  const previewButton = findDraftNode(form, node => node.tagName === 'BUTTON' && node.textContent === 'Vorschau');
+  await previewButton.listeners.click();
+  assert.strictEqual(draftReads.length,1);
+  assert.strictEqual(draftReads[0].backend,'living-room');
+  assert.strictEqual(draftReads[0].limit,40);
+  assert.strictEqual(draftReads[0].payload.useChannel,2);
+  assert.strictEqual(draftReads[0].payload.channels,'ARD');
+  assert.strictEqual(draftReads[0].payload.startTime,930);
+  assert.strictEqual(draftReads[0].payload.durationMinMinutes,35);
+  assert.strictEqual(draftReads[0].payload.dayOfWeek,31);
+  assert(findDraftNode(form,node => node.textContent === 'Vorschautreffer'));
+  assert(findDraftNode(form,node => node.textContent === 'Testwarnung'));
+  assert.strictEqual(writes.length,0);
+  draftError = true;
+  await previewButton.listeners.click();
+  assert.strictEqual(previewButton.disabled,false);
+  assert(findDraftNode(form,node => node.textContent === 'EPG nicht verfügbar'));
+  assert.strictEqual(writes.length,0);
+  draftError = false;
   form.listeners.submit({preventDefault() {}});
   form.listeners.submit({preventDefault() {}});
   await Promise.resolve();
@@ -759,6 +796,7 @@ async function checkPublicMutations() {
   const writes = [];
   const reads = [];
   const streams = [];
+  const draftReads = [];
   let reloads = 0;
   let keyCounter = 0;
   let current = null;
@@ -805,6 +843,11 @@ async function checkPublicMutations() {
       };
       streams.push(stream);
       return stream;
+    },
+    async fetchPublicSearchTimerDraftPreview(options) {
+      draftReads.push(options);
+      return {backendId: backend,totalCount: 0,channelCount: 0,items: [],
+        meta:{partial:false,epgInput:'ready'}};
     },
     async fetchPublicSearchTimerPreview(options) {
       assert.strictEqual(options.searchTimerId, searchTimerId);
@@ -868,6 +911,13 @@ async function checkPublicMutations() {
       editor.elements.priority.value = '70';
       editor.elements.repeatCompareTitle.checked = false;
       editor.elements.repeatCompareSubtitleMode.value = '1';
+      await button(editor,'Vorschau').listeners.click();
+      assert.strictEqual(draftReads.length,1);
+      assert.strictEqual(draftReads[0].backend,backend);
+      assert.strictEqual(draftReads[0].payload.query,'Tatort neu');
+      assert.strictEqual(draftReads[0].payload.useTime,true);
+      assert.strictEqual(writes.length,0);
+      assert(find(editor,node => node.textContent === 'Keine Treffer in der aktuellen Vorschau.'));
       await Promise.resolve();
       assert.strictEqual(editor.elements.repeatCompareTimeMode.value,'3');
       control = button(card,'Änderung speichern');

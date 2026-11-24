@@ -103,6 +103,25 @@ async function run() {
     {backendId: 'living-room'}
   );
   await verifyOneShot(
+    'fetchPublicSearchTimerDraftPreview',
+    '/api/v1/search-timers/draft-preview',
+    'GET',
+    {backend: 'living-room', limit: 40, payload: {query:'Tatort & Co',mode:4,
+      compareTitle:true,compareSubtitle:false,compareSummary:true,useChannel:2,
+      channels:'Öffentlich',useTime:true,startTime:2200,stopTime:200,
+      useDuration:true,durationMinMinutes:30,durationMaxMinutes:130,
+      useDayOfWeek:true,dayOfWeek:-62,blacklistIds:'4',priority:50}}
+  );
+  const draft = requests.at(-1);
+  const draftParams = new URL(draft.url,'https://vdr-suite.test/').searchParams;
+  for (const [key,value] of Object.entries({backend:'living-room',query:'Tatort & Co',mode:'4',
+    limit:'40',compareTitle:'1',compareSubtitle:'0',compareSummary:'1',useChannel:'2',
+    channels:'Öffentlich',useTime:'1',startTime:'2200',stopTime:'200',useDuration:'1',
+    durationMinMinutes:'30',durationMaxMinutes:'130',useDayOfWeek:'1',dayOfWeek:'-62'}))
+    assert.strictEqual(draftParams.get(key),value);
+  assert(!draftParams.has('blacklistIds') && !draftParams.has('priority') && !draftParams.has('tolerance'));
+  assert.strictEqual(draft.options.credentials,'same-origin');
+  await verifyOneShot(
     'fetchClientSearchTimerPreviewCacheRefresh',
     '/api/vdr/searchtimers/preview/cache/refresh',
     'POST',

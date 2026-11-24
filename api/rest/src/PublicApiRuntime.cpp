@@ -71,6 +71,7 @@ constexpr const char* PublicSearchTimerResourcePrefix =
 constexpr const char* PublicSearchTimerPreviewSuffix = "/preview";
 constexpr std::size_t PublicSearchTimerDefaultLimit = 30U;
 constexpr std::size_t PublicSearchTimerMaximumLimit = 30U;
+constexpr std::size_t PublicSearchTimerDraftMaximumLimit = 40U;
 constexpr const char* PublicSearchTimerCursorPrefix = "st1_";
 constexpr const char* PublicSearchTimerCursorPayloadVersion =
     "search-timers/1|";
@@ -1124,7 +1125,7 @@ bool parsePublicSearchTimerDraftPreviewQuery(
         }
         else if (key == "query")
         {
-            if (query || !decodePublicSearchText(value, out.query))
+            if (query || !decodePublicSearchText(value, out.query, 1U))
                 return false;
             query = true;
         }
@@ -1132,7 +1133,7 @@ bool parsePublicSearchTimerDraftPreviewQuery(
         {
             std::size_t parsed = 0U;
             if (mode || !decimalSize(value, parsed) ||
-                (parsed > 3U && parsed != 5U)) return false;
+                parsed > 5U) return false;
             out.mode = static_cast<int>(parsed);
             mode = true;
         }
@@ -1169,7 +1170,7 @@ bool parsePublicSearchTimerDraftPreviewQuery(
         {
             std::size_t parsed = 0U;
             if (limit || !decimalSize(value, parsed) || parsed == 0U ||
-                parsed > PublicSearchTimerMaximumLimit) return false;
+                parsed > PublicSearchTimerDraftMaximumLimit) return false;
             out.limit = parsed;
             limit = true;
         }
@@ -1198,7 +1199,7 @@ bool parsePublicSearchTimerDraftPreviewQuery(
                 const bool negative = !value.empty() && value.front() == '-';
                 std::size_t parsed = 0U;
                 if (!decimalSize(negative ? value.substr(1U) : value, parsed) ||
-                    parsed > (negative ? 127U : 6U)) return false;
+                    parsed > 127U) return false;
                 out.dayOfWeek = negative ? -static_cast<int>(parsed) :
                     static_cast<int>(parsed);
             }
@@ -7274,6 +7275,7 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
         std::string body = "{\"backendId\":\"" +
             jsonEscape(preview.backendId) +
             "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"channelCount\":" + std::to_string(preview.channelCount) +
             ",\"items\":[";
         for (std::size_t i = 0U; i < preview.items.size(); ++i)
         {
