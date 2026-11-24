@@ -202,7 +202,8 @@ const context = {
   closeHomeHevcStream() { homeHevcCloseCalls += 1; },
   // Media Import tab placement is covered by its own real-DOM composition
   // test. This isolated Phase-66 Home navigation fixture has no module-nav.
-  placeMediaImportTab() {}
+  placeMediaImportTab() {},
+  renderMediaToolsHomeShortcut() {}
 };
 vm.createContext(context);
 vm.runInContext(
