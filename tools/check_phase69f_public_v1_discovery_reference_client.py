@@ -79,6 +79,14 @@ for suffix in ("'/version'", "'/mutations'", "'/preview'"):
 browser_client = browser_client.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
 browser_client = browser_client.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
                         "'approved-searchtimer-resource' + encodeURIComponent(id)")
+# F5 explicitly migrates the read-only SearchTimer draft preview.
+draft_preview_route = "'/api/v1/search-timers/draft-preview'"
+require(browser_client.count(draft_preview_route) == 1,
+        "reviewed Browser SearchTimer draft preview route missing or duplicated")
+require("return requestJson(" + draft_preview_route + ", {" in browser_client,
+        "browser SearchTimer draft preview must use the reviewed request")
+browser_client = browser_client.replace(draft_preview_route,
+                                        "'approved-searchtimer-draft-preview'")
 operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
 require(browser_client.count(operation_route) == 1,
         "reviewed Browser SearchTimer Operation GET missing or duplicated")
