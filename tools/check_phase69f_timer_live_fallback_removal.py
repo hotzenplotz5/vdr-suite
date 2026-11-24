@@ -22,7 +22,7 @@ client_api = read("web/frontend/api/client-api.js")
 timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerConflicts")
 require("function requestJsonWithFallback(path, fallbackPath, options)" not in client_api, "retired single-path catch-all fallback helper returned")
 require("function requestJsonWithFallbacks(paths, options)" not in client_api, "retired multi-path catch-all fallback helper returned")
-require("requestJson('/api/vdr/timers/live', options)" in timer_body, "fetchClientTimers must use the live Timer route")
+require("if (!input.backendId) return requestJson('/api/vdr/timers/live', options)" in timer_body and "publicNativeTimerClient().getLiveNativeTimers(" in timer_body, "fetchClientTimers must select the scoped public live reader for production callers")
 require("requestJsonWithFallback" not in timer_body and "'/api/vdr/timers'" not in timer_body, "fetchClientTimers must not retry the snapshot Timer route")
 
 router = read("api/rest/src/ApiRouter.cpp")
@@ -41,13 +41,18 @@ load_start = app.find("function loadTimers()")
 load_end = app.find("function configureSearchTimerBrowserContextBoundary()", load_start)
 require(load_start >= 0 and load_end > load_start, "cannot bound loadTimers")
 load_body = app[load_start:load_end]
-require("Lade aktuelle Timerliste direkt vom VDR" in load_body and "fetchClientTimers()" in load_body, "Timer module must remain a current/live VDR read consumer")
+require("Lade aktuelle Timerliste direkt vom VDR" in load_body and "fetchClientTimers({backendId: timerBackendId})" in load_body, "Timer module must remain a current/live VDR read consumer")
 
 sync_start = app.find("function syncEpgTimerDetailStates()")
 sync_end = app.find("function startEpgTimerDetailSync()", sync_start)
 require(sync_start >= 0 and sync_end > sync_start, "cannot bound EPG Timer live sync")
 sync_body = app[sync_start:sync_end]
-require("fetchClientTimers({ cache: 'no-store' })" in sync_body and "epgLiveTimerCache" in sync_body, "EPG Timer detail synchronization must keep live/no-store Timer semantics")
+require("fetchClientTimers({ backendId: timerBackendId, cache: 'no-store' })" in sync_body and "epgLiveTimerCache" in sync_body, "EPG Timer detail synchronization must keep live/no-store Timer semantics")
+
+reference = read("clients/reference-js/public-v1-client.js")
+require("/api/v1/native-timers/live/list?backendId=" in reference, "public live timer route disappeared")
+runtime = read("core/daemon/src/DaemonRuntimeInitialization.cpp")
+require('if (action == "list")' in runtime and "context->service->getTimers()" in runtime and "vdrSnapshotReadJsonSerializer_->serializeTimers(" in runtime, "public live list must reuse the existing VDR reader and serializer")
 
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
 require(matrix.get("explicitDeferredFallbacks") == [], "no deferred browser route fallback may remain after the Timer successor")
