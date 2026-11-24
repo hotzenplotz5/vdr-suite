@@ -103,6 +103,11 @@ async function test() {
       revision, providerVerified: true, agentReady: true,
       activationBoundToProvider: desired});
   }, restored);
+  const activationEvents = [];
+  h.window.CustomEvent = class {
+    constructor(type, options) { this.type = type; this.detail = options.detail; }
+  };
+  h.window.dispatchEvent = event => activationEvents.push(event);
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
   assert.ok(h.elements.some(e =>
@@ -122,6 +127,11 @@ async function test() {
   assert.equal(desired, false);
   assert.equal(toggle.textContent, 'Aktivieren');
   assert.equal(revision, 2);
+  assert.equal(activationEvents.length, 2,
+    'both activation changes notify the Home owner exactly once');
+  assert(activationEvents.every(e =>
+    e.type === 'vdr-suite:media-tools-activation-changed' &&
+    e.detail.backendId === 'default'));
   assert.ok(restored.count >= 5, 'session restored for both POSTs and readbacks');
 
   const installed = harness(() => response(200, {
