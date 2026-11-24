@@ -138,6 +138,34 @@ async function test() {
     e.textContent === 'Deinstallieren'),
     'UI must not present nonfunctional or privileged package actions');
 
+  // Package state is separate from a temporarily unavailable Agent.
+  // Only a positively observed missing payload gets "nicht installiert".
+  const absent = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: false, agentReady: false,
+    installationState: 'absent'
+  }), {count: 0});
+  absent.window.VdrSuiteAddonSettings.render(absent.parent, 'default');
+  await flush();
+  assert.ok(absent.elements.some(e =>
+    e.textContent === 'Media Tools nicht installiert'));
+  assert.equal(absent.elements.find(e =>
+    e.textContent === 'Aktivieren').hidden, true);
+  assert.equal(absent.elements.find(e =>
+    e.className === 'settings-media-import-source-editor').hidden, true);
+  assert.equal(absent.requests.filter(r =>
+    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
+    'no configuration request when installed files are confirmed absent');
+  const unknownInstall = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    installationState: 'unknown', agentReady: false, providerVerified: false
+  }), {count: 0});
+  unknownInstall.window.VdrSuiteAddonSettings.render(unknownInstall.parent, 'default');
+  await flush();
+  assert.equal(unknownInstall.elements.find(e =>
+    e.textContent === 'Aktivieren').hidden, false,
+    'unknown / remote / disconnected is not the same as not installed');
+
   const refused = harness((_url, options) => options.method === 'POST'
     ? response(409, {error: 'provider_not_eligible'})
     : response(200, {backendId: 'default', desiredEnabled: false,
