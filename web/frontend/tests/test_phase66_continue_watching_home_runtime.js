@@ -401,6 +401,8 @@ const item = {
     Object.assign(ctx, {
       document:{querySelectorAll(){return [];}},
       placeMediaImportTab(){}, closeHomeHevcStream(){},
+      // Independent Home shortcut owner, outside the navigation assertion.
+      renderMediaToolsHomeShortcut(){},
       renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
       shouldPublishHomeResume(){return false;}
     });
