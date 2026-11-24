@@ -42,6 +42,7 @@ recordingsTab.nextElementSibling = tab;
 nav.querySelector = () => recordingsTab;
 nav.insertBefore = () => {};
 let capability = false;
+let adminStatus = {installationState: 'present', desiredEnabled: false};
 const moduleApi = {
   checkCapability() { return Promise.resolve(capability); },
   deactivate() {}, clearSession() {}
@@ -56,7 +57,12 @@ const document = {
   }
 };
 const ctx = {
-  document, window: {VdrSuiteMediaImport: moduleApi},
+  document, window: {
+    VdrSuiteMediaImport: moduleApi,
+    VdrSuiteAddonSettings: {
+      readActivationState() { return Promise.resolve(adminStatus); }
+    }
+  },
   Promise, console, frontendPlatformModule() { return moduleApi; }
 };
 vm.createContext(ctx);
@@ -72,8 +78,16 @@ vm.runInContext([
 ].join('\n'), ctx);
 
 async function test() {
-  assert.equal(await ctx.refreshMediaImportVisibility('default'), false);
+  // Configured and installed != enabled; navigation remains usable, while
+  // no Home shortcut advertises an inactive add-on.
+  assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
+  assert.equal(tab.hidden, false);
   assert.equal(host.children.length, 0);
+  // An administrator's enabled intent remains visible even while Agent
+  // capability is temporarily absent.
+  adminStatus = {installationState: 'present', desiredEnabled: true};
+  assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
+  assert.equal(host.children.length, 1);
   capability = true;
   assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
   assert.equal(host.children.length, 1);
@@ -90,6 +104,13 @@ async function test() {
   assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
   assert.equal(host.children.length, 1,
     'temporary Agent capability loss must not erase existing Home shortcut');
+  adminStatus = {installationState: 'absent', desiredEnabled: false};
+  assert.equal(await ctx.refreshMediaImportVisibility('default'), false);
+  assert.equal(host.children.length, 0);
+  assert.equal(tab.hidden, true, 'confirmed missing files hide navigation');
+  adminStatus = {installationState: 'present', desiredEnabled: true};
+  assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
+  assert.equal(host.children.length, 1, 'installed and active is restored');
   ctx.logout();
   assert.equal(host.children.length, 0);
   assert.equal(await ctx.refreshMediaImportVisibility('default'), false);
