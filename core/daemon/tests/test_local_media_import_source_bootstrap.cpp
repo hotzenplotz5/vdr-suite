@@ -40,5 +40,20 @@ int main() {
         R"({"backendId":"default","revision":"cbf29ce484222325","entries":"%2Froot%09No"})",
         backend, expected, sources));
 
+    // First setup without SuiteBridge VPATH: the administrator can declare
+    // the real local recording target once; normal source edits cannot.
+    std::string requestedRoot;
+    const std::string manual =
+        R"({"backendId":"default","revision":"cbf29ce484222325","entries":"%2Fdata%2Fvideo%2FFilme%09Filme","videoRoot":"%2Fdata%2Ftv"})";
+    assert(parseBody(manual, backend, expected, sources, &requestedRoot));
+    assert(requestedRoot == "/data/tv");
+    assert(sources.size() == 1 && sources.front().path == "/data/video/Filme");
+    assert(!parseBody(manual, backend, expected, sources,
+                      nullptr));
+    const std::string escape =
+        R"({"backendId":"default","revision":"cbf29ce484222325","entries":"%2Fdata%2Fvideo%09Import","videoRoot":"%2Fdata%2F..%2Fetc"})";
+    assert(!parseBody(escape, backend, expected, sources, &requestedRoot));
+    assert(localPayloadState("not-a-local-backend") == std::string("unknown"));
+
     std::cout << "MEDIA_IMPORT_SOURCE_BOOTSTRAP=PASS\n";
 }
