@@ -163,6 +163,7 @@ SearchTimer:
 - `fetchPublicSearchTimerDetail` — opaque id and backend
 - `fetchPublicSearchTimerVersion` — native revision
 - `fetchPublicSearchTimerPreview` — saved-rule preview
+- `fetchPublicSearchTimerDraftPreview` — scoped read-only draft preview for create and edit, with EPG filters
 - `mutatePublicSearchTimer` — confirmed version-fenced Public-v1 mutation, existing CSRF and idempotency; no fallback
 - `fetchClientSearchTimerOperation` — actor-bound, read-only Public-v1 Operation GET to inspect the admitted CREATE result; no blind retry
 - `fetchClientSearchTimerUpdateAction`

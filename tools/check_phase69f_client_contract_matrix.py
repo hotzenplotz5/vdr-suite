@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 65, f"expected 65 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 66, f"expected 66 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 3, f"expected 3 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 72, f"expected 72 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 73, f"expected 73 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -87,6 +87,10 @@ for source_name, source in (
         source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
         source = source.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
                                 "'approved-searchtimer-resource' + encodeURIComponent(id)")
+        draft_route = "'/api/v1/search-timers/draft-preview'"
+        require(source.count(draft_route) == 1,
+                "browser SearchTimer draft preview GET must be exact")
+        source = source.replace(draft_route, "'approved-searchtimer-draft-preview'")
         operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
         require(source.count(operation_route) == 1,
                 "browser SearchTimer Operation GET must be exact")
@@ -394,6 +398,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 72 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
+print("Classified browser Client API operations: 73 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

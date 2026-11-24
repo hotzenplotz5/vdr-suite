@@ -234,7 +234,7 @@
         "fetchClientSearchTimerUpdateAction",
         "fetchClientSearchTimerDeleteAction"
       ],
-      "note": "New Public-v1 read-only Device SearchTimer collection does not implement the Web's legacy preview or write operations; retained aliases remain pre-v1."
+      "note": "Retained legacy wrappers remain pre-v1; the active Browser SearchTimer editor now uses the scoped Public-v1 reads, previews and writes."
     },
     {
       "domain": "search-timer-cache",
@@ -280,9 +280,10 @@
         "fetchPublicSearchTimerDetail",
         "fetchPublicSearchTimerVersion",
         "fetchPublicSearchTimerPreview",
+        "fetchPublicSearchTimerDraftPreview",
         "mutatePublicSearchTimer"
       ],
-      "note": "Browser administrators use scoped Public-v1 SearchTimer reads, CREATE, and version-fenced native mutations with existing CSRF, idempotency and actor-owned Operation GET/SSE. Legacy mutation wrappers remain transition-only and are no longer used by the SearchTimer cards."
+      "note": "Browser sessions use scoped Public-v1 SearchTimer reads, saved and draft EPG previews, CREATE, and version-fenced native mutations with existing CSRF, idempotency and actor-owned Operation GET/SSE. Legacy mutation wrappers remain transition-only and are no longer used by the SearchTimer cards."
     },
     {
       "domain": "epg-timer-create",
