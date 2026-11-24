@@ -878,11 +878,12 @@ function renderHevcHomeActivity() {}
 
 (async function () {
   await verifyMeta6Handoff();
-  // A new session with no confirmed capability must not advertise the add-on.
+  // A live Agent capability is not the installation state. Browsing Media
+  // Tools remains available when package status cannot be established.
   allow = false;
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
-  assert.strictEqual(tab.hidden, true);
-  assert.strictEqual(tab.disabled, true);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
   allow = true;
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
@@ -895,7 +896,7 @@ function renderHevcHomeActivity() {}
     'temporary Agent capability loss must not block navigation');
   assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
-  assert(tab.title.includes('Agent-Status momentan unbestätigt'));
+  assert(tab.title.includes('Aktivierung und Agent-Status'));
   assert.strictEqual(timerCallbacks.length, capabilityCallbacksBefore,
     'a missing capability must not schedule an endless five-second gate retry');
   const requestsBeforeBackground = requests.filter(function (r) {
@@ -1688,11 +1689,11 @@ function renderHevcHomeActivity() {}
   context.selectModule('media-import');
   assert.strictEqual(tab.hidden, true);
   vm.runInContext('browserSessionFrontendActive = true;', context);
-  // A different authenticated session must re-establish its own capability;
-  // a previous login cannot authorize the new session's navigation.
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
-  assert.strictEqual(tab.hidden, true);
-  assert.strictEqual(tab.disabled, true);
+  // A new session cannot inherit a prior capability, but it can still
+  // navigate the read-only Media Tools view while the Agent is unavailable.
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
