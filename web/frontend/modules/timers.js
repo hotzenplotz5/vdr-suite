@@ -1032,7 +1032,7 @@
         executePublicManualCreate(manual, manualAttemptKey, submit, feedback, () => {
           manualAttemptPayload = '';
           manualAttemptKey = '';
-        }, payload);
+        }, {...payload, day: form.elements.day.value.trim()});
         return;
       }
       // Explicit AUX edits go through the existing durable Public-v1

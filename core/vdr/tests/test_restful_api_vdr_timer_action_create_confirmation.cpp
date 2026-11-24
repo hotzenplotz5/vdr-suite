@@ -166,6 +166,56 @@ void acceptsNumericTimerIdentityAndStringClockValues()
     assert(result.timerId == "74");
 }
 
+void distinguishesWeeklySchedulesDuringCreate()
+{
+    const std::string weekly = R"({"id":"74","channel":"C-1-1079-10351","weekdays":"M-W-F--","start":2200,"stop":2300,"file":"Testfilm","flags":4,"priority":0,"lifetime":0,"aux":"eventId=13483"})";
+    const std::string differentWeekly = R"({"id":"75","channel":"C-1-1079-10351","weekdays":"-T-T---","start":2200,"stop":2300,"file":"Testfilm"})";
+    const std::string oneShot = matchingTimerResponse();
+    const std::string existing = oneShot.substr(0, oneShot.size() - 2) + "," + differentWeekly + "]}";
+    const std::string created = existing.substr(0, existing.size() - 2) + "," + weekly + "]}";
+
+    auto request = createRequest();
+    request.day.clear();
+    request.weekdays = "M-W-F--";
+    request.active = false;
+    request.vps = true;
+    request.priority = 0;
+    request.lifetime = 0;
+
+    SequenceHttpClient httpClient({
+        makeResponse(200, existing),
+        makeResponse(201, "timer created"),
+        makeResponse(200, created)
+    });
+    RestfulApiVdrTimerActionExecutor executor("default", "/api", httpClient);
+    const auto result = executor.execute(VdrTimerActionType::Create, request);
+    assert(result.success);
+    assert(result.timerId == "74");
+    assert(httpClient.requests().size() == 3);
+    const auto& post = httpClient.requests().at(1);
+    assert(post.method == "POST");
+    assert(post.body.find("weekdays=M-W-F--") != std::string::npos);
+    assert(post.body.find("flags=4") != std::string::npos);
+    assert(post.body.find("priority=0") != std::string::npos);
+    assert(post.body.find("lifetime=0") != std::string::npos);
+
+    SequenceHttpClient absent({
+        makeResponse(200, existing),
+        makeResponse(201, "timer created"),
+        makeResponse(200, existing)
+    });
+    RestfulApiVdrTimerActionExecutor absentExecutor("default", "/api", absent);
+    assert(!absentExecutor.execute(VdrTimerActionType::Create, request).success);
+    assert(absent.requests().size() == 3);
+
+    SequenceHttpClient duplicate({makeResponse(200, created)});
+    RestfulApiVdrTimerActionExecutor duplicateExecutor("default", "/api", duplicate);
+    const auto duplicateResult = duplicateExecutor.execute(VdrTimerActionType::Create, request);
+    assert(!duplicateResult.success);
+    assert(duplicateResult.timerId == "74");
+    assert(duplicate.requests().size() == 1);
+}
+
 void rejectsPreflightHttpErrorWithoutPost()
 {
     SequenceHttpClient httpClient({
@@ -263,6 +313,7 @@ int main()
     confirmsNewTimerByPreflightAndReadback();
     rejectsPreExistingTimerWithoutPost();
     acceptsNumericTimerIdentityAndStringClockValues();
+    distinguishesWeeklySchedulesDuringCreate();
     rejectsPreflightHttpErrorWithoutPost();
     rejectsMissingReadbackEntry();
     rejectsReadbackHttpError();
