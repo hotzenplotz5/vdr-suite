@@ -88,3 +88,15 @@ python3 tools/check_packaging_tracked_artifacts.py
 ## Private transport directories in the plugin package
 
 Debian packaging of the independent plugin now additionally contains `/usr/lib/tmpfiles.d/vdr-suite-live.conf`. Its purpose is to provision VDR-owned, mode 0700 transport subdirectories under `/run/vdr` for Live-TV/HbbTV. The plugin-only Debian build profile stages this file from `packaging/systemd/vdr-suite-live.conf` without building the daemon; the plain `make -C vdr-plugin-suite-bridge install DESTDIR=...` path still stages the plugin library only. Do not run `systemd-tmpfiles --create` or change the live VDR service during package acceptance. Fresh-install execution of the tmpfiles lifecycle remains unvalidated pending isolated installation tests.
+
+
+## Public API v1 F5 – live Timer DELETE with recording stop
+
+SuiteBridge reuses the VDR 2.8.x `cRecordControls::Stop(timer)` path before
+removing a fingerprint-matched actively recording Timer under the existing
+native timer write lock, following VDR's own DELT behavior. The normal
+native DELETE operation remains responsible for actor/Backend/Agent fences,
+idempotency, no blind retry and authoritative absence readback. Pending
+Timers and unrelated native flag changes remain excluded. The real VDR
+stop/readback requires a separate operator-authorized test with a disposable
+recording; no such live write is implied by a successful build.

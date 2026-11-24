@@ -265,6 +265,41 @@ int main()
     assert(eventRefreshed.binding.lastVerifiedOperationId ==
            originalEpgBinding.lastVerifiedOperationId);
 
+    // Recorder-owned tfRecording and event association may change without
+    // a user timer edit. All other flags and scheduling fields stay fenced.
+    auto starting = evidence(eventRefreshed.binding, 1902);
+    starting.observedState.recording = true;
+    starting.observedState.flags |= 0x0008;
+    starting.observedFingerprint =
+        nativeTimerObservedStateFingerprint(starting.observedState);
+    assert(nativeTimerObservedStateSameExceptRecordingAndEventId(
+        eventRefreshed.binding.observedState, starting.observedState));
+    auto recordingRefreshed = service.applyPresentObservation(starting, true);
+    assert(recordingRefreshed.ok());
+    assert(recordingRefreshed.binding.observedState.recording);
+    assert(recordingRefreshed.binding.observedFingerprint ==
+        starting.observedFingerprint);
+    auto candidatesWithRecording = repo.listManagedForFreshness("", 2200, 8);
+    assert(candidatesWithRecording.ok());
+    bool foundRecording = false;
+    for (const auto& item : candidatesWithRecording.bindings)
+        foundRecording |= item.nativeTimerBindingId == "binding:a";
+    assert(foundRecording);
+    auto changedFlags = evidence(recordingRefreshed.binding, 1903);
+    changedFlags.observedState.flags |= 0x0020;
+    changedFlags.observedFingerprint =
+        nativeTimerObservedStateFingerprint(changedFlags.observedState);
+    assert(service.applyPresentObservation(changedFlags, true).status ==
+        NativeTimerBindingReadbackStatus::reconciliationRequired);
+    auto stopping = evidence(recordingRefreshed.binding, 1904);
+    stopping.observedState.recording = false;
+    stopping.observedState.flags &= ~0x0008;
+    stopping.observedFingerprint =
+        nativeTimerObservedStateFingerprint(stopping.observedState);
+    const auto stopped = service.applyPresentObservation(stopping, true);
+    assert(stopped.ok());
+    assert(!stopped.binding.observedState.recording);
+
     // A title change is a real mutation, never a passive metadata refresh.
     auto titleDrift = evidence(eventRefreshed.binding, 1901);
     titleDrift.observedState.title = "Mutated";

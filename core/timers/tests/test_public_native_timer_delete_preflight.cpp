@@ -119,8 +119,10 @@ int main()
     recording.observedFingerprint =
         nativeTimerObservedStateFingerprint(recording.observedState);
     assert(nativeTimerBindingValid(recording));
+    // A verified recording Timer uses the normal durable DELETE; the
+    // provider stops its native recorder under lock before removal.
     assert(publicNativeTimerDeletePreflight(requestFor(recording), recording) ==
-        S::nativeStateConflict);
+        S::eligible);
     auto pending = b;
     pending.observedState.pending = true;
     pending.observedFingerprint =

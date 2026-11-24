@@ -1,5 +1,26 @@
 # VDR-Suite Current State
 
+## API.V1.F5.6.4 – Laufende native Timer-Aufnahme stoppen (24.11.2026; SOURCE)
+
+Der bestehende Public-v1-Native-DELETE-Pfad kann für eine exakt
+fingerprint-verifizierte laufende Aufnahme auch den VDR-eigenen
+Recording-Stop vor der Timer-Entfernung ausführen. SuiteBridge nutzt
+`cRecordControls::Stop(timer)` unter der VDR-Timer-Write-Lock,
+ohne einen zweiten Schreiber. Die vorhandene dauerhafte Timer-Operation,
+`timers.delete`-Berechtigung, Browser-CSRF, ETag, Idempotenz,
+Agent-/Provider-Fencing und Abwesenheits-Readback gelten weiter.
+
+Der passive native Readback aktualisiert ausschließlich VDR-eigene
+Recording-Statuswechsel und dynamische EPG-Identität; sonstige
+Timerfeld- oder Flag-Änderungen bleiben echte Drift. Pending-Zustände
+sind weiterhin von DELETE ausgeschlossen. Das Webfrontend versucht
+auch für „Aufnahme stoppen“ zuerst die Public-v1-Operation; alte Server
+behalten den vorherigen VDR-Editorpfad.
+
+**Nur Quellimplementierung; finales CI und echter VDR-Stopp offen.**
+Kein Merge und keine produktive Installation.
+
+
 ## API.V1.F5.6.3 – Externe und ungebundene VDR-Timer (23.11.2026; SOURCE)
 
 PR #563 verwendet bei nativen Timern ohne Suite-Assignment den bereits

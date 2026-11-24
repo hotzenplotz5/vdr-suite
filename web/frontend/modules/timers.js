@@ -524,8 +524,7 @@
     const legacyPayload = type === 'delete'
       ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
     const api = resolvedClientApi();
-    if ((type === 'delete' && payload.recording === true) ||
-        !api || typeof api.fetchPublicNativeTimerDetail !== 'function' ||
+    if (!api || typeof api.fetchPublicNativeTimerDetail !== 'function' ||
         typeof api.fetchPublicNativeTimerOperation !== 'function' ||
         (type === 'delete'
           ? typeof api.fetchPublicNativeTimerDelete !== 'function'

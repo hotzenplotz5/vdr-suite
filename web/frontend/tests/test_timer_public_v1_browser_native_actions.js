@@ -1,7 +1,7 @@
 'use strict';
 
 // F5.6 browser form/card -> Public-v1 native binding -> durable Operation.
-// Legacy remains available only for contract gaps (unbound, aux, recording).
+// Legacy remains available for unsupported server revisions or unresolved read preflights.
 const assert = require('assert').strict;
 const fs = require('fs');
 const path = require('path');
@@ -341,14 +341,16 @@ function editor() {
   assert.equal(publicWrites[6].input.payload.expectedAux, '');
   assert.equal(publicWrites[6].input.payload.aux, '<tvscraper/>');
 
-  // Stopping a current recording keeps the existing authorized action.
+  // A bound recording uses the existing durable Public-v1 native DELETE.
+  // A successful admission is NOT a confirmed stop until native readback.
   render({...nativeTimer, recording: true});
   button('Aufnahme stoppen').listeners.click();
   await tick();
-  assert.equal(legacy.length, 5);
-  assert.equal(legacy[4].action, 'delete');
-  assert.deepEqual(JSON.parse(JSON.stringify(legacy[4].payload)),
-    {backendId: 'default', timerId: '17'});
+  assert.equal(legacy.length, 4);
+  assert.equal(publicWrites.length, 8);
+  assert.equal(publicWrites[7].action, 'delete');
+  assert.equal(publicWrites[7].input.timerId, '17');
+  assert.ok(publicWrites[7].input.ifMatch);
 
   // A potentially dispatched public write never falls through to legacy.
   render();
@@ -360,7 +362,7 @@ function editor() {
   pending.listeners.click();
   await tick();
   assert.equal(publicWrites.at(-1).input.idempotencyKey, firstKey);
-  assert.equal(legacy.length, 5);
+  assert.equal(legacy.length, 4);
 
   // Public native v1 accepts existing timer grants in the current SecurityHttpGate.
   // A definitive 403 must not revoke existing independently checked Human
@@ -370,8 +372,8 @@ function editor() {
   render();
   button('Deaktivieren').listeners.click();
   await tick();
-  assert.equal(legacy.length, 6);
-  assert.equal(legacy[5].action, 'update');
+  assert.equal(legacy.length, 5);
+  assert.equal(legacy[4].action, 'update');
   denyWrite = false;
   denyDetail = true;
   const previousWrites = publicWrites.length;
@@ -379,8 +381,8 @@ function editor() {
   button('Deaktivieren').listeners.click();
   await tick();
   assert.equal(publicWrites.length, previousWrites);
-  assert.equal(legacy.length, 7);
-  assert.equal(legacy[6].action, 'update');
+  assert.equal(legacy.length, 6);
+  assert.equal(legacy[5].action, 'update');
 
   // An unavailable READ is not a failed native write; old Timer permissions
   // remain usable. An uncertain WRITE (tested above) never receives fallback.
@@ -390,8 +392,8 @@ function editor() {
   button('Deaktivieren').listeners.click();
   await tick();
   assert.equal(publicWrites.length, previousWrites);
-  assert.equal(legacy.length, 8);
-  assert.equal(legacy[7].action, 'update');
+  assert.equal(legacy.length, 7);
+  assert.equal(legacy[6].action, 'update');
 
   console.log('Timer browser Public-v1 native actions + legacy parity PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});

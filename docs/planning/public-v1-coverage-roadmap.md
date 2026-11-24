@@ -1,5 +1,21 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5.6.4 – Laufende Aufnahme stoppen (24.11.2026; Source)
+
+Die bestehende Public-v1-Native-DELETE-Operation wird für verifiziert
+verwaltete/übernommene aufnehmende Timer verwendet: Die native
+SuiteBridge-DELETE-Ausführung stoppt unter VDR-Write-Lock zuerst den
+Recorder und entfernt anschließend den Timer. Die unveränderte dauerhafte
+Operation bestätigt den Abschluss erst durch tatsächlichen Native-Readback.
+Die passive Binding-Aktualisierung akzeptiert nur die explizit
+verifizierbaren VDR-eigenen `tfRecording`-/EPG-Statuswechsel;
+andere Timeränderungen bleiben Konflikte. Der Browser ruft auch beim
+Button „Aufnahme stoppen“ zuerst diesen Public-v1-Pfad auf.
+Externe/ungebundene Timer behalten den in Slice 3 eingebundenen
+direkten VDR-Writer. Plugin-ABI, vollständige Final-Head-CI und
+ein echter VDR-Stopp mit Testtimer sind noch nicht abgenommen.
+
+
 ## API.V1.F5.6 – Web-Timer-Editor (Quellstand, unvollständig; 23.11.2026)
 
 **F5.6.1 – Native Wochenwiederholung (Source, finaler VDR-Test offen):**
