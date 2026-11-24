@@ -43,3 +43,4 @@ test-addon-media-import-ui:
 	node web/frontend/tests/test_media_import_source_identity.js
 	node web/frontend/tests/test_media_import_movie_resolver.js
 	node web/frontend/tests/test_media_import_composition.js
+	node web/frontend/tests/test_media_tools_home_shortcut.js
