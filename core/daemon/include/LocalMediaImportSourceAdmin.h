@@ -279,15 +279,24 @@ inline bool decode(const std::string& encoded, std::string& decoded) {
     return true;
 }
 inline bool parseBody(const std::string& body, std::string& backend,
-                      std::string& expected, std::vector<Source>& sources) {
+                      std::string& expected, std::vector<Source>& sources,
+                      std::string* requestedVideoRoot = nullptr) {
+    if (requestedVideoRoot) requestedVideoRoot->clear();
     if (body.size() > 32000U) return false;
     static const std::regex format(
-        R"MT(^\{"backendId":"([A-Za-z0-9_.:-]{1,128})","revision":"([0-9a-f]{16})","entries":"([A-Za-z0-9%_.!~*'()-]{1,30000})"\}$)MT");
+        R"MT(^\{"backendId":"([A-Za-z0-9_.:-]{1,128})","revision":"([0-9a-f]{16})","entries":"([A-Za-z0-9%_.!~*'()-]{1,30000})"(?:,"videoRoot":"([A-Za-z0-9%_.!~*'()-]{1,1536})")?\}$)MT");
     std::smatch match;
     if (!std::regex_match(body, match, format)) return false;
     backend = match[1].str();
     expected = match[2].str();
     if (!backendId(backend)) return false;
+    // Explicit destination is accepted only for the initial setup without
+    // an authoritative local VDR root. It is not an editable normal setting.
+    if (match[4].matched) {
+        if (!requestedVideoRoot ||
+            !decode(match[4].str(), *requestedVideoRoot) ||
+            !rootSyntax(*requestedVideoRoot)) return false;
+    }
     std::string rows;
     if (!decode(match[3].str(), rows)) return false;
     std::istringstream input(rows);
@@ -306,9 +315,9 @@ inline bool parseBody(const std::string& body, std::string& backend,
 }
 inline ApiResponse save(const std::string& body,
                         const std::string& trustedVideoRoot = {}) {
-    std::string backend, expected;
+    std::string backend, expected, requestedVideoRoot;
     std::vector<Source> proposed;
-    if (!parseBody(body, backend, expected, proposed))
+    if (!parseBody(body, backend, expected, proposed, &requestedVideoRoot))
         return error(422, "invalid_sources");
     if (::geteuid() != 0) return error(503, "sources_not_writable");
     if (!protectedConfigDirs())
@@ -326,6 +335,14 @@ inline ApiResponse save(const std::string& body,
         return error(409, "backend_is_not_local");
     if (before.revision != expected)
         return error(409, "sources_changed");
+    if (initial && before.videoRoot.empty()) {
+        if (!safeRoot(requestedVideoRoot))
+            return error(422, "invalid_video_root");
+        before.videoRoot = requestedVideoRoot;
+    } else if (!requestedVideoRoot.empty()) {
+        // An HTTP payload may not override an existing or VDR-discovered root.
+        return error(409, "video_root_already_known");
+    }
     if (initial && !safeRoot(before.videoRoot))
         return error(503, "video_root_unavailable");
     if (initial && inventoryAbsent() && !rootOwnedFile(Lock)) {
@@ -354,6 +371,8 @@ inline ApiResponse save(const std::string& body,
     do {
         const bool creating = !readLedger(current);
         if (creating && !initialSnapshot(current, trustedVideoRoot)) break;
+        if (creating && current.videoRoot.empty())
+            current.videoRoot = requestedVideoRoot;
         if (creating && !safeRoot(current.videoRoot)) {
             result = error(503, "video_root_unavailable"); break;
         }
