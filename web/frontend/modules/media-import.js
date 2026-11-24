@@ -5246,7 +5246,7 @@
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
     root.dataset.mobilePane = 'media';
-    const heading = element('h3', '', 'Media Import');
+    const heading = element('h3', '', 'Media Tools');
     const guidance = element('p', '', 'Importquellen durchsuchen, Folgen prüfen und passende Filme ' +
       'gezielt importieren. Erkannten Dubletten wird automatisch die Rectools-Markierung zugewiesen.');
     root.appendChild(heading);
@@ -5528,7 +5528,7 @@
     technical.appendChild(operationDetail);
     detail.appendChild(technical);
     const mobileNav = element('nav', 'media-import-mobile-nav');
-    mobileNav.setAttribute('aria-label', 'Media-Import-Ansichten');
+    mobileNav.setAttribute('aria-label', 'Media-Tools-Ansichten');
     const mobileButtons = Object.create(null);
     [['folders', 'Ordner'], ['media', 'Medien'], ['details', 'Details']]
       .forEach(function (entry) {
