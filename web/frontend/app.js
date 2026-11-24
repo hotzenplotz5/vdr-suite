@@ -164,6 +164,19 @@ function refreshMediaImportVisibility(backendId) {
     return true;
   });
 }
+// The settings card already owns the authenticated admin mutation. Refresh
+// the existing navigation once after that mutation; no polling or second
+// activation state store.
+if (typeof window.addEventListener === 'function') {
+  window.addEventListener('vdr-suite:media-tools-activation-changed',
+    function (event) {
+      const backendId = event && event.detail && event.detail.backendId;
+      if (backendId && backendId === selectedBackendId &&
+          browserSessionFrontendActive)
+        refreshMediaImportVisibility(backendId);
+    });
+}
+
 let homeResumeBackendId = '';
 let currentSnapshot = null;
 let backendDetailSequence = 0;
