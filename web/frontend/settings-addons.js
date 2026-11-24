@@ -68,6 +68,17 @@
     });
   }
 
+  // Tell the existing shell/Home owner when administrator intent changes.
+  // This is a local UI notification, never an execution authorization.
+  function notifyActivationChanged(backendId) {
+    if (typeof global.dispatchEvent === 'function' &&
+        typeof global.CustomEvent === 'function') {
+      global.dispatchEvent(new global.CustomEvent(
+        'vdr-suite:media-tools-activation-changed',
+        {detail: {backendId: backendId}}));
+    }
+  }
+
   // One existing administrator login; one GET and one guarded POST.
   // The server owns the root file and rejects nonlocal/invalid directories.
   const sourcesPath = '/api/v1/addons/rectools/sources';
@@ -451,7 +462,9 @@
       busy = true; controls();
       status.textContent = 'Aktuelle Agent-Freigabe wird geprüft und erneuert …';
       request(backendId, true, expectedRevision, true).then(function () {
-        return reload();
+        return reload().then(function () {
+          notifyActivationChanged(backendId);
+        });
       }).catch(function (error) {
         return reload().then(function () {
           if (!card.hidden)
@@ -471,7 +484,9 @@
       busy = true; controls();
       status.textContent = 'Administratorfreigabe wird gespeichert …';
       request(backendId, true, expectedRevision, wanted).then(function () {
-        return reload();
+        return reload().then(function () {
+          notifyActivationChanged(backendId);
+        });
       }).catch(function (error) {
         // Refresh the authoritative revision, then preserve the failure
         // message. Previously reload() replaced it immediately and left
