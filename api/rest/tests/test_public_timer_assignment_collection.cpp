@@ -671,6 +671,19 @@ int main()
                 assert(request.compareTitle);
                 assert(!request.compareSubtitle);
                 assert(request.compareSummary);
+                if (request.useChannel != 0)
+                {
+                    assert(request.useChannel == 1);
+                    assert(request.channelMin == "C-42");
+                    assert(request.channelMax == "C-44");
+                    assert(request.channels == "ARD & ZDF");
+                    assert(request.useDuration && request.durationMinMinutes == 30 &&
+                        request.durationMaxMinutes == 130);
+                    assert(request.useTime && request.startTime == 2200 &&
+                        request.stopTime == 200);
+                    assert(request.useDayOfWeek && request.dayOfWeek == -62);
+                    result.warnings.push_back("channel filter warning");
+                }
                 if (request.query == "zero")
                 {
                     result.status = PublicSearchTimerPreviewStatus::ok;
@@ -735,7 +748,7 @@ int main()
     assert(runtime.tryHandlePost(previewRoute + "?backend=one",
         "preview-post", "", previewPost));
     assert(previewPost.statusCode == 405);
-    // Distinct draft preview: exact match fields only; never mutate.
+    // Distinct draft preview: text and existing EPG filters; never mutate.
     const std::string draftRoute =
         "/api/v1/search-timers/draft-preview?backend=one&query=Terra%20X"
         "&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=1";
@@ -749,10 +762,24 @@ int main()
     assert(draft.body.find("backendNativeId") == std::string::npos);
     assert(draft.headers.at("Cache-Control") == "no-store");
     assert(draft.headers.at("X-Request-ID") == "draft-ok");
+    ApiResponse filteredDraft;
+    assert(runtime.tryHandleGet(draftRoute +
+        "&useChannel=1&channelMin=C-42&channelMax=C-44&channels=ARD%20%26%20ZDF"
+        "&useDuration=1&durationMinMinutes=30&durationMaxMinutes=130"
+        "&useTime=1&startTime=2200&stopTime=200&useDayOfWeek=1&dayOfWeek=-62",
+        "actor:test", "draft-filtered", "", filteredDraft, "", "one"));
+    assert(filteredDraft.statusCode == 200);
+    assert(filteredDraft.body.find("\"warnings\":[\"channel filter warning\"]") !=
+        std::string::npos);
     for (const std::string& suffix : {
             std::string("&cursor=bad"),
             std::string("&compareTitle=1"),
-            std::string("&useChannel=1"),
+            std::string("&useChannel=1"), // Missing channel identity.
+            std::string("&useChannel=4"),
+            std::string("&useTime=2"),
+            std::string("&dayOfWeek=-128"),
+            std::string("&channelMin=%XX"),
+            std::string("&startTime=100&startTime=200"),
             std::string("&avoidRepeats=1"),
             std::string("&mode=4"),
             std::string("&limit=31"),

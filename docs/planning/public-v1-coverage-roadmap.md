@@ -13,7 +13,7 @@ ausgewählten Backends. Beide werden im vorhandenen Servicepfad geschlossen.
 | Timerliste / Konfliktindizes / AUX / Untertitel | `GET /api/v1/native-timers/live/list?backendId=...` verwendet vorhandenen Live-Service und vollständigen Serializer; native Reihenfolge und Felder bleiben erhalten, bestehender paginierter Snapshot-Vertrag bleibt unverändert |
 | Suchtimer LIST / DETAIL / VERSION / CREATE / UPDATE / ACTIVATE / DEACTIVATE / DELETE | Bestehende Routen; Human-Session mit vorhandenen konkreten Grants statt Administratorpflicht, CSRF und Scope unverändert |
 | Gespeicherte Suchtimer-Vorschau | Public v1 mit vorhandenen EPG-/Live- und Suchtimer-Grants |
-| Vollständige Entwurfs-/Bearbeitungs-Vorschau | Web verwendet weiterhin den bestehenden umfangreichen Legacy-Preview-Owner. Die öffentliche Text-only-Draft-Preview ist bewusst nicht gleichwertig; vollständige Migration separat, ohne Optionen zu verlieren |
+| Entwurfs-/Bearbeitungs-Vorschau | Public-v1-Draft-Preview übernimmt die bestehenden Kanal-, Dauer-, Uhrzeit- und Wochentagsfilter über denselben SearchTimerPreviewService; Matcher-Warnungen bleiben sichtbar im API-Ergebnis. HTTP-/Referenzclient-Regressionen ergänzt, CI und tatsächliche Browser-Migration/Abnahme noch offen. Keine Prognose für Blacklists oder native Aufnahmeentscheidungen. |
 | MLD / reale Hardware | Vereinbarte externe Interop- und gemeinsame F8-Abnahme; keine Wiederholung bestätigter CRUD-Fälle |
 
 Der bisherige Live-Adapter liefert bei Providerfehler auch eine leere

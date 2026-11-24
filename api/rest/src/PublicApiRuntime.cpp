@@ -1066,9 +1066,11 @@ struct PublicSearchQuery {
     std::string backendId, query;
     std::size_t limit = 30U, offset = 0U;
 };
-bool decodePublicSearchText(const std::string& raw, std::string& text)
+bool decodePublicSearchText(const std::string& raw, std::string& text,
+    std::size_t minimum = 2U, std::size_t maximum = 240U,
+    std::size_t encodedMaximum = 360U)
 {
-    if (raw.size() > 360U) return false;
+    if (raw.size() > encodedMaximum) return false;
     text.clear();
     const auto hex = [](char c) -> int {
         if (c >= '0' && c <= '9') return c - '0';
@@ -1088,7 +1090,7 @@ bool decodePublicSearchText(const std::string& raw, std::string& text)
         if (ch < 0x20U || ch == 0x7fU) return false;
         text.push_back(static_cast<char>(ch));
     }
-    return text.size() >= 2U && text.size() <= 240U;
+    return text.size() >= minimum && text.size() <= maximum;
 }
 // Strict, bounded, read-only preview of a *new* rule. No provider IDs.
 bool parsePublicSearchTimerDraftPreviewQuery(
@@ -1097,7 +1099,8 @@ bool parsePublicSearchTimerDraftPreviewQuery(
     PublicSearchTimerPreviewRequest& out)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 900U) return false;
+    if (raw.empty() || raw.size() > 10000U) return false;
+    std::vector<std::string> filterKeys;
     bool backend = false, query = false, mode = false;
     bool title = false, subtitle = false, summary = false;
     bool limit = false, tolerance = false;
@@ -1170,13 +1173,64 @@ bool parsePublicSearchTimerDraftPreviewQuery(
             out.limit = parsed;
             limit = true;
         }
-        else return false; // No silently ignored recording/filter options.
+        else
+        {
+            if (std::find(filterKeys.begin(), filterKeys.end(), key) !=
+                filterKeys.end()) return false;
+            filterKeys.push_back(key);
+            if (key == "channels" || key == "channelMin" || key == "channelMax")
+            {
+                auto& field = key == "channels" ? out.channels :
+                    key == "channelMin" ? out.channelMin : out.channelMax;
+                if (!decodePublicSearchText(value, field, 0U, 1024U, 3072U))
+                    return false;
+            }
+            else if (key == "useDuration" || key == "useTime" ||
+                     key == "useDayOfWeek")
+            {
+                if (value != "0" && value != "1") return false;
+                auto& field = key == "useDuration" ? out.useDuration :
+                    key == "useTime" ? out.useTime : out.useDayOfWeek;
+                field = value == "1";
+            }
+            else if (key == "dayOfWeek")
+            {
+                const bool negative = !value.empty() && value.front() == '-';
+                std::size_t parsed = 0U;
+                if (!decimalSize(negative ? value.substr(1U) : value, parsed) ||
+                    parsed > (negative ? 127U : 6U)) return false;
+                out.dayOfWeek = negative ? -static_cast<int>(parsed) :
+                    static_cast<int>(parsed);
+            }
+            else if (key == "useChannel" || key == "durationMinMinutes" ||
+                     key == "durationMaxMinutes" || key == "startTime" ||
+                     key == "stopTime")
+            {
+                std::size_t parsed = 0U;
+                if (!decimalSize(value, parsed)) return false;
+                if (key == "useChannel")
+                {
+                    if (parsed > 3U) return false;
+                    out.useChannel = static_cast<int>(parsed);
+                }
+                else if (key == "durationMinMinutes")
+                    out.durationMinMinutes = static_cast<int>(parsed);
+                else if (key == "durationMaxMinutes")
+                    out.durationMaxMinutes = static_cast<int>(parsed);
+                else if (key == "startTime")
+                    out.startTime = static_cast<int>(parsed);
+                else out.stopTime = static_cast<int>(parsed);
+            }
+            else return false; // Recording/blacklist options are not evaluated.
+        }
         if (end == std::string::npos) break;
         pos = end + 1U;
     }
     return backend && query && mode && title && subtitle && summary &&
         (out.compareTitle || out.compareSubtitle || out.compareSummary) &&
         (out.mode == 5 || !tolerance) &&
+        (out.useChannel != 1 || !out.channelMin.empty()) &&
+        (out.useChannel != 2 || !out.channels.empty()) &&
         !authorizedBackendId.empty();
 }
 
@@ -7242,7 +7296,18 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
                 "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
         }
         body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
-            "\"evaluation\":\"epg-match-only\"}}";
+            "\"evaluation\":\"epg-match-only\"";
+        if (!preview.warnings.empty())
+        {
+            body += ",\"warnings\":[";
+            for (std::size_t i = 0U; i < preview.warnings.size(); ++i)
+            {
+                if (i) body += ",";
+                body += "\"" + jsonEscape(preview.warnings[i]) + "\"";
+            }
+            body += "]";
+        }
+        body += "}}";
         response = jsonResponse(body, requestId, correlationId);
         return true;
     }

@@ -82,6 +82,18 @@ async function run() {
     'https://suite.example/api/v1/search-timers/draft-preview?backend=home'+
     '&query=Terra%20X&mode=1&compareTitle=1&compareSubtitle=0'+
     '&compareSummary=0&limit=5');
+  await client.previewSearchTimerDraft({query:{
+    backendId:'home',query:'Terra X',mode:1,
+    compareTitle:true,compareSubtitle:false,compareSummary:false,
+    useChannel:2,channels:'ARD & ZDF',useDuration:true,
+    durationMinMinutes:30,durationMaxMinutes:130,useTime:true,
+    startTime:2200,stopTime:200,useDayOfWeek:true,dayOfWeek:-62
+  }});
+  const filters=new URL(calls.at(-1).url).searchParams;
+  for(const [key,value] of Object.entries({useChannel:'2',channels:'ARD & ZDF',
+    useDuration:'1',durationMinMinutes:'30',durationMaxMinutes:'130',
+    useTime:'1',startTime:'2200',stopTime:'200',useDayOfWeek:'1',dayOfWeek:'-62'}))
+    assert.equal(filters.get(key),value);
   const beforeStaging=calls.length;
   const sample={
     backendId:'home',name:'Terra X',query:'Terra X',

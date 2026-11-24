@@ -2879,9 +2879,27 @@ bool DaemonRuntime::initialize()
                 timer.comparisonOptions().setCompareSummary(request.compareSummary);
                 timer.matchOptions().setMode(request.mode);
                 timer.matchOptions().setTolerance(request.tolerance);
+                timer.filterOptions().setUseChannel(request.useChannel != 0);
+                timer.filterOptions().setChannelMode(request.useChannel);
+                timer.channelOptions().setChannels(request.channels);
+                timer.channelOptions().setChannelMinId(request.channelMin);
+                timer.channelOptions().setChannelMaxId(request.channelMax);
+                timer.filterOptions().setUseDuration(request.useDuration);
+                timer.filterOptions().setDurationMinMinutes(request.durationMinMinutes);
+                timer.filterOptions().setDurationMaxMinutes(request.durationMaxMinutes);
+                timer.filterOptions().setUseTime(request.useTime);
+                timer.filterOptions().setStartTime(request.startTime);
+                timer.filterOptions().setStopTime(request.stopTime);
+                timer.filterOptions().setUseDayOfWeek(request.useDayOfWeek);
+                timer.filterOptions().setDayOfWeek(request.dayOfWeek);
+                const std::vector<VdrChannel> channels =
+                    request.useChannel != 0 && vdrSnapshotReadService_
+                        ? vdrSnapshotReadService_->getChannelsForBackend(request.backendId)
+                        : std::vector<VdrChannel>{};
                 SearchTimerPreviewService service;
                 const auto preview = service.preview(
-                    timer, *events, static_cast<int>(request.limit), 0);
+                    timer, *events, static_cast<int>(request.limit), 0, channels);
+                result.warnings = preview.warnings();
                 result.backendId = request.backendId;
                 result.totalCount = preview.totalCount();
                 for (const auto& match : preview.searchResult().matches())

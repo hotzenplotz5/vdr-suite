@@ -551,7 +551,10 @@
     if (!query || typeof query !== 'object' || Array.isArray(query))
       throw new Error('SearchTimer draft preview query must be an object');
     const allowed = new Set(['backendId','query','mode','tolerance',
-      'compareTitle','compareSubtitle','compareSummary','limit']);
+      'compareTitle','compareSubtitle','compareSummary','limit',
+      'useChannel','channels','channelMin','channelMax','useDuration',
+      'durationMinMinutes','durationMaxMinutes','useTime','startTime','stopTime',
+      'useDayOfWeek','dayOfWeek']);
     Object.keys(query).forEach(function (key) {
       if (!allowed.has(key)) throw new Error('unsupported draft preview field: ' + key);
     });
@@ -581,6 +584,25 @@
     params.set('compareSummary',query.compareSummary ? '1' : '0');
     if (tolerance !== 0) params.set('tolerance',String(tolerance));
     if (query.limit !== undefined) params.set('limit',String(query.limit));
+    for (const key of ['useChannel','durationMinMinutes','durationMaxMinutes',
+      'startTime','stopTime','dayOfWeek']) {
+      if (query[key] === undefined) continue;
+      if (!Number.isInteger(query[key]) ||
+          (key === 'dayOfWeek' ? query[key] < -127 || query[key] > 6 :
+            query[key] < 0 || (key === 'useChannel' && query[key] > 3)))
+        throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,String(query[key]));
+    }
+    for (const key of ['useDuration','useTime','useDayOfWeek']) {
+      if (query[key] === undefined) continue;
+      if (typeof query[key] !== 'boolean') throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,query[key] ? '1' : '0');
+    }
+    for (const key of ['channels','channelMin','channelMax']) {
+      if (query[key] === undefined) continue;
+      if (typeof query[key] !== 'string') throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,query[key]);
+    }
     // Preserve spaces as percent-encoded bytes, never form-urlencoded '+'.
     return '?' + params.toString().replace(/\+/g, '%20');
   }

@@ -10783,7 +10783,7 @@
         ],
         "operationId": "previewDraftSearchTimer",
         "summary": "Preview new SearchTimer EPG matches without creating a rule",
-        "description": "Read-only authorized Human Browser or Device preview using SearchTimerPreviewService and ready backend EPG cache; EPG text match only, NOT an exact recording/blacklist/duplicate forecast. Unmodeled filter and recording fields fail as 400.",
+        "description": "Read-only authorized Human Browser or Device preview using SearchTimerPreviewService and ready backend EPG cache; supports existing channel, duration, local time and weekday filters. Not an exact recording/blacklist/duplicate forecast. Unmodeled recording fields fail as 400.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "verified Device, searchtimers.view@backend and epg.view@backend or Human Browser Session with the same effective backend-scoped permissions"
@@ -10880,6 +10880,138 @@
               "maximum": 30,
               "default": 30
             }
+          },
+          {
+            "name": "useChannel",
+            "in": "query",
+            "required": false,
+            "description": "0 all, 1 channel/range, 2 group, 3 free-to-air",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          {
+            "name": "channels",
+            "in": "query",
+            "required": false,
+            "description": "Native channel group name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelMin",
+            "in": "query",
+            "required": false,
+            "description": "First native channel ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelMax",
+            "in": "query",
+            "required": false,
+            "description": "Last native channel ID (optional)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "useDuration",
+            "in": "query",
+            "required": false,
+            "description": "Enable duration filter",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "durationMinMinutes",
+            "in": "query",
+            "required": false,
+            "description": "Native epgsearch HHMM duration",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "durationMaxMinutes",
+            "in": "query",
+            "required": false,
+            "description": "Native epgsearch HHMM duration; 0 is unbounded",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "useTime",
+            "in": "query",
+            "required": false,
+            "description": "Enable local time filter",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "description": "HHMM local start",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "stopTime",
+            "in": "query",
+            "required": false,
+            "description": "HHMM local end, may cross midnight",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "useDayOfWeek",
+            "in": "query",
+            "required": false,
+            "description": "Enable weekday filter",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "dayOfWeek",
+            "in": "query",
+            "required": false,
+            "description": "0 Sunday to 6 Saturday; negative epgsearch weekday bitmask",
+            "schema": {
+              "type": "integer",
+              "minimum": -127,
+              "maximum": 6
+            }
           }
         ],
         "responses": {
@@ -10953,6 +11085,13 @@
                         "evaluation": {
                           "type": "string",
                           "const": "epg-match-only"
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Existing matcher warnings when a filter cannot be fully evaluated."
                         }
                       }
                     }

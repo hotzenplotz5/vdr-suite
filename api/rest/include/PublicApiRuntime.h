@@ -311,6 +311,18 @@ struct PublicSearchTimerPreviewRequest
     bool compareTitle = true;
     bool compareSubtitle = false;
     bool compareSummary = false;
+    int useChannel = 0;
+    std::string channels;
+    std::string channelMin;
+    std::string channelMax;
+    bool useDuration = false;
+    int durationMinMinutes = 0;
+    int durationMaxMinutes = 0;
+    bool useTime = false;
+    int startTime = 0;
+    int stopTime = 0;
+    bool useDayOfWeek = false;
+    int dayOfWeek = 0;
 };
 
 struct PublicSearchTimerPreviewResult
@@ -321,6 +333,7 @@ struct PublicSearchTimerPreviewResult
     std::string searchTimerId;
     int totalCount = 0;
     std::vector<PublicSearchTimerPreviewEvent> items;
+    std::vector<std::string> warnings;
 };
 
 enum class PublicRecordingCollectionStatus
