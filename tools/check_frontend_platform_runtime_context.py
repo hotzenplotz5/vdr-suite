@@ -154,7 +154,7 @@ def main() -> int:
             "function normalizeSearchTimer(searchTimer, index)",
             "function buildCreatePayload(form, template)",
             "function validateCreatePayload(payload)",
-            "fetchClientSearchTimerPreview",
+            "fetchPublicSearchTimerDraftPreview",
             "fetchClientSearchTimerCreateStaged",
             "fetchClientSearchTimerOperation",
             "mutatePublicSearchTimer",
