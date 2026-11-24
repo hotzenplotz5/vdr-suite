@@ -112,9 +112,10 @@ assert.strictEqual(overnight.stopAt, new Date(2026, 10, 25, 1, 30).getTime() / 1
 assert.strictEqual(api.manualOneShotSpecification(api.timerActionPayload(timer, {
   weekdays: 'M------', aux: ''
 })), null, 'repeating native timers retain the established full editor');
-assert.strictEqual(api.manualOneShotSpecification(api.timerActionPayload(timer, {
+const withAux = api.manualOneShotSpecification(api.timerActionPayload(timer, {
   weekdays: '-------', aux: '<epgsearch/>'
-})), null, 'opaque metadata cannot be silently discarded');
+}));
+assert.strictEqual(withAux.aux, '<epgsearch/>', 'opaque metadata travels with Public-v1 CREATE');
 assert.strictEqual(api.manualOneShotSpecification(api.timerActionPayload(timer, {
   day: '2026-02-30', weekdays: '-------', aux: ''
 })), null, 'invalid civil dates cannot be normalized into another date');

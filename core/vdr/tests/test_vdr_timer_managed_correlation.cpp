@@ -24,6 +24,7 @@ int main()
 
     const auto parsed = parseVdrTimerManagedCorrelation(attached.aux);
     assert(parsed.ok());
+    assert(parsed.providerAux == foreignAux);
     assert(parsed.correlation.timerAssignmentId == correlation.timerAssignmentId);
     assert(parsed.correlation.nativeTimerBindingId
         == correlation.nativeTimerBindingId);

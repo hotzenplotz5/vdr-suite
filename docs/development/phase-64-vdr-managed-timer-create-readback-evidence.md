@@ -4,7 +4,7 @@ This adapter builds backend-neutral managed CREATE readback evidence from VDR Ti
 
 The builder cross-checks the exact native-id set before minting `NativeTimerCreateReadbackEvidence`. A shortened, duplicated or otherwise inconsistent VDR Timer vector therefore cannot be treated as a complete readback.
 
-VDR `aux` remains opaque provider-local data. Only the reserved VDR-Suite managed Timer marker is decoded. Foreign `aux` content is ignored as ownership evidence, malformed or conflicting reserved markers fail closed, and raw `aux` never becomes part of the backend-neutral `NativeTimerBinding` observation model.
+VDR `aux` remains opaque provider-local data. Only the reserved VDR-Suite managed Timer marker is decoded. Foreign `aux` content is ignored as ownership evidence, malformed or conflicting reserved markers fail closed, and raw `aux` never becomes part of the backend-neutral `NativeTimerBinding` observation model. F5.6.5 carries the original provider bytes without the marker in the CREATE-specific readback evidence so an explicitly requested AUX value can be verified before the operation succeeds.
 
 Each correlated timer is normalized through `VdrNativeTimerObservationMapper`. The builder deliberately does not collapse duplicate managed correlations: two distinct native Timer identities carrying the same Suite assignment/binding correlation remain two candidates so the Timer-domain CREATE verifier can classify the result as ambiguous.
 

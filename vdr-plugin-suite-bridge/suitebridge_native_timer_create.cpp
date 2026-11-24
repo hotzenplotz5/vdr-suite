@@ -42,7 +42,8 @@ bool safeToken(const std::string &value, std::size_t maximum = 512)
       });
 }
 
-bool unsignedValue(const std::string &value, std::uint64_t &parsed)
+bool unsignedValue(const std::string &value, std::uint64_t &parsed,
+    bool allowZero = false)
 {
   if (value.empty() || value.size() > 19) return false;
   parsed = 0;
@@ -55,7 +56,7 @@ bool unsignedValue(const std::string &value, std::uint64_t &parsed)
     }
     parsed = parsed * 10U + digit;
   }
-  return parsed > 0;
+  return allowZero || parsed > 0;
 }
 
 std::vector<std::string> split(const char *option)
@@ -212,8 +213,8 @@ bool parseExecute(
       hexValue(values[35], request.weekdays) &&
       hexValue(values[36], request.startTime) &&
       hexValue(values[37], request.endTime) &&
-      unsignedValue(values[38], request.priority) &&
-      unsignedValue(values[39], request.lifetime) &&
+      unsignedValue(values[38], request.priority, true) &&
+      unsignedValue(values[39], request.lifetime, true) &&
       booleanValue(values[40], request.enabled) &&
       booleanValue(values[41], request.vps) &&
       safeToken(request.commandId, 192) &&

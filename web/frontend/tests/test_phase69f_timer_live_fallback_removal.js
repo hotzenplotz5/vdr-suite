@@ -243,7 +243,8 @@ async function run() {
   const manualPayload = {
     backendId: 'living-room', channelId: 'C-1-2-3',
     title: 'Evening news', directory: 'News', startAt: 1795550400,
-    stopAt: 1795554000, priority: 50, lifetime: 99, enabled: true, vps: false
+    stopAt: 1795554000, priority: 50, lifetime: 99, enabled: true, vps: false,
+    aux: '<epgsearch>plugin:data</epgsearch>'
   };
   const manual = await api.fetchPublicManualTimerCreate({
     payload: manualPayload, idempotencyKey: 'manual-browser-once-1'
@@ -272,7 +273,7 @@ async function run() {
   assert.strictEqual(requests.filter(r =>
     r.url === '/api/vdr/timers/actions/create').length, 0);
   assert.throws(() => api.fetchPublicManualTimerCreate({
-    payload: {...manualPayload, aux: 'opaque'}, idempotencyKey: 'manual-browser-invalid'
+    payload: {...manualPayload, aux: '<vdr-suite-managed-timer-spoof/>'}, idempotencyKey: 'manual-browser-invalid'
   }));
   assert.strictEqual(requests.length, 12, 'invalid fields must not dispatch');
 

@@ -81,6 +81,7 @@ int main()
     assert(built.evidence.candidates.size() == 1);
     assert(built.evidence.candidates[0].timerAssignmentId == "assignment:1");
     assert(built.evidence.candidates[0].nativeTimerBindingId == "binding:1");
+    assert(built.evidence.candidates[0].providerAux == foreign);
     assert(built.evidence.candidates[0].observation.backendNativeTimerId == "20");
     assert(built.evidence.candidates[0].observation.observedState.title ==
         "Managed Timer");

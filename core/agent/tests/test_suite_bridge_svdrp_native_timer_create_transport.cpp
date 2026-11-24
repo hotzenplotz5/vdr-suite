@@ -583,6 +583,24 @@ int main()
             "pie_1 1 1 accepted_unverified "
             "callback_applied "
             "ntcreate:vdr:created-unverified:cmd_1\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        auto request = validRequest();
+        request.command.specification.aux = "<epgsearch>plugin:data</epgsearch>";
+        const auto reply = transport.createTimer(request);
+        server.wait();
+        assert(reply.disposition == BackendAgentNativeTimerCreateTransportDisposition::acceptedUnverified);
+        const auto suffix = " aux " + hexToken(request.command.specification.aux) + "\r\n";
+        assert(server.request().size() >= suffix.size());
+        assert(server.request().compare(server.request().size() - suffix.size(), suffix.size(), suffix) == 0);
+    }
+
+    {
+        OneShotServer server(
+            "557 vdr-suite-ntcreate-result/1 "
+            "cmd_1 fp_1 vdr.timer.create 1 "
+            "pie_1 1 1 accepted_unverified "
+            "callback_applied "
+            "ntcreate:vdr:created-unverified:cmd_1\r\n");
 
         SuiteBridgeNativeTimerCreateTransport transport(
             config(server.port()));
