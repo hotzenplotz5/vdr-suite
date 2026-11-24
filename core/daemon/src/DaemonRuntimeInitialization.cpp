@@ -6329,6 +6329,12 @@ bool DaemonRuntime::initialize()
         }
         const bool enabled = current.intent.desiredEnabled ||
             installedByAdministrator;
+        // Package payload observation is separate from Agent trust. A lost
+        // lease or an unapproved handler must never imply "not installed".
+        std::string payloadState =
+            vdrsuite::mediatools::local_source_admin::localPayloadState(backendId);
+        if (providerVerified && payloadState == "absent")
+            payloadState = "unknown";
         response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
             backendId + "\",\"desiredEnabled\":" +
             (enabled ? "true" : "false") +
@@ -6337,6 +6343,7 @@ bool DaemonRuntime::initialize()
             (installedByAdministrator ? "true" : "false") +
             ",\"providerVerified\":" +
             (providerVerified ? "true" : "false") +
+            ",\"installationState\":\"" + payloadState + "\"" +
             ",\"agentReady\":" + (agentReady ? "true" : "false") +
             ",\"activationBoundToProvider\":" +
             (activationBoundToProvider ? "true" : "false") + "}";
