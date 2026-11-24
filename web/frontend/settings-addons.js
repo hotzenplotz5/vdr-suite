@@ -487,5 +487,13 @@
     return card;
   }
 
-  global.VdrSuiteAddonSettings = Object.freeze({render: render});
+  // Read-only observation for the shared Home/nav owner. The server keeps
+  // this admin-scoped; callers without the grant must handle its denial.
+  function readActivationState(backendId) {
+    return request(backendId, false);
+  }
+  global.VdrSuiteAddonSettings = Object.freeze({
+    render: render,
+    readActivationState: readActivationState
+  });
 })(window);
