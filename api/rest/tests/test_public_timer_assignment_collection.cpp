@@ -709,6 +709,13 @@ int main()
             event.channelId = "C-42";
             event.startTime = "1760724000";
             event.endTime = "1760727600";
+            event.description = "EPG \"Beschreibung\"";
+            event.durationSeconds = 3600;
+            event.contentDescriptors = {"Dokumentation"};
+            event.parentalRating = 6;
+            event.matchedFields = {"title", "summary"};
+            result.nextStartTime = event.startTime;
+            result.latestStartTime = "1760800000";
             result.items.push_back(event);
             return result;
         });
@@ -765,6 +772,15 @@ int main()
     assert(draft.headers.at("Cache-Control") == "no-store");
     assert(draft.headers.at("X-Request-ID") == "draft-ok");
     assert(draft.body.find("\"channelCount\":3") != std::string::npos);
+    assert(draft.body.find("\"returnedCount\":1") != std::string::npos);
+    assert(draft.body.find("\"nextStartTime\":\"1760724000\"") != std::string::npos);
+    assert(draft.body.find("\"latestStartTime\":\"1760800000\"") != std::string::npos);
+    assert(draft.body.find("\"description\":\"EPG \\\"Beschreibung\\\"\"") != std::string::npos);
+    assert(draft.body.find("\"durationSeconds\":3600") != std::string::npos);
+    assert(draft.body.find("\"contentDescriptors\":[\"Dokumentation\"]") != std::string::npos);
+    assert(draft.body.find("\"parentalRating\":6") != std::string::npos);
+    assert(draft.body.find("\"matchedFields\":[\"title\",\"summary\"]") != std::string::npos);
+    assert(preview.body.find("matchedFields") == std::string::npos);
     ApiResponse regexDraft;
     assert(runtime.tryHandleGet("/api/v1/search-timers/draft-preview?backend=one&query=X"
         "&mode=4&compareTitle=1&compareSubtitle=0&compareSummary=1&limit=40",

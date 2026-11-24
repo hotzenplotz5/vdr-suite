@@ -11063,6 +11063,27 @@
                           },
                           "endTime": {
                             "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "durationSeconds": {
+                            "type": "integer"
+                          },
+                          "contentDescriptors": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "parentalRating": {
+                            "type": "integer"
+                          },
+                          "matchedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         }
                       }
@@ -11100,6 +11121,19 @@
                       "type": "integer",
                       "minimum": 0,
                       "description": "Distinct channels across all matched events before limiting returned items."
+                    },
+                    "returnedCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 40
+                    },
+                    "nextStartTime": {
+                      "type": "string",
+                      "description": "Earliest start value across matched events, empty when unavailable."
+                    },
+                    "latestStartTime": {
+                      "type": "string",
+                      "description": "Latest start value across matched events, empty when unavailable."
                     }
                   }
                 }

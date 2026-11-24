@@ -2908,6 +2908,13 @@ bool DaemonRuntime::initialize()
                 {
                     const auto& event = match.event();
                     if (!event.channelId.empty()) matchedChannels.insert(event.channelId);
+                    if (!event.startTime.empty())
+                    {
+                        if (result.nextStartTime.empty() || event.startTime < result.nextStartTime)
+                            result.nextStartTime = event.startTime;
+                        if (result.latestStartTime.empty() || event.startTime > result.latestStartTime)
+                            result.latestStartTime = event.startTime;
+                    }
                     if (result.items.size() >= request.limit) continue;
                     PublicSearchTimerPreviewEvent item;
                     item.title = event.title;
@@ -2915,6 +2922,11 @@ bool DaemonRuntime::initialize()
                     item.channelId = event.channelId;
                     item.startTime = event.startTime;
                     item.endTime = event.endTime;
+                    item.description = event.description;
+                    item.durationSeconds = event.durationSeconds;
+                    item.contentDescriptors = event.contentDescriptors;
+                    item.parentalRating = event.parentalRating;
+                    item.matchedFields = match.matchedFields();
                     result.items.push_back(std::move(item));
                 }
                 result.channelCount = static_cast<int>(matchedChannels.size());

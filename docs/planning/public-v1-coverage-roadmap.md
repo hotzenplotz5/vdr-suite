@@ -16,6 +16,18 @@ ausgewählten Backends. Beide werden im vorhandenen Servicepfad geschlossen.
 | Entwurfs-/Bearbeitungs-Vorschau | Public-v1-Draft-Preview übernimmt die bestehenden Kanal-, Dauer-, Uhrzeit- und Wochentagsfilter über denselben SearchTimerPreviewService; Matcher-Warnungen bleiben sichtbar im API-Ergebnis. Browser-Neuanlage und Bearbeitung verwenden denselben Public-v1-GET ohne Legacy-Fallback. Regex, 40 sichtbare Treffer, Gesamtzahl/Kanalzahl und Matcher-Warnungen bleiben erhalten. HTTP-/Referenzclient-/Browser-Regressionen ergänzt; CI und reale Abnahme offen. Keine Prognose für Blacklists oder native Aufnahmeentscheidungen. |
 | MLD / reale Hardware | Vereinbarte externe Interop- und gemeinsame F8-Abnahme; keine Wiederholung bestätigter CRUD-Fälle |
 
+**Ergänzung 24.11.2026 – F5/F8-Quellabgleich:** Die technische
+Entwurfsvorschau erhält die bisherigen beschreibenden EPG-Metadaten
+(Beschreibung, Dauer, Content-Deskriptoren, Altersfreigabe, Trefferfelder,
+erste/letzte Startzeit) aus denselben Matches. Native interne IDs
+bleiben privat; die maximal 40 gelieferten Treffer sind von der
+Gesamtzahl getrennt. Der öffentliche Vertrag der gespeicherten
+Vorschau bleibt unverändert. OpenAPI und der vorhandene Read-only-
+Acceptance-Runner berücksichtigen die bestehende Browser-/Device-
+Authentifizierung und den exakten Draft-Pfad vor dem ID-Template.
+Keine neuen Grants, keine VDR-Mutation. Final-HEAD-CI und Real-VDR
+noch separat nachweisen.
+
 Der bisherige Live-Adapter liefert bei Providerfehler auch eine leere
 Liste; dieses bestehende Verhalten bleibt zunächst identisch, wird nicht
 als neue Fehler-/Vollständigkeitsgarantie ausgegeben. Keine neue

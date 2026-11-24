@@ -295,6 +295,12 @@ struct PublicSearchTimerPreviewEvent
     std::string channelId;
     std::string startTime;
     std::string endTime;
+    // Existing EPG match metadata for the draft-preview technical view.
+    std::string description;
+    int durationSeconds = 0;
+    std::vector<std::string> contentDescriptors;
+    int parentalRating = 0;
+    std::vector<std::string> matchedFields;
 };
 
 struct PublicSearchTimerPreviewRequest
@@ -335,6 +341,8 @@ struct PublicSearchTimerPreviewResult
     std::vector<PublicSearchTimerPreviewEvent> items;
     std::vector<std::string> warnings;
     int channelCount = 0;
+    std::string nextStartTime;
+    std::string latestStartTime;
 };
 
 enum class PublicRecordingCollectionStatus

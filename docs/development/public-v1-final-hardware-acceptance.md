@@ -384,6 +384,27 @@ Diese Tabelle dokumentiert vorhandene **produktive Lese-Evidenz**; akzeptierte e
 
 **Nur noch tatsächliche Lücken gezielt testen:** vollständige VDR-`channels.conf`-Reihenfolge **über Cursorseiten** (erst nach serverseitig dokumentierter, implementierter Numeric-Sort-Erweiterung), Samsung `Mehr Sender`/Cursor-409 und gegebenenfalls weitere Backends, widerrufene/fremde Grants/401/403/Backend-Isolation, Geräteschlüssel **über normalen Neustart** und einen **datenbewahrenden Updateweg**; Admin-Polling bei sichtbaren/versteckten Tabs und doppelt benannten Devices sowie ausdrücklich gewollter Revoke-/Retire-Bedienung; echte Samsung AVPlay-Live-Session mit Bild/Ton/Stop/Back, Recording MediaSession/Subtitle/Seek/Resume, EPG/Timer nur nach Client-Slice und den passenden gesonderten Grants. Keine implizite Genehmigung für neue Backend-Schreibtests, Host-Installation, Pairing-Replays oder Service-Neustarts. Die bereits abgenommenen nativen Timer-/Recording-/Provider-CRUD-Prüfungen werden **nicht erneut** ausgeführt.
 
+## F5 – Ergänzende, rein lesende Entwurfsvorschau-Abnahme (24.11.2026)
+
+Nach Identitätsnachweis des tatsächlich installierten gemeinsamen
+Kandidaten, bestehende Human-Browser-Sitzung und bestehende Grants
+verwenden. Der Read-only-Runner prüft SearchTimer-GETs nun auch mit
+Browser-Session; Device-Playback bleibt Device-eigen.
+
+Im vorhandenen Suchtimerformular ausschließlich Vorschau verwenden:
+neuer ungespeicherter Entwurf und Bearbeitung einer vorhandenen Regel
+ohne Speichern. Bei geeignetem EPG-Bestand nacheinander alle sechs
+Suchmodi, Einzelkanal, Bereich, Gruppe, FTA, Dauer, Uhrzeit über
+Mitternacht, Einzelwochentag und negative Wochentagsmaske prüfen.
+Netzwerkbeleg: ausschließlich der Public-v1-Draft-GET, kein
+Legacy-Fallback/POST/PATCH/DELETE. Gesamttrefferzahl, Kanalzahl,
+maximal 40 sichtbare Treffer, Warnungen sowie die beschreibenden
+EPG-Metadaten im technischen JSON mit dem EPG-Bestand abgleichen.
+Vorher/nachher vorhandene Regelversion unverändert lesen; keine
+CREATE-Experimente, keine erneuten bereits akzeptierten CRUD-Proben.
+Bei fehlendem EPG oder fehlendem geeignetem Testfall NOT_VERIFIED
+statt PASS. Externe MLD-Abnahme bleibt bei den vorgesehenen Testern.
+
 ## P1 – Resume, Continue Watching und geräteübergreifender Wiedereinstieg: konkrete Restabnahme (25.10.2026)
 
 **Produktziel:** Eine angefangene Aufnahme soll auf einem berechtigten Gerät an der tatsächlich gespeicherten Position fortgesetzt werden können – auf demselben Gerät oder, **erst nach ausdrücklicher administrativer Kontoverknüpfung**, auf einem anderen berechtigten Client. Das aktuelle Public-v1-S3.3-Hardware-PASS des Samsung für **Senderlesen** enthält noch **keine** Aufnahme-, Playback-, Resume- oder Cross-Device-Abnahme. Dieses Kapitel konkretisiert die **bestehende zentrale Ergebnis-Matrix**; es ist kein zweiter Testplan.

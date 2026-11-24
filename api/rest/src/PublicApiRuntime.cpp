@@ -7276,7 +7276,20 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
             jsonEscape(preview.backendId) +
             "\",\"totalCount\":" + std::to_string(preview.totalCount) +
             ",\"channelCount\":" + std::to_string(preview.channelCount) +
-            ",\"items\":[";
+            ",\"returnedCount\":" + std::to_string(preview.items.size()) +
+            ",\"nextStartTime\":\"" + jsonEscape(preview.nextStartTime) +
+            "\",\"latestStartTime\":\"" + jsonEscape(preview.latestStartTime) +
+            "\",\"items\":[";
+        const auto stringArray = [](const std::vector<std::string>& values)
+        {
+            std::string json = "[";
+            for (std::size_t i = 0U; i < values.size(); ++i)
+            {
+                if (i) json += ",";
+                json += "\"" + jsonEscape(values[i]) + "\"";
+            }
+            return json + "]";
+        };
         for (std::size_t i = 0U; i < preview.items.size(); ++i)
         {
             const auto& event = preview.items[i];
@@ -7295,7 +7308,12 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
                 "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
                 "\",\"channelId\":\"" + jsonEscape(event.channelId) +
                 "\",\"startTime\":\"" + jsonEscape(event.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) +
+                "\",\"description\":\"" + jsonEscape(event.description) +
+                "\",\"durationSeconds\":" + std::to_string(event.durationSeconds) +
+                ",\"contentDescriptors\":" + stringArray(event.contentDescriptors) +
+                ",\"parentalRating\":" + std::to_string(event.parentalRating) +
+                ",\"matchedFields\":" + stringArray(event.matchedFields) + "}";
         }
         body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
             "\"evaluation\":\"epg-match-only\"";
