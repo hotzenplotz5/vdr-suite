@@ -3,6 +3,7 @@
 
 #include <vdr/channels.h>
 #include <vdr/epg.h>
+#include <vdr/menu.h>
 #include <vdr/timers.h>
 
 #include <array>
@@ -209,14 +210,18 @@ SuiteBridgeNativeTimerDeleteVdrMutationCallback::DeleteTimer(
                     evidence("fingerprint-mismatch", request.commandId));
     }
 
-    if (timer->Recording() || timer->Pending()) {
+    if (timer->Pending()) {
       stateKey.Remove(false);
       return result(SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect,
-                    evidence(timer->Recording() ? "recording" : "pending",
-                             request.commandId));
+                    evidence("pending", request.commandId));
     }
 
+    // Match VDR CmdDELT while holding the native timer write lock. The
+    // recording bit was checked in the complete native CAS fingerprint.
     timers->SetExplicitModify();
+    if (timer->Recording())
+      cRecordControls::Stop(timer);
+    timer->TriggerRespawn();
     timers->Del(timer);
     timers->SetModified();
     stateKey.Remove();

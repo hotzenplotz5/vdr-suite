@@ -321,8 +321,7 @@ NativeTimerBindingRepository::listManagedForFreshness(
         "SELECT native_timer_binding_id FROM native_timer_bindings "
         "WHERE native_timer_binding_id > ? "
         "AND ownership IN ('managed','adopted') AND missing_since=0 "
-        "AND drift_state='none' AND observed_recording=0 "
-        "AND observed_pending=0 AND last_observed_at < ? "
+        "AND drift_state='none' AND observed_pending=0 AND last_observed_at < ? "
         "ORDER BY native_timer_binding_id ASC LIMIT ?;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
             != SQLITE_OK)
@@ -441,10 +440,12 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
         if (!managedOwnership(current.ownership) ||
             current.missingSince != 0 ||
             current.driftState != NativeTimerBindingDriftState::none ||
-            current.observedState.recording || current.observedState.pending ||
+            current.observedState.pending ||
             current.backendGeneration > next.backendGeneration ||
             (current.observedFingerprint != next.observedFingerprint &&
              !nativeTimerObservedStateSameExceptEventId(
+                 current.observedState, next.observedState) &&
+             !nativeTimerObservedStateSameExceptRecordingAndEventId(
                  current.observedState, next.observedState)) ||
             current.lastVerifiedOperationId != next.lastVerifiedOperationId ||
             current.missingSince != next.missingSince ||

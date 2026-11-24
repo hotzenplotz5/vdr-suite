@@ -45,7 +45,7 @@ NativeTimerBindingReadbackService::applyPresentObservation(
           current.ownership != NativeTimerBindingOwnership::adopted) ||
          current.driftState != NativeTimerBindingDriftState::none ||
          current.missingSince != 0 ||
-         current.observedState.recording || current.observedState.pending ||
+         current.observedState.pending ||
          observation.backendGeneration < current.backendGeneration))
     {
         return result(
@@ -65,14 +65,16 @@ NativeTimerBindingReadbackService::applyPresentObservation(
     // the native timer is unchanged. All other fields must match exactly.
     // The repository's passive-write path still fences ANY nonterminal timer
     // operation, so no in-flight UPDATE can lose its original fingerprint.
-    const bool eventIdOnlyDrift =
+    const bool transientDrift =
         passiveFreshnessRefresh &&
         observation.observedFingerprint != current.observedFingerprint &&
-        nativeTimerObservedStateSameExceptEventId(
-            current.observedState, observation.observedState);
+        (nativeTimerObservedStateSameExceptEventId(
+             current.observedState, observation.observedState) ||
+         nativeTimerObservedStateSameExceptRecordingAndEventId(
+             current.observedState, observation.observedState));
     if (current.missingSince != 0 ||
         (observation.observedFingerprint != current.observedFingerprint &&
-         !eventIdOnlyDrift))
+         !transientDrift))
     {
         return result(
             NativeTimerBindingReadbackStatus::reconciliationRequired,
@@ -90,16 +92,17 @@ NativeTimerBindingReadbackService::applyPresentObservation(
     NativeTimerBinding next = current;
     next.backendGeneration = observation.backendGeneration;
     next.lastObservedAt = observation.observedAt;
-    if (eventIdOnlyDrift)
+    if (transientDrift)
     {
         next.observedState.eventId = observation.observedState.eventId;
+        next.observedState.recording = observation.observedState.recording;
+        next.observedState.flags = observation.observedState.flags;
         next.observedFingerprint = nativeTimerObservedStateFingerprint(
             next.observedState);
     }
 
-    // Preserve existing copied clock/field representations when canonical
-    // fingerprints are equal. Only an EPG-only difference is refreshed here;
-    // all actual native Timer configuration changes remain reconciliation work.
+    // Only matching EPG or native recording-state changes qualify; real
+    // Timer configuration drift remains reconciliation work.
     const auto updated = repository_.update(
         next, current.bindingRevision, passiveFreshnessRefresh);
     if (updated.status == NativeTimerBindingRepositoryStatus::conflict)

@@ -72,7 +72,6 @@ publicNativeTimerDeletePreflight(
         return S::staleObservation;
     if (binding.missingSince != 0 ||
         binding.driftState != NativeTimerBindingDriftState::none ||
-        binding.observedState.recording ||
         binding.observedState.pending)
         return S::nativeStateConflict;
 
