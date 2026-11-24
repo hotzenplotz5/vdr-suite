@@ -878,6 +878,12 @@ function renderHevcHomeActivity() {}
 
 (async function () {
   await verifyMeta6Handoff();
+  // A new session with no confirmed capability must not advertise the add-on.
+  allow = false;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(tab.hidden, true);
+  assert.strictEqual(tab.disabled, true);
+  allow = true;
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
@@ -1682,12 +1688,11 @@ function renderHevcHomeActivity() {}
   context.selectModule('media-import');
   assert.strictEqual(tab.hidden, true);
   vm.runInContext('browserSessionFrontendActive = true;', context);
-  // A new authenticated session may open installed Media Tools even before
-  // the Agent's first capability result recovers.
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
-    're-authenticated session may navigate without an Agent capability');
-  assert.strictEqual(tab.hidden, false);
-  assert.strictEqual(tab.disabled, false);
+  // A different authenticated session must re-establish its own capability;
+  // a previous login cannot authorize the new session's navigation.
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(tab.hidden, true);
+  assert.strictEqual(tab.disabled, true);
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
