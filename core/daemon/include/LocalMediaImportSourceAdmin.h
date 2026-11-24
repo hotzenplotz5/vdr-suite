@@ -131,6 +131,38 @@ inline bool localBackend(std::string& id) {
     }
     return backendId(id);
 }
+// Descriptive package-file observation only. This is deliberately not an
+// execution permission, verified handler digest, or Agent health check.
+// Unknown includes remote backends, partial packages and unreadable paths.
+inline const char* localPayloadState(const std::string& requestedBackend) {
+    std::string local;
+    if (!localBackend(local) || local != requestedBackend) return "unknown";
+    constexpr std::array<const char*, 8> paths{{
+        "/usr/libexec/vdr-suite/addons/rectools/addon.json",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-check",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-shrink",
+        "/usr/share/vdr-suite/addons/rectools/AGENTS.md",
+        "/usr/share/vdr-suite/addons/rectools/README.md",
+        "/usr/share/vdr-suite/addons/rectools/addon.json",
+        "/usr/share/vdr-suite/addons/rectools/media-tools-install-inventory.json"
+    }};
+    unsigned present = 0, absent = 0;
+    for (const char* path : paths) {
+        struct stat st{};
+        if (::lstat(path, &st) == 0) {
+            if (!S_ISREG(st.st_mode) || st.st_uid != 0 ||
+                (st.st_mode & 0022) != 0) return "unknown";
+            ++present;
+        } else if (errno == ENOENT) {
+            ++absent;
+        } else return "unknown";
+    }
+    if (present == paths.size()) return "present";
+    if (absent == paths.size()) return "absent";
+    return "unknown";
+}
+
 inline std::string revision(const std::string& contents) {
     std::uint64_t hash = UINT64_C(14695981039346656037);
     for (unsigned char c : contents) {
