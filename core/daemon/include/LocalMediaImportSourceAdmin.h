@@ -403,6 +403,11 @@ inline ApiResponse save(const std::string& body,
     do {
         const bool creating = !readLedger(current);
         if (creating && !initialSnapshot(current, trustedVideoRoot)) break;
+        // If another administrator has already created the inventory, never
+        // reinterpret this initial-setup payload as a normal edit.
+        if (!creating && !requestedVideoRoot.empty()) {
+            result = error(409, "sources_changed"); break;
+        }
         if (creating && current.videoRoot.empty())
             current.videoRoot = requestedVideoRoot;
         if (creating && !safeRoot(current.videoRoot)) {
