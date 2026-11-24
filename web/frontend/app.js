@@ -29,6 +29,36 @@ function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
 }
 
+// A Home shortcut to the existing module; never a second import owner.
+// Installation/configuration alone do not imply an executable capability.
+function renderMediaToolsHomeShortcut() {
+  const host = document.querySelector('[data-home-zone="additional-sections"]');
+  if (!host) return;
+  let shortcut = host.querySelector('[data-home-media-tools]');
+  const visible = browserSessionFrontendActive &&
+    selectedModule === 'overview' && selectedBackendId &&
+    mediaImportKnownBackendId === selectedBackendId &&
+    mediaImportTab && !mediaImportTab.hidden && !mediaImportTab.disabled;
+  if (!visible) {
+    if (shortcut) shortcut.remove();
+    return;
+  }
+  if (shortcut) return;
+  shortcut = document.createElement('section');
+  shortcut.setAttribute('data-home-media-tools', '');
+  shortcut.className = 'home-media-tools-shortcut';
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'home-media-tools-open';
+  open.textContent = 'Media Tools';
+  open.addEventListener('click', function () {
+    if (selectedModule === 'overview' && selectedBackendId)
+      selectModule('media-import');
+  });
+  shortcut.appendChild(open);
+  host.appendChild(shortcut);
+}
+
 function resetMediaImportVisibility(clearSession) {
   ++mediaImportCapabilityEpoch;
   if (clearSession) mediaImportKnownBackendId = '';
@@ -37,6 +67,7 @@ function resetMediaImportVisibility(clearSession) {
     mediaImportTab.disabled = true;
     mediaImportTab.title = '';
   }
+  renderMediaToolsHomeShortcut();
   const moduleApi = mediaImportModule();
   if (moduleApi) {
     if (clearSession && typeof moduleApi.clearSession === 'function') {
@@ -70,6 +101,7 @@ function refreshMediaImportVisibility(backendId) {
       mediaImportTab.hidden = true;
       mediaImportTab.disabled = true;
       mediaImportTab.title = '';
+      renderMediaToolsHomeShortcut();
       return false;
     }
     // A capability observation is not authorization to destroy an existing
@@ -82,6 +114,7 @@ function refreshMediaImportVisibility(backendId) {
     // Return navigation availability, NOT the Agent command capability.
     // The actual Core POST owns action authorization.
     mediaImportKnownBackendId = backendId;
+    renderMediaToolsHomeShortcut();
     return true;
   }
 
@@ -96,6 +129,7 @@ function refreshMediaImportVisibility(backendId) {
     mediaImportTab.hidden = false;
     mediaImportTab.disabled = false;
     mediaImportTab.title = '';
+    renderMediaToolsHomeShortcut();
     // Never remount a running media-import view just because a capability
     // response arrived. Opening the tab is the single navigation owner.
 
@@ -110,6 +144,7 @@ function refreshMediaImportVisibility(backendId) {
       mediaImportTab.disabled = true;
       mediaImportTab.title = '';
       if (selectedModule === 'media-import') selectModule('overview');
+      renderMediaToolsHomeShortcut();
       return false;
     }
     return unavailable();
@@ -4123,6 +4158,7 @@ function renderSelectedModule(data) {
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
     renderHevcHomeActivity();
+    renderMediaToolsHomeShortcut();
     return;
   }
 
@@ -4268,6 +4304,7 @@ function selectModule(moduleName) {
 
   selectedModule = moduleName;
   if (moduleName !== 'overview') closeHomeHevcStream();
+  renderMediaToolsHomeShortcut();
 
   if (moduleName === 'channels') {
     if (typeof selectedChannelId !== 'undefined') {
