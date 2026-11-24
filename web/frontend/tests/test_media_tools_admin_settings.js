@@ -42,6 +42,11 @@ function harness(reply, restored, initialSources) {
           const body = JSON.parse(options.body);
           assert.equal(body.backendId, sourceStore.backendId);
           assert.equal(body.revision, sourceStore.revision);
+          if (body.videoRoot !== undefined) {
+            assert.equal(sourceStore.videoRoot, '',
+              'only a missing initial video root can be supplied');
+            sourceStore.videoRoot = decodeURIComponent(body.videoRoot);
+          }
           sourceStore.sources = decodeURIComponent(body.entries)
             .split('\n').map(function (line) {
               const [path, name] = line.split('\t');
@@ -368,10 +373,37 @@ async function test() {
   await flush();
   assert.equal(noVideoRoot.elements.find(e =>
     e.className === 'settings-media-import-source-editor').hidden, false);
-  assert.equal(noVideoRoot.elements.find(e =>
-    e.textContent === 'Speichern').disabled, true);
+  const manualTarget = noVideoRoot.elements.find(e =>
+    e.textContent === 'VDR-Aufnahmeverzeichnis (einmalig)');
+  const manualSave = noVideoRoot.elements.find(e =>
+    e.textContent === 'Speichern');
+  const manualAdd = noVideoRoot.elements.find(e =>
+    e.textContent === '+ Importordner hinzufügen');
+  const manualRows = noVideoRoot.elements.find(e =>
+    e.className === 'settings-media-import-source-list');
+  assert(manualTarget && !manualTarget.hidden && manualSave.disabled);
   assert(noVideoRoot.elements.some(e =>
-    e.textContent.includes('Aufnahmeziel des lokalen VDR noch nicht ermittelt')));
+    e.textContent.includes('VDR-Aufnahmeverzeichnis konnte nicht automatisch ermittelt')));
+  manualAdd.handlers.click();
+  manualRows.children[0].children[0].children[0].value = '/data/video/Filme';
+  manualRows.children[0].children[0].children[0].handlers.input();
+  manualRows.children[0].children[1].children[0].value = 'Filme';
+  manualRows.children[0].children[1].children[0].handlers.input();
+  assert(manualSave.disabled, 'missing VDR root not silently guessed');
+  manualTarget.children[0].value = '/data/tv';
+  manualTarget.children[0].handlers.input();
+  assert(!manualSave.disabled, 'explicit VDR target enables initial save');
+  manualSave.handlers.click();
+  await flush();
+  assert.equal(noVideoRoot.sourceStore.videoRoot, '/data/tv');
+  assert.deepEqual(noVideoRoot.sourceStore.sources,
+    [{path: '/data/video/Filme', name: 'Filme'}]);
+  assert.equal(manualTarget.hidden, true,
+    'destination cannot be edited after initial save');
+  assert(noVideoRoot.requests.some(r => r.options.method === 'POST' &&
+    JSON.parse(r.options.body).videoRoot === '%2Fdata%2Ftv'));
+  assert(noVideoRoot.elements.some(e => e.textContent ===
+    'Aufnahmeziel: /data/tv (bleibt unverändert)'));
 
   // Empty source arrays are valid ONLY with the explicit first-run marker.
   const invalidEmpty = harness(() => response(200, {
