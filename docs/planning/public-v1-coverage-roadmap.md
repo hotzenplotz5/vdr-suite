@@ -1,5 +1,29 @@
 # Public API v1 coverage and client migration roadmap
 
+## API.V1.F5 – Abschließender Restabgleich (24.11.2026)
+
+Ausgangsstand `2688e36fb026`: alle 35 CI-Jobs / sieben Workflows PASS.
+Der Abgleich der produktiven Browser-Aufrufer ergibt zwei konkrete
+Restlücken: Human-Suchtimer-Session und native Live-Timerliste des
+ausgewählten Backends. Beide werden im vorhandenen Servicepfad geschlossen.
+
+| Funktion | Ergebnis des Restabgleichs |
+| --- | --- |
+| Normale Timer / EPG-Timer / Assignment / Operation | Bestehende Public-v1-Verträge und F5.6.1–6; kein neuer Schreibpfad |
+| Timerliste / Konfliktindizes / AUX / Untertitel | `GET /api/v1/native-timers/live/list?backendId=...` verwendet vorhandenen Live-Service und vollständigen Serializer; native Reihenfolge und Felder bleiben erhalten, bestehender paginierter Snapshot-Vertrag bleibt unverändert |
+| Suchtimer LIST / DETAIL / VERSION / CREATE / UPDATE / ACTIVATE / DEACTIVATE / DELETE | Bestehende Routen; Human-Session mit vorhandenen konkreten Grants statt Administratorpflicht, CSRF und Scope unverändert |
+| Gespeicherte Suchtimer-Vorschau | Public v1 mit vorhandenen EPG-/Live- und Suchtimer-Grants |
+| Vollständige Entwurfs-/Bearbeitungs-Vorschau | Web verwendet weiterhin den bestehenden umfangreichen Legacy-Preview-Owner. Die öffentliche Text-only-Draft-Preview ist bewusst nicht gleichwertig; vollständige Migration separat, ohne Optionen zu verlieren |
+| MLD / reale Hardware | Vereinbarte externe Interop- und gemeinsame F8-Abnahme; keine Wiederholung bestätigter CRUD-Fälle |
+
+Der bisherige Live-Adapter liefert bei Providerfehler auch eine leere
+Liste; dieses bestehende Verhalten bleibt zunächst identisch, wird nicht
+als neue Fehler-/Vollständigkeitsgarantie ausgegeben. Keine neue
+Persistenz, kein neuer Grant, keine Änderung an Timer- oder SearchTimer-Writer.
+Vergleich: VDR/epgsearch-Editor ist die fachliche Baseline; native AUX-/
+VPS- und Suchtimer-Rechteparität von Kodi/Plex nicht verifiziert.
+CI auf dem neuen Kandidaten sowie F8 bleiben offen.
+
 ## API.V1.F5.6.6 – Native Timereditor-Parität (Source-Kandidat)
 
 | Bestehender Webeditor | Public-v1-Pfad |

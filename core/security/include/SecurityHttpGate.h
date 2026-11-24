@@ -1086,7 +1086,8 @@ public:
             request.method == "GET" &&
             (path == "/api/v1/native-timers" || isPublicNativeTimerItem ||
              isPublicNativeTimerAuxRead ||
-             path == "/api/v1/native-timers/conflicts/live");
+             path == "/api/v1/native-timers/conflicts/live" ||
+             path == "/api/v1/native-timers/live/list");
         const bool isPublicDeviceEventRead =
             request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
@@ -1302,6 +1303,7 @@ public:
              isPublicRecordingArtwork ||
              path == "/api/v1/native-timers" ||
              path == "/api/v1/native-timers/conflicts/live" ||
+             path == "/api/v1/native-timers/live/list" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||

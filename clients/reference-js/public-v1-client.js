@@ -2540,6 +2540,14 @@
       createNativeTimer(options) {
         return submitDirectNativeTimerAction(options, 'create');
       },
+      getLiveNativeTimers(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Canonical backendId required');
+        return request('/api/v1/native-timers/live/list?backendId=' +
+          encodeURIComponent(input.backendId), input);
+      },
       getNativeTimerConflicts(options) {
         const input = options && typeof options === 'object' ? options : {};
         if (typeof input.backendId !== 'string' ||

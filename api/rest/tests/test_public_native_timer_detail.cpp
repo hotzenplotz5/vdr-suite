@@ -149,6 +149,31 @@ int main()
     assert(conflicts.body.find(R"json("count":1)json") != std::string::npos);
     assert(conflicts.headers.at("Cache-Control") == "no-store");
     api.resetNativeTimerDirectAction();
+    const std::string liveUri = "/api/v1/native-timers/live/list?backendId=backend-one";
+    assert(get(liveUri).statusCode == 503);
+    int liveReads = 0;
+    api.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor, const std::string& backend,
+            const std::string& nativeId, const std::string& body) {
+            ++liveReads;
+            assert(action == "list" && actor == "viewer" && backend == "backend-one");
+            assert(nativeId.empty() && body.empty());
+            ApiResponse response;
+            response.statusCode = 200;
+            response.contentType = "application/json";
+            response.body = R"json({"timers":[{"timerId":"9","subtitle":"News","aux":"<epgsearch/>"},{"timerId":"2"}]})json";
+            return response;
+        });
+    assert(get(liveUri,"","").statusCode == 401);
+    assert(get(liveUri,"","viewer","foreign").statusCode == 400);
+    assert(get(liveUri+"&limit=1").statusCode == 400);
+    assert(liveReads == 0);
+    const auto live = get(liveUri);
+    assert(live.statusCode == 200 && liveReads == 1);
+    assert(live.headers.at("Cache-Control") == "no-store");
+    assert(live.body.find(R"json("timerId":"9")json") < live.body.find(R"json("timerId":"2")json"));
+    assert(live.body.find("<epgsearch/>") != std::string::npos);
+    api.resetNativeTimerDirectAction();
     ApiResponse denied;
     assert(api.tryHandleUnsupportedMethod("DELETE", uri, "req", "corr", denied));
     assert(denied.statusCode == 405);

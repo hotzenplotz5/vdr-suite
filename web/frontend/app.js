@@ -1165,8 +1165,10 @@ function syncEpgTimerDetailStates() {
 
   epgTimerDetailSyncInFlight = true;
 
-  window.VdrSuiteClientApi.fetchClientTimers({ cache: 'no-store' })
+  const timerBackendId = selectedEpgBackendId();
+  window.VdrSuiteClientApi.fetchClientTimers({ backendId: timerBackendId, cache: 'no-store' })
     .then(data => {
+      if (selectedEpgBackendId() !== timerBackendId) return;
       epgLiveTimerCache = epgTimerFromResponse(data);
       epgTimerDetailCards().forEach(detail => {
         syncEpgTimerDetailWithTimers(detail, epgLiveTimerCache);
@@ -3410,13 +3412,16 @@ function loadTimers() {
     return;
   }
 
-  clientApi.fetchClientTimers()
+  const timerBackendId = selectedEpgBackendId();
+  clientApi.fetchClientTimers({backendId: timerBackendId})
     .then(data => {
+      if (selectedModule !== 'timers' || selectedEpgBackendId() !== timerBackendId) return;
       currentTimers = data;
       renderTimersThroughModule(data, null);
       loadTimerConflictPanel(listFromResponse(data, "timers"));
     })
     .catch(error => {
+      if (selectedModule !== 'timers' || selectedEpgBackendId() !== timerBackendId) return;
       currentTimers = null;
       renderModuleError('Timer konnten nicht geladen werden', error);
     });

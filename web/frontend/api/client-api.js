@@ -396,7 +396,14 @@
   }
 
   function fetchClientTimers(options) {
-    return requestJson('/api/vdr/timers/live', options);
+    const input = normalizeOptions(options);
+    // Compatibility for older callers without a backend scope. All
+    // production browser calls supply the selected backend explicitly.
+    if (!input.backendId) return requestJson('/api/vdr/timers/live', options);
+    return publicNativeTimerClient().getLiveNativeTimers({
+      backendId: input.backendId, credentials: 'same-origin',
+      cache: 'no-store', signal: input.signal
+    });
   }
 
   function fetchClientTimerConflicts(options) {

@@ -791,8 +791,9 @@ int main()
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId, "searchtimers.delete", "default"));
     const auto searchMutationNonAdmin = fixture.gate.evaluate(browserSearchMutation);
-    assert(!searchMutationNonAdmin.allowed);
-    assert(searchMutationNonAdmin.rejection.statusCode == 403);
+    assert(searchMutationNonAdmin.allowed);
+    assert(searchMutationNonAdmin.authorizationDecision.permission == "searchtimers.delete");
+    assert(searchMutationNonAdmin.authorizationDecision.backendId == "default");
 
     assert(fixture.browserRepository.revokeBySessionId(
         fixture.sessionId));

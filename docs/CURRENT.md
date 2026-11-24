@@ -1,5 +1,18 @@
 # VDR-Suite Current State
 
+## API.V1.F5 – Restabgleich (24.11.2026; SOURCE)
+
+Suchtimer-Reads und kanonische Mutationen erlauben vorhandene
+backendbezogene Human-Grants ohne Administratorpflicht; unveränderte
+CSRF-, Scope-, Read-only- und Device-Grenzen. Der aktive Timerlisten-
+und EPG-Status-Aufrufer verwendet jetzt die backendbezogene
+Public-v1-Live-Liste mit bestehender nativer Reihenfolge und allen
+Editorfeldern einschließlich AUX. Der paginierte Snapshot bleibt
+unverändert. Der volle Entwurfs-Preview-Pfad bleibt bis zur gesonderten
+Webmigration erhalten; Public-v1-Text-Preview ist nicht äquivalent.
+F8 und externe Interop bleiben offen; keine Installation oder Live-Mutation.
+[Restabgleich](planning/public-v1-coverage-roadmap.md#apiv1f5--abschließender-restabgleich-24112026).
+
 ## API.V1.F5.6.6 – Native Timereditor-Parität (SOURCE, Abnahme offen)
 
 Native Wochenmasken ohne Ersttermin, inaktive Timer und VPS laufen nun über

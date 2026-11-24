@@ -97,6 +97,15 @@ int main()
     const std::string directDelete = Timer + "/direct-delete?backendId=default";
     const std::string directCreate = "/api/v1/native-timers/actions/create";
     const std::string conflicts = "/api/v1/native-timers/conflicts/live?backendId=default";
+    const std::string liveList = "/api/v1/native-timers/live/list?backendId=default";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "GET", liveList)), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "timers.view", "default"));
+        assertAllowed(fixture.gate.evaluate(browserRequest(fixture, "GET", liveList)), "timers.view", false);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "GET",
+            "/api/v1/native-timers/live/list?backendId=foreign")), 403);
+    }
 
     {
         // First-admin bootstrap really provisions role.admin at "*".

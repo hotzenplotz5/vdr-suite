@@ -11492,6 +11492,145 @@
         "x-vdr-suite-auth-profile": "browserDeviceWrite"
       }
     },
+    "/api/v1/native-timers/live/list": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getLiveNativeTimers",
+        "summary": "Read live native VDR timers in provider order",
+        "description": "Unconditional full native editor inventory for exactly one selected backend, using the existing VDR live read and serializer. Preserves timer order, native identity, subtitle, AUX, weekday mask, flags and status; no Binding ETag. The existing bounded snapshot collection remains unchanged. Like the legacy live reader, provider errors returning an empty vector cannot be distinguished from an empty list by this service.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native VDR editor timer list in provider order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "timers"
+                  ],
+                  "properties": {
+                    "timers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "timerId": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "channelName": {
+                            "type": "string"
+                          },
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "directory": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "aux": {
+                            "type": "string"
+                          },
+                          "day": {
+                            "type": "string"
+                          },
+                          "weekdays": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          },
+                          "flags": {
+                            "type": "integer"
+                          },
+                          "priority": {
+                            "type": "integer"
+                          },
+                          "lifetime": {
+                            "type": "integer"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "vps": {
+                            "type": "boolean"
+                          },
+                          "recording": {
+                            "type": "boolean"
+                          },
+                          "pending": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or mismatched backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Existing timers.view grant required"
+          },
+          "503": {
+            "description": "No live reader registered for the selected backend"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing backend-scoped timers.view for Device or Human Browser"
+        }
+      }
+    },
     "/api/v1/native-timers/conflicts/live": {
       "get": {
         "tags": [

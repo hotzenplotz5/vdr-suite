@@ -127,6 +127,8 @@ constexpr const char* PublicNativeTimersPath =
     "/api/v1/native-timers";
 constexpr const char* PublicNativeTimerDirectCreatePath =
     "/api/v1/native-timers/actions/create";
+constexpr const char* PublicNativeTimerLiveListPath =
+    "/api/v1/native-timers/live/list";
 constexpr const char* PublicNativeTimerConflictsPath =
     "/api/v1/native-timers/conflicts/live";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -10084,7 +10086,8 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
-    if (path == PublicNativeTimerConflictsPath)
+    if (path == PublicNativeTimerConflictsPath ||
+        path == PublicNativeTimerLiveListPath)
     {
         if (actorRef.empty())
             response = unauthorizedProblem(path, requestId, correlationId);
@@ -10103,7 +10106,8 @@ bool PublicApiRuntime::tryHandleGet(
                 response = serviceUnavailableProblem(path, requestId, correlationId);
             else
             {
-                response = read("conflicts", actorRef, authorizedBackendIds.front(), "", "");
+                response = read(path == PublicNativeTimerLiveListPath ? "list" : "conflicts",
+                    actorRef, authorizedBackendIds.front(), "", "");
                 if (response.statusCode == 200)
                     addPublicSuccessHeaders(response, requestId, correlationId);
             }
@@ -13655,6 +13659,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
         path == PublicNativeTimerConflictsPath ||
+        path == PublicNativeTimerLiveListPath ||
         path == PublicNativeTimerDirectCreatePath ||
         (publicNativeTimerItemPath(path, timerAssignmentId) ||
          publicNativeTimerAuxPath(path, timerAssignmentId)) ||
@@ -13969,6 +13974,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
         path == PublicNativeTimerConflictsPath ||
+        path == PublicNativeTimerLiveListPath ||
         path == PublicNativeTimerDirectCreatePath ||
         (publicNativeTimerItemPath(path, timerAssignmentId) ||
          publicNativeTimerAuxPath(path, timerAssignmentId)) ||

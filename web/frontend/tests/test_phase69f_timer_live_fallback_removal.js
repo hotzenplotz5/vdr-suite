@@ -51,6 +51,12 @@ const context = {
       if (target.includes('backendId=offline')) return Promise.resolve(response(503, {
         error: {code: 'backend_unavailable', message: 'Native timer unavailable'}
       }));
+      if (target.includes('/live/list?')) {
+        return Promise.resolve(response(200, {timers:[
+          {timerId:'9',title:'Weekly',subtitle:'Subtitle',aux:'<epgsearch/>',weekdays:'M-W-F--',active:false,vps:true},
+          {timerId:'2',title:'One shot',recording:true}
+        ]}));
+      }
       if (target.includes('/timer:abc-12?')) {
         const etag = '"native-revision-3"';
         const cached = options.headers['If-None-Match'] === etag;
@@ -277,7 +283,23 @@ async function run() {
   }));
   assert.strictEqual(requests.length, 12, 'invalid fields must not dispatch');
 
-  console.log('test_phase69f_timer_live_fallback_removal F5.3/F5.5/F5.6 passed');
+  const liveList = await api.fetchClientTimers({backendId:'living-room'});
+  assert.strictEqual(requests.length,13);
+  assert.strictEqual(requests[12].url,'https://suite.example/api/v1/native-timers/live/list?backendId=living-room');
+  assert.strictEqual(requests[12].options.cache,'no-store');
+  assert.strictEqual(liveList.timers[0].timerId,'9');
+  assert.strictEqual(liveList.timers[1].timerId,'2');
+  assert.strictEqual(liveList.timers[0].subtitle,'Subtitle');
+  assert.strictEqual(liveList.timers[0].aux,'<epgsearch/>');
+  assert.strictEqual(liveList.timers[0].weekdays,'M-W-F--');
+  assert.strictEqual(liveList.timers[0].active,false);
+  assert.strictEqual(liveList.timers[0].vps,true);
+  assert.strictEqual(liveList.timers[1].recording,true);
+  const liveFailure=await captureFailure(()=>api.fetchClientTimers({backendId:'offline'}));
+  assert.strictEqual(liveFailure.status,503);
+  assert.strictEqual(requests.length,14);
+  assert.strictEqual(requests.filter(r=>r.url==='/api/vdr/timers/live').length,1);
+  console.log('test_phase69f_timer_live_fallback_removal F5 closeout passed');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

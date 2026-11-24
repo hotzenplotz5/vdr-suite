@@ -4397,6 +4397,22 @@ bool DaemonRuntime::initialize()
             response.contentType = "application/json";
             response.body = R"json({"success":false})json";
             if (actorRef.empty() || backendId.empty()) return response;
+            if (action == "list")
+            {
+                // Reuse the live VDR editor's service and full serializer,
+                // preserving provider order, subtitle, raw AUX and status.
+                // Unlike the paginated snapshot, no Binding ETag applies.
+                for (const auto& context : backendRuntimeContexts_)
+                    if (context && context->backendId == backendId &&
+                        context->service && vdrSnapshotReadJsonSerializer_)
+                    {
+                        response.statusCode = 200;
+                        response.body = vdrSnapshotReadJsonSerializer_->serializeTimers(
+                            context->service->getTimers());
+                        return response;
+                    }
+                return response;
+            }
             if (action == "conflicts")
             {
                 VdrTimerConflictReport report;

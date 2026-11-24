@@ -293,7 +293,8 @@ timer_start = base_client.find("function fetchClientTimers(options)")
 timer_end = base_client.find("function fetchClientTimerConflicts(options)", timer_start)
 timer_body = base_client[timer_start:timer_end]
 require(
-    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "if (!input.backendId) return requestJson('/api/vdr/timers/live', options)" in timer_body
+    and "publicNativeTimerClient().getLiveNativeTimers(" in timer_body,
     "Timer live route drifted after dedicated successor",
 )
 require(
