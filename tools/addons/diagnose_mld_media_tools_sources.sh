@@ -101,6 +101,41 @@ else
     esac
 fi
 
+printf '\n%s\n' '=== MEDIA TOOLS INSTALLED FILES (NO CONTENTS) ==='
+for name in vdr-suite-media-import vdr-suite-media-check vdr-suite-media-shrink; do
+    path=/usr/libexec/vdr-suite/addons/rectools/$name
+    if [ -f "$path" ] && [ -x "$path" ]; then
+        printf '%s: PRESENT_EXECUTABLE\n' "$name"
+    else
+        printf '%s: MISSING_OR_NOT_EXECUTABLE\n' "$name"
+    fi
+done
+
+printf '\n%s\n' '=== INSTALLED VERSION EVIDENCE ==='
+binary=/usr/sbin/vdr-suite-daemon
+if [ -r "$binary" ]; then
+    echo 'DAEMON_BINARY: PRESENT'
+    if command -v strings >/dev/null 2>&1; then
+        if strings -a "$binary" 2>/dev/null | grep -Fqx 'source-unversioned'; then
+            echo 'DAEMON_EMBEDS_SOURCE_UNVERSIONED: YES (binary string only)'
+        else
+            echo 'DAEMON_EMBEDS_SOURCE_UNVERSIONED: NO'
+        fi
+    else
+        echo 'DAEMON_VERSION_STRINGS: UNAVAILABLE'
+    fi
+else
+    echo 'DAEMON_BINARY: MISSING_OR_UNREADABLE'
+fi
+if command -v opkg >/dev/null 2>&1; then
+    for pkg in vdr-suite vdr-suite-mediatool vdr-suite-addon-media-tools; do
+        version=$(opkg status "$pkg" 2>/dev/null |
+            awk '/^Version: / {print $2; exit}')
+        [ -n "$version" ] || version=NOT_IN_OPKG_STATUS
+        printf 'OPKG_%s_VERSION: %s\n' "$pkg" "$version"
+    done
+fi
+
 printf '\n%s\n' '=== WEB FRONTEND ==='
 frontend=/usr/share/vdr-suite/web/frontend/settings-addons.js
 if [ -r "$frontend" ]; then
