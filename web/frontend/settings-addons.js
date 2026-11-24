@@ -378,9 +378,12 @@
       refresh.disabled = busy;
       // The admin enable/disable preference must remain usable while the
       // worker is offline. Actual imports validate worker readiness later.
-      toggle.disabled = busy || !current;
+      const absent = current && current.installationState === 'absent';
+      toggle.hidden = Boolean(absent);
+      toggle.disabled = busy || !current || absent;
       toggle.title = '';
-      const canRenew = current && current.desiredEnabled === true &&
+      const canRenew = current && !absent &&
+        current.desiredEnabled === true &&
         current.providerVerified === true && current.agentReady === true &&
         current.activationBoundToProvider === false;
       renew.hidden = !canRenew;
@@ -392,14 +395,18 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        // Source configuration is not an Agent-lease operation.
-        sourceEditor.load();
+        // Local file absence is a real package observation, unlike a
+        // disconnected Agent. Unknown (remote/partial) is not "not installed".
+        const absent = result.installationState === 'absent';
+        if (!absent) sourceEditor.load();
+        else sourceEditor.section.hidden = true;
         // A current, independently verified provider proves more than a
         // saved intent, but still says nothing about dpkg package ownership.
         const trusted = result.providerVerified === true;
         const ready = result.agentReady === true;
         const bound = result.activationBoundToProvider === true;
-        status.textContent = result.desiredEnabled
+        status.textContent = absent ? 'Media Tools nicht installiert'
+          : result.desiredEnabled
           ? (trusted && ready && bound
             ? 'Media Tools aktiviert und betriebsbereit'
             : (trusted && ready && !bound
@@ -407,7 +414,11 @@
               : 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'))
           : 'Media Tools deaktiviert';
         details.textContent = 'Backend: ' + backendId +
-          ' · Freigabe-Revision: ' + result.revision;
+          ' · Freigabe-Revision: ' + result.revision +
+          (result.installationState === 'present'
+            ? ' · Add-on-Dateien vorhanden'
+            : result.installationState === 'unknown'
+              ? ' · Paketstatus nicht bestätigt' : '');
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
@@ -449,7 +460,7 @@
       }).finally(function () { busy = false; controls(); });
     });
     toggle.addEventListener('click', function () {
-      if (!current || busy) return;
+      if (!current || busy || current.installationState === 'absent') return;
       const wanted = !current.desiredEnabled;
       const question = wanted
         ? 'Media Tools für Backend ' + backendId + ' aktivieren?'
