@@ -87,7 +87,7 @@
   function overlap(a, b) {
     return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
   }
-  function sourceRequest(backendId, revision, sources) {
+  function sourceRequest(backendId, revision, sources, firstVideoRoot) {
     const session = global.VdrSuiteBrowserSession;
     const restoring = session && typeof session.restore === 'function'
       ? Promise.resolve(session.restore()) : Promise.resolve();
@@ -102,12 +102,16 @@
         headers['Content-Type'] = 'application/json';
         Object.assign(headers, session && typeof session.csrfHeaders === 'function'
           ? session.csrfHeaders() : {});
-        options.body = JSON.stringify({
+        const payload = {
           backendId, revision,
           entries: encodeURIComponent(sources.map(function (item) {
             return item.path + '\t' + item.name;
           }).join('\n'))
-        });
+        };
+        // Only an initially missing, not VDR-discovered recording root is
+        // supplied by the administrator. Existing destinations are immutable.
+        if (firstVideoRoot) payload.videoRoot = encodeURIComponent(firstVideoRoot);
+        options.body = JSON.stringify(payload);
       }
       return global.fetch(url, options).then(function (response) {
         return response.text().then(function (text) {
@@ -124,6 +128,10 @@
                   ? 'Gerade läuft ein Import. Bitte danach erneut speichern.'
                   : code === 'video_root_unavailable'
                     ? 'Aufnahmeziel des lokalen VDR noch nicht ermittelt.'
+                  : code === 'invalid_video_root'
+                    ? 'VDR-Aufnahmeverzeichnis existiert nicht oder ist ungültig.'
+                  : code === 'video_root_already_known'
+                    ? 'VDR-Aufnahmeziel wurde inzwischen ermittelt. Bitte neu laden.'
                   : code === 'invalid_sources' || code === 'overlapping_roots'
                     ? 'Ordner ungültig, fehlen oder überschneiden sich.'
                     : 'Importverzeichnisse können nicht gespeichert oder geladen werden.');
@@ -154,6 +162,12 @@
       'Importordner hinzufügen, benennen oder entfernen. ' +
       'Der oberste Eintrag ist das Standardverzeichnis.'));
     const destination = node('p', '');
+    const firstRootLabel = node('label', 'VDR-Aufnahmeverzeichnis (einmalig)');
+    const firstRootInput = node('input');
+    firstRootInput.type = 'text';
+    firstRootInput.placeholder = 'Tatsächliches VDR-Aufnahmeverzeichnis';
+    firstRootLabel.appendChild(firstRootInput);
+    firstRootLabel.hidden = true;
     const rowsContainer = node('div');
     rowsContainer.className = 'settings-media-import-source-list';
     const add = node('button', '+ Importordner hinzufügen');
@@ -163,6 +177,7 @@
     add.type = 'button';
     save.type = 'button';
     section.appendChild(destination);
+    section.appendChild(firstRootLabel);
     section.appendChild(rowsContainer);
     section.appendChild(add);
     section.appendChild(save);
@@ -175,8 +190,15 @@
 
     function refreshControls() {
       add.disabled = busy || !state || rows.length >= 17;
-      save.disabled = busy || !state || !state.videoRoot || rows.length === 0;
+      const target = state && (state.videoRoot ||
+        (state.initialSetup === true ? firstRootInput.value : ''));
+      save.disabled = busy || !state || !sourcePath(target) ||
+        rows.length === 0;
     }
+    firstRootInput.addEventListener('input', function () {
+      status.textContent = 'Noch nicht gespeichert.';
+      refreshControls();
+    });
     function renderRows() {
       rowsContainer.replaceChildren();
       rows.forEach(function (entry, index) {
@@ -238,8 +260,10 @@
         });
         destination.textContent = value.videoRoot
           ? 'Aufnahmeziel: ' + value.videoRoot + ' (bleibt unverändert)'
-          : 'Aufnahmeziel des lokalen VDR noch nicht ermittelt. ' +
-            'Bitte Backend-/SuiteBridge-Konfiguration prüfen.';
+          : 'VDR-Aufnahmeverzeichnis konnte nicht automatisch ermittelt werden. ' +
+            'Bitte für die Ersteinrichtung das tatsächliche Aufnahmeziel eintragen.';
+        firstRootLabel.hidden = !(value.initialSetup === true && !value.videoRoot);
+        firstRootInput.value = '';
         section.hidden = false;
         renderRows();
         status.textContent = value.initialSetup === true
@@ -266,11 +290,16 @@
       status.textContent = 'Neuen Ordner eintragen und speichern.';
     });
     save.addEventListener('click', function () {
-      if (busy || !state || !state.videoRoot ||
-          rows.length === 0 || rows.length > 17) return;
+      if (busy || !state || rows.length === 0 || rows.length > 17) return;
+      const videoRoot = state.videoRoot ||
+        (state.initialSetup === true ? firstRootInput.value : '');
+      if (!sourcePath(videoRoot)) {
+        status.textContent = 'Bitte das tatsächliche VDR-Aufnahmeverzeichnis angeben.';
+        return;
+      }
       for (let i = 0; i < rows.length; ++i) {
         if (!sourcePath(rows[i].path) || !sourceName(rows[i].name) ||
-            overlap(rows[i].path, state.videoRoot) ||
+            overlap(rows[i].path, videoRoot) ||
             rows.some(function (other, j) {
               return j !== i && overlap(rows[i].path, other.path);
             })) {
@@ -281,11 +310,16 @@
       busy = true;
       refreshControls();
       status.textContent = 'Importverzeichnisse werden gespeichert …';
-      sourceRequest(backendId, state.revision, rows).then(function (result) {
+      sourceRequest(backendId, state.revision, rows,
+        state.videoRoot ? '' : videoRoot).then(function (result) {
         state = result;
         rows = result.sources.map(function (item) {
           return {path: item.path, name: item.name};
         });
+        firstRootLabel.hidden = true;
+        firstRootInput.value = '';
+        destination.textContent = 'Aufnahmeziel: ' + result.videoRoot +
+          ' (bleibt unverändert)';
         renderRows();
         status.textContent = 'Gespeichert. Der Backend-Agent übernimmt die ' +
           'Änderung beim nächsten Scan; kein Neustart erforderlich.';
