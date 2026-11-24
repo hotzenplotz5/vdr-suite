@@ -83,7 +83,7 @@ Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
 `GET /api/v1/search-timers?backend=<backendId>&limit=30[&cursor=<opaque>]`
 
 - This is **VDR SearchTimer**, distinct from native VDR Timer and Suite TimerAssignment.
-- Requires an authenticated, verified **Device credential** and an **independently granted** `searchtimers.view` permission for exactly one backend. `timers.view`, `epg.view`, and `channels.view` do not grant access. Browser administrators may use their existing scoped administrator session; ordinary Browser sessions are not a substitute for Device authorization.
+- Requires an authenticated, verified **Device credential** and an **independently granted** `searchtimers.view` permission for exactly one backend. `timers.view`, `epg.view`, and `channels.view` do not grant access. Human Browser sessions use the same existing backend-scoped `searchtimers.view` authorization (or scoped administrator rights); a session alone confers no grant.
 - Administrators may independently grant/revoke `searchtimers.view` and backend-scoped `searchtimers.create` through Device grant administration. Read permission never implies create permission.
 - `backend` is mandatory, length 1–128, characters A-Z, a-z, 0-9, dot, underscore, hyphen. Unknown/duplicate query fields and invalid/mismatched cursors yield 400.
 - Pages are limited to 1–30 items (default 30), ordered by the **server-owned stable opaque** `searchTimerId`. `st1_` cursors bind the backend. Only a bounded page is returned to the TV. The provider itself currently exposes `/searchtimers.json` as a catalogue: each page request performs one read on only that backend; **no backend fanout or retries**.
@@ -95,7 +95,7 @@ Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
 - Uses the **same** complete authoritative epgsearch catalogue and opaque
   Public-v1 identity reconciliation as the list. Requires a verified paired
   Device with independent `searchtimers.view@backend`; an EPG grant is **not**
-  required just to read name, query and active state. No fallback from a non-admin Browser session.
+  required just to read name, query and active state. Human Browser sessions with the same effective `searchtimers.view` grant are supported.
 - Exactly one canonical `backend` query field is supported, with no cursor,
   limit, aliases or extra parameters. ID must match `st_[0-9a-f]{32}`.
 - 200 returns `{searchTimerId,backendId,name,query,state,meta:{partial:false}}`;
@@ -110,7 +110,7 @@ Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
 - To migrate legacy identity rows that have no verified rule signature, the **first successful catalogue read rotates those legacy public IDs**, even for a still-present rule. Changes in observable rule settings also conservatively rotate the ID; a pure active/inactive toggle does not. An old ID can no longer select another rule through the saved-rule preview. Consumers must refresh cards and discard old IDs after migration/change.
 - **Identity boundary:** Public IDs are reconciled against the observed catalogue; identical deletion/recreation between observations cannot be detected with stock epgsearch. Mutations use full-record optimistic revision checks, not native atomic CAS.
 - A genuinely empty provider list is HTTP 200 with `items: []`. An unavailable provider, unavailable runtime, or identity failure is HTTP 503, not an empty successful response. Missing/invalid Device credentials yield 401 or 403, unauthorized backend 403; all use the Public-v1 Problem model.
-- The device collection GET remains compact. Browser administrators receive the existing settings projection; the version endpoint also carries exact native repeat and activation modes. See the mutation contract below.
+- The device collection GET remains compact. Authorized Human Browser sessions receive the existing settings projection; the version endpoint also carries exact native repeat and activation modes. See the mutation contract below.
 - Public response is `no-store`. On permission revocation a client must clear stale SearchTimer cards, not keep displaying a successful prior list.
 
 See `api/openapi.json`, `docs/planning/timer-searchtimer-parity.md` (VIDAA repository), and `docs/client-integration-playbook.md` (VIDAA repository).
@@ -140,7 +140,7 @@ Source CI and package builds are required for the exact integration commit; the 
 
 `GET /api/v1/search-timers/draft-preview?backend=<id>&query=<encoded>&mode=<0|1|2|3|5>&compareTitle=<0|1>&compareSubtitle=<0|1>&compareSummary=<0|1>[&tolerance=<0..3>][&limit=<1..30>]`
 
-- Verified paired Device with both `searchtimers.view@backend` and `epg.view@backend`. A Browser administrator uses the same service; no mutation, no native ID or backend credential.
+- Verified paired Device with both `searchtimers.view@backend` and `epg.view@backend`. An authorized Human Browser session uses the same service; no mutation, no native ID or backend credential.
 - `backend` must be explicit and exactly scoped; `query` is URL encoded, 2–240 decoded bytes; complete query string ≤900 bytes. Every comparison flag and the mode must be explicit. Allowed modes: phrase 0, all words 1, any word 2, exact 3, fuzzy 5. Regex and unmodeled controls rejected. `tolerance` is valid only for fuzzy matching.
 - Uses the **same** `SearchTimerPreviewService` and ready backend EPG cache as the existing rule preview and Web. Only its implemented EPG text comparison/match semantics are covered; channel/duration filters, blacklists, repeat avoidance, recording settings and full epgsearch planning are **not evaluated** and are therefore rejected if supplied. Clients must label the result **EPG match-only, not an exact recording forecast**.
 - Response: `{backendId,totalCount,items:[{title,subtitle,channelId,startTime,endTime}],meta:{partial:false,epgInput:"ready",evaluation:"epg-match-only"}}`. `limit` default/max 30. Empty valid match is 200/`[]`; cache/backend unavailable 503. 400 for unsupported options, duplicate/oversized/mismatched query; 401/403 for authentication/grants. `Cache-Control: no-store`.
@@ -415,8 +415,8 @@ No separate recurring SearchTimer hardware test slices.
 
 ## Public-v1 guarded native SearchTimer mutations (integration candidate)
 
-Browser administrators use the existing backend-scoped administrator session
-and CSRF checks. Device authorization still requires the independently granted
+Human Browser sessions use existing action-specific backend-scoped grants
+and CSRF checks; administrator role is not required. Device authorization still requires the independently granted
 backend permissions: searchtimers.view for reads, searchtimers.modify for
 update/deactivate, searchtimers.execute for activate, searchtimers.delete for
 delete. No grant is added or implied.

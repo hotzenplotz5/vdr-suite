@@ -47,6 +47,49 @@ void assertDenied(const SecurityGateDecision& decision, int status)
 
 int main()
 {
+    // F5 closeout: existing Human SearchTimer grants are sufficient for
+    // the same canonical v1 routes, without role.admin. CSRF and independent
+    // per-action/backend grants remain mandatory.
+    const std::string search = "/api/v1/search-timers";
+    const std::string rule = search + "/st_0123456789abcdef0123456789abcdef";
+    const std::string scope = "?backend=default";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        auto get = [&](const std::string& path) {
+            return fixture.gate.evaluate(browserRequest(fixture, "GET", path));
+        };
+        auto post = [&](const std::string& path, const std::string& body, bool csrf = true) {
+            auto request = browserRequest(fixture, "POST", path, csrf);
+            request.body = body;
+            return fixture.gate.evaluate(request);
+        };
+        assertDenied(get(search + scope), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "searchtimers.view", "default"));
+        assertAllowed(get(search + scope), "searchtimers.view", false);
+        assertAllowed(get(rule + scope), "searchtimers.view", false);
+        assertAllowed(get(rule + "/version" + scope), "searchtimers.view", false);
+        assertDenied(get(search + "?backend=foreign"), 403);
+        assertDenied(get(rule + "/preview" + scope), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "epg.view", "default"));
+        assertAllowed(get(rule + "/preview" + scope), "searchtimers.view", false);
+        assertDenied(post(search + scope, "{}"), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "searchtimers.create", "default"));
+        assertAllowed(post(search + scope, "{}"), "searchtimers.create", true);
+        assertDenied(post(search + scope, "{}", false), 403);
+        assertDenied(post(search + "?backend=foreign", "{}"), 403);
+        const std::string mutation = rule + "/mutations" + scope;
+        assertDenied(post(mutation, R"({"action":"update"})"), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "searchtimers.modify", "default"));
+        assertAllowed(post(mutation, R"({"action":"update"})"), "searchtimers.modify", true);
+        assertAllowed(post(mutation, R"({"action":"deactivate"})"), "searchtimers.modify", true);
+        assertDenied(post(mutation, R"({"action":"activate"})"), 403);
+        assertDenied(post(mutation, R"({"action":"delete"})"), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "searchtimers.execute", "default"));
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "searchtimers.delete", "default"));
+        assertAllowed(post(mutation, R"({"action":"activate"})"), "searchtimers.execute", true);
+        assertAllowed(post(mutation, R"({"action":"delete"})"), "searchtimers.delete", true);
+        assertDenied(post(mutation, R"({"action":"delete"})", false), 403);
+    }
     const std::string detail = Timer + "?backendId=default";
     const std::string aux = Timer + "/aux?backendId=default";
     const std::string modify = Timer + "/modifications?backendId=default";

@@ -1248,10 +1248,10 @@
         ],
         "operationId": "getSearchTimer",
         "summary": "Get one saved VDR SearchTimer by its opaque Public-v1 ID",
-        "description": "Read-only, single-backend, authoritative epgsearch catalogue lookup after Public-v1 identity reconciliation. Retired IDs return 404; incomplete or unavailable provider inventories return 503. Does not expose native provider IDs or grant permission to modify, activate or delete a rule. Browser administrators use the same route and receive the known Web settings groups; paired Devices retain the compact projection.",
+        "description": "Read-only, single-backend, authoritative epgsearch catalogue lookup after Public-v1 identity reconciliation. Retired IDs return 404; incomplete or unavailable provider inventories return 503. Does not expose native provider IDs or grant permission to modify, activate or delete a rule. authorized Human Browser sessions use the same route and receive the known Web settings groups; paired Devices retain the compact projection.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device and independent searchtimers.view@backend"
+          "authorization": "verified Device and independent searchtimers.view@backend or Human Browser Session with the same effective backend-scoped permissions"
         },
         "parameters": [
           {
@@ -1324,7 +1324,7 @@
                     },
                     "settings": {
                       "type": "object",
-                      "description": "Returned to an authorized Browser administrator session; same known rule option groups as the previous Web detail. No native rule ID, native revision or provider credentials.",
+                      "description": "Returned to an authorized authorized Human Browser Session; same known rule option groups as the previous Web detail. No native rule ID, native revision or provider credentials.",
                       "properties": {
                         "recordingOptions": {
                           "type": "object"
@@ -1404,10 +1404,10 @@
         "operationId": "previewSavedSearchTimer",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend"
+          "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend or Human Browser Session with the same effective backend-scoped permissions"
         },
         "summary": "Preview EPG matches for one saved SearchTimer without mutation",
-        "description": "Browser administrator session or paired Device with searchtimers.view and the existing EPG or live-TV preview grant for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
+        "description": "authorized Human Browser Session or paired Device with searchtimers.view and the existing EPG or live-TV preview grant for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
         "parameters": [
           {
             "name": "searchTimerId",
@@ -1889,10 +1889,10 @@
         ],
         "operationId": "listSearchTimers",
         "summary": "Read one backend's SearchTimers through an authorized Device",
-        "description": "Read-only; requires a Browser administrator session or verified paired Device with independent searchtimers.view@backend. Server-owned persisted st_ IDs, no native IDs. At most 30 returned SearchTimers per page. Opaque st1_ cursor is bound to backend. Provider not available yields 503, never an empty successful list. Not Suite TimerAssignments or VDR native Timers. Browser administrators receive the existing Web settings groups; the Device projection is unchanged. These read-only settings do not authorize arbitrary field updates.",
+        "description": "Read-only; requires a authorized Human Browser Session or verified paired Device with independent searchtimers.view@backend. Server-owned persisted st_ IDs, no native IDs. At most 30 returned SearchTimers per page. Opaque st1_ cursor is bound to backend. Provider not available yields 503, never an empty successful list. Not Suite TimerAssignments or VDR native Timers. authorized Human Browser sessions receive the existing Web settings groups; the Device projection is unchanged. These read-only settings do not authorize arbitrary field updates.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device and searchtimers.view@backend"
+          "authorization": "verified Device and searchtimers.view@backend or Human Browser Session with the same effective backend-scoped permissions"
         },
         "parameters": [
           {
@@ -1977,7 +1977,7 @@
                           },
                           "settings": {
                             "type": "object",
-                            "description": "Returned to an authorized Browser administrator session; same known rule option groups as the previous Web detail. No native rule ID, native revision or provider credentials.",
+                            "description": "Returned to an authorized authorized Human Browser Session; same known rule option groups as the previous Web detail. No native rule ID, native revision or provider credentials.",
                             "properties": {
                               "recordingOptions": {
                                 "type": "object"
@@ -10783,10 +10783,10 @@
         ],
         "operationId": "previewDraftSearchTimer",
         "summary": "Preview new SearchTimer EPG matches without creating a rule",
-        "description": "Read-only Browser administrator or Device preview using SearchTimerPreviewService and ready backend EPG cache; EPG text match only, NOT an exact recording/blacklist/duplicate forecast. Unmodeled filter and recording fields fail as 400.",
+        "description": "Read-only authorized Human Browser or Device preview using SearchTimerPreviewService and ready backend EPG cache; EPG text match only, NOT an exact recording/blacklist/duplicate forecast. Unmodeled filter and recording fields fail as 400.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device, searchtimers.view@backend and epg.view@backend"
+          "authorization": "verified Device, searchtimers.view@backend and epg.view@backend or Human Browser Session with the same effective backend-scoped permissions"
         },
         "parameters": [
           {
@@ -12245,10 +12245,10 @@
         ],
         "operationId": "getSearchTimerNativeVersion",
         "summary": "Read a backend-scoped SearchTimer mutation revision",
-        "description": "Fresh stock epgsearch LSTS observation of an active public binding. Returns a strong opaque ETag derived from the full rule and public identity, together with the query and activation state from that same observation; no native ID exposed. Requires Browser administrator or Device searchtimers.view@backend.",
+        "description": "Fresh stock epgsearch LSTS observation of an active public binding. Returns a strong opaque ETag derived from the full rule and public identity, together with the query and activation state from that same observation; no native ID exposed. Requires authorized Human Browser or Device searchtimers.view@backend.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Browser administrator or verified Device, exact searchtimers.view@backend"
+          "authorization": "authorized Human Browser or verified Device, exact searchtimers.view@backend"
         },
         "parameters": [
           {
@@ -12382,10 +12382,10 @@
         ],
         "operationId": "mutateSearchTimerCAS",
         "summary": "Durable revision-checked UPDATE, ACTIVATE, DEACTIVATE or DELETE of one SearchTimer",
-        "description": "One confirmed Browser administrator (existing CSRF) or Device action with the unchanged action-specific backend grant. If-Match refers to the observed full-rule revision. The server reserves one durable Operation and uses standard epgsearch EDIS/MODS/DELS with independent LSTS readback. No patched plugin or native atomic CAS guarantee. No automatic retry of outcome_unknown. UPDATE changes only the inactive rule query while preserving other native fields. Review EPG preview before activation.",
+        "description": "One confirmed authorized Human Browser (existing CSRF) or Device action with the unchanged action-specific backend grant. If-Match refers to the observed full-rule revision. The server reserves one durable Operation and uses standard epgsearch EDIS/MODS/DELS with independent LSTS readback. No patched plugin or native atomic CAS guarantee. No automatic retry of outcome_unknown. UPDATE changes only the inactive rule query while preserving other native fields. Review EPG preview before activation.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Browser administrator with CSRF or verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
+          "authorization": "authorized Human Browser with CSRF or verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
         },
         "parameters": [
           {
