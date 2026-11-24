@@ -410,6 +410,8 @@ async function test() {
   const manualRows = noVideoRoot.elements.find(e =>
     e.className === 'settings-media-import-source-list');
   assert(manualTarget && !manualTarget.hidden && manualSave.disabled);
+  assert.equal(manualTarget.className, 'settings-media-import-source-row',
+    'first VDR recording root entry uses import folder styling');
   assert(noVideoRoot.elements.some(e =>
     e.textContent.includes('VDR-Aufnahmeverzeichnis konnte nicht automatisch ermittelt')));
   manualAdd.handlers.click();
