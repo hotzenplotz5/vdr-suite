@@ -47,6 +47,14 @@ if [ "$action" = check ]; then
         echo 'RUNNING_OPT_IN=UNKNOWN'
       fi ;;
   esac
+  effective=$(systemctl show "$unit" -p ExecStart --value 2>/dev/null)
+  if [ -z "$effective" ]; then
+    echo 'UNIT_OPT_IN=UNKNOWN'
+  elif printf '%s\n' "$effective" | grep -Fq -- '--enable-media-import'; then
+    echo 'UNIT_OPT_IN=YES'
+  else
+    echo 'UNIT_OPT_IN=NO'
+  fi
   if [ -f "$dropin" ]; then
     echo 'RUNTIME_TRIAL_DROPIN=PRESENT'
   else
