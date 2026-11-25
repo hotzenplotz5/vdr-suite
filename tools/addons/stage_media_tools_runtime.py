@@ -41,7 +41,13 @@ def payload_roles() -> dict[str, str]:
     return result
 
 
-def verify_media_tools_stage(stage: Path, approved_sha256: str) -> dict:
+def valid_source_identity(value: str, *, recipe_source: bool = False) -> bool:
+    return bool(re.fullmatch(r"[0-9a-f]{40}", value) or
+                (recipe_source and re.fullmatch(r"git-prefix:[0-9a-f]{7,39}", value)))
+
+
+def verify_media_tools_stage(stage: Path, approved_sha256: str, *,
+                             recipe_source: bool = False) -> dict:
     """Check the sealed stage and its versioned add-on payload; no host writes.
 
     The stage seal is not a signature and never grants handler execution.
@@ -67,7 +73,8 @@ def verify_media_tools_stage(stage: Path, approved_sha256: str) -> dict:
             "approved_handler_sha256", "files"} or record["schema"] != 1 or
             record["module"] != "rectools" or
             not isinstance(record["prepared_source_sha"], str) or
-            not re.fullmatch(r"[0-9a-f]{40}", record["prepared_source_sha"])):
+            not valid_source_identity(record["prepared_source_sha"],
+                                      recipe_source=recipe_source)):
         raise ValueError("Media Tools inventory identity/schema mismatch")
     if record["approved_handler_sha256"] != approved_sha256:
         raise ValueError("Media Tools inventory handler approval mismatch")
@@ -111,7 +118,8 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def compose(work: Path, output: Path, expected_sha: str) -> None:
+def compose(work: Path, output: Path, expected_sha: str, *,
+            recipe_source: bool = False) -> None:
     if (len(expected_sha) != 64 or any(c not in "0123456789abcdef"
                                       for c in expected_sha)):
         raise ValueError("invalid independently approved handler SHA256")
@@ -124,8 +132,8 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
     if not regular(candidate):
         raise ValueError("missing prepared candidate record")
     lines = candidate.read_text(encoding="ascii").splitlines()
-    if (len(lines) != 2 or len(lines[0]) != 40 or
-            any(c not in "0123456789abcdef" for c in lines[0]) or
+    if (len(lines) != 2 or
+            not valid_source_identity(lines[0], recipe_source=recipe_source) or
             lines[1] != expected_sha):
         raise ValueError("prepared handler approval differs")
     input_stage = work / "stage"
@@ -208,7 +216,7 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
         # Re-seal the complete, immutable Suite + optional add-on output.
         (stage / MANIFEST_NAME).unlink()
         seal(stage)
-        verify_media_tools_stage(stage, expected_sha)
+        verify_media_tools_stage(stage, expected_sha, recipe_source=recipe_source)
         os.replace(stage, output)
 
     print("MEDIA_TOOLS_RUNTIME_STAGE=PASS")

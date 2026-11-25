@@ -28,12 +28,20 @@ from install_runtime_stage import load_manifest, verify_sealed_stage
 
 
 def source_commit() -> str:
-    """Read a real Git SHA from the checkout or an export-subst source archive."""
+    """Read exact Git provenance, or an explicitly labelled recipe prefix."""
     marker = (ROOT / ".vdr-suite-source-commit").read_text(encoding="ascii").strip()
     if re.fullmatch(r"[0-9a-f]{40}", marker):
         return marker
     if marker != "$Format:%H$":
         raise ValueError("invalid source archive commit marker")
+    if not (ROOT / ".git").exists():
+        changelog = (ROOT / "debian/changelog").read_text(encoding="utf-8").splitlines()[0]
+        version = re.match(r"vdr-suite \(([^)]+)\)", changelog)
+        prefix = (re.search(r"\+g([0-9a-f]{7,39})~ubuntu[0-9.]+$", version[1])
+                  if version else None)
+        if prefix:
+            return "git-prefix:" + prefix[1]
+        raise ValueError("source archive lacks Git commit or recipe commit prefix")
     resolved = subprocess.check_output(
         ["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
         text=True, timeout=10,
@@ -91,8 +99,8 @@ def build_package_payload(base_stage: Path, workers: Path,
             copied.chmod(0o755)
         (prepared / "candidate.txt").write_text(source + "\n" + approved + "\n", encoding="ascii")
         sealed = scratch / "sealed"
-        compose(prepared, sealed, approved)
-        record = verify_media_tools_stage(sealed, approved)
+        compose(prepared, sealed, approved, recipe_source=True)
+        record = verify_media_tools_stage(sealed, approved, recipe_source=True)
         paths = stage_package_paths()
         if set(paths) != set(record["files"]) | {INVENTORY_REL.as_posix()}:
             raise ValueError("Debian payload differs from the sealed inventory")
