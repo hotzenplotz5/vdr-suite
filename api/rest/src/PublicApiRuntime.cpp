@@ -5162,10 +5162,19 @@ ApiResponse publicGenreCollectionResponse(
                 "\",\"label\":\"" + jsonEscape(item.label) +
                 "\",\"labelDe\":\"" + jsonEscape(item.labelDe) +
                 "\",\"labelEn\":\"" + jsonEscape(item.labelEn) +
-                "\",\"count\":" + std::to_string(item.count) + "}";
+                "\",\"count\":" + std::to_string(item.count) +
+                ",\"known\":" + (item.known ? "true" : "false") +
+                ",\"activeCount\":" + std::to_string(item.activeCount) +
+                ",\"staleCount\":" + std::to_string(item.staleCount) +
+                ",\"conflictCount\":" + std::to_string(item.conflictCount) +
+                ",\"displayOrder\":" + std::to_string(item.displayOrder) + "}";
         }
     }
-    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+    body += "]";
+    if (!query.recordings)
+        body += ",\"totalItems\":" + std::to_string(page.totalItems) +
+            ",\"assignmentCount\":" + std::to_string(page.assignmentCount);
+    body += ",\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalCount) +
         ",\"hasMore\":" +

@@ -527,6 +527,11 @@ struct PublicGenreItem
     std::string labelDe;
     std::string labelEn;
     std::size_t count = 0U;
+    bool known = false;
+    std::size_t activeCount = 0U;
+    std::size_t staleCount = 0U;
+    std::size_t conflictCount = 0U;
+    std::size_t displayOrder = 0U;
 };
 
 struct PublicGenreRecordingItem
@@ -546,6 +551,8 @@ struct PublicGenreCollectionResult
     std::vector<PublicGenreItem> genres;
     std::vector<PublicGenreRecordingItem> recordings;
     std::size_t totalCount = 0U;
+    std::size_t totalItems = 0U;
+    std::size_t assignmentCount = 0U;
 };
 
 enum class PublicChannelCollectionStatus

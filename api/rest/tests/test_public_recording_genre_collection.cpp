@@ -34,6 +34,8 @@ int main()
         else
         {
             result.totalCount = 1U;
+            result.totalItems = 1033U;
+            result.assignmentCount = 1050U;
             if (request.offset == 0U)
             {
                 PublicGenreItem item;
@@ -42,6 +44,10 @@ int main()
                 item.labelDe = "Krimi";
                 item.labelEn = "Crime";
                 item.count = 1033U;
+                item.known = true;
+                item.activeCount = 1000U;
+                item.staleCount = 20U;
+                item.conflictCount = 13U;
                 result.genres.push_back(std::move(item));
             }
         }
@@ -57,7 +63,13 @@ int main()
         "actor:tv","genre","",genres,"","",{"home"}));
     assert(genres.statusCode == 200);
     assert(genres.body.find("Krimi") != std::string::npos);
-    assert(genres.body.find("1033") != std::string::npos);
+    assert(genres.body.find("\"totalItems\":1033") != std::string::npos);
+    assert(genres.body.find("\"assignmentCount\":1050") != std::string::npos);
+    assert(genres.body.find("\"known\":true") != std::string::npos);
+    assert(genres.body.find("\"activeCount\":1000") != std::string::npos);
+    assert(genres.body.find("\"staleCount\":20") != std::string::npos);
+    assert(genres.body.find("\"conflictCount\":13") != std::string::npos);
+    assert(genres.body.find("\"displayOrder\":0") != std::string::npos);
     assert(genres.body.find("backendNativeId") == std::string::npos);
     ApiResponse recordings;
     assert(api.tryHandleGet(
@@ -69,6 +81,8 @@ int main()
     assert(recordings.body.find("recordingId") != std::string::npos);
     assert(recordings.body.find("backendNativeId") == std::string::npos);
     assert(recordings.body.find("recordingPath") == std::string::npos);
+    assert(recordings.body.find("assignmentCount") == std::string::npos);
+    assert(recordings.body.find("displayOrder") == std::string::npos);
     assert(recordings.body.find("\"edited\":true") != std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",

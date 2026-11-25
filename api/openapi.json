@@ -14972,6 +14972,26 @@
           "count": {
             "type": "integer",
             "minimum": 0
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "activeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "staleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conflictCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based canonical Web genre display order across the full collection; Public-v1 pagination remains ordered by genreId."
           }
         }
       },
@@ -15031,6 +15051,16 @@
           },
           "meta": {
             "$ref": "#/components/schemas/PublicNonpartialMeta"
+          },
+          "totalItems": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Distinct indexed recordings across all genres, not the sum of facet counts."
+          },
+          "assignmentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total genre assignments in the backend overview."
           }
         }
       },

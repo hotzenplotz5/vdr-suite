@@ -3638,17 +3638,23 @@ bool DaemonRuntime::initialize()
                 if (!genres.recordingOverview(
                     request.backendId, request.locale, overview))
                     return result;
-                std::sort(overview.genres.begin(), overview.genres.end(),
-                    [](const GenreOverviewEntry& a,
-                       const GenreOverviewEntry& b) {
-                        return a.genreId < b.genreId;
+                // Keep public ID pagination stable; expose the existing
+                // canonical Web index order independently.
+                std::vector<std::size_t> order;
+                for (std::size_t i = 0; i < overview.genres.size(); ++i)
+                    order.push_back(i);
+                std::sort(order.begin(), order.end(),
+                    [&overview](std::size_t a, std::size_t b) {
+                        return overview.genres[a].genreId < overview.genres[b].genreId;
                     });
                 result.totalCount = overview.genres.size();
+                result.totalItems = static_cast<std::size_t>(overview.distinctItemCount);
+                result.assignmentCount = static_cast<std::size_t>(overview.assignmentCount);
                 const std::size_t end =
                     std::min(result.totalCount, request.offset + request.limit);
                 for (std::size_t index = request.offset; index < end; ++index)
                 {
-                    const auto& item = overview.genres[index];
+                    const auto& item = overview.genres[order[index]];
                     if (item.genreId.empty() || item.label.empty() ||
                         item.itemCount < 0)
                         return PublicGenreCollectionResult{};
@@ -3658,6 +3664,11 @@ bool DaemonRuntime::initialize()
                     view.labelDe = item.labelDe;
                     view.labelEn = item.labelEn;
                     view.count = static_cast<std::size_t>(item.itemCount);
+                    view.known = item.known;
+                    view.activeCount = static_cast<std::size_t>(item.activeCount);
+                    view.staleCount = static_cast<std::size_t>(item.staleCount);
+                    view.conflictCount = static_cast<std::size_t>(item.conflictCount);
+                    view.displayOrder = order[index];
                     result.genres.push_back(std::move(view));
                 }
             }
