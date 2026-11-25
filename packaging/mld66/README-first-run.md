@@ -13,6 +13,18 @@ an **MLD recipe integration contract**. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
 The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
 
+## Media Tools: temporärer MLD-Funktionstest (25 November 2026)
+
+Skippys Read-only-Diagnose bestätigt fehlendes `--enable-media-import`
+im laufenden Agenten und zwei noch nicht ausgestellte Add-on-Freigaben.
+**Keine Paket-/Dienständerung auf Verdacht**: Der reversible /run-Drop-in,
+die getrennte Core-/Handler-Freigabe und die SQLite-Audit-Diagnose sind im
+[MLD Media-Tools-Laufzeittest](media-tools-temporary-runtime-test.md)
+dokumentiert. Das Testskript `tools/addons/mld_media_tools_trial.sh`
+bereitet nur den Startparameter vor; ein Agent-Neustart ist eine
+gesonderte Entscheidung des Testhost-Betreibers. Die BitBake-Rezepte bleiben
+bis zum tatsächlichen Laufzeitergebnis unverändert.
+
 ## MLD binary version identity (24 November 2026)
 
 Skippy reported `source-unversioned` in **Installierter VDR-Suite-Stand**.
