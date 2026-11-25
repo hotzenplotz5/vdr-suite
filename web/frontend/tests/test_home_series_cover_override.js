@@ -522,6 +522,10 @@ const tmdbSeries = {
   key: 'folder:series/battlestar-galactica',
   posterUrl: '/automatic-series-cover.jpg'
 };
+const publicSeries = {
+  key: 'sg1_0123456789abcdef0123456789abcdef',
+  posterUrl: tmdbSeries.posterUrl
+};
 
 api.setSeriesCoverSettingsSnapshot(
   {
@@ -529,6 +533,7 @@ api.setSeriesCoverSettingsSnapshot(
     coverOverrides: [
       {
         seriesKey: tmdbSeries.key,
+        publicGroupKey: publicSeries.key,
         posterUrl: tmdbSeriesCover,
         revision: 7
       }
@@ -545,6 +550,10 @@ assert.strictEqual(
   tmdbSeriesCover,
   'TMDB persisted Series cover image URL must survive frontend allowlist'
 );
+assert.strictEqual(api.seriesCoverPosterUrl(publicSeries, 'default'), tmdbSeriesCover);
+assert.strictEqual(api.seriesCoverStorageKey(publicSeries, 'default'), tmdbSeries.key);
+assert.strictEqual(api.seriesCoverPosterUrl(publicSeries, 'other'), publicSeries.posterUrl);
+assert.strictEqual(api.seriesCoverStorageKey(publicSeries, 'other'), publicSeries.key);
 
 api.setSeriesCoverSettingsSnapshot(
   {

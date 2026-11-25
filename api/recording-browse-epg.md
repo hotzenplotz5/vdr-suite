@@ -125,12 +125,19 @@ or metadata lookup is introduced. Case normalization of the seed is ASCII;
 Unicode case-variant folders and rich/enriched grouping parity require
 verification before switching the browser.
 
-The browser membership call remains on its existing route. Existing persisted
-Series cover settings are keyed by the legacy Web grouping key and folder
-surfaces use descendant membership. Those consumers must be mapped before
-using opaque group keys in the browser, alongside poster/preview and recording
-detail/action identity parity. These additive read facts are not a migration
-of the saved settings and must not invalidate user-selected Series covers.
+The existing authenticated Series artwork settings response now adds a
+`publicGroupKey` alias for each stored legacy cover key, computed by the
+same owner as the Genre member group. The browser resolves both keys to
+the same cover and uses the original persisted key when changing or
+clearing an existing assignment. No settings rows, image URLs or revisions
+are migrated. This is compatibility for matching group seeds, not proof
+of equivalence for all enriched/Unicode group variants.
+
+The browser membership call remains on its existing route until descendant
+folder membership, poster/preview and recording detail/action identity
+parity are covered. New cover writes from an opaque-only client and the
+remaining enriched grouping cases require review at the browser migration;
+the existing Web cover workflow is unchanged.
 
 ## Recording titles and edited cuts: public presentation parity
 

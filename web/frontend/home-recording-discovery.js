@@ -239,11 +239,16 @@
 
       if (!seriesKey || !posterUrl || revision <= 0) return;
 
-      overrides.set(seriesKey, {
+      const override = {
         seriesKey: seriesKey,
         posterUrl: posterUrl,
         revision: revision
-      });
+      };
+      overrides.set(seriesKey, override);
+      const publicGroupKey = text(entry && entry.publicGroupKey);
+      if (/^sg1_[0-9a-f]{32}$/.test(publicGroupKey)) {
+        overrides.set(publicGroupKey, override);
+      }
     });
 
     state.seriesCoverBackendId = id;
@@ -540,6 +545,11 @@
     return request.promise;
   }
 
+  function seriesCoverStorageKey(series, backendId) {
+    const override = seriesCoverOverride(series, backendId);
+    return text(override && override.seriesKey) || text(series && series.key);
+  }
+
   function updateSeriesCoverOverride(
     series,
     backendId,
@@ -547,8 +557,9 @@
   ) {
     const client = clientApi();
     const id = text(backendId) || 'default';
-    const seriesKey =
-      text(series && series.key);
+    // Updating or clearing an already assigned cover keeps its original
+    // storage key, even if the current Series uses the public group alias.
+    const seriesKey = seriesCoverStorageKey(series, id);
 
     if (!client ||
         typeof client.requestJson !== 'function') {
@@ -6005,6 +6016,7 @@
       requestSeriesHierarchyOverride: requestSeriesHierarchyOverride,
       setSeriesCoverSettingsSnapshot: setSeriesCoverSettingsSnapshot,
       seriesCoverPosterUrl: seriesCoverPosterUrl,
+      seriesCoverStorageKey: seriesCoverStorageKey,
       seriesCoverCandidateImageUrl: seriesCoverCandidateImageUrl,
       searchSeriesCoverCandidates: searchSeriesCoverCandidates,
       loadSeriesCoverSeasons: loadSeriesCoverSeasons,

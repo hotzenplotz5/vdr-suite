@@ -1,6 +1,7 @@
 #include "SeriesArtworkSettingsApiRuntime.h"
 
 #include "SeriesArtworkBackendSettingsService.h"
+#include "PublicSeriesGroupKey.h"
 
 #include <cctype>
 #include <map>
@@ -288,6 +289,8 @@ std::string serialize(
 
         json +=
             "{\"seriesKey\":\"" + jsonEscape(value.seriesKey) +
+            "\",\"publicGroupKey\":\"" +
+            PublicSeriesGroupKey::fromLegacy(settings.backendId, value.seriesKey) +
             "\",\"posterUrl\":\"" + jsonEscape(value.posterUrl) +
             "\",\"providerId\":\"" + jsonEscape(value.providerId) +
             "\",\"externalNamespace\":\"" +

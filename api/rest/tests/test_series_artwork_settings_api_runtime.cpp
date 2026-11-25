@@ -1,6 +1,7 @@
 #include "Database.h"
 #include "SeriesArtworkBackendSettingsService.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
+#include "PublicSeriesGroupKey.h"
 
 #include <cassert>
 #include <filesystem>
@@ -147,6 +148,11 @@ int main()
            std::string::npos);
     assert(response.body.find("\"posterUrl\":\"" + posterUrl + "\"") !=
            std::string::npos);
+    const auto publicGroupKey = PublicSeriesGroupKey::fromLegacy("default", seriesKey);
+    assert(publicGroupKey.size() == 36U && publicGroupKey.rfind("sg1_", 0U) == 0U);
+    assert(publicGroupKey != PublicSeriesGroupKey::fromLegacy("other", seriesKey));
+    assert(response.body.find("\"publicGroupKey\":\"" + publicGroupKey + "\"") !=
+           std::string::npos);
     assert(response.body.find("\"revision\":1") !=
            std::string::npos);
 
@@ -155,6 +161,9 @@ int main()
         response));
     assert(response.statusCode == 200);
     assert(response.body.find("\"seriesKey\":\"" + seriesKey + "\"") !=
+           std::string::npos);
+
+    assert(response.body.find("\"publicGroupKey\":\"" + publicGroupKey + "\"") !=
            std::string::npos);
 
     const std::string clearBody =

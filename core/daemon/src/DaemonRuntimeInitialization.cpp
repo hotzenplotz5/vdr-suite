@@ -55,6 +55,7 @@
 #include "RestfulApiRecordingMapper.h"
 #include "HttpRequest.h"
 #include "PublicRecordingDisplayName.h"
+#include "PublicSeriesGroupKey.h"
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -3657,11 +3658,10 @@ bool DaemonRuntime::initialize()
                         GenreBrowserApiRuntime::projectRecordingCard(item, view);
                     if (!seriesSeed.empty())
                     {
-                        const auto digest = sha256Hex(
-                            "recording-series-group/1|" + request.backendId +
-                            std::string(1, '\0') + seriesSeed);
-                        if (digest.empty()) return PublicGenreCollectionResult{};
-                        view.seriesGroupKey = "sg1_" + digest.substr(0, 32);
+                        view.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(
+                            request.backendId, seriesSeed);
+                        if (view.seriesGroupKey.empty())
+                            return PublicGenreCollectionResult{};
                     }
                     // The image owner uses this same selected manual binding.
                     // Reuse the already resolved recording; no image/list HTTP
