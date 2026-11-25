@@ -30,7 +30,8 @@ inline std::string browserHomeCacheScope(const RequestSecurityContext& context,
 }
 
 // Cache-only canonical query scope. Ambiguous query identities stay online.
-inline std::string canonicalHomeCacheBackend(const std::string& raw)
+inline std::string canonicalHomeCacheBackend(const std::string& raw,
+                                             bool publicV1 = false)
 {
     std::size_t backends = 0, backendIds = 0;
     for (std::size_t start = 0; start < raw.size();) {
@@ -44,6 +45,8 @@ inline std::string canonicalHomeCacheBackend(const std::string& raw)
         start = end + 1;
     }
     const auto query = RestQueryParameters::parse(raw);
+    if (publicV1)
+        return backends == 0 && backendIds == 1 ? query.get("backendId") : std::string{};
     const auto backend = query.get("backend");
     if (backends != 1 || backendIds > 1 || (backendIds && query.get("backendId") != backend)) return {};
     return backend;
@@ -223,6 +226,13 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
         path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0) {
         backend = path.substr(prefix.size(), path.size() - prefix.size() - suffix.size());
         recording = history = epg = true;
+    } else if (request.method == "GET" && at != std::string::npos &&
+               path == "/api/v1/genres") {
+        // Reuse the authenticated Public-v1 scope; this decorates the response
+        // only, without changing route admission or the returned projection.
+        backend = canonicalHomeCacheBackend(request.path.substr(at + 1), true);
+        if (backend.empty() || backend != authorizedBackend) return;
+        recording = true;
     } else if (request.method == "GET" && at != std::string::npos &&
         (path == "/api/vdr/recordings/query" || path == "/api/vdr/recordings/folder" ||
          path == "/api/metadata/genres" || path == "/api/metadata/genres/recordings")) {

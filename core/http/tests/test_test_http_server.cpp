@@ -195,6 +195,49 @@ int main()
         request.path = "/api/vdr/recordings/query?backend=default";
         vdrsuite::http::addHomeCacheScope(request, response, context, false, {});
         assert(response.headers.empty());
+        // Public-v1 genre pages use the same session/backend/grant proof as
+        // the legacy overview, but only after the Public-v1 scope was admitted.
+        context.grants = {{"recordings.view", "default"}};
+        const auto genreScope = vdrsuite::http::browserHomeCacheScope(context, "default");
+        for (const auto& target : {
+            "/api/metadata/genres?backend=default&scope=recordings",
+            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=0",
+            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=30"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.body = "{}";
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+            assert(response.headers.at("X-VDR-Suite-Home-Recording-Scope") == genreScope);
+            assert(response.headers.at("X-VDR-Suite-Home-Backend") == "default");
+            assert(response.headers.at("Cache-Control") == "private, no-store");
+            assert(response.headers.count("X-VDR-Suite-Home-History-Scope") == 0);
+            assert(response.body == "{}" && response.statusCode == 200);
+        }
+        for (const auto& target : {
+            "/api/v1/genres?backendId=default&backendId=other",
+            "/api/v1/genres?backendId=default&backend=default",
+            "/api/v1/genres?backend=default",
+            "/api/v1/genres?%62ackendId=default",
+            "/api/v1/genres?backendId=other",
+            "/api/v1/genres/epg?backendId=default"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+            assert(response.headers.empty());
+        }
+        request.path = "/api/v1/genres?backendId=default";
+        response = HttpServerResponse{};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "other");
+        assert(response.headers.empty());
+        vdrsuite::http::addHomeCacheScope(request, response, context, false, "default");
+        assert(response.headers.empty());
+        response.statusCode = 503;
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.empty() && response.statusCode == 503);
+        response = HttpServerResponse{};
+        context.grants = {{"epg.view", "default"}};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.empty());
         context.grants = {{"recordings.view", "default"}};
         request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
         response = HttpServerResponse{};
