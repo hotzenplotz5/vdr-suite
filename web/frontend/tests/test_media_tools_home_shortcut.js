@@ -83,6 +83,11 @@ async function test() {
   assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
   assert.equal(tab.hidden, false);
   assert.equal(host.children.length, 0);
+  capability = true;
+  assert.equal(await ctx.refreshMediaImportVisibility('default'), true);
+  assert.equal(host.children.length, 0,
+    'disabled admin intent must override a stale available capability');
+  capability = false;
   // An administrator's enabled intent remains visible even while Agent
   // capability is temporarily absent.
   adminStatus = {installationState: 'present', desiredEnabled: true};
