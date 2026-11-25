@@ -55,6 +55,21 @@ Both require `recordings.view@home`; `genreId` is **required** only on the membe
 
 `GET /genres` items carry `genreId`, `label`, `labelDe`, `labelEn`, `count`. `GET /genres/recordings` items carry `recordingId`, `backendId`, `title`, `recordedAt`, `durationSeconds`, `durationKnown`. Both responses have `items`, `page:{limit,offset,totalCount,hasMore}`, `meta:{partial:false}`. The count is a facet membership count, not evidence that an item can be played with the current Device grants.
 
+### Browser migration: recording genre overview
+
+The facet root additionally returns `totalItems` (distinct indexed recordings)
+and `assignmentCount` for the entire backend, including on subsequent pages.
+Each facet adds `known`, `activeCount`, `staleCount`, `conflictCount` and
+`displayOrder` (zero-based position in the canonical Web index order).
+The existing genreId page ordering, membership response and authorization are
+unchanged. Counts and display order come from the existing Genre index, not a
+second service or a client-side sum of facets.
+
+The browser overview is not switched yet: the legacy overview and the public
+route differ in authorization and offline/snapshot availability; the Home
+cache proof also binds to the legacy route. Preserve those behaviors before
+redirecting browser traffic. No fallback on authorization failure is added.
+
 ## Recording titles and edited cuts: public presentation parity
 
 Public-v1 projects Recording names using the established Web

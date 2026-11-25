@@ -6,6 +6,7 @@
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "PublicApiRuntime.h"
 
 #include <cassert>
 #include <chrono>
@@ -407,6 +408,48 @@ int main()
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
+
+    // Exercise the production projection against the same SQLite index
+    // used by the established Web overview, including cross-page ordering.
+    GenreOverview canonical;
+    assert(runtime.recordingOverview("default", "de", canonical));
+    ApiResponse webOverview;
+    assert(runtime.tryHandleGet(
+        "/api/metadata/genres?backend=default&scope=recordings&locale=de",
+        webOverview));
+    assert(webOverview.statusCode == 200);
+    PublicGenreCollectionRequest request;
+    request.backendId = "default";
+    request.limit = 1;
+    assert(!canonical.genres.empty());
+    std::string previousGenreId;
+    for (std::size_t offset = 0; offset < canonical.genres.size(); ++offset)
+    {
+        request.offset = offset;
+        const auto page = runtime.recordingOverviewPage(request);
+        assert(page.status == PublicGenreCollectionStatus::ok);
+        assert(page.totalCount == canonical.genres.size());
+        assert(page.totalItems == static_cast<std::size_t>(canonical.distinctItemCount));
+        assert(page.assignmentCount == static_cast<std::size_t>(canonical.assignmentCount));
+        assert(page.genres.size() == 1);
+        const auto& item = page.genres.front();
+        assert(previousGenreId < item.genreId);
+        previousGenreId = item.genreId;
+        assert(item.displayOrder < canonical.genres.size());
+        const auto& expected = canonical.genres[item.displayOrder];
+        assert(item.genreId == expected.genreId);
+        assert(item.label == expected.label);
+        assert(item.known == expected.known);
+        assert(item.count == static_cast<std::size_t>(expected.itemCount));
+        assert(item.activeCount == static_cast<std::size_t>(expected.activeCount));
+        assert(item.staleCount == static_cast<std::size_t>(expected.staleCount));
+        assert(item.conflictCount == static_cast<std::size_t>(expected.conflictCount));
+        assert(contains(webOverview, "\"id\":\"" + item.genreId + "\""));
+    }
+    assert(contains(webOverview, "\"totalItems\":" +
+        std::to_string(canonical.distinctItemCount)));
+    assert(contains(webOverview, "\"assignmentCount\":" +
+        std::to_string(canonical.assignmentCount)));
 
     FakeEpgResolver resolver;
     runtime.registerEpgScraperMetadataResolver("default", resolver);

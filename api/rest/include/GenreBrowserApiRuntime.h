@@ -17,6 +17,9 @@ class GenreBrowserController;
 class GenreIndexRepository;
 class IEpgScraperMetadataResolver;
 
+struct PublicGenreCollectionRequest;
+struct PublicGenreCollectionResult;
+
 class GenreBrowserApiRuntime
 {
 public:
@@ -71,6 +74,8 @@ public:
         const std::string& backendId,
         const std::string& locale,
         GenreOverview& result) const;
+    PublicGenreCollectionResult recordingOverviewPage(
+        const PublicGenreCollectionRequest& request) const;
     bool recordingPage(
         const std::string& backendId,
         const std::string& genreId,
