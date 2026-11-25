@@ -97,10 +97,20 @@ locked manual/native metadata precedence is preserved. No provider ID,
 native recording path, resource key or artwork path is exposed. The current
 opaque recording identity and membership ordering remain unchanged.
 
-The browser membership call remains on its existing route until artwork,
-series grouping/hierarchy and recording detail/action identity parity are
-covered. The compact metadata addition alone does not establish browser
-feature parity.
+The membership page optionally includes `preferredArtworkId` from the
+existing Recording Artwork identity owner. A selected locked manual poster
+takes precedence; absent manual artwork does not fall back to an older
+native image. Otherwise the existing cached preferred-artwork selection
+is used. Clients can request the existing authenticated binary route
+`/api/v1/recordings/{recordingId}/artwork/{preferredArtworkId}?backendId=...`
+without a separate artwork-list HTTP request for each card. The read-only
+manual selection is checked per member using the existing metadata owner;
+no images are loaded or provider requests made by the page.
+
+The browser membership call remains on its existing route until the Web
+poster/preview behavior, series grouping/hierarchy and recording detail/action
+identity parity are covered. The compact metadata and Artwork identity
+additions alone do not establish browser feature parity.
 
 ## Recording titles and edited cuts: public presentation parity
 

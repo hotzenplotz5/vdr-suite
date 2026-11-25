@@ -15034,6 +15034,11 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "preferredArtworkId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "Optional existing Artwork identity for the authenticated Recording image endpoint."
+          },
           "cardMetadata": {
             "type": "object",
             "description": "Compact cached native or manual card presentation; no provider identity or artwork path.",

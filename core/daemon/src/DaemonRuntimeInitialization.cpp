@@ -93,6 +93,24 @@
 
 namespace
 {
+// Same selected manual poster reference for list/bytes and membership cards.
+// This does not open the image or create a new artwork identity.
+std::optional<VdrRecordingArtworkRef> publicManualRecordingPoster(
+    const ManualRecordingMetadataAssignment& selected)
+{
+    const std::string prefix = "/var/cache/vdr-suite/recording-metadata/posters/";
+    std::error_code error;
+    if (selected.posterReference.compare(0, prefix.size(), prefix) != 0 ||
+        !std::filesystem::is_regular_file(selected.posterReference, error))
+        return std::nullopt;
+    VdrRecordingArtworkRef poster;
+    poster.kind = VdrRecordingArtworkKind::Poster;
+    poster.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    poster.reference = selected.posterReference;
+    poster.temporary = false;
+    return poster;
+}
+
 bool searchCasReplayMatches(
     const std::string& canonical,
     const std::string& action,
@@ -3636,6 +3654,27 @@ bool DaemonRuntime::initialize()
                     view.durationSeconds = found.durationSeconds;
                     view.durationKnown = found.recordingDurationKnown;
                     GenreBrowserApiRuntime::projectRecordingCard(item, view);
+                    // The image owner uses this same selected manual binding.
+                    // Reuse the already resolved recording; no image/list HTTP
+                    // request, provider fetch or image bytes in the page.
+                    const auto selected = metadataRepository_
+                        ? metadataRepository_->getManualRecordingMetadataReadOnly(
+                            request.backendId, found.backendNativeId)
+                        : ManualRecordingMetadataAssignment{};
+                    if (selected.found && selected.relationshipLocked &&
+                        selected.backendId == request.backendId)
+                    {
+                        const auto poster = publicManualRecordingPoster(selected);
+                        if (poster)
+                            view.preferredArtworkId =
+                                VdrRecordingArtworkIdentity::assetId(found, *poster);
+                    }
+                    else if (const auto* artwork =
+                        VdrRecordingArtworkIdentity::preferredArtwork(found))
+                    {
+                        view.preferredArtworkId =
+                            VdrRecordingArtworkIdentity::assetId(found, *artwork);
+                    }
                     result.recordings.push_back(std::move(view));
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);
@@ -6069,24 +6108,12 @@ bool DaemonRuntime::initialize()
             if (selected.found && selected.relationshipLocked &&
                 selected.backendId == request.backendId)
             {
-                const std::string prefix =
-                    "/var/cache/vdr-suite/recording-metadata/posters/";
-                const bool hasPoster =
-                    selected.posterReference.compare(0, prefix.size(),
-                        prefix) == 0 &&
-                    std::filesystem::is_regular_file(
-                        selected.posterReference);
-                if (hasPoster)
+                const auto poster = publicManualRecordingPoster(selected);
+                if (poster)
                 {
-                    VdrRecordingArtworkRef poster;
-                    poster.kind = VdrRecordingArtworkKind::Poster;
-                    poster.source =
-                        VdrRecordingMetadataSource::RestfulApiScraperBridge;
-                    poster.reference = selected.posterReference;
-                    poster.temporary = false;
                     const std::string id =
                         VdrRecordingArtworkIdentity::assetId(
-                            found.recording, poster);
+                            found.recording, *poster);
                     if (!id.empty() &&
                         (request.artworkId.empty() || request.artworkId == id))
                     {

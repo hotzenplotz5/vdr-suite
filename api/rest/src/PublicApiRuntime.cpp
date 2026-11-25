@@ -5158,6 +5158,8 @@ ApiResponse publicGenreCollectionResponse(
                 body += "\"" + jsonEscape(item.genreIds[i]) + "\"";
             }
             body += "]";
+            if (!item.preferredArtworkId.empty())
+                body += ",\"preferredArtworkId\":\"" + item.preferredArtworkId + "\"";
             if (!item.cardMediaType.empty())
             {
                 body += ",\"cardMetadata\":{\"mediaType\":\"" + jsonEscape(item.cardMediaType) +
@@ -8485,7 +8487,9 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                                 return (ch >= '0' && ch <= '9') ||
                                     (ch >= 'a' && ch <= 'f');
                             }) ||
-                        item.title.empty() || item.durationSeconds < 0)
+                        item.title.empty() || item.durationSeconds < 0 ||
+                        (!item.preferredArtworkId.empty() &&
+                            !validHexId(item.preferredArtworkId, "")))
                     {
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);

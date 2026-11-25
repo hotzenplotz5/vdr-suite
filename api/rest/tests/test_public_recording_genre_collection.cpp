@@ -32,6 +32,8 @@ int main()
                 item.genreIds = {"crime", "series"};
                 item.cardTitle = "Testserie";
                 item.cardMediaType = "series";
+                if (i == 0U)
+                    item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
                 item.episodeName = "Folge sieben";
                 item.seasonNumber = 2;
                 item.episodeNumber = 7;
@@ -98,6 +100,18 @@ int main()
     assert(recordings.body.find("\"seasonNumber\":2,\"episodeNumber\":7") != std::string::npos);
     assert(recordings.body.find("resourceKey") == std::string::npos);
     assert(recordings.body.find("providerId") == std::string::npos);
+    const std::string artworkField =
+        "\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"";
+    const auto artworkPos = recordings.body.find(artworkField);
+    assert(artworkPos != std::string::npos);
+    assert(recordings.body.find("\"preferredArtworkId\"", artworkPos + artworkField.size()) ==
+        std::string::npos);
+    ApiResponse withoutArtwork;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=1&offset=1",
+        "actor:tv","members-no-artwork","",withoutArtwork,"","",{"home"}));
+    assert(withoutArtwork.statusCode == 200);
+    assert(withoutArtwork.body.find("preferredArtworkId") == std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
         "/api/v1/genres?backendId=home&genreId=crime",

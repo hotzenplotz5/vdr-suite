@@ -548,6 +548,7 @@ struct PublicGenreRecordingItem
     // Compact presentation only; no native identity, provider ID or path.
     std::string cardTitle;
     std::string cardMediaType;
+    std::string preferredArtworkId;
     std::string episodeName;
     int seasonNumber = 0;
     int episodeNumber = 0;
