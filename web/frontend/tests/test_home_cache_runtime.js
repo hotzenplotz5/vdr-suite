@@ -9,6 +9,7 @@ const window = {indexedDB: database, URL, VdrSuitePublicUrl: {basePath: '/test'}
 const context = vm.createContext({window});
 vm.runInContext(platform('home-persistence'), context);
 vm.runInContext(platform('home-cache-runtime'), context);
+const createHomeRuntime = window.VdrSuiteHomeCache.createRuntime;
 const scopeA = 'vsr-' + 'a'.repeat(64), scopeB = 'vsr-' + 'b'.repeat(64);
 const pathA = '/api/vdr/recordings/query', seriesPath = '/api/metadata/genres/recordings';
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -16,7 +17,7 @@ async function drain() { for (let i = 0; i < 30; i++) await tick(); }
 let authenticated = true, clock = 1000;
 const painted = [];
 function create() {
-  const r = window.VdrSuiteHomeCache.createRuntime({bindEvents:false, requireCursor:false, active:()=>authenticated, now:()=>clock,
+  const r = createHomeRuntime({bindEvents:false, requireCursor:false, active:()=>authenticated, now:()=>clock,
     paint(rail, title, items) { const entry = {rail, title, items, removed:false}; painted.push(entry); return ()=>{entry.removed=true;}; }});
   r.selectBackend('alpha');
   return r;
@@ -118,5 +119,68 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   const staleDisk=window.VdrSuiteHomePersistence.create({authorize:async scope=>({...scope,authorized:true})});
   const oldScope={accountId:scopeA,backendId:'alpha',permissionRevision:scopeA};
   assert.equal(await staleDisk.read(oldScope,'series',-1),null,'age-bound read rejects stale row');
+  // Exercise the actual JSON and genre clients with multiple raw HTTP pages.
+  // The synthetic aggregate must never stand in for a proven page.
+  const genreRuntime=create();
+  window.VdrSuiteHomeCache=genreRuntime;
+  const genreTicket=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  const requests=[];
+  let failSecond=false, missingProof=false;
+  const allGenres=Array.from({length:31},(_,i)=>({
+    genreId:'genre-'+String(i).padStart(2,'0'), label:'Genre '+i,
+    labelDe:'Genre '+i, labelEn:'Genre '+i, known:true, count:i+1,
+    activeCount:i+1, staleCount:0, conflictCount:0, displayOrder:30-i
+  }));
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:(url,options)=>{
+    requests.push(url);
+    const parsed=new URL(url,'https://example.test');
+    assert.equal(parsed.pathname,'/api/v1/genres');
+    assert.equal(parsed.searchParams.get('backendId'),'alpha');
+    assert.equal(parsed.searchParams.get('limit'),'30');
+    assert.equal(options.credentials,'same-origin');
+    const offset=Number(parsed.searchParams.get('offset'));
+    const items=allGenres.slice(offset,offset+30);
+    const reply=response(scopeA);
+    if (offset && missingProof) reply.headers=new Map();
+    if (offset && failSecond) {
+      reply.ok=false; reply.status=403;
+      reply.text=()=>Promise.resolve('{"code":"permission_denied"}');
+    } else {
+      reply.text=()=>Promise.resolve(JSON.stringify({items,totalItems:100,assignmentCount:120,
+        page:{limit:30,offset,totalCount:31,hasMore:offset+items.length<31},meta:{partial:false}}));
+    }
+    return Promise.resolve(reply);
+  }});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
+  const options={backendId:'alpha',locale:'de',onPage:page=>assert(genreTicket.accept(page))};
+  const overview=await window.VdrSuiteClientApi.fetchPublicRecordingGenres(options);
+  assert.equal(requests.length,2);
+  assert.equal(overview.totalItems,100);
+  assert.equal(overview.assignmentCount,120);
+  assert.equal(overview.genres.length,31);
+  assert.equal(overview.genres[0].id,'genre-30');
+  assert.equal(overview.genres[30].id,'genre-00');
+  const genreCards=overview.genres.slice(0,24).map(g=>({id:g.id,title:g.label}));
+  assert(await genreTicket.finish(genreCards));
+  const synthetic=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  assert(!synthetic.accept(overview));
+  assert.equal(await synthetic.finish(genreCards),false);
+  const mixedRoutes=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  assert(mixedRoutes.accept(observe(genreRuntime,'/api/metadata/genres')));
+  assert(!mixedRoutes.accept(observe(genreRuntime,'/api/v1/genres')));
+  assert.equal(await mixedRoutes.finish(genreCards),false);
+  const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  failSecond=true;
+  const beforeDenied=requests.length;
+  await assert.rejects(window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>denied.accept(page)}),err=>err.status===403);
+  assert.equal(requests.length,beforeDenied+2,'no fallback after authorization failure');
+  denied.cancel();
+  failSecond=false; missingProof=true;
+  const incomplete=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  const online=await window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>incomplete.accept(page)});
+  assert.equal(online.genres.length,31,'missing optional cache proof does not block online data');
+  assert.equal(await incomplete.finish(genreCards),false);
   console.log('PWA.4/PWA.13 scoped Home preview and early headers contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

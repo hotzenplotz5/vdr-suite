@@ -78,8 +78,12 @@ now supplies the existing session/backend/grant Home recording-cache proof
 for successful browser-authenticated `/api/v1/genres` pages, including later
 pages, only for the already admitted backend. No Device cache proof, new grant,
 response-body change or fallback on authorization failure is added. The browser
-consumer and authorization/disabled-backend parity remain to be resolved
-before redirecting traffic.
+consumer now supports the Public-v1 overview pages using the same existing
+cache runtime. The browser Client API can fetch all pages, restore the canonical
+Web display order and pass each original response to the existing cache ticket;
+an aggregate object is never a substitute for page proofs. Missing cache proof
+does not block online reads. The established browser call stays on its existing
+route pending authorization/disabled-backend parity; no fallback on 403.
 
 ## Recording titles and edited cuts: public presentation parity
 

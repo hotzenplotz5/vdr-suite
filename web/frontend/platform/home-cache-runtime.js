@@ -9,6 +9,7 @@
     'recent-movies': '/api/vdr/recordings/query',
     'continue-watching': '/api/media/continue-watching'
   });
+  const PUBLIC_GENRE_ROUTE = '/api/v1/genres';
   const ALL_RAILS = Object.keys(RAIL_ROUTES);
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
@@ -188,7 +189,7 @@
     function requestStamp(path, requestedBackend) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
-      if (!snapshot && !Object.values(RAIL_ROUTES).includes(path)) return null;
+      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
       return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
         versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
     }
@@ -248,7 +249,7 @@
       if (previous) previous.cancel();
       const local = generation, railVersion = version(rail);
       let done = false, dismissed = !show, accepted = 0, invalid = false;
-      let proven = '', remove = null, expiry = null, displayed = null;
+      let proven = '', acceptedRoute = '', remove = null, expiry = null, displayed = null;
       let attemptedProof = null, attemptedCursor = '', reading = false;
       const acceptedEpochs = [];
       const live = () => !done && local === generation && railVersion === version(rail) && backend === requestedBackend && active() && isCurrent();
@@ -306,15 +307,18 @@
       }
       function accept(payload) {
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
+        const route = observed && observed.stamp.path;
+        const matchesRoute = route === RAIL_ROUTES[rail] || (rail === 'genres' && route === PUBLIC_GENRE_ROUTE);
         if ((folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
             payload.offset !== 0 || payload.cacheReady !== true)) ||
-            !live() || !observed || observed.stamp.generation !== local || observed.stamp.path !== RAIL_ROUTES[rail] ||
+            !live() || !observed || observed.stamp.generation !== local || !matchesRoute || (acceptedRoute && route !== acceptedRoute) ||
             !observed.domains.includes(domain(rail)) ||
             (requireCursor && (!connected || !observed.stamp.cursor || observed.stamp.versions[ALL_RAILS.indexOf(rail)] !== railVersion)) || (proven && observed.partition !== proven)) {
           invalid = true;
           return false;
         }
         proven = observed.partition;
+        acceptedRoute = route;
         accepted++;
         acceptedEpochs.push(observed.stamp.sessionEpoch);
         return true;
