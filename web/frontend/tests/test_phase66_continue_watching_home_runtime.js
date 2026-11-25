@@ -397,14 +397,20 @@ const item = {
     // Exercise the real module selection owner independently of the network.
     const selectStart = appSource.indexOf('function selectModule(');
     const selectEnd = appSource.indexOf('function markSelected(', selectStart);
+    const shortcutStart = appSource.indexOf('function renderMediaToolsHomeShortcut()');
+    const shortcutEnd = appSource.indexOf('function resetMediaImportVisibility(', shortcutStart);
+    assert(shortcutStart >= 0 && shortcutEnd > shortcutStart);
     const modules = [];
     Object.assign(ctx, {
-      document:{querySelectorAll(){return [];}},
+      document:{querySelectorAll(){return [];}, querySelector(){return null;}},
       placeMediaImportTab(){}, closeHomeHevcStream(){},
       renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
       shouldPublishHomeResume(){return false;}
     });
-    vm.runInContext(appSource.slice(selectStart, selectEnd),ctx);
+    // Include the real adjacent Home shortcut owner; this navigation fixture
+    // has no mounted Home zone, so its normal early return is exercised.
+    vm.runInContext(appSource.slice(shortcutStart, shortcutEnd) + '\n' +
+      appSource.slice(selectStart, selectEnd),ctx);
     ctx.currentSnapshot = null;
     ctx.selectModule('recordings');
     assert.deepStrictEqual(modules[0], ['recordings', null]);

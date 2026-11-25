@@ -88,9 +88,9 @@ assert.deepStrictEqual(runtimeNav.children.map(x => x.id),
 assert(index.indexOf('modules/media-import.js') < index.indexOf('frontend/app.js'));
 assert(app.includes('refreshMediaImportVisibility(backendId);'));
 assert(app.includes('resetMediaImportVisibility(true);'));
-const capabilityUnavailable = app.match(/function unavailable\(\) \{([\s\S]*?)\n  \}/);
-assert(capabilityUnavailable && capabilityUnavailable[1].includes('return true;'),
-  'transient Agent capability failure must keep Media Import navigation available');
+// The production gate is exercised below for both a negative capability
+// and a rejected capability request, including navigation and preserved DOM.
+// Do not require a particular internal helper name or return statement.
 // The shell contains more than one Media Import branch. Inspect the
 // navigation click handler, not the first unrelated occurrence in the file.
 const mediaTabBranch = app.match(
@@ -152,6 +152,7 @@ async function settle() {
   for (let i = 0; i < 14; i++) await flush();
 }
 let allow = true;
+let capabilityStatus = 200;
 let confirmLocal = true;
 let confirmCalls = 0;
 let lastConfirmation = '';
@@ -297,6 +298,8 @@ function transport(url, options) {
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
+    if (capabilityStatus !== 200)
+      return Promise.resolve(reply(capabilityStatus, {detail: 'Capability unavailable'}));
     return Promise.resolve(reply(200, {
       backendId: 'backend-a', capability: 'addons.media.import', available: allow
     }));
@@ -1099,6 +1102,14 @@ function renderHevcHomeActivity() {}
   assert(sourceListOnTransientFailure && sourceListOnTransientFailure.children.length > 1,
     'an installed media import view must still list sources during a transient capability failure');
   const listBeforeRecovered = sourceListOnTransientFailure;
+  capabilityStatus = 503;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
+    'an actual rejected capability request must keep Media Import navigation available');
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
+  assert.strictEqual(findClass(mount, 'media-import-source'), listBeforeRecovered,
+    'HTTP 503 must not remount the loaded source list');
+  capabilityStatus = 200;
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
