@@ -154,11 +154,18 @@ function refreshMediaImportVisibility(backendId) {
       'Media Tools ist installiert oder der Paketstatus ist ungeklärt. ' +
       'Aktivierung und Agent-Status in den Einstellungen prüfen.';
 
-    const enabledByAdmin = status &&
+    // A known disabled administrator preference takes precedence over a
+    // stale/optimistic capability observation. The tab stays available for
+    // browsing and configuration; the Home shortcut represents activation.
+    const activationKnown = status &&
+      typeof status.desiredEnabled === 'boolean';
+    const enabledByAdmin = activationKnown &&
       (status.desiredEnabled === true || status.activatedByInstall === true);
-    if (available || enabledByAdmin)
+    if (activationKnown)
+      mediaToolsHomeAllowedBackendId = enabledByAdmin ? backendId : '';
+    else if (available)
       mediaToolsHomeAllowedBackendId = backendId;
-    else if (status && status.desiredEnabled === false)
+    else
       mediaToolsHomeAllowedBackendId = '';
     renderMediaToolsHomeShortcut();
     return true;
