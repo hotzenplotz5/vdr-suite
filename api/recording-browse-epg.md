@@ -107,10 +107,17 @@ without a separate artwork-list HTTP request for each card. The read-only
 manual selection is checked per member using the existing metadata owner;
 no images are loaded or provider requests made by the page.
 
+The optional `seriesHierarchyOverride` object uses the same page-batched
+SQLite projection as Web. It preserves the existing `groupType`
+(season, special, custom), `seasonNumber`, `groupLabel`, `sortOrder`,
+`episodeStart`, `episodeEnd` and `revision`, independently of the native
+season and episode numbers in cardMetadata. No per-recording hierarchy
+lookup, schema or additional identifier is introduced.
+
 The browser membership call remains on its existing route until the Web
-poster/preview behavior, series grouping/hierarchy and recording detail/action
-identity parity are covered. The compact metadata and Artwork identity
-additions alone do not establish browser feature parity.
+poster/preview behavior, series grouping identity and recording detail/action
+identity parity are covered. The compact metadata, Artwork identity and
+manual hierarchy additions alone do not establish browser feature parity.
 
 ## Recording titles and edited cuts: public presentation parity
 

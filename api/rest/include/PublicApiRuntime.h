@@ -552,6 +552,15 @@ struct PublicGenreRecordingItem
     std::string episodeName;
     int seasonNumber = 0;
     int episodeNumber = 0;
+    // Existing optional presentation override, independent of native numbering.
+    bool seriesHierarchyOverrideAvailable = false;
+    std::string seriesHierarchyGroupType;
+    int seriesHierarchySeasonNumber = 0;
+    std::string seriesHierarchyGroupLabel;
+    int seriesHierarchySortOrder = 0;
+    int seriesHierarchyEpisodeStart = 0;
+    int seriesHierarchyEpisodeEnd = 0;
+    int seriesHierarchyRevision = 0;
 };
 
 struct PublicGenreCollectionResult

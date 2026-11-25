@@ -632,6 +632,17 @@ void GenreBrowserApiRuntime::projectRecordingCard(
         target.cardMediaType = source.nativeCardMediaType;
         target.episodeName = source.episodeName;
     }
+    if (source.seriesHierarchyOverrideAvailable)
+    {
+        target.seriesHierarchyOverrideAvailable = true;
+        target.seriesHierarchyGroupType = source.seriesHierarchyGroupType;
+        target.seriesHierarchySeasonNumber = source.seriesHierarchySeasonNumber;
+        target.seriesHierarchyGroupLabel = source.seriesHierarchyGroupLabel;
+        target.seriesHierarchySortOrder = source.seriesHierarchySortOrder;
+        target.seriesHierarchyEpisodeStart = source.seriesHierarchyEpisodeStart;
+        target.seriesHierarchyEpisodeEnd = source.seriesHierarchyEpisodeEnd;
+        target.seriesHierarchyRevision = source.seriesHierarchyRevision;
+    }
 }
 
 bool GenreBrowserApiRuntime::configured() const

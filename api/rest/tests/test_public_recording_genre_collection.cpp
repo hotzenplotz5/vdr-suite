@@ -33,7 +33,18 @@ int main()
                 item.cardTitle = "Testserie";
                 item.cardMediaType = "series";
                 if (i == 0U)
+                {
                     item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                    item.seriesHierarchyOverrideAvailable = true;
+                    item.seriesHierarchyGroupType = "special";
+                    item.seriesHierarchyGroupLabel = "Pilot / Miniserie";
+                    item.seriesHierarchySortOrder = -100;
+                    item.seriesHierarchyEpisodeStart = 1;
+                    item.seriesHierarchyEpisodeEnd = 2;
+                    item.seriesHierarchyRevision = 3;
+                }
+                if (i == 1032U)
+                    item.preferredArtworkId = "/private/poster.jpg";
                 item.episodeName = "Folge sieben";
                 item.seasonNumber = 2;
                 item.episodeNumber = 7;
@@ -112,6 +123,14 @@ int main()
         "actor:tv","members-no-artwork","",withoutArtwork,"","",{"home"}));
     assert(withoutArtwork.statusCode == 200);
     assert(withoutArtwork.body.find("preferredArtworkId") == std::string::npos);
+    assert(withoutArtwork.body.find("seriesHierarchyOverride") == std::string::npos);
+    assert(recordings.body.find("\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"special\",\"seasonNumber\":0,\"groupLabel\":\"Pilot / Miniserie\",\"sortOrder\":-100,\"episodeStart\":1,\"episodeEnd\":2,\"revision\":3}") != std::string::npos);
+    ApiResponse badArtwork;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=1&offset=1032",
+        "actor:tv","members-invalid-artwork","",badArtwork,"","",{"home"}));
+    assert(badArtwork.statusCode == 503);
+    assert(badArtwork.body.find("/private/poster.jpg") == std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
         "/api/v1/genres?backendId=home&genreId=crime",

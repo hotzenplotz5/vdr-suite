@@ -36,6 +36,17 @@ std::string requestQueryString(const std::string& requestTarget)
         : requestTarget.substr(separator + 1U);
 }
 
+bool validHexId(const std::string& id, const std::string& prefix)
+{
+    return id.size() == prefix.size() + 32U &&
+        id.compare(0U, prefix.size(), prefix) == 0 &&
+        std::all_of(id.begin() + prefix.size(), id.end(),
+            [](unsigned char c) {
+                return (c >= '0' && c <= '9') ||
+                       (c >= 'a' && c <= 'f');
+            });
+}
+
 constexpr const char* PublicApiV1Root = "/api/v1";
 constexpr const char* PublicOperationPrefix = "/api/v1/operations/";
 constexpr const char* PublicDevicePairingCollectionPath =
@@ -5168,6 +5179,17 @@ ApiResponse publicGenreCollectionResponse(
                     "\",\"seasonNumber\":" + std::to_string(item.seasonNumber) +
                     ",\"episodeNumber\":" + std::to_string(item.episodeNumber) + "}";
             }
+            if (item.seriesHierarchyOverrideAvailable)
+            {
+                body += ",\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"" +
+                    jsonEscape(item.seriesHierarchyGroupType) +
+                    "\",\"seasonNumber\":" + std::to_string(item.seriesHierarchySeasonNumber) +
+                    ",\"groupLabel\":\"" + jsonEscape(item.seriesHierarchyGroupLabel) +
+                    "\",\"sortOrder\":" + std::to_string(item.seriesHierarchySortOrder) +
+                    ",\"episodeStart\":" + std::to_string(item.seriesHierarchyEpisodeStart) +
+                    ",\"episodeEnd\":" + std::to_string(item.seriesHierarchyEpisodeEnd) +
+                    ",\"revision\":" + std::to_string(item.seriesHierarchyRevision) + "}";
+            }
             body += "}";
         }
     }
@@ -7825,16 +7847,6 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         const std::string artworkId = artworkMarker + 8U == path.size()
             ? std::string()
             : path.substr(artworkMarker + 9U);
-        const auto validHexId = [](const std::string& id,
-                                    const std::string& prefix) {
-            return id.size() == prefix.size() + 32U &&
-                id.compare(0U, prefix.size(), prefix) == 0 &&
-                std::all_of(id.begin() + prefix.size(), id.end(),
-                    [](unsigned char c) {
-                        return (c >= '0' && c <= '9') ||
-                               (c >= 'a' && c <= 'f');
-                    });
-        };
         if (!validHexId(recordingId, "rec_") ||
             (artworkMarker + 8U < path.size() && artworkId.empty()) ||
             (!artworkId.empty() && !validHexId(artworkId, "")) ||

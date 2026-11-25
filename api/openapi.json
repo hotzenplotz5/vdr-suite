@@ -15050,6 +15050,21 @@
               "episodeNumber": { "type": "integer" }
             }
           },
+          "seriesHierarchyOverride": {
+            "type": "object",
+            "description": "Existing manual presentation override; native season and episode numbers remain independent.",
+            "required": ["available", "groupType", "seasonNumber", "groupLabel", "sortOrder", "episodeStart", "episodeEnd", "revision"],
+            "properties": {
+              "available": { "type": "boolean", "const": true },
+              "groupType": { "type": "string", "enum": ["season", "special", "custom"] },
+              "seasonNumber": { "type": "integer" },
+              "groupLabel": { "type": "string" },
+              "sortOrder": { "type": "integer" },
+              "episodeStart": { "type": "integer" },
+              "episodeEnd": { "type": "integer" },
+              "revision": { "type": "integer" }
+            }
+          },
           "edited": {
             "type": "boolean",
             "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."

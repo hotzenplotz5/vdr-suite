@@ -406,6 +406,16 @@ int main()
         "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1"));
     assert(contains(initialMovies, "\"width\":500,\"height\":750"));
 
+    assert(database.execute(
+        "CREATE TABLE IF NOT EXISTS recording_series_hierarchy_overrides("
+        "backend_id TEXT NOT NULL,recording_key TEXT NOT NULL,group_type TEXT NOT NULL,"
+        "season_number INTEGER NOT NULL DEFAULT 0,group_label TEXT NOT NULL DEFAULT '',"
+        "sort_order INTEGER NOT NULL DEFAULT 0,episode_start INTEGER NOT NULL DEFAULT 0,"
+        "episode_end INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(backend_id,recording_key));"
+        "INSERT INTO recording_series_hierarchy_overrides(backend_id,recording_key,group_type,"
+        "season_number,group_label,sort_order,episode_start,episode_end,revision)"
+        " VALUES('default','recording-1','special',0,'Pilot / Miniserie',-100,1,2,3);"));
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
 
@@ -420,6 +430,16 @@ int main()
     assert(card.cardTitle == "Manuelle Serie");
     assert(card.cardMediaType == "series");
     assert(card.seasonNumber == 2 && card.episodeNumber == 7);
+    assert(card.seriesHierarchyOverrideAvailable);
+    assert(card.seriesHierarchyGroupType == "special");
+    assert(card.seriesHierarchySeasonNumber == 0);
+    assert(card.seriesHierarchyGroupLabel == "Pilot / Miniserie");
+    assert(card.seriesHierarchySortOrder == -100);
+    assert(card.seriesHierarchyEpisodeStart == 1 && card.seriesHierarchyEpisodeEnd == 2);
+    assert(card.seriesHierarchyRevision == 3);
+    const auto webHierarchy = controller.getRecordings("default", "action", 10, 0);
+    assert(contains(webHierarchy, "\"groupLabel\":\"Pilot / Miniserie\""));
+    assert(contains(webHierarchy, "\"episodeStart\":1,\"episodeEnd\":2"));
     assert(card.genreIds == member.genreIds);
     assert(card.sizeMb == member.sizeMb);
     assert(contains(manualSeriesSummary, "\"title\":\"" + card.cardTitle + "\""));
@@ -427,6 +447,7 @@ int main()
     PublicGenreRecordingItem plainCard;
     GenreBrowserApiRuntime::projectRecordingCard(noMetadata, plainCard);
     assert(plainCard.cardMediaType.empty() && plainCard.cardTitle.empty());
+    assert(!plainCard.seriesHierarchyOverrideAvailable);
 
     // Exercise the production projection against the same SQLite index
     // used by the established Web overview, including cross-page ordering.
