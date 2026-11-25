@@ -35,6 +35,9 @@ int main()
                 if (i == 0U)
                 {
                     item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                    item.seriesGroupKey = "sg1_0123456789abcdef0123456789abcdef";
+                    item.seriesFolderTitle = "Testserie";
+                    item.seriesNativeMetadataAvailable = true;
                     item.seriesHierarchyOverrideAvailable = true;
                     item.seriesHierarchyGroupType = "special";
                     item.seriesHierarchyGroupLabel = "Pilot / Miniserie";
@@ -124,6 +127,8 @@ int main()
     assert(withoutArtwork.statusCode == 200);
     assert(withoutArtwork.body.find("preferredArtworkId") == std::string::npos);
     assert(withoutArtwork.body.find("seriesHierarchyOverride") == std::string::npos);
+    assert(withoutArtwork.body.find("seriesGrouping") == std::string::npos);
+    assert(recordings.body.find("\"seriesGrouping\":{\"groupKey\":\"sg1_0123456789abcdef0123456789abcdef\",\"folderTitle\":\"Testserie\",\"nativeMetadataAvailable\":true}") != std::string::npos);
     assert(recordings.body.find("\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"special\",\"seasonNumber\":0,\"groupLabel\":\"Pilot / Miniserie\",\"sortOrder\":-100,\"episodeStart\":1,\"episodeEnd\":2,\"revision\":3}") != std::string::npos);
     ApiResponse badArtwork;
     assert(api.tryHandleGet(

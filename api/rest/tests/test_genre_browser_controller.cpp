@@ -426,7 +426,10 @@ int main()
     assert(membership.totalCount == 1 && membership.recordings.size() == 1);
     const auto& member = membership.recordings.front();
     PublicGenreRecordingItem card;
-    GenreBrowserApiRuntime::projectRecordingCard(member, card);
+    const auto membershipSeed = GenreBrowserApiRuntime::projectRecordingCard(member, card);
+    assert(membershipSeed == "folder:movies");
+    assert(card.seriesFolderTitle == "Movies");
+    assert(!card.seriesNativeMetadataAvailable); // manual selection, no native provider ID
     assert(card.cardTitle == "Manuelle Serie");
     assert(card.cardMediaType == "series");
     assert(card.seasonNumber == 2 && card.episodeNumber == 7);
@@ -448,6 +451,45 @@ int main()
     GenreBrowserApiRuntime::projectRecordingCard(noMetadata, plainCard);
     assert(plainCard.cardMediaType.empty() && plainCard.cardTitle.empty());
     assert(!plainCard.seriesHierarchyOverrideAvailable);
+
+    // Same folder grouping for initial fallback/native members and different
+    // seasons, without using native Recording identities as Series identity.
+    GenreRecordingItem fallbackEpisode;
+    fallbackEpisode.path = "Serien/Band_Of_Brothers/Staffel 1/04_Die_Neuen";
+    fallbackEpisode.title = "04_Die_Neuen";
+    fallbackEpisode.genreIds = {"series"};
+    GenreRecordingItem nativeEpisode = fallbackEpisode;
+    nativeEpisode.path = "serien/band_of_brothers/Staffel 2/09_Warum_wir_kaempfen";
+    nativeEpisode.seriesMetadataAvailable = true;
+    nativeEpisode.seriesTitle = "Band of Brothers";
+    nativeEpisode.seriesProvider = "tvscraper";
+    nativeEpisode.seriesProviderId = -74205;
+    PublicGenreRecordingItem fallbackCard, nativeCard;
+    const auto fallbackSeed =
+        GenreBrowserApiRuntime::projectRecordingCard(fallbackEpisode, fallbackCard);
+    const auto nativeSeed =
+        GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, nativeCard);
+    assert(fallbackSeed == "folder:serien/band_of_brothers");
+    assert(fallbackSeed == nativeSeed);
+    assert(fallbackCard.seriesFolderTitle == "Band_Of_Brothers");
+    assert(!fallbackCard.seriesNativeMetadataAvailable);
+    assert(nativeCard.seriesNativeMetadataAvailable);
+    nativeEpisode.path = "Serien/Andere Serie/Folge";
+    PublicGenreRecordingItem anotherCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, anotherCard) !=
+        nativeSeed);
+    nativeEpisode.path.clear();
+    nativeEpisode.title = "Folge neun";
+    PublicGenreRecordingItem nativeOnlyCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, nativeOnlyCard) ==
+        "native:tvscraper:-74205");
+    fallbackEpisode.path.clear();
+    fallbackEpisode.title = "Beispielserie";
+    PublicGenreRecordingItem titleOnlyCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(fallbackEpisode, titleOnlyCard) ==
+        "title:beispielserie");
+    PublicGenreRecordingItem notSeries;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(noMetadata, notSeries).empty());
 
     // Exercise the production projection against the same SQLite index
     // used by the established Web overview, including cross-page ordering.

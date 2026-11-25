@@ -114,10 +114,23 @@ SQLite projection as Web. It preserves the existing `groupType`
 season and episode numbers in cardMetadata. No per-recording hierarchy
 lookup, schema or additional identifier is introduced.
 
-The browser membership call remains on its existing route until the Web
-poster/preview behavior, series grouping identity and recording detail/action
-identity parity are covered. The compact metadata, Artwork identity and
-manual hierarchy additions alone do not establish browser feature parity.
+Series membership adds optional `seriesGrouping` from the same embedded
+Genre page facts: an opaque backend-scoped `groupKey`, the folder's display
+leaf `folderTitle`, and `nativeMetadataAvailable` for the existing native
+metadata priority. The initial Web grouping uses the Serien/<series> root
+across seasons or the immediate parent elsewhere, then native series identity
+or a title fallback. The grouping seed is never returned; the existing daemon
+SHA-256 implementation derives a non-persistent sg1_ key. No additional index
+or metadata lookup is introduced. Case normalization of the seed is ASCII;
+Unicode case-variant folders and rich/enriched grouping parity require
+verification before switching the browser.
+
+The browser membership call remains on its existing route. Existing persisted
+Series cover settings are keyed by the legacy Web grouping key and folder
+surfaces use descendant membership. Those consumers must be mapped before
+using opaque group keys in the browser, alongside poster/preview and recording
+detail/action identity parity. These additive read facts are not a migration
+of the saved settings and must not invalidate user-selected Series covers.
 
 ## Recording titles and edited cuts: public presentation parity
 

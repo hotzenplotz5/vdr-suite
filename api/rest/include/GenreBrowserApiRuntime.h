@@ -84,7 +84,9 @@ public:
         int limit, int offset,
         GenreRecordingPage& result) const;
 
-    static void projectRecordingCard(
+    // Projects card facts and returns the private, non-wire grouping seed
+    // for the daemon's backend-scoped opaque Series group key.
+    static std::string projectRecordingCard(
         const GenreRecordingItem& source, PublicGenreRecordingItem& target);
 
     bool configured() const;

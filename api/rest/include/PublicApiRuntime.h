@@ -549,6 +549,10 @@ struct PublicGenreRecordingItem
     std::string cardTitle;
     std::string cardMediaType;
     std::string preferredArtworkId;
+    // Page-independent grouping evidence for the existing Series UI.
+    std::string seriesGroupKey;
+    std::string seriesFolderTitle;
+    bool seriesNativeMetadataAvailable = false;
     std::string episodeName;
     int seasonNumber = 0;
     int episodeNumber = 0;

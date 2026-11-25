@@ -166,7 +166,7 @@ std::int64_t stockSearchTimerNow()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-std::string stockSearchTimerDigest(const std::string& value)
+std::string sha256Hex(const std::string& value)
 {
     std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
     if (!SHA256(reinterpret_cast<const unsigned char*>(value.data()),
@@ -184,7 +184,7 @@ std::string stockSearchTimerDigest(const std::string& value)
 std::string stockSearchTimerRevision(const std::string& publicId,
     const std::string& raw)
 {
-    const auto hash = stockSearchTimerDigest(
+    const auto hash = sha256Hex(
         "searchtimer-stock-revision-v1|" + publicId + "|" + raw);
     return hash.empty() ? std::string{} : "sr_" + hash.substr(0U, 32U);
 }
@@ -2340,7 +2340,7 @@ bool DaemonRuntime::initialize()
             if (action.empty()) return result;
             const std::string family = "searchtimer.stock." + action;
             const auto canonical = stockSearchTimerRequestPayload(request, action);
-            const auto digest = stockSearchTimerDigest(canonical);
+            const auto digest = sha256Hex(canonical);
             if (digest.empty()) return result;
             const std::string fingerprint = "sha256:" + digest;
 
@@ -3653,7 +3653,16 @@ bool DaemonRuntime::initialize()
                     view.recordedAt = found.startTime;
                     view.durationSeconds = found.durationSeconds;
                     view.durationKnown = found.recordingDurationKnown;
-                    GenreBrowserApiRuntime::projectRecordingCard(item, view);
+                    const auto seriesSeed =
+                        GenreBrowserApiRuntime::projectRecordingCard(item, view);
+                    if (!seriesSeed.empty())
+                    {
+                        const auto digest = sha256Hex(
+                            "recording-series-group/1|" + request.backendId +
+                            std::string(1, '\0') + seriesSeed);
+                        if (digest.empty()) return PublicGenreCollectionResult{};
+                        view.seriesGroupKey = "sg1_" + digest.substr(0, 32);
+                    }
                     // The image owner uses this same selected manual binding.
                     // Reuse the already resolved recording; no image/list HTTP
                     // request, provider fetch or image bytes in the page.

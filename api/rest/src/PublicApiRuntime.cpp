@@ -5179,6 +5179,13 @@ ApiResponse publicGenreCollectionResponse(
                     "\",\"seasonNumber\":" + std::to_string(item.seasonNumber) +
                     ",\"episodeNumber\":" + std::to_string(item.episodeNumber) + "}";
             }
+            if (!item.seriesGroupKey.empty())
+            {
+                body += ",\"seriesGrouping\":{\"groupKey\":\"" + item.seriesGroupKey +
+                    "\",\"folderTitle\":\"" + jsonEscape(item.seriesFolderTitle) +
+                    "\",\"nativeMetadataAvailable\":" +
+                    (item.seriesNativeMetadataAvailable ? "true" : "false") + "}";
+            }
             if (item.seriesHierarchyOverrideAvailable)
             {
                 body += ",\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"" +
@@ -8501,7 +8508,9 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                             }) ||
                         item.title.empty() || item.durationSeconds < 0 ||
                         (!item.preferredArtworkId.empty() &&
-                            !validHexId(item.preferredArtworkId, "")))
+                            !validHexId(item.preferredArtworkId, "")) ||
+                        (!item.seriesGroupKey.empty() &&
+                            !validHexId(item.seriesGroupKey, "sg1_")))
                     {
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);

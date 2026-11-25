@@ -15050,6 +15050,16 @@
               "episodeNumber": { "type": "integer" }
             }
           },
+          "seriesGrouping": {
+            "type": "object",
+            "description": "Read-only backend-scoped group key for initial Series presentation; not a folder or recording identifier.",
+            "required": ["groupKey", "folderTitle", "nativeMetadataAvailable"],
+            "properties": {
+              "groupKey": { "type": "string", "pattern": "^sg1_[0-9a-f]{32}$" },
+              "folderTitle": { "type": "string" },
+              "nativeMetadataAvailable": { "type": "boolean" }
+            }
+          },
           "seriesHierarchyOverride": {
             "type": "object",
             "description": "Existing manual presentation override; native season and episode numbers remain independent.",

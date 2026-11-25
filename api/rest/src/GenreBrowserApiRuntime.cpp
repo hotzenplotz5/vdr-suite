@@ -7,6 +7,7 @@
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
 #include "PublicApiRuntime.h"
+#include "PublicRecordingDisplayName.h"
 #include "RestQueryParameters.h"
 #include "VdrEvent.h"
 
@@ -611,7 +612,7 @@ bool GenreBrowserApiRuntime::recordingPage(
     return true;
 }
 
-void GenreBrowserApiRuntime::projectRecordingCard(
+std::string GenreBrowserApiRuntime::projectRecordingCard(
     const GenreRecordingItem& source, PublicGenreRecordingItem& target)
 {
     target.sizeMb = std::max<std::int64_t>(0, source.sizeMb);
@@ -643,6 +644,71 @@ void GenreBrowserApiRuntime::projectRecordingCard(
         target.seriesHierarchyEpisodeEnd = source.seriesHierarchyEpisodeEnd;
         target.seriesHierarchyRevision = source.seriesHierarchyRevision;
     }
+
+    // Same initial Series membership evidence as the established Genre Web
+    // payload: its provider object is empty, and embedded native metadata
+    // supplies provider identity only if no folder can be used.
+    if (!source.seriesMetadataAvailable &&
+        std::find(source.genreIds.begin(), source.genreIds.end(), "series") ==
+            source.genreIds.end())
+        return {};
+
+    target.seriesNativeMetadataAvailable = source.seriesMetadataAvailable &&
+        !source.seriesProvider.empty() && source.seriesProviderId != 0;
+
+    const auto lowerAscii = [](std::string text) {
+        for (char& c : text)
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
+        return text;
+    };
+    const std::string rawPath = source.path.empty() ? source.title : source.path;
+    std::vector<std::string> parts;
+    std::size_t start = 0;
+    while (start < rawPath.size())
+    {
+        const auto slash = rawPath.find('/', start);
+        const auto part = PublicRecordingDisplayName::trim(rawPath.substr(
+            start, slash == std::string::npos ? std::string::npos : slash - start));
+        if (!part.empty()) parts.push_back(part);
+        if (slash == std::string::npos) break;
+        start = slash + 1U;
+    }
+    // The Home Series root deliberately groups every season subfolder
+    // under Serien/<series>. Other paths use the immediate parent.
+    std::string folder;
+    for (std::size_t i = 0; i + 1U < parts.size(); ++i)
+    {
+        if (lowerAscii(parts[i]) == "serien")
+        {
+            folder = "Serien/" + parts[i + 1U];
+            target.seriesFolderTitle = parts[i + 1U];
+            break;
+        }
+    }
+    if (folder.empty() && parts.size() >= 2U)
+    {
+        target.seriesFolderTitle = parts[parts.size() - 2U];
+        for (std::size_t i = 0; i + 1U < parts.size(); ++i)
+        {
+            if (i) folder += '/';
+            folder += parts[i];
+        }
+    }
+    if (!folder.empty())
+        return "folder:" + lowerAscii(folder);
+
+    if (target.seriesNativeMetadataAvailable)
+        return "native:" + source.seriesProvider + ":" +
+            std::to_string(source.seriesProviderId);
+
+    // Without a folder or a native Series identity, retain the existing
+    // title-based fallback. Do not promote an explicit episode name.
+    const auto seriesTitle = PublicRecordingDisplayName::trim(source.seriesTitle);
+    const auto episodeName = PublicRecordingDisplayName::trim(source.episodeName);
+    const auto title = source.seriesMetadataAvailable && !seriesTitle.empty() &&
+        lowerAscii(seriesTitle) != lowerAscii(episodeName)
+        ? seriesTitle : PublicRecordingDisplayName::trim(source.title);
+    return "title:" + lowerAscii(title.empty() ? "Aufnahme" : title);
 }
 
 bool GenreBrowserApiRuntime::configured() const
