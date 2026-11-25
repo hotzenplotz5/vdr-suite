@@ -103,4 +103,32 @@ if command -v journalctl >/dev/null 2>&1; then
 else
   echo 'JOURNALCTL: NOT_AVAILABLE'
 fi
+printf '\n%s\n' '=== DAEMON ACCOUNTABILITY SQLITE FAILURES (LAST 24 HOURS) ==='
+if command -v journalctl >/dev/null 2>&1; then
+  journalctl -u vdr-suite-daemon --since '24 hours ago' \
+    -n 4000 -o cat --no-pager 2>/dev/null |
+    awk '
+      /accountability append .* failed: sqlite_rc=/ {
+        code=$0
+        sub(/^.*sqlite_rc=/, "", code)
+        sub(/[^0-9].*$/, "", code)
+        count++
+        if (code == "5") busy++
+        else if (code == "6") locked++
+        else if (code == "19") constraint++
+        else other++
+      }
+      /database is locked/ {lockedText++}
+      END {
+        printf "DAEMON_ACCOUNTABILITY_APPEND_FAILURES: %d\n",count
+        printf "SQLITE_BUSY_RC5: %d\n",busy
+        printf "SQLITE_LOCKED_RC6: %d\n",locked
+        printf "SQLITE_CONSTRAINT_RC19: %d\n",constraint
+        printf "SQLITE_OTHER_RC: %d\n",other
+        printf "DAEMON_LOCKED_TEXT_LINES: %d\n",lockedText
+      }'
+else
+  echo 'DAEMON_LOGS: NOT_AVAILABLE'
+fi
+
 printf '%s\n' '=== END OF READ-ONLY DIAG ==='
