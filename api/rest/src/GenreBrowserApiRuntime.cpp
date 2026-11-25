@@ -1,5 +1,6 @@
 #include "GenreBrowserApiRuntime.h"
 
+#include "BackendRegistryService.h"
 #include "Database.h"
 #include "EpgMetadataMaterializationQueue.h"
 #include "GenreBrowserController.h"
@@ -543,9 +544,15 @@ bool GenreBrowserApiRuntime::recordingOverview(
 }
 
 PublicGenreCollectionResult GenreBrowserApiRuntime::recordingOverviewPage(
-    const PublicGenreCollectionRequest& request) const
+    const PublicGenreCollectionRequest& request,
+    const BackendRegistryService& backends) const
 {
     PublicGenreCollectionResult result;
+    const auto backend = backends.getBackend(request.backendId);
+    if (!backend.has_value() || !backend->enabled)
+        return result;
+    // Facets are a persisted index read, independent of live VDR snapshots
+    // and native recording identity resolution.
     GenreOverview overview;
     if (!recordingOverview(
         request.backendId, request.locale, overview))

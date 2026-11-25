@@ -75,7 +75,8 @@ public:
         const std::string& locale,
         GenreOverview& result) const;
     PublicGenreCollectionResult recordingOverviewPage(
-        const PublicGenreCollectionRequest& request) const;
+        const PublicGenreCollectionRequest& request,
+        const BackendRegistryService& backends) const;
     bool recordingPage(
         const std::string& backendId,
         const std::string& genreId,

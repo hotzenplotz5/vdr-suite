@@ -65,15 +65,21 @@ The existing genreId page ordering, membership response and authorization are
 unchanged. Counts and display order come from the existing Genre index, not a
 second service or a client-side sum of facets.
 
+The facet root reads the existing persisted index of a registered, enabled
+backend even when its live VDR is offline or no VDR snapshot is available.
+The counts are cached index data, not proof of current backend availability.
+The membership route retains its existing online, snapshot and recording
+identity requirements. Unknown or disabled backends remain unavailable.
+
 The browser overview is not switched yet: the legacy overview and the public
-route differ in authorization and offline/snapshot availability; the Home
+route differ in authorization (and disabled-backend behavior); the Home
 cache consumer still binds to the legacy route. The HTTP response decorator
 now supplies the existing session/backend/grant Home recording-cache proof
 for successful browser-authenticated `/api/v1/genres` pages, including later
 pages, only for the already admitted backend. No Device cache proof, new grant,
 response-body change or fallback on authorization failure is added. The browser
-consumer, authorization parity and offline/snapshot availability remain to be
-resolved before redirecting traffic.
+consumer and authorization/disabled-backend parity remain to be resolved
+before redirecting traffic.
 
 ## Recording titles and edited cuts: public presentation parity
 

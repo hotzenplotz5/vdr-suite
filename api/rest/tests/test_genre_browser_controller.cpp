@@ -422,11 +422,13 @@ int main()
     request.backendId = "default";
     request.limit = 1;
     assert(!canonical.genres.empty());
+    assert(!backendRegistryService.getBackend("default")->online);
+    // A registered, enabled but offline backend has the same persisted facets.
     std::string previousGenreId;
     for (std::size_t offset = 0; offset < canonical.genres.size(); ++offset)
     {
         request.offset = offset;
-        const auto page = runtime.recordingOverviewPage(request);
+        const auto page = runtime.recordingOverviewPage(request, backendRegistryService);
         assert(page.status == PublicGenreCollectionStatus::ok);
         assert(page.totalCount == canonical.genres.size());
         assert(page.totalItems == static_cast<std::size_t>(canonical.distinctItemCount));
@@ -450,6 +452,26 @@ int main()
         std::to_string(canonical.distinctItemCount)));
     assert(contains(webOverview, "\"assignmentCount\":" +
         std::to_string(canonical.assignmentCount)));
+
+    request.offset = 0;
+    request.backendId = "remote";
+    GenreOverview remoteCanonical;
+    assert(runtime.recordingOverview("remote", "de", remoteCanonical));
+    assert(!backendRegistryService.getBackend("remote")->online);
+    const auto remotePage = runtime.recordingOverviewPage(request, backendRegistryService);
+    assert(remotePage.status == PublicGenreCollectionStatus::ok);
+    assert(remotePage.totalItems == static_cast<std::size_t>(remoteCanonical.distinctItemCount));
+    assert(remotePage.assignmentCount == static_cast<std::size_t>(remoteCanonical.assignmentCount));
+    request.backendId = "missing-genre-backend";
+    assert(runtime.recordingOverviewPage(request, backendRegistryService).status ==
+        PublicGenreCollectionStatus::unavailable);
+    BackendNode disabled;
+    disabled.backendId = "disabled-genre-backend";
+    disabled.enabled = false;
+    registry.addBackend(disabled);
+    request.backendId = disabled.backendId;
+    assert(runtime.recordingOverviewPage(request, backendRegistryService).status ==
+        PublicGenreCollectionStatus::unavailable);
 
     FakeEpgResolver resolver;
     runtime.registerEpgScraperMetadataResolver("default", resolver);

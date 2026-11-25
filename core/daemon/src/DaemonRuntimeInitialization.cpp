@@ -3567,10 +3567,19 @@ bool DaemonRuntime::initialize()
         [this](const PublicGenreCollectionRequest& request)
         {
             PublicGenreCollectionResult result;
-            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
-                !publicRecordingIdentities_ || request.backendId.empty() ||
+            if (!backendRegistryService_ || request.backendId.empty() ||
                 request.limit == 0U || request.limit > 30U ||
                 request.offset > 1000000U)
+            {
+                result.status = PublicGenreCollectionStatus::invalid;
+                return result;
+            }
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (!request.recordings)
+                return genres.recordingOverviewPage(request, *backendRegistryService_);
+
+            // Only membership needs the existing native-recording projection.
+            if (!vdrSnapshotReadService_ || !publicRecordingIdentities_)
             {
                 result.status = PublicGenreCollectionStatus::invalid;
                 return result;
@@ -3583,8 +3592,6 @@ bool DaemonRuntime::initialize()
                     request.backendId))
                 return result;
 
-            auto& genres = GenreBrowserApiRuntime::instance();
-            if (request.recordings)
             {
                 GenreRecordingPage page;
                 if (!genres.recordingPage(request.backendId,
@@ -3632,8 +3639,6 @@ bool DaemonRuntime::initialize()
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);
             }
-            else
-                return genres.recordingOverviewPage(request);
             result.status = PublicGenreCollectionStatus::ok;
             return result;
         });
