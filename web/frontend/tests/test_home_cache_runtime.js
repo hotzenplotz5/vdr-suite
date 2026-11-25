@@ -153,7 +153,7 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   }});
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
   const options={backendId:'alpha',locale:'de',onPage:page=>assert(genreTicket.accept(page))};
-  const overview=await window.VdrSuiteClientApi.fetchPublicRecordingGenres(options);
+  const overview=await window.VdrSuiteClientApi.fetchClientGenres({...options,scope:'recordings'});
   assert.equal(requests.length,2);
   assert.equal(overview.totalItems,100);
   assert.equal(overview.assignmentCount,120);

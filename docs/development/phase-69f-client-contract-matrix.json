@@ -248,13 +248,14 @@
     {
       "domain": "genre-extension",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientGenres",
+        "fetchPublicRecordingGenres",
         "fetchClientGenreRecordings",
         "fetchClientGenreEpg"
       ],
-      "note": "Genre extension routes remain pre-v1 metadata/browse helpers."
+      "note": "Recording overview uses GET /api/v1/genres with existing recordings.view and backend scope; membership and EPG retain their pre-v1 routes pending parity."
     },
     {
       "domain": "live-remote-extension",

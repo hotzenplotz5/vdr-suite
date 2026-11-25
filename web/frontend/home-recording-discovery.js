@@ -5370,17 +5370,22 @@
       renderState('genres', 'Genres', 'Genres werden geladen …', false);
     }
     const cache = beginCachedRail('genres', 'Genres', backendId, generation);
+    let receivedPage = false;
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
       scope: 'recordings',
       locale: 'de',
       cache: 'no-store',
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      onPage: function (page) {
+        receivedPage = true;
+        if (cache) cache.accept(page);
+      }
     })).then(function (payload) {
       if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       const entries = canonicalGenres(payload);
       if (cache) {
-        cache.accept(payload);
+        if (!receivedPage) cache.accept(payload);
         cache.finish(entries.slice(0, GENRE_LIMIT).map(function (entry) {
           return {id: text(entry.id), title: genreLabel(entry), subtitle: String(Number(entry.count || 0)) + ' Aufnahmen'};
         }));

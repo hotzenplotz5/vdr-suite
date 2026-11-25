@@ -20,6 +20,8 @@
 
   function fetchClientGenres(options) {
     const normalized = normalizeOptions(options);
+    if (!normalized.scope || normalized.scope === 'recordings')
+      return fetchPublicRecordingGenres(normalized);
     return base.requestJson('/api/metadata/genres', withQuery(normalized, {
       backend: normalized.backendId,
       scope: normalized.scope,

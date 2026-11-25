@@ -71,19 +71,22 @@ The counts are cached index data, not proof of current backend availability.
 The membership route retains its existing online, snapshot and recording
 identity requirements. Unknown or disabled backends remain unavailable.
 
-The browser overview is not switched yet: the legacy overview and the public
-route differ in authorization (and disabled-backend behavior); the Home
-cache consumer still binds to the legacy route. The HTTP response decorator
-now supplies the existing session/backend/grant Home recording-cache proof
-for successful browser-authenticated `/api/v1/genres` pages, including later
-pages, only for the already admitted backend. No Device cache proof, new grant,
-response-body change or fallback on authorization failure is added. The browser
-consumer now supports the Public-v1 overview pages using the same existing
-cache runtime. The browser Client API can fetch all pages, restore the canonical
-Web display order and pass each original response to the existing cache ticket;
-an aggregate object is never a substitute for page proofs. Missing cache proof
-does not block online reads. The established browser call stays on its existing
-route pending authorization/disabled-backend parity; no fallback on 403.
+The maintainer confirmed that recording Genre visibility follows the existing
+recordings.view grant, without a separate Genre permission. The browser
+recording overview (Home and Genres module) now uses `GET /api/v1/genres`
+with the same grant as external clients. This deliberately replaces the
+legacy authenticated-only overview admission for these browser callers.
+The existing Public-v1 enabled-backend requirement remains; the legacy
+endpoint itself is unchanged. EPG and membership callers are not migrated
+by this change.
+
+The HTTP response decorator supplies the existing session/backend/grant Home
+recording-cache proof for successful browser-authenticated pages, only for
+the already admitted backend. The browser Client API reads all pages,
+restores the canonical Web display order and passes each original response
+to the existing cache ticket. An aggregate object is never a substitute
+for page proofs. Missing cache proof does not block online reads. No Device
+cache proof, new grant, administrator requirement or fallback on 403.
 
 ## Recording titles and edited cuts: public presentation parity
 
