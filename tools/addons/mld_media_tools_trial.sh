@@ -5,7 +5,7 @@
 # explicit operator decision. Never installs, approves or starts a worker.
 set +e
 set +u
-set +o pipefail 2>/dev/null
+
 
 unit=vdr-suite-backend-agent.service
 binary=/usr/sbin/vdr-suite-backend-agent
@@ -21,7 +21,7 @@ fail() {
 action=$1
 case "$action" in check|prepare|restore) ;; *)
   echo 'Usage: sh mld_media_tools_trial.sh check|prepare|restore'
-  return 2 2>/dev/null || exit 2 ;;
+  exit 2 ;;
 esac
 if ! command -v systemctl >/dev/null 2>&1; then
   fail 'systemctl unavailable'
