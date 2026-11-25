@@ -133,11 +133,19 @@ clearing an existing assignment. No settings rows, image URLs or revisions
 are migrated. This is compatibility for matching group seeds, not proof
 of equivalence for all enriched/Unicode group variants.
 
-The browser membership call remains on its existing route until descendant
-folder membership, poster/preview and recording detail/action identity
-parity are covered. New cover writes from an opaque-only client and the
-remaining enriched grouping cases require review at the browser migration;
-the existing Web cover workflow is unchanged.
+Series members additionally carry `seriesGrouping.ancestorFolderIds`
+using the existing Recording cache folder hierarchy and public folder ID
+calculation. The legacy Web folder response adds the same IDs to the
+current page and child entries. Home's folder Series projection can use
+exact IDs instead of native descendant paths for Public-v1 members; the
+existing partial-root/full-direct-folder rules and original-folder escape
+remain unchanged. The same Series group and selected cover are reused on
+both surfaces. No new browse database, lookup or folder ID scheme is used.
+
+The browser membership call remains on its existing route until poster/preview
+and recording detail/action identity parity are covered. New cover writes
+from an opaque-only client and the remaining enriched grouping cases require
+review at the browser migration; the existing Web cover workflow is unchanged.
 
 ## Recording titles and edited cuts: public presentation parity
 

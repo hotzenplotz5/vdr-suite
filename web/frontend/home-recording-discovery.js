@@ -560,6 +560,7 @@
     // Updating or clearing an already assigned cover keeps its original
     // storage key, even if the current Series uses the public group alias.
     const seriesKey = seriesCoverStorageKey(series, id);
+    const displayKey = text(series && series.key);
 
     if (!client ||
         typeof client.requestJson !== 'function') {
@@ -644,7 +645,8 @@
         const rich = card.__vdrSuiteRichMetadata || null;
         const before = seriesMemberProjection(recording, null, id);
         const enriched = seriesMemberProjection(recording, rich, id);
-        if (before.seriesKey === seriesKey || enriched.seriesKey === seriesKey)
+        if ([before.seriesKey, enriched.seriesKey].some(key =>
+            key === seriesKey || key === displayKey))
           updateNewlyRecordedTile(recording, id, rich);
       });
 
@@ -1763,6 +1765,37 @@
   }
 
   function seriesMemberProjection(recording, richMetadata, backendId) {
+    // Public-v1 Genre members carry the server's opaque group and folder
+    // ancestry. Do not reconstruct a native ID or path for these members.
+    const grouping = recording && recording.seriesGrouping;
+    const groupKey = text(grouping && grouping.groupKey);
+    if (/^sg1_[0-9a-f]{32}$/.test(groupKey)) {
+      const card = recording.cardMetadata || {};
+      const token = episodeToken(recording);
+      const episodeTitle = text(card.episodeName) || episodeLeafTitle(recording) || 'Folge';
+      const cardTitle = text(card.mediaType) === 'series' ? text(card.title) : '';
+      const seriesTitle = cardTitle && cardTitle.toLocaleLowerCase() !== episodeTitle.toLocaleLowerCase()
+        ? cardTitle : text(grouping.folderTitle) || recordingTitle(recording);
+      const id = recordingId(recording);
+      const scopedBackend = recordingBackendId(recording, backendId);
+      const artworkId = text(recording.preferredArtworkId);
+      const posterUrl = /^rec_[0-9a-f]{32}$/.test(id) && /^[0-9a-f]{32}$/.test(artworkId)
+        ? '/api/v1/recordings/' + id + '/artwork/' + artworkId +
+          '?backendId=' + encodeURIComponent(scopedBackend) : '';
+      return {
+        recording: recording,
+        backendId: scopedBackend,
+        seriesKey: groupKey,
+        seriesTitle: seriesTitle,
+        seriesPath: '',
+        posterUrl: posterUrl,
+        nativeMetadataAvailable: grouping.nativeMetadataAvailable === true,
+        nativeArtworkAvailable: Boolean(card.mediaType && posterUrl),
+        seasonNumber: Math.max(0, Number(card.seasonNumber) || token.seasonNumber || 0),
+        episodeNumber: Math.max(0, Number(card.episodeNumber) || token.episodeNumber || 0),
+        episodeTitle: episodeTitle
+      };
+    }
     const sourceProvider = provider(recording);
     const rich = richMetadata && typeof richMetadata === 'object' ? richMetadata :
       (recording && recording.seriesMetadata) || {};
@@ -3929,7 +3962,7 @@
     return /^(?:serien|serie|series)$/i.test(folderSeriesPath(path));
   }
 
-  function folderSeriesEntries(path, count, backendId, allowPartial = false) {
+  function folderSeriesEntries(path, count, backendId, allowPartial = false, folderId = '') {
     const root = folderSeriesPath(path);
     const expected = Number(count);
     if (!root || !isSeriesRootFolder(root.split('/')[0]) ||
@@ -3944,8 +3977,13 @@
         const recording = member.recording;
         const id = recordingId(recording);
         const path = recordingPath(recording) || recordingBackendNativeId(recording);
+        const grouping = recording && recording.seriesGrouping;
+        const inFolder = grouping && /^sg1_[0-9a-f]{32}$/.test(text(grouping.groupKey))
+          ? Boolean(folderId && Array.isArray(grouping.ancestorFolderIds) &&
+              grouping.ancestorFolderIds.includes(folderId))
+          : folderSeriesPath(path).startsWith(prefix);
         if (!id || recordingBackendId(recording, backendId) !== backendId ||
-            !folderSeriesPath(path).startsWith(prefix) || seen.has(id)) continue;
+            !inFolder || seen.has(id)) continue;
         seen.add(id);
         members.push(member);
       }
@@ -3991,7 +4029,7 @@
       return false;
     }
     if (surface.backendId !== backendId) return false;
-    const entries = folderSeriesEntries(surface.path, surface.count(), backendId, !surface.direct);
+    const entries = folderSeriesEntries(surface.path, surface.count(), backendId, !surface.direct, surface.folderId);
     if (!entries || (surface.direct && entries.length !== 1)) {
       // An early auto-open may precede the first genre page. Keep the
       // same explicit Series surface until that existing request finishes.
@@ -4017,10 +4055,11 @@
         typeof config.back !== 'function') return false;
     const root = !config.direct && isSeriesRootFolder(path);
     if (!root && !config.direct) return false;
-    const entries = folderSeriesEntries(path, config.count(), backendId, root);
+    const entries = folderSeriesEntries(path, config.count(), backendId, root, text(config.folderId));
     if (!entries && (!root || state.seriesFolderSettledBackendId === backendId)) return false;
     if (config.direct && (!entries || entries.length !== 1)) return false;
-    const surface = {section, path, backendId, entries:entries || [], direct:config.direct === true,
+    const surface = {section, path, backendId, folderId:text(config.folderId),
+      entries:entries || [], direct:config.direct === true,
       count:config.count, current:config.current, fallback:config.fallback, back:config.back,
       seriesViewKey:'', seriesSeasonNumber:null};
     folderSeriesSurface = surface;
@@ -4041,7 +4080,7 @@
 
   function folderSeriesCard(entry, backendId) {
     const path = text(entry && (entry.path || entry.folderPath));
-    const entries = folderSeriesEntries(path, folderEntryCount(entry), backendId);
+    const entries = folderSeriesEntries(path, folderEntryCount(entry), backendId, false, text(entry && entry.folderId));
     if (!entries || entries.length !== 1) return null;
     const series = entries[0];
     return {title: series.title, posterUrl:seriesCoverPosterUrl(series, backendId),

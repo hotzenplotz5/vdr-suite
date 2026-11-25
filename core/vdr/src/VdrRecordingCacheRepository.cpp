@@ -1029,6 +1029,19 @@ std::string VdrRecordingCacheRepository::publicFolderId(
     return out.str();
 }
 
+std::vector<std::string> VdrRecordingCacheRepository::publicFolderAncestors(
+    const std::string& backendId, const VdrRecording& recording)
+{
+    std::vector<std::string> ids;
+    std::string path = folderPathForRecording(recording);
+    while (!path.empty())
+    {
+        ids.push_back(publicFolderId(backendId, path));
+        path = parentFolderPath(path);
+    }
+    return ids;
+}
+
 bool VdrRecordingCacheRepository::folderPageForBackendByPublicId(
     const std::string& backendId, const std::string& folderId,
     int limit, int offset, VdrRecordingFolderPage& page) const

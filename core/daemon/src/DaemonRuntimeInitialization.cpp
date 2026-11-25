@@ -3662,6 +3662,9 @@ bool DaemonRuntime::initialize()
                             request.backendId, seriesSeed);
                         if (view.seriesGroupKey.empty())
                             return PublicGenreCollectionResult{};
+                        view.seriesAncestorFolderIds =
+                            VdrRecordingCacheRepository::publicFolderAncestors(
+                                request.backendId, found);
                     }
                     // The image owner uses this same selected manual binding.
                     // Reuse the already resolved recording; no image/list HTTP

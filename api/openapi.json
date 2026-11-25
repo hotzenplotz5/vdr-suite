@@ -15057,7 +15057,12 @@
             "properties": {
               "groupKey": { "type": "string", "pattern": "^sg1_[0-9a-f]{32}$" },
               "folderTitle": { "type": "string" },
-              "nativeMetadataAvailable": { "type": "boolean" }
+              "nativeMetadataAvailable": { "type": "boolean" },
+              "ancestorFolderIds": {
+                "type": "array",
+                "description": "Existing public Recording folder IDs for exact descendant membership; no native path.",
+                "items": { "type": "string", "pattern": "^fld1_[0-9a-f]{32}$" }
+              }
             }
           },
           "seriesHierarchyOverride": {

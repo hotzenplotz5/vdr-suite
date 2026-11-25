@@ -280,6 +280,34 @@ Promise.resolve().then(function () {
   originals.listeners.click[0]();
   assert.strictEqual(fallback,1,'unclassified recordings remain reachable by explicit folder navigation');
   alive=false; folderView.__stopFolderSeries();
+
+  // Public members have no native path. Same group across physical folders
+  // must still produce the exact scoped Series surface, with no title match.
+  const groupKey = 'sg1_0123456789abcdef0123456789abcdef';
+  const rootId = 'fld1_0123456789abcdef0123456789abcdef';
+  const childId = 'fld1_fedcba9876543210fedcba9876543210';
+  const outsideId = 'fld1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const publicMembers = [
+    {recordingId:'rec_11111111111111111111111111111111',backendId:'default',
+      title:'S01E01 Pilot',cardMetadata:{mediaType:'series',title:'Alpha',seasonNumber:1,episodeNumber:1},
+      preferredArtworkId:'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      seriesGrouping:{groupKey,folderTitle:'Alpha',nativeMetadataAvailable:true,ancestorFolderIds:[childId,rootId]}},
+    {recordingId:'rec_22222222222222222222222222222222',backendId:'default',
+      title:'S01E02 Next',seriesGrouping:{groupKey,folderTitle:'Alpha',ancestorFolderIds:[childId,rootId]}},
+    {recordingId:'rec_33333333333333333333333333333333',backendId:'default',
+      title:'S01E03 Outside',seriesGrouping:{groupKey,folderTitle:'Alpha',ancestorFolderIds:[outsideId]}}
+  ];
+  api._test.applySeriesProjection(publicMembers,'default');
+  const publicScoped = api._test.folderSeriesEntries('Serien',3,'default',true,rootId);
+  assert(publicScoped && publicScoped.length === 1);
+  assert.strictEqual(publicScoped[0].key,groupKey);
+  assert.strictEqual(publicScoped[0].episodes.length,2);
+  assert.strictEqual(publicScoped[0].posterUrl,
+    '/api/v1/recordings/rec_11111111111111111111111111111111/artwork/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb?backendId=default');
+  assert.strictEqual(api._test.folderSeriesEntries('Serien/Alpha',3,'default',false,childId),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien/Alpha',2,'default',false,childId)[0].episodes.length,2);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',3,'default',true),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',2,'other',true,rootId),null);
   console.log('phase66 shared scoped series presentation and return-scroll contract ok');
 }).catch(function (error) {
   console.error(error);

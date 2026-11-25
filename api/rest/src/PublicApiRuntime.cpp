@@ -5184,7 +5184,14 @@ ApiResponse publicGenreCollectionResponse(
                 body += ",\"seriesGrouping\":{\"groupKey\":\"" + item.seriesGroupKey +
                     "\",\"folderTitle\":\"" + jsonEscape(item.seriesFolderTitle) +
                     "\",\"nativeMetadataAvailable\":" +
-                    (item.seriesNativeMetadataAvailable ? "true" : "false") + "}";
+                    (item.seriesNativeMetadataAvailable ? "true" : "false") +
+                    ",\"ancestorFolderIds\":[";
+                for (std::size_t i = 0; i < item.seriesAncestorFolderIds.size(); ++i)
+                {
+                    if (i) body += ",";
+                    body += "\"" + jsonEscape(item.seriesAncestorFolderIds[i]) + "\"";
+                }
+                body += "]}";
             }
             if (item.seriesHierarchyOverrideAvailable)
             {

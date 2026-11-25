@@ -328,6 +328,15 @@ static void test_public_folder_browse_reuses_home_hierarchy()
         assert(child.singleRecordingLeaf);
         assert(!child.singleRecording.backendNativeId.empty());
         assert(child.singleRecording.title == child.name);
+        const auto ancestors = VdrRecordingCacheRepository::publicFolderAncestors(
+            "home-vdr", child.singleRecording);
+        assert(ancestors.size() == 2U);
+        assert(ancestors[0] == VdrRecordingCacheRepository::publicFolderId(
+            "home-vdr", child.path));
+        assert(ancestors[1] == id);
+        const auto foreign = VdrRecordingCacheRepository::publicFolderAncestors(
+            "other-backend", child.singleRecording);
+        assert(foreign.size() == ancestors.size() && foreign[1] != id);
     }
     assert(!repository.folderPageForBackendByPublicId(
         "other-backend", id, 30, 0, children));

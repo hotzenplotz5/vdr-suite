@@ -797,6 +797,9 @@ ApiResponse VdrRecordingFolderController::getFolder(
     appendJsonString(json, page.path);
     json << ",\"parentPath\":";
     appendJsonString(json, page.parentPath);
+    json << ",\"folderId\":";
+    appendJsonString(json, page.path.empty() ? std::string{} :
+        VdrRecordingCacheRepository::publicFolderId(page.backendId, page.path));
     json << ",\"cacheState\":";
     appendJsonString(json, page.cacheState);
     json << ",\"cacheReady\":" << (page.cacheReady ? "true" : "false")
@@ -829,6 +832,9 @@ ApiResponse VdrRecordingFolderController::getFolder(
         json << ",\"recordingCount\":" << folder.recordingCount
              << ",\"singleRecordingLeaf\":"
              << (folder.singleRecordingLeaf ? "true" : "false");
+        json << ",\"folderId\":";
+        appendJsonString(json, VdrRecordingCacheRepository::publicFolderId(
+            page.backendId, folder.path));
         if (folder.singleRecordingLeaf)
         {
             json << ",\"singleRecording\":";

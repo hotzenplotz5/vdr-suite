@@ -274,6 +274,8 @@ int main()
     assert(manualLookupCalls == 0);
     assert(contains(root.body, "\"recordingFolder\":true"));
     assert(contains(root.body, "\"Series\""));
+    const auto seriesId = VdrRecordingCacheRepository::publicFolderId("default", "Series");
+    assert(contains(root.body, "\"folderId\":\"" + seriesId + "\""));
     assert(contains(root.body, "\"Movies\""));
     assert(contains(root.body, "\"Drama\""));
     assert(contains(root.body, "\"Root Recording\""));
@@ -308,6 +310,7 @@ int main()
     assert(manualLookupCalls == 0);
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
+    assert(contains(series.body, "\"folderId\":\"" + seriesId + "\""));
     assert(contains(series.body, "\"metadata\":{"));
 
     const int nativeCallsBeforeMovies =

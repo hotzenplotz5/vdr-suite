@@ -107,6 +107,9 @@ public:
     // Public API SecurityHttpGate, not by knowing an ID.
     static std::string publicFolderId(
         const std::string& backendId, const std::string& folderPath);
+    // Same ancestor membership as the existing folder browse hierarchy.
+    static std::vector<std::string> publicFolderAncestors(
+        const std::string& backendId, const VdrRecording& recording);
     bool folderPageForBackendByPublicId(
         const std::string& backendId, const std::string& folderId,
         int limit, int offset, VdrRecordingFolderPage& page) const;

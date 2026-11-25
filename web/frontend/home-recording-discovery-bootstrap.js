@@ -1348,6 +1348,7 @@
     if (!generic && discovery && typeof discovery.mountFolderSeries === 'function' &&
         discovery.mountFolderSeries(expansion, nextPath, backendId, {
           count, current:stillCurrent, direct:nextPath !== rootPath,
+          folderId:text(currentEntry() && currentEntry().folderId),
           back:() => openFolderPathInline(parentPath(nextPath) || rootPath),
           fallback:() => { if (stillCurrent()) openFolderPathInline(nextPath, entry, true); }
         })) {

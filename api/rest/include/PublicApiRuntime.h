@@ -552,6 +552,7 @@ struct PublicGenreRecordingItem
     // Page-independent grouping evidence for the existing Series UI.
     std::string seriesGroupKey;
     std::string seriesFolderTitle;
+    std::vector<std::string> seriesAncestorFolderIds;
     bool seriesNativeMetadataAvailable = false;
     std::string episodeName;
     int seasonNumber = 0;
