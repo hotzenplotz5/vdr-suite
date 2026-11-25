@@ -15026,6 +15026,25 @@
           "durationKnown": {
             "type": "boolean"
           },
+          "sizeMb": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "genreIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "cardMetadata": {
+            "type": "object",
+            "description": "Compact cached native or manual card presentation; no provider identity or artwork path.",
+            "properties": {
+              "mediaType": { "type": "string" },
+              "title": { "type": "string" },
+              "episodeName": { "type": "string" },
+              "seasonNumber": { "type": "integer" },
+              "episodeNumber": { "type": "integer" }
+            }
+          },
           "edited": {
             "type": "boolean",
             "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."

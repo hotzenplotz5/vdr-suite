@@ -19,6 +19,7 @@ class IEpgScraperMetadataResolver;
 
 struct PublicGenreCollectionRequest;
 struct PublicGenreCollectionResult;
+struct PublicGenreRecordingItem;
 
 class GenreBrowserApiRuntime
 {
@@ -82,6 +83,9 @@ public:
         const std::string& genreId,
         int limit, int offset,
         GenreRecordingPage& result) const;
+
+    static void projectRecordingCard(
+        const GenreRecordingItem& source, PublicGenreRecordingItem& target);
 
     bool configured() const;
     void reset();

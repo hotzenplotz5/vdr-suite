@@ -543,6 +543,14 @@ struct PublicGenreRecordingItem
     int durationSeconds = 0;
     bool durationKnown = false;
     bool edited = false;
+    std::int64_t sizeMb = 0;
+    std::vector<std::string> genreIds;
+    // Compact presentation only; no native identity, provider ID or path.
+    std::string cardTitle;
+    std::string cardMediaType;
+    std::string episodeName;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
 };
 
 struct PublicGenreCollectionResult

@@ -28,6 +28,13 @@ int main()
                 item.title = "Aufnahme";
                 item.edited = true;
                 item.recordedAt = "2026-10-09";
+                item.sizeMb = 2048;
+                item.genreIds = {"crime", "series"};
+                item.cardTitle = "Testserie";
+                item.cardMediaType = "series";
+                item.episodeName = "Folge sieben";
+                item.seasonNumber = 2;
+                item.episodeNumber = 7;
                 result.recordings.push_back(std::move(item));
             }
         }
@@ -84,6 +91,13 @@ int main()
     assert(recordings.body.find("assignmentCount") == std::string::npos);
     assert(recordings.body.find("displayOrder") == std::string::npos);
     assert(recordings.body.find("\"edited\":true") != std::string::npos);
+    assert(recordings.body.find("\"sizeMb\":2048") != std::string::npos);
+    assert(recordings.body.find("\"genreIds\":[\"crime\",\"series\"]") != std::string::npos);
+    assert(recordings.body.find("\"cardMetadata\":{\"mediaType\":\"series\",\"title\":\"Testserie\"") != std::string::npos);
+    assert(recordings.body.find("\"episodeName\":\"Folge sieben\"") != std::string::npos);
+    assert(recordings.body.find("\"seasonNumber\":2,\"episodeNumber\":7") != std::string::npos);
+    assert(recordings.body.find("resourceKey") == std::string::npos);
+    assert(recordings.body.find("providerId") == std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
         "/api/v1/genres?backendId=home&genreId=crime",

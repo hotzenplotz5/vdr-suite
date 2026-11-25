@@ -611,6 +611,29 @@ bool GenreBrowserApiRuntime::recordingPage(
     return true;
 }
 
+void GenreBrowserApiRuntime::projectRecordingCard(
+    const GenreRecordingItem& source, PublicGenreRecordingItem& target)
+{
+    target.sizeMb = std::max<std::int64_t>(0, source.sizeMb);
+    target.genreIds = source.genreIds;
+    // Match the established Genre page's locked manual/native card selection.
+    // The index already selects the canonical metadata; do not resolve again.
+    if (source.seriesMetadataAvailable)
+    {
+        target.cardTitle = source.seriesTitle;
+        target.cardMediaType = "series";
+        target.episodeName = source.episodeName;
+        target.seasonNumber = source.seasonNumber;
+        target.episodeNumber = source.episodeNumber;
+    }
+    else if (source.nativeCardMetadataAvailable)
+    {
+        target.cardTitle = source.seriesTitle;
+        target.cardMediaType = source.nativeCardMediaType;
+        target.episodeName = source.episodeName;
+    }
+}
+
 bool GenreBrowserApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);

@@ -5150,7 +5150,23 @@ ApiResponse publicGenreCollectionResponse(
                 "\",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
                 ",\"durationKnown\":" +
                 std::string(item.durationKnown ? "true" : "false") +
-                ",\"edited\":" + (item.edited ? "true" : "false") + "}";
+                ",\"edited\":" + (item.edited ? "true" : "false") +
+                ",\"sizeMb\":" + std::to_string(item.sizeMb) + ",\"genreIds\":[";
+            for (std::size_t i = 0; i < item.genreIds.size(); ++i)
+            {
+                if (i) body += ",";
+                body += "\"" + jsonEscape(item.genreIds[i]) + "\"";
+            }
+            body += "]";
+            if (!item.cardMediaType.empty())
+            {
+                body += ",\"cardMetadata\":{\"mediaType\":\"" + jsonEscape(item.cardMediaType) +
+                    "\",\"title\":\"" + jsonEscape(item.cardTitle) +
+                    "\",\"episodeName\":\"" + jsonEscape(item.episodeName) +
+                    "\",\"seasonNumber\":" + std::to_string(item.seasonNumber) +
+                    ",\"episodeNumber\":" + std::to_string(item.episodeNumber) + "}";
+            }
+            body += "}";
         }
     }
     else

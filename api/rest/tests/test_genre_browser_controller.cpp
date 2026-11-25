@@ -409,6 +409,25 @@ int main()
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
 
+    // Actual SQLite membership and the production compact card projection.
+    // Locked manual series metadata retains the canonical episode hierarchy.
+    GenreRecordingPage membership;
+    assert(runtime.recordingPage("default", "action", 10, 0, membership));
+    assert(membership.totalCount == 1 && membership.recordings.size() == 1);
+    const auto& member = membership.recordings.front();
+    PublicGenreRecordingItem card;
+    GenreBrowserApiRuntime::projectRecordingCard(member, card);
+    assert(card.cardTitle == "Manuelle Serie");
+    assert(card.cardMediaType == "series");
+    assert(card.seasonNumber == 2 && card.episodeNumber == 7);
+    assert(card.genreIds == member.genreIds);
+    assert(card.sizeMb == member.sizeMb);
+    assert(contains(manualSeriesSummary, "\"title\":\"" + card.cardTitle + "\""));
+    GenreRecordingItem noMetadata;
+    PublicGenreRecordingItem plainCard;
+    GenreBrowserApiRuntime::projectRecordingCard(noMetadata, plainCard);
+    assert(plainCard.cardMediaType.empty() && plainCard.cardTitle.empty());
+
     // Exercise the production projection against the same SQLite index
     // used by the established Web overview, including cross-page ordering.
     GenreOverview canonical;

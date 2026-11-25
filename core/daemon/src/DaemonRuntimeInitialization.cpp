@@ -3635,6 +3635,7 @@ bool DaemonRuntime::initialize()
                     view.recordedAt = found.startTime;
                     view.durationSeconds = found.durationSeconds;
                     view.durationKnown = found.recordingDurationKnown;
+                    GenreBrowserApiRuntime::projectRecordingCard(item, view);
                     result.recordings.push_back(std::move(view));
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);

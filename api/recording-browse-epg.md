@@ -88,6 +88,20 @@ to the existing cache ticket. An aggregate object is never a substitute
 for page proofs. Missing cache proof does not block online reads. No Device
 cache proof, new grant, administrator requirement or fallback on 403.
 
+### Browser migration: recording membership cards
+
+Membership now adds `sizeMb`, `genreIds` and optional `cardMetadata`
+(`mediaType`, `title`, `episodeName`, `seasonNumber`, `episodeNumber`)
+from the same page-scoped Genre index that the Web cards use. The existing
+locked manual/native metadata precedence is preserved. No provider ID,
+native recording path, resource key or artwork path is exposed. The current
+opaque recording identity and membership ordering remain unchanged.
+
+The browser membership call remains on its existing route until artwork,
+series grouping/hierarchy and recording detail/action identity parity are
+covered. The compact metadata addition alone does not establish browser
+feature parity.
+
 ## Recording titles and edited cuts: public presentation parity
 
 Public-v1 projects Recording names using the established Web
