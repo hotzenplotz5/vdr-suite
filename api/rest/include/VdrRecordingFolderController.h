@@ -7,11 +7,13 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 class VdrRecordingCacheRepository;
+struct VdrRecording;
 
 class VdrRecordingFolderController
 {
@@ -110,6 +112,28 @@ public:
             ? nativeMetadataLookup_(backendId, backendNativeId)
             : VdrRecordingNativeMetadataRecord{};
     }
+
+    struct PublicMetadataArtwork
+    {
+        std::string artworkId;
+        std::string kind;
+        int index = 0;
+        std::string orientation;
+        int width = 0;
+        int height = 0;
+    };
+
+    // The detail projection and binary GET use exactly the same current
+    // metadata evidence. These methods receive an already resolved recording.
+    static std::vector<PublicMetadataArtwork> publicMetadataArtwork(
+        const VdrRecording& recording,
+        const ManualRecordingMetadataAssignment& manual,
+        const VdrRecordingNativeMetadataRecord& native);
+    std::optional<ApiResponse> loadPublicMetadataArtwork(
+        const VdrRecording& recording,
+        const ManualRecordingMetadataAssignment& manual,
+        const VdrRecordingNativeMetadataRecord& native,
+        const std::string& artworkId) const;
 
     ApiResponse getMetadata(
         const std::string& backendId,

@@ -120,6 +120,71 @@ bool localManualImage(const std::string& path)
             "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
 }
 
+struct MetadataArtworkEntry
+{
+    VdrRecordingFolderController::PublicMetadataArtwork item;
+    std::string path;
+};
+
+std::vector<MetadataArtworkEntry> metadataArtworkEntries(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    std::vector<MetadataArtworkEntry> entries;
+    if (recording.backendId.empty() || recording.backendNativeId.empty())
+        return entries;
+    const auto add = [&](const std::string& kind, int index,
+                         const std::string& path, const std::string& orientation,
+                         int width, int height, int revision) {
+        if (path.empty()) return;
+        // Use the existing opaque asset identity algorithm with a disjoint
+        // metadata source reference. Bind to the actual selected image, not
+        // merely its mutable ordinal. Never expose the input or use it as URL.
+        VdrRecordingArtworkRef reference;
+        reference.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+        reference.kind = VdrRecordingArtworkKind::Still;
+        reference.reference = "metadata-image-v1:" + kind + ":" +
+            std::to_string(index) + ":" + std::to_string(revision) + ":" + path;
+        reference.width = std::max(0, width);
+        reference.height = std::max(0, height);
+        const auto id = VdrRecordingArtworkIdentity::assetId(recording, reference);
+        if (!id.empty())
+            entries.push_back({{id, kind, index, orientation,
+                reference.width, reference.height}, path});
+    };
+    if (manual.found && manual.relationshipLocked &&
+        manual.backendId == recording.backendId)
+    {
+        if (localManualImage(manual.posterReference))
+            add("preferred", 0, manual.posterReference, "portrait", 0, 0,
+                manual.revision);
+        for (std::size_t i = 0; i < manual.people.size(); ++i)
+        {
+            if (localManualImage(manual.people[i].profilePath))
+                add("person", static_cast<int>(i), manual.people[i].profilePath,
+                    "portrait", 0, 0, manual.revision);
+        }
+        return entries;
+    }
+    if (!native.exists() || !native.metadata.found ||
+        native.backendId != recording.backendId ||
+        native.backendNativeId != recording.backendNativeId)
+        return entries;
+    const auto addNative = [&](const std::string& kind, int index,
+                               const VdrRecordingNativeArtwork& image) {
+        if (image.available)
+            add(kind, index, image.path, image.orientation,
+                image.width, image.height, 0);
+    };
+    addNative("preferred", 0, native.metadata.preferredArtwork);
+    for (std::size_t i = 0; i < native.metadata.people.size(); ++i)
+        addNative("person", static_cast<int>(i), native.metadata.people[i].image);
+    for (std::size_t i = 0; i < native.metadata.images.size(); ++i)
+        addNative("gallery", static_cast<int>(i), native.metadata.images[i]);
+    return entries;
+}
+
 std::string percentEncode(const std::string& value)
 {
     static const char Hex[] = "0123456789ABCDEF";
@@ -998,6 +1063,33 @@ ApiResponse VdrRecordingFolderController::getMetadata(
     return jsonResponse(
         VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
             nativeMetadata));
+}
+
+std::vector<VdrRecordingFolderController::PublicMetadataArtwork>
+VdrRecordingFolderController::publicMetadataArtwork(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    std::vector<PublicMetadataArtwork> result;
+    for (const auto& entry : metadataArtworkEntries(recording, manual, native))
+        result.push_back(entry.item);
+    return result;
+}
+
+std::optional<ApiResponse> VdrRecordingFolderController::loadPublicMetadataArtwork(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native,
+    const std::string& artworkId) const
+{
+    for (const auto& entry : metadataArtworkEntries(recording, manual, native))
+    {
+        if (entry.item.artworkId == artworkId)
+            return EpgArtworkController::serveValidatedPath(
+                entry.path, metadataImageAllowedRoots_);
+    }
+    return std::nullopt;
 }
 
 ApiResponse VdrRecordingFolderController::getMetadataImage(

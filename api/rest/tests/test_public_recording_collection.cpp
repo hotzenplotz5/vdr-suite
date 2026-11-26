@@ -412,7 +412,10 @@ int main()
             result.item.voteCount = 123;
             result.item.firstAired = "2026-10-19";
             result.item.genres = {"Drama", "Mystery"};
-            result.item.people.push_back({"actor", "Actor \"Name\"", "Character"});
+            result.item.people.push_back({"actor", "Actor \"Name\"", "Character",
+                {std::string(32, 'a'), 120, 180}});
+            result.item.preferredArtwork = {std::string(32, 'b'), 720, 1080};
+            result.item.images.push_back({"landscape", {std::string(32, 'c'), 1920, 1080}});
             // A manual Genre assignment may exist without a selected
             // manual metadata entity.
             result.item.manualGenreId = "film.drama";
@@ -436,6 +439,10 @@ int main()
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
     assert(detail.body.find("\"voteAverage\":7.5") != std::string::npos);
     assert(detail.body.find("\"voteCount\":123") != std::string::npos);
+    assert(detail.body.find("\"preferredArtwork\":{\"available\":true") != std::string::npos);
+    assert(detail.body.find("\"images\":[{\"orientation\":\"landscape\"") != std::string::npos);
+    assert(detail.body.find("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/" +
+        std::string(32, 'a') + "?backendId=backend-a") != std::string::npos);
     assert(detail.body.find("\"genres\":[\"Drama\",\"Mystery\"]") != std::string::npos);
     assert(detail.body.find("\"name\":\"Actor \\\"Name\\\"\"") != std::string::npos);
     assert(detail.body.find("\"manualGenreId\":\"film.drama\"") !=

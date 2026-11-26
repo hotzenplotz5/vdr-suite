@@ -3562,10 +3562,16 @@ bool DaemonRuntime::initialize()
             if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
                     request.backendId, manual, *detail))
                 return result;
+            VdrRecordingNativeMetadataRecord nativeDetail;
             if (detail->metadataSource != "manual" && vdrRecordingFolderController_)
+            {
+                nativeDetail = vdrRecordingFolderController_->findNativeMetadata(
+                    request.backendId, found.recording.backendNativeId);
                 PublicRecordingMetadataDetailProjection::applyNativeDetails(
-                    found.recording, vdrRecordingFolderController_->findNativeMetadata(
-                        request.backendId, found.recording.backendNativeId), *detail);
+                    found.recording, nativeDetail, *detail);
+            }
+            const auto metadataArtwork = VdrRecordingFolderController::publicMetadataArtwork(
+                found.recording, manual, nativeDetail);
 
             // The Web's canonical, separately assigned Genre belongs to the
             // same backend-native Recording, whether or not manual metadata
@@ -3632,7 +3638,26 @@ bool DaemonRuntime::initialize()
             out.productionCountries = source.productionCountries;
             out.networks = source.networks;
             for (const auto& person : source.people)
-                out.people.push_back({person.role, person.name, person.characterName});
+            {
+                PublicRecordingDetailItem::Person projected{
+                    person.role, person.name, person.characterName, {}};
+                const auto image = std::find_if(metadataArtwork.begin(),
+                    metadataArtwork.end(), [&person](const auto& entry) {
+                        return entry.kind == "person" &&
+                            static_cast<std::size_t>(entry.index) == person.sourceIndex;
+                    });
+                if (image != metadataArtwork.end())
+                    projected.image = {image->artworkId, image->width, image->height};
+                out.people.push_back(std::move(projected));
+            }
+            for (const auto& entry : metadataArtwork)
+            {
+                if (entry.kind == "preferred")
+                    out.preferredArtwork = {entry.artworkId, entry.width, entry.height};
+                else if (entry.kind == "gallery")
+                    out.images.push_back({entry.orientation,
+                        {entry.artworkId, entry.width, entry.height}});
+            }
             result.status = PublicRecordingDetailStatus::ok;
             return result;
         });
@@ -6174,6 +6199,27 @@ bool DaemonRuntime::initialize()
                 ? metadataRepository_->getManualRecordingMetadataReadOnly(
                     request.backendId, found.recording.backendNativeId)
                 : ManualRecordingMetadataAssignment{};
+            if (!request.artworkId.empty() && vdrRecordingFolderController_)
+            {
+                const auto native = selected.found && selected.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : vdrRecordingFolderController_->findNativeMetadata(
+                        request.backendId, found.recording.backendNativeId);
+                const auto image = vdrRecordingFolderController_->loadPublicMetadataArtwork(
+                    found.recording, selected, native, request.artworkId);
+                if (image)
+                {
+                    if (image->statusCode != 200)
+                    {
+                        result.status = PublicRecordingArtworkStatus::notFound;
+                        return result;
+                    }
+                    result.contentType = image->contentType;
+                    result.content = image->body;
+                    result.status = PublicRecordingArtworkStatus::ok;
+                    return result;
+                }
+            }
             if (selected.found && selected.relationshipLocked &&
                 selected.backendId == request.backendId)
             {

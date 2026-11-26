@@ -130,3 +130,14 @@ do not introduce a new scraper or cache merely for parity.
 
 See `api/openapi.json` for HTTP schemas. This work is on the
 post-Phase-69 API v1 roadmap; Phase 70 is not started.
+
+## Recording detail portraits and gallery
+
+The Recording detail can now provide individual opaque artwork references for
+the persisted native Scraper preferred image, person portraits and gallery,
+or the selected manual assignment's preferred image and portraits. The
+existing individual artwork GET resolves these through the same current
+metadata and validated image-file reader. The existing artwork collection
+kind enumeration is unchanged; clients discover the additional images in
+Recording detail. No native paths or provider credentials are returned. This
+source slice still requires C++ and device/Web acceptance.

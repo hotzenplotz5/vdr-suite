@@ -7745,7 +7745,7 @@
         ],
         "operationId": "getPublicRecordingDetail",
         "summary": "Read existing VDR/EPG/scraper metadata for an authorized public Recording",
-        "description": "M1 read-only detail reuses the durable rec_ identity and warmed backend-scoped Recording cache. Requires recordings.view@backendId on one backend. Absent or partial metadata is explicit. No VDR native path, scraper ID, external URL or artwork. Cache-Control: no-store; no detail ETag before an authoritative metadata revision exists.",
+        "description": "M1 read-only detail reuses the durable rec_ identity and warmed backend-scoped Recording cache. Requires recordings.view@backendId on one backend. Absent or partial metadata is explicit. No VDR native path, scraper ID or external URL. Optional metadata artwork references use the existing authenticated Recording artwork endpoint. Cache-Control: no-store; no detail ETag before an authoritative metadata revision exists.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
@@ -15663,6 +15663,32 @@
                 "characterName": {
                   "type": "string",
                   "maxLength": 1024
+                },
+                "image": {
+                  "type": "object",
+                  "required": [
+                    "available"
+                  ],
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "artworkId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{32}$"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
                 }
               }
             }
@@ -15671,6 +15697,73 @@
             "type": "integer",
             "minimum": 1,
             "description": "Only when source=manual: persisted selected assignment revision."
+          },
+          "preferredArtwork": {
+            "type": "object",
+            "required": [
+              "available"
+            ],
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "artworkId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "url": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "orientation",
+                "image"
+              ],
+              "properties": {
+                "orientation": {
+                  "type": "string"
+                },
+                "image": {
+                  "type": "object",
+                  "required": [
+                    "available"
+                  ],
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "artworkId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{32}$"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

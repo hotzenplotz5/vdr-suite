@@ -8131,6 +8131,24 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendList("genres", item.genres);
         appendList("productionCountries", item.productionCountries);
         appendList("networks", item.networks);
+        const auto appendImage = [&body, &path, &recording](
+            const PublicRecordingDetailItem::Artwork& image) {
+            if (!validHexId(image.artworkId, ""))
+            {
+                body += "{\"available\":false}";
+                return;
+            }
+            body += "{\"available\":true,\"artworkId\":\"" + image.artworkId +
+                "\",\"url\":\"" + path + "/artwork/" + image.artworkId +
+                "?backendId=" + jsonEscape(recording.backendId) +
+                "\",\"width\":" + std::to_string(std::max(0, image.width)) +
+                ",\"height\":" + std::to_string(std::max(0, image.height)) + "}";
+        };
+        if (!item.preferredArtwork.artworkId.empty())
+        {
+            body += ",\"preferredArtwork\":";
+            appendImage(item.preferredArtwork);
+        }
         if (!item.people.empty())
         {
             body += ",\"people\":[";
@@ -8141,7 +8159,24 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                 first = false;
                 body += "{\"role\":\"" + jsonEscape(person.role) +
                     "\",\"name\":\"" + jsonEscape(person.name) +
-                    "\",\"characterName\":\"" + jsonEscape(person.characterName) + "\"}";
+                    "\",\"characterName\":\"" + jsonEscape(person.characterName) +
+                    "\",\"image\":";
+                appendImage(person.image);
+                body += "}";
+            }
+            body += "]";
+        }
+        if (!item.images.empty())
+        {
+            body += ",\"images\":[";
+            bool first = true;
+            for (const auto& image : item.images)
+            {
+                if (!first) body += ",";
+                first = false;
+                body += "{\"orientation\":\"" + jsonEscape(image.orientation) + "\",\"image\":";
+                appendImage(image.image);
+                body += "}";
             }
             body += "]";
         }

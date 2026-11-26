@@ -443,13 +443,27 @@ struct PublicRecordingDetailItem
     std::vector<std::string> genres;
     std::vector<std::string> productionCountries;
     std::vector<std::string> networks;
+    struct Artwork
+    {
+        std::string artworkId;
+        int width = 0;
+        int height = 0;
+    };
     struct Person
     {
         std::string role;
         std::string name;
         std::string characterName;
+        Artwork image;
+    };
+    struct GalleryImage
+    {
+        std::string orientation;
+        Artwork image;
     };
     std::vector<Person> people;
+    Artwork preferredArtwork;
+    std::vector<GalleryImage> images;
 };
 
 struct PublicRecordingDetailResult

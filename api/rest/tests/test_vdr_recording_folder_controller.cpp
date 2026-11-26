@@ -502,6 +502,36 @@ int main()
     const auto otherPage = controller.getFolder("other", "Series", 1, 0, true);
     assert(!contains(otherPage.body, "representativePosterUrl"));
 
+    // Public detail artwork and the binary route share the same current
+    // recording-scoped asset ID and the already validated image reader.
+    VdrRecording artworkRecording = makeRecording("movie-public", "Movie",
+        "/Movies/Movie/2026-07-02.20.15.1-0.rec");
+    artworkRecording.backendId = "default";
+    const auto persisted = controller.findNativeMetadata(
+        artworkRecording.backendId, artworkRecording.backendNativeId);
+    auto withPortrait = persisted;
+    withPortrait.metadata.people.front().image = withPortrait.metadata.images.front();
+    const auto assets = controller.publicMetadataArtwork(artworkRecording, {}, withPortrait);
+    assert(assets.size() == 3);
+    assert(assets[0].kind == "preferred" && assets[1].kind == "person" &&
+        assets[2].kind == "gallery");
+    assert(assets[1].artworkId != assets[2].artworkId);
+    const auto portraitBytes = controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[1].artworkId);
+    assert(portraitBytes && portraitBytes->statusCode == 200 &&
+        portraitBytes->body == "PORTRAIT");
+    const auto galleryBytes = controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[2].artworkId);
+    assert(galleryBytes && galleryBytes->statusCode == 200 &&
+        galleryBytes->body == "PORTRAIT");
+    withPortrait.metadata.people.front().image.path = "/tmp/replaced-portrait.jpg";
+    assert(!controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[1].artworkId));
+    auto foreign = artworkRecording;
+    foreign.backendId = "other";
+    assert(controller.publicMetadataArtwork(foreign, {}, withPortrait).empty());
+    assert(!controller.loadPublicMetadataArtwork(foreign, {}, withPortrait, assets[2].artworkId));
+
     std::remove("/tmp/vdr-suite-movie-landscape.jpg");
     std::remove("/tmp/vdr-suite-movie-poster.jpg");
 

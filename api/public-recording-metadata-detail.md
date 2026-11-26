@@ -148,6 +148,10 @@ characterName). They use the same persisted native metadata lookup as the
 Web folder controller, with exact backend/native recording binding. A selected
 manual assignment takes precedence, including its own cast. No native keys,
 provider IDs, image paths or credentials are returned. Missing optional data
-does not make the detail unavailable. Portrait and gallery delivery, trailer
-identity and Web read-adapter migration remain separate work; this extension
-alone does not establish full Web parity.
+does not make the detail unavailable. The detail also returns available preferred artwork, cast portraits and gallery
+references. Each image has an opaque `artworkId` and the existing authenticated
+`/api/v1/recordings/{recordingId}/artwork/{artworkId}?backendId=...` URL. The
+same current metadata evidence resolves the binary image. A stale/replaced
+image ID does not resolve to a different image. Trailer identity and Web
+read-adapter migration remain separate work; this extension alone does not
+establish full Web parity.

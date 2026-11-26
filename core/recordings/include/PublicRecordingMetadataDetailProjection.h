@@ -56,6 +56,7 @@ struct PublicRecordingMetadataDetail
         std::string role;
         std::string name;
         std::string characterName;
+        std::size_t sourceIndex = 0; // internal ordinal for the same cast's image
     };
     std::vector<Person> people;
 };
@@ -247,14 +248,15 @@ private:
     static void appendPeople(const std::vector<Person>& people,
                              PublicRecordingMetadataDetail& item)
     {
-        for (const auto& person : people)
+        for (std::size_t index = 0; index < people.size(); ++index)
         {
             if (item.people.size() >= VdrRecordingNativeMetadata::MaximumPeople)
                 break;
+            const auto& person = people[index];
             if (person.name.empty()) continue;
             item.people.push_back({bounded(person.role, 128U),
                 bounded(person.name, 1024U),
-                bounded(person.characterName, 1024U)});
+                bounded(person.characterName, 1024U), index});
         }
     }
 
