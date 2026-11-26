@@ -105,6 +105,40 @@ class DebianMediaToolsTests(unittest.TestCase):
                     side_effect=FileNotFoundError("git unavailable")):
                 self.assertEqual(source_commit(), "a" * 40)
 
+    def test_launchpad_recipe_without_git_builds_exact_sealed_payload(self):
+        from stage_media_tools_runtime import valid_source_identity
+        source = self.root / "recipe-source"
+        (source / "debian").mkdir(parents=True)
+        (source / ".vdr-suite-source-commit").write_text("$Format:%H$\n")
+        (source / "debian/changelog").write_text(
+            "vdr-suite (0.14.1-1~exp2~daily2+202611250835+r3440+g00ea8ad21"
+            "~ubuntu26.04.1) resolute; urgency=low\n")
+        with patch("debian_media_tools.ROOT", source), patch(
+                "debian_media_tools.subprocess.check_output",
+                side_effect=FileNotFoundError("git unavailable")) as git:
+            record = build_package_payload(self.base, self.workers,
+                                           self.package, self.preinst)
+            git.assert_not_called()
+        self.assertEqual(record["prepared_source_sha"], "git-prefix:00ea8ad21")
+        self.assertEqual(verify_package_payload(self.package), 8)
+        self.assertFalse(valid_source_identity(record["prepared_source_sha"]))
+        self.assertTrue(valid_source_identity(record["prepared_source_sha"],
+                                             recipe_source=True))
+
+    def test_unexpanded_marker_without_recipe_prefix_is_not_invented(self):
+        from debian_media_tools import source_commit
+        source = self.root / "unsigned-source"
+        (source / "debian").mkdir(parents=True)
+        (source / ".vdr-suite-source-commit").write_text("$Format:%H$\n")
+        (source / "debian/changelog").write_text(
+            "vdr-suite (0.14.1-1~exp2) unstable; urgency=low\n")
+        with patch("debian_media_tools.ROOT", source), patch(
+                "debian_media_tools.subprocess.check_output",
+                side_effect=FileNotFoundError("git unavailable")) as git:
+            with self.assertRaisesRegex(ValueError, "lacks Git commit"):
+                source_commit()
+            git.assert_not_called()
+
     def test_source_commit_export_substitution(self):
         # Existing sourcepackager uses git archive, so verify the archive
         # contains the true commit, not the literal $Format placeholder.

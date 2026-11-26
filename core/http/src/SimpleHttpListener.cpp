@@ -6,6 +6,7 @@
 #include "BrowserLiveEventSubscription.h"
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -26,6 +27,7 @@
 #include <string>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
@@ -942,10 +944,52 @@ SimpleHttpListener::SimpleHttpListener(
 {
 }
 
+void SimpleHttpListener::configureLocalOsdSocket(std::string path,uid_t uid)
+{
+    localOsdPath_ = std::move(path);
+    localOsdUid_ = uid;
+}
+
+int SimpleHttpListener::createLocalOsdSocket() const
+{
+    if (localOsdPath_.empty()) return -1;
+    sockaddr_un address{};
+    const auto parent = std::filesystem::path(localOsdPath_).parent_path();
+    struct stat info{};
+    if (localOsdPath_[0] != '/' || localOsdPath_.size() >= sizeof(address.sun_path) ||
+        parent.empty() || ::stat(parent.c_str(), &info) != 0 ||
+        !S_ISDIR(info.st_mode) || info.st_uid != ::geteuid() || (info.st_mode & 0022)) {
+        std::cerr << "Local OSD socket parent must be daemon-owned and not writable by other users" << std::endl;
+        return -1;
+    }
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return -1;
+    address.sun_family = AF_UNIX;
+    std::memcpy(address.sun_path, localOsdPath_.c_str(), localOsdPath_.size()+1);
+    // Never remove an existing file or potentially active socket on startup.
+    if (::bind(fd, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0) {
+        std::cerr << "Local OSD socket bind failed: " << std::strerror(errno) << std::endl;
+        ::close(fd);
+        return -1;
+    }
+    if (::chmod(localOsdPath_.c_str(), 0600) != 0 ||
+        ::chown(localOsdPath_.c_str(), localOsdUid_, static_cast<gid_t>(-1)) != 0 ||
+        ::listen(fd, 16) != 0) {
+        std::cerr << "Local OSD socket setup failed: " << std::strerror(errno) << std::endl;
+        ::close(fd);
+        ::unlink(localOsdPath_.c_str());
+        return -1;
+    }
+    return fd;
+}
+
 int SimpleHttpListener::runUntilStopped()
 {
     const int listenSocket = createListeningSocket();
     if (listenSocket < 0) return 1;
+    const int localSocket = createLocalOsdSocket();
+    bool preferLocal = true;
+    if (localSocket >= 0) std::cout << "Local OSD HTTP socket ready" << std::endl;
 
     ImageResponseWriterPool imageWriters(
         IMAGE_WRITER_THREAD_COUNT,
@@ -975,13 +1019,14 @@ int SimpleHttpListener::runUntilStopped()
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(listenSocket, &readSet);
+        if (localSocket >= 0) FD_SET(localSocket, &readSet);
 
         timeval timeout{};
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
         const int ready = select(
-            listenSocket + 1,
+            std::max(listenSocket,localSocket) + 1,
             &readSet,
             nullptr,
             nullptr,
@@ -997,7 +1042,10 @@ int SimpleHttpListener::runUntilStopped()
         }
         if (ready == 0) continue;
 
-        const int clientSocket = accept(listenSocket, nullptr, nullptr);
+        const bool useLocal = localSocket >= 0 && FD_ISSET(localSocket,&readSet) &&
+            (preferLocal || !FD_ISSET(listenSocket,&readSet));
+        preferLocal = !useLocal;
+        const int clientSocket = accept(useLocal ? localSocket : listenSocket, nullptr, nullptr);
         if (clientSocket < 0) {
             if (errno == EINTR) break;
             std::cerr
@@ -1007,6 +1055,15 @@ int SimpleHttpListener::runUntilStopped()
             continue;
         }
 
+        if (useLocal) {
+            struct ucred peer{};
+            socklen_t peerLength = sizeof(peer);
+            if (::getsockopt(clientSocket,SOL_SOCKET,SO_PEERCRED,&peer,&peerLength) != 0 ||
+                peerLength != sizeof(peer) || peer.uid != localOsdUid_) {
+                ::close(clientSocket);
+                continue;
+            }
+        }
         configureClientSocketTimeouts(clientSocket, clientIoTimeout_);
 
         std::string rawResponse;
@@ -1018,6 +1075,7 @@ int SimpleHttpListener::runUntilStopped()
 
         if (!prepareClientResponse(
                 clientSocket,
+                useLocal,
                 rawResponse,
                 imageResponse,
                 deferredImageResponse,
@@ -1079,6 +1137,10 @@ int SimpleHttpListener::runUntilStopped()
     deviceEventWriters.shutdown();
     streamWriters.shutdown();
     imageWriters.shutdown();
+    if (localSocket >= 0) {
+        ::close(localSocket);
+        ::unlink(localOsdPath_.c_str());
+    }
     close(listenSocket);
     return 0;
 }
@@ -1158,6 +1220,7 @@ int SimpleHttpListener::createListeningSocket() const
 
 bool SimpleHttpListener::prepareClientResponse(
     int clientSocket,
+    bool localOsdPeer,
     std::string& rawResponse,
     bool& imageResponse,
     std::function<std::string()>& deferredImageResponse,
@@ -1209,6 +1272,7 @@ bool SimpleHttpListener::prepareClientResponse(
             }
         }
     }
+    request.localOsdPeer = localOsdPeer;
     request.deferArtworkPreview = true;
     const auto handlerStarted = std::chrono::steady_clock::now();
     HttpServerResponse response = server_.handleRequest(request);

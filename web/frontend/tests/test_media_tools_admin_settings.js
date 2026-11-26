@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const script = fs.readFileSync('web/frontend/settings-addons.js', 'utf8');
 
-function harness(reply, restored) {
+function harness(reply, restored, initialSources) {
   const requests = [];
   const elements = [];
   function element(tag) {
@@ -19,7 +19,7 @@ function harness(reply, restored) {
     elements.push(obj);
     return obj;
   }
-  const sourceStore = {
+  const sourceStore = initialSources || {
     backendId: 'default', videoRoot: '/srv/vdr/video.00',
     revision: '1234567890abcdef',
     sources: [{path: '/srv/video/Filme', name: 'Filme'}]
@@ -42,12 +42,18 @@ function harness(reply, restored) {
           const body = JSON.parse(options.body);
           assert.equal(body.backendId, sourceStore.backendId);
           assert.equal(body.revision, sourceStore.revision);
+          if (body.videoRoot !== undefined) {
+            assert.equal(sourceStore.videoRoot, '',
+              'only a missing initial video root can be supplied');
+            sourceStore.videoRoot = decodeURIComponent(body.videoRoot);
+          }
           sourceStore.sources = decodeURIComponent(body.entries)
             .split('\n').map(function (line) {
               const [path, name] = line.split('\t');
               return {path, name};
             });
           sourceStore.revision = '1234567890abcdf0';
+          sourceStore.initialSetup = false;
         } else {
           assert.equal(url,
             '/api/v1/addons/rectools/sources?backendId=default');
@@ -97,6 +103,11 @@ async function test() {
       revision, providerVerified: true, agentReady: true,
       activationBoundToProvider: desired});
   }, restored);
+  const activationEvents = [];
+  h.window.CustomEvent = class {
+    constructor(type, options) { this.type = type; this.detail = options.detail; }
+  };
+  h.window.dispatchEvent = event => activationEvents.push(event);
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
   assert.ok(h.elements.some(e =>
@@ -116,6 +127,11 @@ async function test() {
   assert.equal(desired, false);
   assert.equal(toggle.textContent, 'Aktivieren');
   assert.equal(revision, 2);
+  assert.equal(activationEvents.length, 2,
+    'both activation changes notify the Home owner exactly once');
+  assert(activationEvents.every(e =>
+    e.type === 'vdr-suite:media-tools-activation-changed' &&
+    e.detail.backendId === 'default'));
   assert.ok(restored.count >= 5, 'session restored for both POSTs and readbacks');
 
   const installed = harness(() => response(200, {
@@ -131,6 +147,34 @@ async function test() {
   assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
     e.textContent === 'Deinstallieren'),
     'UI must not present nonfunctional or privileged package actions');
+
+  // Package state is separate from a temporarily unavailable Agent.
+  // Only a positively observed missing payload gets "nicht installiert".
+  const absent = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: false, agentReady: false,
+    installationState: 'absent'
+  }), {count: 0});
+  absent.window.VdrSuiteAddonSettings.render(absent.parent, 'default');
+  await flush();
+  assert.ok(absent.elements.some(e =>
+    e.textContent === 'Media Tools nicht installiert'));
+  assert.equal(absent.elements.find(e =>
+    e.textContent === 'Aktivieren').hidden, true);
+  assert.equal(absent.elements.find(e =>
+    e.className === 'settings-media-import-source-editor').hidden, true);
+  assert.equal(absent.requests.filter(r =>
+    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
+    'no configuration request when installed files are confirmed absent');
+  const unknownInstall = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    installationState: 'unknown', agentReady: false, providerVerified: false
+  }), {count: 0});
+  unknownInstall.window.VdrSuiteAddonSettings.render(unknownInstall.parent, 'default');
+  await flush();
+  assert.equal(unknownInstall.elements.find(e =>
+    e.textContent === 'Aktivieren').hidden, false,
+    'unknown / remote / disconnected is not the same as not installed');
 
   const refused = harness((_url, options) => options.method === 'POST'
     ? response(409, {error: 'provider_not_eligible'})
@@ -318,6 +362,100 @@ async function test() {
     'overlapping roots must never be sent to the server');
   assert(!managed.elements.some(e => e.tag === 'pre'),
     'no generated shell command belongs in the settings UX');
+
+  // MLD first installation: no root-owned source TSV yet. A successful
+  // authenticated GET returns an empty editor with the trusted VDR video root.
+  // Creating the very first source uses the same CSRF-protected POST contract.
+  const firstStore = {
+    backendId: 'default', videoRoot: '/data/tv',
+    revision: 'cbf29ce484222325', sources: [], initialSetup: true
+  };
+  const first = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: false, agentReady: false
+  }), {count: 0}, firstStore);
+  first.window.VdrSuiteAddonSettings.render(first.parent, 'default');
+  await flush();
+  const firstEditor = first.elements.find(e =>
+    e.className === 'settings-media-import-source-editor');
+  const firstList = first.elements.find(e =>
+    e.className === 'settings-media-import-source-list');
+  const firstAdd = first.elements.find(e =>
+    e.textContent === '+ Importordner hinzufügen');
+  const firstSave = first.elements.find(e => e.textContent === 'Speichern');
+  assert(firstEditor && !firstEditor.hidden && firstList);
+  assert.equal(firstList.children.length, 0);
+  assert(firstAdd && !firstAdd.disabled);
+  assert(firstSave && firstSave.disabled, 'empty source rows cannot be saved');
+  firstAdd.handlers.click();
+  firstList.children[0].children[0].children[0].value = '/data/import';
+  firstList.children[0].children[0].children[0].handlers.input();
+  firstList.children[0].children[1].children[0].value = 'Import';
+  firstList.children[0].children[1].children[0].handlers.input();
+  assert.equal(firstSave.disabled, false);
+  firstSave.handlers.click();
+  await flush();
+  assert.equal(firstStore.initialSetup, false);
+  assert.deepEqual(firstStore.sources, [{path: '/data/import', name: 'Import'}]);
+  assert(first.elements.some(e => e.textContent.includes('Gespeichert.')));
+
+  // Absence of a trustworthy VDR video root must stay visible to admin.
+  // Never silently substitute the Ubuntu default or a browser-defined root.
+  const noVideoRoot = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0
+  }), {count: 0}, {
+    backendId: 'default', videoRoot: '',
+    revision: 'cbf29ce484222325', sources: [], initialSetup: true
+  });
+  noVideoRoot.window.VdrSuiteAddonSettings.render(noVideoRoot.parent, 'default');
+  await flush();
+  assert.equal(noVideoRoot.elements.find(e =>
+    e.className === 'settings-media-import-source-editor').hidden, false);
+  const manualTarget = noVideoRoot.elements.find(e =>
+    e.textContent === 'VDR-Aufnahmeverzeichnis (einmalig)');
+  const manualSave = noVideoRoot.elements.find(e =>
+    e.textContent === 'Speichern');
+  const manualAdd = noVideoRoot.elements.find(e =>
+    e.textContent === '+ Importordner hinzufügen');
+  const manualRows = noVideoRoot.elements.find(e =>
+    e.className === 'settings-media-import-source-list');
+  assert(manualTarget && !manualTarget.hidden && manualSave.disabled);
+  assert.equal(manualTarget.className, 'settings-media-import-source-row',
+    'first VDR recording root entry uses import folder styling');
+  assert(noVideoRoot.elements.some(e =>
+    e.textContent.includes('VDR-Aufnahmeverzeichnis konnte nicht automatisch ermittelt')));
+  manualAdd.handlers.click();
+  manualRows.children[0].children[0].children[0].value = '/data/video/Filme';
+  manualRows.children[0].children[0].children[0].handlers.input();
+  manualRows.children[0].children[1].children[0].value = 'Filme';
+  manualRows.children[0].children[1].children[0].handlers.input();
+  assert(manualSave.disabled, 'missing VDR root not silently guessed');
+  manualTarget.children[0].value = '/data/tv';
+  manualTarget.children[0].handlers.input();
+  assert(!manualSave.disabled, 'explicit VDR target enables initial save');
+  manualSave.handlers.click();
+  await flush();
+  assert.equal(noVideoRoot.sourceStore.videoRoot, '/data/tv');
+  assert.deepEqual(noVideoRoot.sourceStore.sources,
+    [{path: '/data/video/Filme', name: 'Filme'}]);
+  assert.equal(manualTarget.hidden, true,
+    'destination cannot be edited after initial save');
+  assert(noVideoRoot.requests.some(r => r.options.method === 'POST' &&
+    JSON.parse(r.options.body).videoRoot === '%2Fdata%2Ftv'));
+  assert(noVideoRoot.elements.some(e => e.textContent ===
+    'Aufnahmeziel: /data/tv (bleibt unverändert)'));
+
+  // Empty source arrays are valid ONLY with the explicit first-run marker.
+  const invalidEmpty = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0
+  }), {count: 0}, {
+    backendId: 'default', videoRoot: '/data/tv',
+    revision: 'cbf29ce484222325', sources: []
+  });
+  invalidEmpty.window.VdrSuiteAddonSettings.render(invalidEmpty.parent, 'default');
+  await flush();
+  assert.equal(invalidEmpty.elements.find(e =>
+    e.textContent === 'Speichern').disabled, true);
 
   const forbidden = harness(() => response(403, {error: 'forbidden'}), {count: 0});
   forbidden.window.VdrSuiteAddonSettings.render(forbidden.parent, 'default');

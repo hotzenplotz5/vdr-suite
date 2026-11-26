@@ -43,6 +43,14 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
 
+## HbbTV — Discovery-/Addon-Extraktion ZURÜCKGESTELLT (Entscheidung 2026-11-23)
+
+**Maintainer-Entscheidung 23.11.2026:** Keine separate Discovery-/Addon-Extraktion wegen zu hohen Aufwands. **Keine HDE-/HBA-Umsetzung beauftragt.** Die bisherige Integration bleibt erhalten; laufendes Ziel ist die Upstream-Anpassung der bestehenden drei HbbTV-Komponenten und deren Paket-/CI-Abnahme. Das ist **keine Wiedereröffnung von Phase 67**, kein Phase-70-Start und keine automatische Genehmigung einer physisch isolierten Addon-Runtime. Upstream-Kommentar in `Zabrimus/vdr-plugin-web` PR #1 wird berücksichtigt; die bestehende Wiedergabe/Session-Integration bleibt zunächst erhalten.
+
+**Arbeitsplan, Phasen und Aufwandskorridore:** [HbbTV Discovery/Addon Extraction Roadmap](hbbtv-addon-extraction-roadmap.md).
+
+---
+
 ## PWA — Local-first Webfrontend modernization (decision 2026-11-19)
 
 **Status 2026-11-21: PAUSIERT (Performance-Optimierung; kein Rollback).**

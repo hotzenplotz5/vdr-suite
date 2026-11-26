@@ -4490,6 +4490,30 @@ body.channel-sorter-dragging * {
   }
 }
 
+/* Home shortcut is a presentation-only entry into the established module. */
+.home-media-tools-shortcut {
+  margin-top: .75rem;
+  padding: .75rem;
+  border: 1px solid rgba(96, 165, 250, .35);
+  border-radius: .85rem;
+  background: rgba(15, 23, 42, .86);
+}
+.home-media-tools-open {
+  width: 100%;
+  min-height: 2.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: .65rem;
+}
+.home-media-tools-open:hover,
+.home-media-tools-open:focus-visible {
+  border-color: #60a5fa;
+  background: #1e3a5f;
+}
+
 /* A7.5: capability-gated Media Tools uses the existing detail mount. */
 .module-tab.media-import-tab[hidden] {
   display: none !important;

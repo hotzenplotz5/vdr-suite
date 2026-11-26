@@ -155,6 +155,7 @@ async function settle() {
   for (let i = 0; i < 14; i++) await flush();
 }
 let allow = true;
+let capabilityStatus = 200;
 let confirmLocal = true;
 let confirmCalls = 0;
 let lastConfirmation = '';
@@ -300,6 +301,8 @@ function transport(url, options) {
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
+    if (capabilityStatus !== 200)
+      return Promise.resolve(reply(capabilityStatus, {detail: 'Capability unavailable'}));
     return Promise.resolve(reply(200, {
       backendId: 'backend-a', capability: 'addons.media.import', available: allow
     }));
@@ -881,6 +884,13 @@ function renderHevcHomeActivity() {}
 
 (async function () {
   await verifyMeta6Handoff();
+  // A live Agent capability is not the installation state. Browsing Media
+  // Tools remains available when package status cannot be established.
+  allow = false;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
+  allow = true;
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
@@ -892,7 +902,7 @@ function renderHevcHomeActivity() {}
     'temporary Agent capability loss must not block navigation');
   assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
-  assert(tab.title.includes('Agent-Status momentan unbestätigt'));
+  assert(tab.title.includes('Aktivierung und Agent-Status'));
   assert.strictEqual(timerCallbacks.length, capabilityCallbacksBefore,
     'a missing capability must not schedule an endless five-second gate retry');
   const requestsBeforeBackground = requests.filter(function (r) {
@@ -1095,6 +1105,14 @@ function renderHevcHomeActivity() {}
   assert(sourceListOnTransientFailure && sourceListOnTransientFailure.children.length > 1,
     'an installed media import view must still list sources during a transient capability failure');
   const listBeforeRecovered = sourceListOnTransientFailure;
+  capabilityStatus = 503;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
+    'an actual rejected capability request must keep Media Import navigation available');
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
+  assert.strictEqual(findClass(mount, 'media-import-source'), listBeforeRecovered,
+    'HTTP 503 must not remount the loaded source list');
+  capabilityStatus = 200;
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
@@ -1685,10 +1703,9 @@ function renderHevcHomeActivity() {}
   context.selectModule('media-import');
   assert.strictEqual(tab.hidden, true);
   vm.runInContext('browserSessionFrontendActive = true;', context);
-  // A new authenticated session may open installed Media Tools even before
-  // the Agent's first capability result recovers.
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
-    're-authenticated session may navigate without an Agent capability');
+  // A new session cannot inherit a prior capability, but it can still
+  // navigate the read-only Media Tools view while the Agent is unavailable.
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
   allow = true;

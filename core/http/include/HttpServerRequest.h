@@ -15,6 +15,9 @@ struct HttpServerRequest {
     bool peerIsDirectPrivateLan = false;
     // Native listener opt-in only; never parsed from client headers.
     bool deferArtworkPreview = false;
+    // Set exclusively on the native AF_UNIX listener after SO_PEERCRED verification.
+    // Never decoded from HTTP headers or the TCP peer address.
+    bool localOsdPeer = false;
 };
 
 #endif

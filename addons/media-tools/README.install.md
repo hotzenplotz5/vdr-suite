@@ -25,6 +25,30 @@ Die gemeinsame technische Grundlage umfasst:
 - Optional die vorhandenen H.264-Import- und H.265-Shrink-Parameter in `backend-agent.conf`, ohne einen zweiten Settings-Speicher.
 - Separate Entscheidungen für **Installieren**, **Aktivieren**, **Benutzerrechte** und **einen konkreten Medienauftrag**. Die Installation startet keinen Import von selbst.
 
+### Erstkonfiguration der Importverzeichnisse nach Paketinstallation
+
+Ein MLD-/Debian-/Ubuntu-Add-on-Paket soll keine host-spezifische
+`/etc/vdr-suite/addon-sources/media-import.tsv` ausliefern. Solange diese
+Datei fehlt (und die vorhandenen geschützten Konfigurationsverzeichnisse
+sowie die lokale Agent-Backend-ID gültig sind), liefert der bereits
+autorisierte Admin-Endpunkt `GET /api/v1/addons/rectools/sources` eine leere
+Erstkonfiguration statt `sources_unavailable`. Unter **Einstellungen →
+Media Tools → Importverzeichnisse** kann der Administrator dann einen
+tatsächlich vorhandenen Importordner hinzufügen und speichern. Falls VDR-Suite das Aufnahmeziel bereits über die bestehende
+Backend-Konfiguration oder SuiteBridge `VPATH 1` kennt, wird es automatisch
+übernommen und bleibt unveränderlich. Wenn die native Erkennung bei einer
+frischen Installation fehlt, zeigt das Webfrontend **einmalig** das zusätzliche
+Feld `VDR-Aufnahmeverzeichnis`. Hier trägt der Administrator das tatsächliche,
+bereits vorhandene VDR-Aufnahmeverzeichnis ein; es wird nicht aus dem
+Distributionstyp abgeleitet. Der authentifizierte, CSRF-geschützte Speichervorgang
+prüft Verzeichnis und Quellen und übernimmt das Ziel nur beim erstmaligen Anlegen
+der root-eigenen TSV. Danach lässt es sich über die Webverwaltung nicht ändern.
+Die Paketdateien werden nur als **vorhanden**, **abwesend** oder **ungeklärt**
+beobachtet; eine temporär unterbrochene Agent-Verbindung bedeutet niemals
+automatisch „nicht installiert“. Ein gültiges vorhandenes Inventar bleibt
+unverändert; ein beschädigtes vorhandenes Inventar wird nicht als leer
+interpretiert. Erstes Speichern aktiviert weder Add-on noch Worker.
+
 ## Vor einer Installation oder einem Update
 
 1. **Bestand erkennen:** Gibt es bereits VDR-Suite, Backend-Agent, Media-Tools-Worker, ein manuelles Layout oder paketverwaltete Dateien? Bei vorhandener Installation ist ein Erstinstallationsskript nicht automatisch der richtige Weg.

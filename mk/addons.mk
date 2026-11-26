@@ -45,6 +45,18 @@ test-addon-media-import:
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
 
+# Read-only MLD initial source settings contract (no live /etc writes).
+.PHONY: test-addon-media-import-source-bootstrap
+test-addon-media-import-source-bootstrap:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/daemon/include -I api/rest/include \
+		core/daemon/tests/test_local_media_import_source_bootstrap.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_import_source_bootstrap"
+	"$(BUILD_DIR)/addons/test_media_import_source_bootstrap"
+
+test-ci-fast: test-addon-media-import-source-bootstrap
+
 # Isolated real-media smoke: FFmpeg/FFprobe are real; VDR index is a
 # synthetic fixture. No live VDR files or installed service are accessed.
 .PHONY: test-addon-media-import-ffmpeg

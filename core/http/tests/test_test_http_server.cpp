@@ -59,6 +59,9 @@
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
+#include "HumanAccountRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 #include "HomeCacheScope.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
@@ -634,8 +637,61 @@ int main()
         "*@*",
         1);
 
+    const std::string nativeAccount="native-osd-test-"+std::to_string(::getpid());
+    const std::string nativeActor=nativeAccount+"-actor";
+    assert(::setenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID",nativeAccount.c_str(),1)==0);
     auto eventHub = std::make_shared<DeviceLiveEventHub>();
     TestHttpServer server(router, eventHub);
+    // Exercise the actual HTTP server account repository and API router,
+    // not a mock native authentication callback.
+    HumanAccountRepository localAccounts(db);
+    SecurityIdentityProvisioningRepository localIdentities(db);
+    SecurityPermissionGrantRepository localGrants(db);
+    assert(db.execute("BEGIN IMMEDIATE"));
+    assert(localIdentities.ensureHumanCredentialInActiveTransaction(
+        nativeActor,"Native OSD fixture",nativeActor+"-credential","human-password"));
+    assert(localAccounts.ensureAccountInActiveTransaction(
+        nativeAccount,nativeActor,"Native OSD fixture"));
+    assert(db.execute("COMMIT"));
+    assert(localGrants.ensureGrant(nativeActor,"recordings.view","default"));
+    assert(localGrants.ensureGrant(nativeActor,"epg.view","default"));
+    assert(localGrants.ensureGrant(nativeActor,"media.recording.play","default"));
+    HttpServerRequest localRequest;
+    localRequest.method="GET";
+    localRequest.path="/api/vdr/recordings/query?backend=default&limit=1&offset=0";
+    localRequest.headers["X-Local-OSD-Peer"]="true";
+    assert(server.handleRequest(localRequest).statusCode==401);
+    localRequest.localOsdPeer=true;
+    const auto localResponse=server.handleRequest(localRequest);
+    HttpServerRequest ordinaryRequest=localRequest;
+    ordinaryRequest.localOsdPeer=false;
+    authorize(ordinaryRequest);
+    const auto ordinaryResponse=server.handleRequest(ordinaryRequest);
+    assert(localResponse.statusCode==200 && ordinaryResponse.statusCode==200);
+    assert(localResponse.body==ordinaryResponse.body);
+    localRequest.path="/api/vdr/recordings/query?backend=secondary&limit=1";
+    assert(server.handleRequest(localRequest).statusCode==403);
+    localRequest.method="POST";
+    localRequest.path="/api/media/continue-watching";
+    localRequest.body=R"({"operation":"list","backendId":"default"})";
+    const auto history=server.handleRequest(localRequest);
+    // This fixture does not install the ContinueWatching runtime; it must
+    // nevertheless reach the same history owner (not an authentication error).
+    assert(history.statusCode!=401 && history.statusCode!=403 && history.statusCode!=404);
+    localRequest.body=R"({"operation":"clear","backendId":"default"})";
+    assert(server.handleRequest(localRequest).statusCode==404);
+    localRequest.method="GET";localRequest.body.clear();
+    localRequest.path="/api/v1/accounts";
+    assert(server.handleRequest(localRequest).statusCode==404);
+    const auto existingAccount=localAccounts.findByAccountId(nativeAccount);
+    assert(existingAccount.status==HumanAccountRepositoryStatus::ok);
+    assert(db.execute("BEGIN IMMEDIATE"));
+    assert(localAccounts.setActiveInActiveTransaction(nativeAccount,
+        existingAccount.account.revision,false)==HumanAccountRepositoryStatus::ok);
+    assert(db.execute("COMMIT"));
+    localRequest.path="/api/vdr/recordings/query?backend=default&limit=1";
+    assert(server.handleRequest(localRequest).statusCode==401);
+    ::unsetenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID");
 
     // Verify the productive browser route and existing admission gate.
     HttpServerRequest unauthenticatedLive;

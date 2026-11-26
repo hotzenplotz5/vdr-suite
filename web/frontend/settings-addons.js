@@ -68,6 +68,17 @@
     });
   }
 
+  // Tell the existing shell/Home owner when administrator intent changes.
+  // This is a local UI notification, never an execution authorization.
+  function notifyActivationChanged(backendId) {
+    if (typeof global.dispatchEvent === 'function' &&
+        typeof global.CustomEvent === 'function') {
+      global.dispatchEvent(new global.CustomEvent(
+        'vdr-suite:media-tools-activation-changed',
+        {detail: {backendId: backendId}}));
+    }
+  }
+
   // One existing administrator login; one GET and one guarded POST.
   // The server owns the root file and rejects nonlocal/invalid directories.
   const sourcesPath = '/api/v1/addons/rectools/sources';
@@ -87,7 +98,7 @@
   function overlap(a, b) {
     return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
   }
-  function sourceRequest(backendId, revision, sources) {
+  function sourceRequest(backendId, revision, sources, firstVideoRoot) {
     const session = global.VdrSuiteBrowserSession;
     const restoring = session && typeof session.restore === 'function'
       ? Promise.resolve(session.restore()) : Promise.resolve();
@@ -102,12 +113,16 @@
         headers['Content-Type'] = 'application/json';
         Object.assign(headers, session && typeof session.csrfHeaders === 'function'
           ? session.csrfHeaders() : {});
-        options.body = JSON.stringify({
+        const payload = {
           backendId, revision,
           entries: encodeURIComponent(sources.map(function (item) {
             return item.path + '\t' + item.name;
           }).join('\n'))
-        });
+        };
+        // Only an initially missing, not VDR-discovered recording root is
+        // supplied by the administrator. Existing destinations are immutable.
+        if (firstVideoRoot) payload.videoRoot = encodeURIComponent(firstVideoRoot);
+        options.body = JSON.stringify(payload);
       }
       return global.fetch(url, options).then(function (response) {
         return response.text().then(function (text) {
@@ -122,6 +137,12 @@
                 ? 'Dieses Backend liegt auf einem anderen Server.'
                 : code === 'import_in_progress'
                   ? 'Gerade läuft ein Import. Bitte danach erneut speichern.'
+                  : code === 'video_root_unavailable'
+                    ? 'Aufnahmeziel des lokalen VDR noch nicht ermittelt.'
+                  : code === 'invalid_video_root'
+                    ? 'VDR-Aufnahmeverzeichnis existiert nicht oder ist ungültig.'
+                  : code === 'video_root_already_known'
+                    ? 'VDR-Aufnahmeziel wurde inzwischen ermittelt. Bitte neu laden.'
                   : code === 'invalid_sources' || code === 'overlapping_roots'
                     ? 'Ordner ungültig, fehlen oder überschneiden sich.'
                     : 'Importverzeichnisse können nicht gespeichert oder geladen werden.');
@@ -132,7 +153,8 @@
               typeof data.videoRoot !== 'string' ||
               !/^[0-9a-f]{16}$/.test(data.revision || '') ||
               !Array.isArray(data.sources) ||
-              data.sources.length < 1 || data.sources.length > 17 ||
+              (data.sources.length === 0 && data.initialSetup !== true) ||
+              data.sources.length > 17 ||
               !data.sources.every(function (item) {
                 return item && sourcePath(item.path) && sourceName(item.name);
               })) throw new Error('Ungültige Importverzeichnis-Antwort');
@@ -151,6 +173,13 @@
       'Importordner hinzufügen, benennen oder entfernen. ' +
       'Der oberste Eintrag ist das Standardverzeichnis.'));
     const destination = node('p', '');
+    const firstRootLabel = node('label', 'VDR-Aufnahmeverzeichnis (einmalig)');
+    firstRootLabel.className = 'settings-media-import-source-row';
+    const firstRootInput = node('input');
+    firstRootInput.type = 'text';
+    firstRootInput.placeholder = 'Tatsächliches VDR-Aufnahmeverzeichnis';
+    firstRootLabel.appendChild(firstRootInput);
+    firstRootLabel.hidden = true;
     const rowsContainer = node('div');
     rowsContainer.className = 'settings-media-import-source-list';
     const add = node('button', '+ Importordner hinzufügen');
@@ -160,6 +189,7 @@
     add.type = 'button';
     save.type = 'button';
     section.appendChild(destination);
+    section.appendChild(firstRootLabel);
     section.appendChild(rowsContainer);
     section.appendChild(add);
     section.appendChild(save);
@@ -172,8 +202,15 @@
 
     function refreshControls() {
       add.disabled = busy || !state || rows.length >= 17;
-      save.disabled = busy || !state;
+      const target = state && (state.videoRoot ||
+        (state.initialSetup === true ? firstRootInput.value : ''));
+      save.disabled = busy || !state || !sourcePath(target) ||
+        rows.length === 0;
     }
+    firstRootInput.addEventListener('input', function () {
+      status.textContent = 'Noch nicht gespeichert.';
+      refreshControls();
+    });
     function renderRows() {
       rowsContainer.replaceChildren();
       rows.forEach(function (entry, index) {
@@ -233,11 +270,18 @@
         rows = value.sources.map(function (item) {
           return {path: item.path, name: item.name};
         });
-        destination.textContent = 'Aufnahmeziel: ' + value.videoRoot +
-          ' (bleibt unverändert)';
+        destination.textContent = value.videoRoot
+          ? 'Aufnahmeziel: ' + value.videoRoot + ' (bleibt unverändert)'
+          : 'VDR-Aufnahmeverzeichnis konnte nicht automatisch ermittelt werden. ' +
+            'Bitte für die Ersteinrichtung das tatsächliche Aufnahmeziel eintragen.';
+        firstRootLabel.hidden = !(value.initialSetup === true && !value.videoRoot);
+        firstRootInput.value = '';
         section.hidden = false;
         renderRows();
-        status.textContent = 'Einstellungen geladen.';
+        status.textContent = value.initialSetup === true
+          ? 'Noch keine Importverzeichnisse eingerichtet. ' +
+            'Bitte einen Importordner hinzufügen und speichern.'
+          : 'Einstellungen geladen.';
       }).catch(function (error) {
         state = null;
         // A failed backend configuration read is visible to an already
@@ -259,9 +303,15 @@
     });
     save.addEventListener('click', function () {
       if (busy || !state || rows.length === 0 || rows.length > 17) return;
+      const videoRoot = state.videoRoot ||
+        (state.initialSetup === true ? firstRootInput.value : '');
+      if (!sourcePath(videoRoot)) {
+        status.textContent = 'Bitte das tatsächliche VDR-Aufnahmeverzeichnis angeben.';
+        return;
+      }
       for (let i = 0; i < rows.length; ++i) {
         if (!sourcePath(rows[i].path) || !sourceName(rows[i].name) ||
-            overlap(rows[i].path, state.videoRoot) ||
+            overlap(rows[i].path, videoRoot) ||
             rows.some(function (other, j) {
               return j !== i && overlap(rows[i].path, other.path);
             })) {
@@ -272,11 +322,16 @@
       busy = true;
       refreshControls();
       status.textContent = 'Importverzeichnisse werden gespeichert …';
-      sourceRequest(backendId, state.revision, rows).then(function (result) {
+      sourceRequest(backendId, state.revision, rows,
+        state.videoRoot ? '' : videoRoot).then(function (result) {
         state = result;
         rows = result.sources.map(function (item) {
           return {path: item.path, name: item.name};
         });
+        firstRootLabel.hidden = true;
+        firstRootInput.value = '';
+        destination.textContent = 'Aufnahmeziel: ' + result.videoRoot +
+          ' (bleibt unverändert)';
         renderRows();
         status.textContent = 'Gespeichert. Der Backend-Agent übernimmt die ' +
           'Änderung beim nächsten Scan; kein Neustart erforderlich.';
@@ -335,9 +390,12 @@
       refresh.disabled = busy;
       // The admin enable/disable preference must remain usable while the
       // worker is offline. Actual imports validate worker readiness later.
-      toggle.disabled = busy || !current;
+      const absent = current && current.installationState === 'absent';
+      toggle.hidden = Boolean(absent);
+      toggle.disabled = busy || !current || absent;
       toggle.title = '';
-      const canRenew = current && current.desiredEnabled === true &&
+      const canRenew = current && !absent &&
+        current.desiredEnabled === true &&
         current.providerVerified === true && current.agentReady === true &&
         current.activationBoundToProvider === false;
       renew.hidden = !canRenew;
@@ -349,14 +407,18 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        // Source configuration is not an Agent-lease operation.
-        sourceEditor.load();
+        // Local file absence is a real package observation, unlike a
+        // disconnected Agent. Unknown (remote/partial) is not "not installed".
+        const absent = result.installationState === 'absent';
+        if (!absent) sourceEditor.load();
+        else sourceEditor.section.hidden = true;
         // A current, independently verified provider proves more than a
         // saved intent, but still says nothing about dpkg package ownership.
         const trusted = result.providerVerified === true;
         const ready = result.agentReady === true;
         const bound = result.activationBoundToProvider === true;
-        status.textContent = result.desiredEnabled
+        status.textContent = absent ? 'Media Tools nicht installiert'
+          : result.desiredEnabled
           ? (trusted && ready && bound
             ? 'Media Tools aktiviert und betriebsbereit'
             : (trusted && ready && !bound
@@ -364,7 +426,11 @@
               : 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'))
           : 'Media Tools deaktiviert';
         details.textContent = 'Backend: ' + backendId +
-          ' · Freigabe-Revision: ' + result.revision;
+          ' · Freigabe-Revision: ' + result.revision +
+          (result.installationState === 'present'
+            ? ' · Add-on-Dateien vorhanden'
+            : result.installationState === 'unknown'
+              ? ' · Paketstatus nicht bestätigt' : '');
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
@@ -396,7 +462,9 @@
       busy = true; controls();
       status.textContent = 'Aktuelle Agent-Freigabe wird geprüft und erneuert …';
       request(backendId, true, expectedRevision, true).then(function () {
-        return reload();
+        return reload().then(function () {
+          notifyActivationChanged(backendId);
+        });
       }).catch(function (error) {
         return reload().then(function () {
           if (!card.hidden)
@@ -406,7 +474,7 @@
       }).finally(function () { busy = false; controls(); });
     });
     toggle.addEventListener('click', function () {
-      if (!current || busy) return;
+      if (!current || busy || current.installationState === 'absent') return;
       const wanted = !current.desiredEnabled;
       const question = wanted
         ? 'Media Tools für Backend ' + backendId + ' aktivieren?'
@@ -416,7 +484,9 @@
       busy = true; controls();
       status.textContent = 'Administratorfreigabe wird gespeichert …';
       request(backendId, true, expectedRevision, wanted).then(function () {
-        return reload();
+        return reload().then(function () {
+          notifyActivationChanged(backendId);
+        });
       }).catch(function (error) {
         // Refresh the authoritative revision, then preserve the failure
         // message. Previously reload() replaced it immediately and left
@@ -432,5 +502,13 @@
     return card;
   }
 
-  global.VdrSuiteAddonSettings = Object.freeze({render: render});
+  // Read-only observation for the shared Home/nav owner. The server keeps
+  // this admin-scoped; callers without the grant must handle its denial.
+  function readActivationState(backendId) {
+    return request(backendId, false);
+  }
+  global.VdrSuiteAddonSettings = Object.freeze({
+    render: render,
+    readActivationState: readActivationState
+  });
 })(window);

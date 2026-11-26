@@ -131,6 +131,38 @@ inline bool localBackend(std::string& id) {
     }
     return backendId(id);
 }
+// Descriptive package-file observation only. This is deliberately not an
+// execution permission, verified handler digest, or Agent health check.
+// Unknown includes remote backends, partial packages and unreadable paths.
+inline const char* localPayloadState(const std::string& requestedBackend) {
+    std::string local;
+    if (!localBackend(local) || local != requestedBackend) return "unknown";
+    constexpr std::array<const char*, 8> paths{{
+        "/usr/libexec/vdr-suite/addons/rectools/addon.json",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-check",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import",
+        "/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-shrink",
+        "/usr/share/vdr-suite/addons/rectools/AGENTS.md",
+        "/usr/share/vdr-suite/addons/rectools/README.md",
+        "/usr/share/vdr-suite/addons/rectools/addon.json",
+        "/usr/share/vdr-suite/addons/rectools/media-tools-install-inventory.json"
+    }};
+    unsigned present = 0, absent = 0;
+    for (const char* path : paths) {
+        struct stat st{};
+        if (::lstat(path, &st) == 0) {
+            if (!S_ISREG(st.st_mode) || st.st_uid != 0 ||
+                (st.st_mode & 0022) != 0) return "unknown";
+            ++present;
+        } else if (errno == ENOENT) {
+            ++absent;
+        } else return "unknown";
+    }
+    if (present == paths.size()) return "present";
+    if (absent == paths.size()) return "absent";
+    return "unknown";
+}
+
 inline std::string revision(const std::string& contents) {
     std::uint64_t hash = UINT64_C(14695981039346656037);
     for (unsigned char c : contents) {
@@ -202,7 +234,7 @@ inline bool readLedger(Snapshot& out) {
     out.revision = revision(content);
     return true;
 }
-inline ApiResponse render(const Snapshot& snapshot) {
+inline ApiResponse render(const Snapshot& snapshot, bool initialSetup = false) {
     ApiResponse result;
     result.statusCode = 200;
     result.contentType = "application/json";
@@ -215,7 +247,8 @@ inline ApiResponse render(const Snapshot& snapshot) {
         result.body += "{\"path\":\"" + escape(snapshot.sources[i].path) +
             "\",\"name\":\"" + escape(snapshot.sources[i].name) + "\"}";
     }
-    result.body += "]}";
+    result.body += "],\"initialSetup\":";
+    result.body += initialSetup ? "true}" : "false}";
     return result;
 }
 inline bool parseQuery(const std::string& uri, std::string& backend) {
@@ -225,14 +258,38 @@ inline bool parseQuery(const std::string& uri, std::string& backend) {
     backend = uri.substr(std::strlen(prefix));
     return backendId(backend);
 }
-inline ApiResponse read(const std::string& uri) {
+// Missing is a first-run state, never equivalent to an invalid or unsafe
+// existing inventory. No config file is created by a read request.
+inline bool inventoryAbsent() {
+    struct stat st{};
+    return ::lstat(Ledger, &st) != 0 && errno == ENOENT;
+}
+inline bool initialSnapshot(Snapshot& out, const std::string& trustedVideoRoot) {
+    if (!protectedConfigDirs() || !inventoryAbsent()) return false;
+    std::string local;
+    if (!localBackend(local)) return false;
+    out = {};
+    out.backend = local;
+    // A missing recording-root discovery is visible, but cannot be used as a
+    // destination. The actual VDR-owned root is provided by the daemon.
+    out.videoRoot = rootSyntax(trustedVideoRoot) ? trustedVideoRoot : "";
+    out.revision = revision("");
+    return true;
+}
+inline ApiResponse read(const std::string& uri,
+                        const std::string& trustedVideoRoot = {}) {
     std::string requested;
     if (!parseQuery(uri, requested)) return error(422, "invalid_backend");
     Snapshot current;
-    if (!readLedger(current)) return error(503, "sources_unavailable");
+    bool initial = false;
+    if (!readLedger(current)) {
+        if (!initialSnapshot(current, trustedVideoRoot))
+            return error(503, "sources_unavailable");
+        initial = true;
+    }
     if (current.backend != requested)
         return error(409, "backend_is_not_local");
-    return render(current);
+    return render(current, initial);
 }
 inline bool decode(const std::string& encoded, std::string& decoded) {
     decoded.clear();
@@ -254,15 +311,24 @@ inline bool decode(const std::string& encoded, std::string& decoded) {
     return true;
 }
 inline bool parseBody(const std::string& body, std::string& backend,
-                      std::string& expected, std::vector<Source>& sources) {
+                      std::string& expected, std::vector<Source>& sources,
+                      std::string* requestedVideoRoot = nullptr) {
+    if (requestedVideoRoot) requestedVideoRoot->clear();
     if (body.size() > 32000U) return false;
     static const std::regex format(
-        R"MT(^\{"backendId":"([A-Za-z0-9_.:-]{1,128})","revision":"([0-9a-f]{16})","entries":"([A-Za-z0-9%_.!~*'()-]{1,30000})"\}$)MT");
+        R"MT(^\{"backendId":"([A-Za-z0-9_.:-]{1,128})","revision":"([0-9a-f]{16})","entries":"([A-Za-z0-9%_.!~*'()-]{1,30000})"(?:,"videoRoot":"([A-Za-z0-9%_.!~*'()-]{1,1536})")?\}$)MT");
     std::smatch match;
     if (!std::regex_match(body, match, format)) return false;
     backend = match[1].str();
     expected = match[2].str();
     if (!backendId(backend)) return false;
+    // Explicit destination is accepted only for the initial setup without
+    // an authoritative local VDR root. It is not an editable normal setting.
+    if (match[4].matched) {
+        if (!requestedVideoRoot ||
+            !decode(match[4].str(), *requestedVideoRoot) ||
+            !rootSyntax(*requestedVideoRoot)) return false;
+    }
     std::string rows;
     if (!decode(match[3].str(), rows)) return false;
     std::istringstream input(rows);
@@ -279,13 +345,52 @@ inline bool parseBody(const std::string& body, std::string& backend,
     }
     return !sources.empty();
 }
-inline ApiResponse save(const std::string& body) {
-    std::string backend, expected;
+inline ApiResponse save(const std::string& body,
+                        const std::string& trustedVideoRoot = {}) {
+    std::string backend, expected, requestedVideoRoot;
     std::vector<Source> proposed;
-    if (!parseBody(body, backend, expected, proposed))
+    if (!parseBody(body, backend, expected, proposed, &requestedVideoRoot))
         return error(422, "invalid_sources");
     if (::geteuid() != 0) return error(503, "sources_not_writable");
-    if (!protectedConfigDirs() || !rootOwnedFile(Lock))
+    if (!protectedConfigDirs())
+        return error(503, "source_lock_unavailable");
+    // Only an authenticated first save may prepare the existing import
+    // lifetime lock if the package deliberately did not ship host state.
+    Snapshot before;
+    bool initial = false;
+    if (!readLedger(before)) {
+        if (!initialSnapshot(before, trustedVideoRoot))
+            return error(503, "sources_unavailable");
+        initial = true;
+    }
+    if (before.backend != backend)
+        return error(409, "backend_is_not_local");
+    if (before.revision != expected)
+        return error(409, "sources_changed");
+    if (initial && before.videoRoot.empty()) {
+        if (!safeRoot(requestedVideoRoot))
+            return error(422, "invalid_video_root");
+        before.videoRoot = requestedVideoRoot;
+    } else if (!requestedVideoRoot.empty()) {
+        // An HTTP payload may not override an existing or VDR-discovered root.
+        return error(409, "video_root_already_known");
+    }
+    if (initial && !safeRoot(before.videoRoot))
+        return error(503, "video_root_unavailable");
+    if (initial && inventoryAbsent() && !rootOwnedFile(Lock)) {
+        struct stat st{};
+        if (::lstat(Lock, &st) != 0 && errno == ENOENT) {
+            const int fd = ::open(Lock, O_WRONLY | O_CREAT | O_EXCL |
+                O_NOFOLLOW | O_CLOEXEC, 0644);
+            if (fd >= 0) {
+                const bool valid = ::fchown(fd, 0, 0) == 0 &&
+                    ::fchmod(fd, 0644) == 0 && ::fsync(fd) == 0;
+                ::close(fd);
+                if (!valid) return error(503, "source_lock_unavailable");
+            }
+        }
+    }
+    if (!rootOwnedFile(Lock))
         return error(503, "source_lock_unavailable");
     const int lock = ::open(Lock, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (lock < 0) return error(503, "source_lock_unavailable");
@@ -296,7 +401,18 @@ inline ApiResponse save(const std::string& body) {
     ApiResponse result = error(503, "sources_unavailable");
     Snapshot current;
     do {
-        if (!readLedger(current)) break;
+        const bool creating = !readLedger(current);
+        if (creating && !initialSnapshot(current, trustedVideoRoot)) break;
+        // If another administrator has already created the inventory, never
+        // reinterpret this initial-setup payload as a normal edit.
+        if (!creating && !requestedVideoRoot.empty()) {
+            result = error(409, "sources_changed"); break;
+        }
+        if (creating && current.videoRoot.empty())
+            current.videoRoot = requestedVideoRoot;
+        if (creating && !safeRoot(current.videoRoot)) {
+            result = error(503, "video_root_unavailable"); break;
+        }
         if (current.backend != backend) {
             result = error(409, "backend_is_not_local"); break;
         }
@@ -334,8 +450,17 @@ inline ApiResponse save(const std::string& body) {
         }
         if (written) written = ::fsync(fd)==0;
         ::close(fd);
-        if (written) written = ::rename(temp, Ledger)==0;
-        if (!written) { ::unlink(temp); break; }
+        // An initial save must not overwrite a config created elsewhere.
+        if (written) written = creating
+            ? ::link(temp, Ledger)==0 : ::rename(temp, Ledger)==0;
+        const int linkError = errno;
+        if (written && creating) ::unlink(temp);
+        if (!written) {
+            ::unlink(temp);
+            if (creating && linkError == EEXIST)
+                result = error(409, "sources_changed");
+            break;
+        }
         const int directory = ::open("/etc/vdr-suite/addon-sources",
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (directory < 0) break;

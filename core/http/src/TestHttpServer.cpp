@@ -9,6 +9,8 @@
 #include "FirstAdminClaimHttpService.h"
 #include "MediaAccessCredentialHttp.h"
 #include "SecurityConfiguration.h"
+#include "HumanAccountRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 #include "RestQueryParameters.h"
 #include "PublicResourcePreconditions.h"
 #include "ArtworkCacheValidation.h"
@@ -44,6 +46,28 @@ std::string pathWithoutQuery(const std::string& target)
     return query == std::string::npos
         ? target
         : target.substr(0, query);
+}
+
+// The native OSD transport exposes only the existing shared read contracts.
+// Scope the new interface without altering any browser or Public-v1 route.
+bool localOsdReadRequest(const HttpServerRequest& request)
+{
+    const auto path=pathWithoutQuery(request.path);
+    if (request.method=="GET") {
+        return path=="/api/search" ||
+            path=="/api/vdr/recordings/persons/search" ||
+            path=="/api/vdr/recordings/query" ||
+            path=="/api/vdr/recordings/folder" ||
+            path=="/api/metadata/genres" ||
+            path=="/api/metadata/genres/recordings" ||
+            path=="/api/vdr/recordings/metadata/image" ||
+            path=="/api/recordings/metadata/image";
+    }
+    if (request.method!="POST" || !ContinueWatchingSecurityRequest::matches(request))
+        return false;
+    static const std::regex list(R"p(^\s*\{\s*"operation"\s*:\s*"list"\s*,\s*"backendId"\s*:\s*"[A-Za-z0-9_.-]+"\s*\}\s*$)p");
+    static const std::regex reversed(R"p(^\s*\{\s*"backendId"\s*:\s*"[A-Za-z0-9_.-]+"\s*,\s*"operation"\s*:\s*"list"\s*\}\s*$)p");
+    return std::regex_match(request.body,list) || std::regex_match(request.body,reversed);
 }
 
 // P1: exact admin path. Never treat pairing approval as an Account owner.
@@ -1872,6 +1896,8 @@ TestHttpServer::TestHttpServer(
             *securityIdentityRepository_,
             *securityPermissionGrantRepository_);
 
+    const char* localAccountEnv=std::getenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID");
+    const std::string localAccountId=localAccountEnv?localAccountEnv:"";
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(
             configuration,
@@ -1879,7 +1905,24 @@ TestHttpServer::TestHttpServer(
             persistentIdentityResolver_.get(),
             managedBasicAuthenticator_.get(),
             browserSessionAuthenticator_.get(),
-            deviceCredentialAuthenticator_.get());
+            deviceCredentialAuthenticator_.get(),
+            [this,localAccountId]() {
+                RequestSecurityContext context;
+                if (localAccountId.empty()) return context;
+                const auto account=humanAccountRepository_->findByAccountId(localAccountId);
+                if (account.status!=HumanAccountRepositoryStatus::ok || !account.account.active)
+                    return context;
+                context.actor.actorId=account.account.actorId;
+                context.actor.type=ActorType::User;
+                context.actor.displayName=account.account.displayName;
+                context.authenticationState=AuthenticationState::Authenticated;
+                const auto grants=securityPermissionGrantRepository_->findActiveGrantsForActor(context.actor.actorId);
+                context.grants=grants.grants;
+                context.permissionGrantResolution=grants.available
+                    ? PermissionGrantResolutionState::Resolved
+                    : PermissionGrantResolutionState::Unavailable;
+                return context;
+            });
     securityReady_ = true;
 }
 
@@ -1943,6 +1986,14 @@ HttpServerResponse TestHttpServer::handleRequest(
         response.body =
             "{\"error\":{\"code\":\"security_runtime_unavailable\","
             "\"message\":\"The security runtime is unavailable\"}}";
+        return response;
+    }
+
+    if (request.localOsdPeer && !localOsdReadRequest(request)) {
+        HttpServerResponse response;
+        response.statusCode=404;
+        response.headers["Content-Type"]="application/json";
+        response.body="{\"error\":\"native_osd_route_not_available\"}";
         return response;
     }
 

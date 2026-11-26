@@ -84,6 +84,7 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <pwd.h>
 #include <csignal>
 #include <iostream>
 #include <iterator>
@@ -7036,6 +7037,12 @@ bool DaemonRuntime::initialize()
         }
         const bool enabled = current.intent.desiredEnabled ||
             installedByAdministrator;
+        // Package payload observation is separate from Agent trust. A lost
+        // lease or an unapproved handler must never imply "not installed".
+        std::string payloadState =
+            vdrsuite::mediatools::local_source_admin::localPayloadState(backendId);
+        if (providerVerified && payloadState == "absent")
+            payloadState = "unknown";
         response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
             backendId + "\",\"desiredEnabled\":" +
             (enabled ? "true" : "false") +
@@ -7044,6 +7051,7 @@ bool DaemonRuntime::initialize()
             (installedByAdministrator ? "true" : "false") +
             ",\"providerVerified\":" +
             (providerVerified ? "true" : "false") +
+            ",\"installationState\":\"" + payloadState + "\"" +
             ",\"agentReady\":" + (agentReady ? "true" : "false") +
             ",\"activationBoundToProvider\":" +
             (activationBoundToProvider ? "true" : "false") + "}";
@@ -7052,15 +7060,29 @@ bool DaemonRuntime::initialize()
     // Local admin source configuration uses the same authenticated
     // Browser-Session role.admin/CSRF gate as addon activation. The existing
     // Agent periodically rereads its root-owned inventory; no restart.
-    auto addonSourceMutation = [](
+    // Reuse the existing, backend-scoped recording-root authority (explicit
+    // config or SuiteBridge VPATH discovery), not a guessed distro path.
+    const auto trustedLocalMediaVideoRoot = [this]() -> std::string {
+        std::string local;
+        if (!vdrsuite::mediatools::local_source_admin::localBackend(local))
+            return {};
+        for (const auto& context : backendRuntimeContexts_) {
+            if (context->backendId == local)
+                return context->nativeRecordingInfoRoot;
+        }
+        return {};
+    };
+    auto addonSourceMutation = [trustedLocalMediaVideoRoot](
         const RequestSecurityContext&, const std::string& body) -> ApiResponse
     {
-        return vdrsuite::mediatools::local_source_admin::save(body);
+        return vdrsuite::mediatools::local_source_admin::save(
+            body, trustedLocalMediaVideoRoot());
     };
-    auto addonSourceLookup = [](
+    auto addonSourceLookup = [trustedLocalMediaVideoRoot](
         const RequestSecurityContext&, const std::string& uri) -> ApiResponse
     {
-        return vdrsuite::mediatools::local_source_admin::read(uri);
+        return vdrsuite::mediatools::local_source_admin::read(
+            uri, trustedLocalMediaVideoRoot());
     };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(
@@ -7180,6 +7202,20 @@ bool DaemonRuntime::initialize()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+
+    const char* localOsdUser=std::getenv("VDR_SUITE_LOCAL_OSD_USER");
+    const char* localOsdAccount=std::getenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID");
+    if (localOsdUser && *localOsdUser && localOsdAccount && *localOsdAccount) {
+        const auto* user=::getpwnam(localOsdUser);
+        if (user) {
+            const char* localOsdSocket=std::getenv("VDR_SUITE_LOCAL_OSD_SOCKET");
+            httpListener_->configureLocalOsdSocket(
+                localOsdSocket && *localOsdSocket ? localOsdSocket : "/run/vdr-suite/osd.sock",
+                user->pw_uid);
+        } else {
+            std::cerr << "Local OSD Unix service user not found" << std::endl;
+        }
+    }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (!backendRuntimeContext) {

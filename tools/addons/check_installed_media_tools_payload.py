@@ -16,7 +16,14 @@ record = json.loads(path.read_text(encoding="utf-8"))
 assert record["schema"] == 1
 assert record["module"] == "rectools"
 assert record["package"] == package
-assert re.fullmatch(r"[a-f0-9]{40}", record["prepared_source_sha"])
+source = record["prepared_source_sha"]
+if not re.fullmatch(r"[a-f0-9]{40}", source):
+    prefix = re.fullmatch(r"git-prefix:([0-9a-f]{7,39})", source)
+    assert prefix, source
+    version = subprocess.check_output(
+        ["dpkg-query", "-W", "-f=${Version}", package], text=True
+    ).strip()
+    assert re.search(r"\+g" + prefix[1] + r"~ubuntu[0-9.]+$", version), (source, version)
 entries = record["files"]
 assert isinstance(entries, dict) and len(entries) == 7
 prefixes = ("usr/share/vdr-suite/addons/rectools/",

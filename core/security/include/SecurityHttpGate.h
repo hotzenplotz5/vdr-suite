@@ -17,6 +17,7 @@
 #include <cctype>
 #include <ctime>
 #include <iomanip>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -56,12 +57,14 @@ public:
         const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
         const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr,
         const BrowserSessionAuthenticator* browserSessionAuthenticator = nullptr,
-        const DeviceCredentialAuthenticator* deviceCredentialAuthenticator = nullptr)
+        const DeviceCredentialAuthenticator* deviceCredentialAuthenticator = nullptr,
+        std::function<RequestSecurityContext()> localOsdIdentity = {})
         : accountabilityRepository_(accountabilityRepository),
           persistentIdentityResolver_(persistentIdentityResolver),
           managedBasicAuthenticator_(managedBasicAuthenticator),
           browserSessionAuthenticator_(browserSessionAuthenticator),
-          deviceCredentialAuthenticator_(deviceCredentialAuthenticator)
+          deviceCredentialAuthenticator_(deviceCredentialAuthenticator),
+          localOsdIdentity_(std::move(localOsdIdentity))
     {
         (void)configuration;
     }
@@ -86,7 +89,7 @@ public:
             return rejectAuthentication(gate);
         }
 
-        if ((gate.browserAuthenticated || gate.deviceAuthenticated) &&
+        if ((gate.browserAuthenticated || gate.deviceAuthenticated || request.localOsdPeer) &&
             gate.context.permissionGrantResolution ==
                 PermissionGrantResolutionState::Unavailable)
         {
@@ -101,6 +104,32 @@ public:
                 503,
                 "Browser permission persistence is unavailable",
                 "");
+        }
+
+        // The native socket is a transport, not a new permission catalogue.
+        // Use the existing recording/EPG grants for the shared read projections.
+        if (request.localOsdPeer && request.method == "GET") {
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
+            const std::string backend = queryStringValue(request.path,"backend");
+            const std::string scope = backend.empty() ? "default" : backend;
+            const std::vector<std::string> permissions = path == "/api/search"
+                ? std::vector<std::string>{"recordings.view","epg.view"}
+                : std::vector<std::string>{"recordings.view"};
+            for (const auto& permission : permissions) {
+                AuthorizationRequest read;
+                read.permission=permission;
+                read.backendId=scope;
+                read.action=permission;
+                const auto decision=authorizationService_.authorize(gate.context,read);
+                if (!decision.allowed)
+                    return rejectWithAudit(gate,decision,403,messageForReason(decision.reasonCode),"");
+                if (!appendDecisionEvent(gate.context,decision,"")) {
+                    gate.rejection=errorResponse(503,"accountability_unavailable",
+                        "Security accountability persistence is unavailable",gate.context);
+                    return gate;
+                }
+                gate.authorizationDecision=decision;
+            }
         }
 
         const bool isPost = request.method == "POST";
@@ -4180,6 +4209,15 @@ private:
         std::string correlationId = headerValue(request, "X-Correlation-ID");
         if (!correlationId.empty() && !safeContextToken(correlationId)) correlationId.clear();
 
+        if (request.localOsdPeer) {
+            if (localOsdIdentity_) {
+                result.context=resolvePersistentIdentity(localOsdIdentity_());
+                result.context.requestId=requestId;
+                result.context.correlationId=correlationId;
+            }
+            return result;
+        }
+
         if (deviceCredentialAuthenticator_ != nullptr &&
             DeviceCredentialAuthenticator::hasDeviceAuthorization(request.headers))
         {
@@ -4398,5 +4436,6 @@ private:
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
     const BrowserSessionAuthenticator* browserSessionAuthenticator_;
     const DeviceCredentialAuthenticator* deviceCredentialAuthenticator_;
+    std::function<RequestSecurityContext()> localOsdIdentity_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };

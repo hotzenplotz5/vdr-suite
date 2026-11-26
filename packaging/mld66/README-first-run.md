@@ -13,6 +13,36 @@ an **MLD recipe integration contract**. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
 The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
 
+## Media Tools: temporärer MLD-Funktionstest (25 November 2026)
+
+Skippys Read-only-Diagnose bestätigt fehlendes `--enable-media-import`
+im laufenden Agenten und zwei noch nicht ausgestellte Add-on-Freigaben.
+**Keine Paket-/Dienständerung auf Verdacht**: Der reversible /run-Drop-in,
+die getrennte Core-/Handler-Freigabe und die SQLite-Audit-Diagnose sind im
+[MLD Media-Tools-Laufzeittest](media-tools-temporary-runtime-test.md)
+dokumentiert. Das Testskript `tools/addons/mld_media_tools_trial.sh`
+bereitet nur den Startparameter vor; ein Agent-Neustart ist eine
+gesonderte Entscheidung des Testhost-Betreibers. Die BitBake-Rezepte bleiben
+bis zum tatsächlichen Laufzeitergebnis unverändert.
+
+## MLD binary version identity (24 November 2026)
+
+Skippy reported `source-unversioned` in **Installierter VDR-Suite-Stand**.
+This is the literal compile-time fallback of
+`core/runtime/include/ServerBuildIdentity.h`, not proof of which Git
+revision or package was installed. The canonical `VERSION` file exists
+(`0.14.1` as of this note), and `mk/common.mk` injects
+`-DVDR_SUITE_SERVER_VERSION=...` into `CXXFLAGS` for the normal build.
+The MLD recipe lives outside this repository. Verify that its actual
+**daemon** compile/link invocation preserves the Makefile's version macro
+and does not override `CXXFLAGS` without reinserting it; changing only the
+Media-Tools add-on package does not repair an already built daemon.
+For release builds, pass the value of the checked-out `VERSION` file
+through `VDR_SUITE_SERVER_VERSION` and verify the installed daemon's
+reported version after the normal package deployment. This documents
+an integration check; it does not claim the external recipe or MLD
+binary has been fixed.
+
 ## Consolidated main acceptance (10 November 2026)
 
 The owning MLD BitBake recipe must point to the tested `main` revision,

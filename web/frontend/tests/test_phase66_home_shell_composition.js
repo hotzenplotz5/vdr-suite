@@ -150,6 +150,9 @@ const brandButtons = productionNodes(indexSource, 'article', 'data-brand-module'
 assert(moduleTabs.length >= 8);
 assert(brandButtons.length >= 5);
 
+const shortcutStart = appSource.indexOf('function renderMediaToolsHomeShortcut()');
+const shortcutEnd = appSource.indexOf('function resetMediaImportVisibility(', shortcutStart);
+assert(shortcutStart >= 0 && shortcutEnd > shortcutStart);
 const selectStart = appSource.indexOf('function publishHomeResume(previousModule)');
 const selectEnd = appSource.indexOf('\nfunction markSelected(', selectStart);
 const bindingStart = appSource.indexOf("document.querySelectorAll('.module-tab').forEach(button =>", selectEnd);
@@ -170,6 +173,9 @@ const document = {
     if (event && event.type === 'vdr-suite:home-resume') homeResumeEvents += 1;
     return true;
   },
+  // This navigation-only fixture has no mounted additional-sections zone.
+  // Execute the real shortcut owner, including its no-host early return.
+  querySelector() { return null; },
   querySelectorAll(selector) {
     if (selector === '.module-tab') return moduleTabs;
     if (selector === '[data-brand-module]') return brandButtons;
@@ -207,7 +213,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(
-  `var selectedModule = 'overview';\n${appSource.slice(selectStart, selectEnd)}\n${appSource.slice(bindingStart, bindingEnd)}`,
+  `var selectedModule = 'overview';\n${appSource.slice(shortcutStart, shortcutEnd)}\n${appSource.slice(selectStart, selectEnd)}\n${appSource.slice(bindingStart, bindingEnd)}`,
   context
 );
 
