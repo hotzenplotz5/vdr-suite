@@ -432,6 +432,24 @@ struct PublicRecordingDetailItem
     std::string manualAssignmentId;
     std::string metadataEntityId;
     int manualRevision = 0;
+    // Optional detail facts from the existing persisted Scraper/manual read.
+    // No provider identity, local artwork reference or backend path.
+    std::string firstAired;
+    std::string statusText;
+    std::string collectionName;
+    int absoluteEpisodeNumber = 0;
+    double voteAverage = 0.0;
+    int voteCount = 0;
+    std::vector<std::string> genres;
+    std::vector<std::string> productionCountries;
+    std::vector<std::string> networks;
+    struct Person
+    {
+        std::string role;
+        std::string name;
+        std::string characterName;
+    };
+    std::vector<Person> people;
 };
 
 struct PublicRecordingDetailResult

@@ -408,6 +408,11 @@ int main()
             result.item.seriesTitle = "Series";
             result.item.episodeTitle = "Episode";
             result.item.genreText = "Drama";
+            result.item.voteAverage = 7.5;
+            result.item.voteCount = 123;
+            result.item.firstAired = "2026-10-19";
+            result.item.genres = {"Drama", "Mystery"};
+            result.item.people.push_back({"actor", "Actor \"Name\"", "Character"});
             // A manual Genre assignment may exist without a selected
             // manual metadata entity.
             result.item.manualGenreId = "film.drama";
@@ -429,6 +434,10 @@ int main()
     assert(detail.body.find("\"providerTitle\":\"Scraped title\"") !=
         std::string::npos);
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
+    assert(detail.body.find("\"voteAverage\":7.5") != std::string::npos);
+    assert(detail.body.find("\"voteCount\":123") != std::string::npos);
+    assert(detail.body.find("\"genres\":[\"Drama\",\"Mystery\"]") != std::string::npos);
+    assert(detail.body.find("\"name\":\"Actor \\\"Name\\\"\"") != std::string::npos);
     assert(detail.body.find("\"manualGenreId\":\"film.drama\"") !=
         std::string::npos);
     assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=

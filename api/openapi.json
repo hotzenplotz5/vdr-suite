@@ -15592,6 +15592,81 @@
             "pattern": "^mdent_[0-9a-f]{32}$",
             "description": "Only when source=manual: existing Suite metadata entity identity."
           },
+          "firstAired": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "statusText": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "collectionName": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "absoluteEpisodeNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "voteAverage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "voteCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "genres": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "productionCountries": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "networks": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "people": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "required": [
+                "role",
+                "name",
+                "characterName"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "characterName": {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              }
+            }
+          },
           "manualRevision": {
             "type": "integer",
             "minimum": 1,

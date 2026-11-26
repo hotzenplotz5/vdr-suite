@@ -4,8 +4,11 @@
 #include "ManualRecordingMetadataAssignmentRepository.h"
 #include "MetadataIdentity.h"
 #include "VdrRecording.h"
+#include "VdrRecordingNativeMetadataRepository.h"
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 #include <optional>
 #include <string>
 
@@ -37,6 +40,24 @@ struct PublicRecordingMetadataDetail
     std::string manualAssignmentId;
     std::string metadataEntityId;
     int manualRevision = 0;
+    // Optional detail facts from the existing persisted Scraper/manual read.
+    // No provider identity, local artwork reference or backend path.
+    std::string firstAired;
+    std::string statusText;
+    std::string collectionName;
+    int absoluteEpisodeNumber = 0;
+    double voteAverage = 0.0;
+    int voteCount = 0;
+    std::vector<std::string> genres;
+    std::vector<std::string> productionCountries;
+    std::vector<std::string> networks;
+    struct Person
+    {
+        std::string role;
+        std::string name;
+        std::string characterName;
+    };
+    std::vector<Person> people;
 };
 
 // Caller supplies the public item obtained from the existing collection
@@ -121,6 +142,34 @@ public:
         return item;
     }
 
+    // Read the same persisted TVScraper detail as the Web. Existing M1
+    // facts remain unchanged if the richer native detail is not available.
+    static void applyNativeDetails(
+        const VdrRecording& source,
+        const VdrRecordingNativeMetadataRecord& native,
+        PublicRecordingMetadataDetail& item)
+    {
+        if (item.metadataSource == "manual" || !native.exists() ||
+            !native.metadata.found || native.backendId != source.backendId ||
+            native.backendNativeId != source.backendNativeId)
+            return;
+        const auto& value = native.metadata;
+        item.firstAired = bounded(value.firstAired, 32U);
+        item.statusText = bounded(value.status, 1024U);
+        item.collectionName = bounded(value.collectionName, 1024U);
+        item.absoluteEpisodeNumber = std::max(0, value.absoluteEpisodeNumber);
+        item.voteAverage = std::isfinite(value.voteAverage) &&
+            value.voteAverage >= 0.0 && value.voteAverage <= 10.0
+            ? value.voteAverage : 0.0;
+        item.voteCount = std::max(0, value.voteCount);
+        item.genres = boundedList(value.genres, VdrRecordingNativeMetadata::MaximumGenres);
+        item.productionCountries = boundedList(value.productionCountries,
+            VdrRecordingNativeMetadata::MaximumCountries);
+        item.networks = boundedList(value.networks, VdrRecordingNativeMetadata::MaximumNetworks);
+        item.people.clear();
+        appendPeople(value.people, item);
+    }
+
     // Existing Web-selected assignment takes precedence over automatically
     // scraped provider fields. Call ONLY with an assignment returned from the
     // existing backend/cache-key scoped, active-binding read-only repository.
@@ -166,10 +215,49 @@ public:
         item.genreText.clear();
         item.tagline.clear();
         item.providerRuntimeMinutes = 0;
+        // Manual assignment wins for cast and the optional Scraper facts too.
+        item.firstAired.clear();
+        item.statusText.clear();
+        item.collectionName.clear();
+        item.absoluteEpisodeNumber = 0;
+        item.voteAverage = 0.0;
+        item.voteCount = 0;
+        item.genres.clear();
+        item.productionCountries.clear();
+        item.networks.clear();
+        item.people.clear();
+        appendPeople(manual.people, item);
         return true;
     }
 
 private:
+    static std::vector<std::string> boundedList(
+        const std::vector<std::string>& values, std::size_t limit)
+    {
+        std::vector<std::string> result;
+        for (const auto& value : values)
+        {
+            if (result.size() >= limit) break;
+            if (!value.empty()) result.push_back(bounded(value, 1024U));
+        }
+        return result;
+    }
+
+    template <class Person>
+    static void appendPeople(const std::vector<Person>& people,
+                             PublicRecordingMetadataDetail& item)
+    {
+        for (const auto& person : people)
+        {
+            if (item.people.size() >= VdrRecordingNativeMetadata::MaximumPeople)
+                break;
+            if (person.name.empty()) continue;
+            item.people.push_back({bounded(person.role, 128U),
+                bounded(person.name, 1024U),
+                bounded(person.characterName, 1024U)});
+        }
+    }
+
     static std::string bounded(const std::string& value, std::size_t maxBytes)
     {
         if (value.size() <= maxBytes) return value;

@@ -102,6 +102,15 @@ public:
         const std::string& backendId,
         const std::string& publicRecordingId) const;
 
+    // Shared persisted native-detail lookup; no provider fetch.
+    VdrRecordingNativeMetadataRecord findNativeMetadata(
+        const std::string& backendId, const std::string& backendNativeId) const
+    {
+        return nativeMetadataLookup_
+            ? nativeMetadataLookup_(backendId, backendNativeId)
+            : VdrRecordingNativeMetadataRecord{};
+    }
+
     ApiResponse getMetadata(
         const std::string& backendId,
         const std::string& backendNativeId) const;

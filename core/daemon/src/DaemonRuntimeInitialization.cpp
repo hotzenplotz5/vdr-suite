@@ -3562,6 +3562,10 @@ bool DaemonRuntime::initialize()
             if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
                     request.backendId, manual, *detail))
                 return result;
+            if (detail->metadataSource != "manual" && vdrRecordingFolderController_)
+                PublicRecordingMetadataDetailProjection::applyNativeDetails(
+                    found.recording, vdrRecordingFolderController_->findNativeMetadata(
+                        request.backendId, found.recording.backendNativeId), *detail);
 
             // The Web's canonical, separately assigned Genre belongs to the
             // same backend-native Recording, whether or not manual metadata
@@ -3618,6 +3622,17 @@ bool DaemonRuntime::initialize()
             out.manualAssignmentId = source.manualAssignmentId;
             out.metadataEntityId = source.metadataEntityId;
             out.manualRevision = source.manualRevision;
+            out.firstAired = source.firstAired;
+            out.statusText = source.statusText;
+            out.collectionName = source.collectionName;
+            out.absoluteEpisodeNumber = source.absoluteEpisodeNumber;
+            out.voteAverage = source.voteAverage;
+            out.voteCount = source.voteCount;
+            out.genres = source.genres;
+            out.productionCountries = source.productionCountries;
+            out.networks = source.networks;
+            for (const auto& person : source.people)
+                out.people.push_back({person.role, person.name, person.characterName});
             result.status = PublicRecordingDetailStatus::ok;
             return result;
         });

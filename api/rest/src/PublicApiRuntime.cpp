@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -8103,6 +8104,47 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("genreText", item.genreText);
         appendText("manualGenreId", item.manualGenreId);
         appendText("releaseDate", item.releaseDate);
+        appendText("firstAired", item.firstAired);
+        appendText("statusText", item.statusText);
+        appendText("collectionName", item.collectionName);
+        if (item.absoluteEpisodeNumber > 0)
+            body += ",\"absoluteEpisodeNumber\":" +
+                std::to_string(item.absoluteEpisodeNumber);
+        if (std::isfinite(item.voteAverage) &&
+            item.voteAverage > 0.0 && item.voteAverage <= 10.0)
+            body += ",\"voteAverage\":" + std::to_string(item.voteAverage);
+        if (item.voteCount > 0)
+            body += ",\"voteCount\":" + std::to_string(item.voteCount);
+        const auto appendList = [&body](const char* key,
+            const std::vector<std::string>& values) {
+            if (values.empty()) return;
+            body += ",\"" + std::string(key) + "\":[";
+            bool first = true;
+            for (const auto& value : values)
+            {
+                if (!first) body += ",";
+                first = false;
+                body += "\"" + jsonEscape(value) + "\"";
+            }
+            body += "]";
+        };
+        appendList("genres", item.genres);
+        appendList("productionCountries", item.productionCountries);
+        appendList("networks", item.networks);
+        if (!item.people.empty())
+        {
+            body += ",\"people\":[";
+            bool first = true;
+            for (const auto& person : item.people)
+            {
+                if (!first) body += ",";
+                first = false;
+                body += "{\"role\":\"" + jsonEscape(person.role) +
+                    "\",\"name\":\"" + jsonEscape(person.name) +
+                    "\",\"characterName\":\"" + jsonEscape(person.characterName) + "\"}";
+            }
+            body += "]";
+        }
         if (item.seasonNumber > 0)
             body += ",\"seasonNumber\":" +
                 std::to_string(item.seasonNumber);

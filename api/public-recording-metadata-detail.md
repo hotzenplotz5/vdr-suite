@@ -138,3 +138,16 @@ Recommended remaining M1 slices:
 - M1.4: targeted authorization, malformed-data, manual-override and Web
   comparisons; prepare E1/E2/S1 merge reconciliation without merging them.
 
+
+## Rich detail facts for Web migration
+
+The existing Recording detail optionally includes `firstAired`, `statusText`,
+`collectionName`, `absoluteEpisodeNumber`, `voteAverage`, `voteCount`,
+`genres`, `productionCountries`, `networks`, and `people` (role, name,
+characterName). They use the same persisted native metadata lookup as the
+Web folder controller, with exact backend/native recording binding. A selected
+manual assignment takes precedence, including its own cast. No native keys,
+provider IDs, image paths or credentials are returned. Missing optional data
+does not make the detail unavailable. Portrait and gallery delivery, trailer
+identity and Web read-adapter migration remain separate work; this extension
+alone does not establish full Web parity.
