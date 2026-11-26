@@ -10,6 +10,7 @@
 class DeviceLiveEventSubscription;
 class BrowserLiveEventSubscription;
 #include <string>
+#include <sys/types.h>
 
 class SimpleHttpListener {
 public:
@@ -39,6 +40,7 @@ public:
         std::function<void()> onTick,
         std::chrono::milliseconds clientIoTimeout);
 
+    void configureLocalOsdSocket(std::string path, uid_t uid);
     int runUntilStopped();
 
 private:
@@ -49,9 +51,13 @@ private:
     std::function<void()> onTick_;
     std::chrono::milliseconds clientIoTimeout_;
 
+    std::string localOsdPath_;
+    uid_t localOsdUid_ = 0;
+    int createLocalOsdSocket() const;
     int createListeningSocket() const;
     bool prepareClientResponse(
         int clientSocket,
+        bool localOsdPeer,
         std::string& rawResponse,
         bool& imageResponse,
         std::function<std::string()>& deferredImageResponse,

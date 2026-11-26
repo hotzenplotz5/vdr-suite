@@ -15,6 +15,8 @@
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <cstdlib>
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
@@ -227,6 +229,45 @@ bool writeStreamPayload(const std::string& path, std::size_t bytes)
     }
 
     return close(output) == 0;
+}
+
+void testNativeOsdPeerTransport()
+{
+    class PeerServer : public IHttpServer {
+    public:
+        HttpServerResponse handleRequest(const HttpServerRequest& r) const override {
+            HttpServerResponse response;
+            response.statusCode=200;
+            response.body=r.localOsdPeer?"native":"tcp";
+            return response;
+        }
+    } server;
+    char directory[]="/tmp/vdr-osd-test-XXXXXX";
+    assert(::mkdtemp(directory));
+    // Parent is daemon-owned, and not writable by other users.
+    const std::string path=std::string(directory)+"/osd.sock";
+    const int port=reserveAvailablePort();
+    std::atomic<bool> stopped(false);
+    SimpleHttpListener listener("127.0.0.1",port,server,[&]{return stopped.load();});
+    listener.configureLocalOsdSocket(path,::getuid());
+    std::thread worker([&]{assert(listener.runUntilStopped()==0);});
+    int fd=-1;
+    for (int i=0;i<100;++i) {
+        fd=::socket(AF_UNIX,SOCK_STREAM,0);assert(fd>=0);
+        sockaddr_un address{};address.sun_family=AF_UNIX;
+        std::strcpy(address.sun_path,path.c_str());
+        if (::connect(fd,reinterpret_cast<sockaddr*>(&address),sizeof(address))==0) break;
+        ::close(fd);fd=-1;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    assert(fd>=0);
+    const std::string request="GET /api/search HTTP/1.1\r\nHost: localhost\r\nX-Local-OSD-Peer: true\r\nConnection: close\r\n\r\n";
+    sendAll(fd,request);assert(receiveAll(fd).find("\r\n\r\nnative")!=std::string::npos);::close(fd);
+    fd=connectWithRetry(port);
+    sendAll(fd,request);assert(receiveAll(fd).find("\r\n\r\ntcp")!=std::string::npos);::close(fd);
+    stopped.store(true);worker.join();
+    assert(::access(path.c_str(),F_OK)!=0);
+    assert(::rmdir(directory)==0);
 }
 
 void testPartialRequestTimeout()
@@ -528,6 +569,7 @@ void testDeferredArtworkDoesNotStarveOrdinaryRequests()
 int main()
 {
     ::signal(SIGPIPE, SIG_IGN);
+    testNativeOsdPeerTransport();
     testPartialRequestTimeout();
     testSlowTickIsDiagnosedWithoutChangingHttpResponses();
     testStreamingBackpressureSurvivesSocketSendTimeout();

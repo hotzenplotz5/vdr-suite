@@ -83,6 +83,7 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <pwd.h>
 #include <csignal>
 #include <iostream>
 #include <iterator>
@@ -6494,6 +6495,20 @@ bool DaemonRuntime::initialize()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+
+    const char* localOsdUser=std::getenv("VDR_SUITE_LOCAL_OSD_USER");
+    const char* localOsdAccount=std::getenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID");
+    if (localOsdUser && *localOsdUser && localOsdAccount && *localOsdAccount) {
+        const auto* user=::getpwnam(localOsdUser);
+        if (user) {
+            const char* localOsdSocket=std::getenv("VDR_SUITE_LOCAL_OSD_SOCKET");
+            httpListener_->configureLocalOsdSocket(
+                localOsdSocket && *localOsdSocket ? localOsdSocket : "/run/vdr-suite/osd.sock",
+                user->pw_uid);
+        } else {
+            std::cerr << "Local OSD Unix service user not found" << std::endl;
+        }
+    }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (!backendRuntimeContext) {

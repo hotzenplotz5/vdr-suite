@@ -59,6 +59,34 @@ int main()
 {
     SecurityHttpGateBrowserTestFixture fixture;
 
+    // Native identity is supplied only by the kernel-verified local transport,
+    // and uses the existing persisted actor and grant lifecycle.
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId,"recordings.view","default"));
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId,"epg.view","default"));
+    SecurityHttpGate localGate(enforcedConfiguration(),fixture.accountabilityRepository,
+        &fixture.identityResolver,nullptr,&fixture.browserAuthenticator,nullptr,[&] {
+            RequestSecurityContext context;
+            context.authenticationState=AuthenticationState::Authenticated;
+            context.actor.actorId=fixture.actorId;
+            const auto grants=fixture.grantRepository.findActiveGrantsForActor(fixture.actorId);
+            context.grants=grants.grants;
+            context.permissionGrantResolution=grants.available
+                ?PermissionGrantResolutionState::Resolved:PermissionGrantResolutionState::Unavailable;
+            return context;
+        });
+    auto local=getRequest();
+    local.path="/api/search?backend=default&query=Will%20Smith";
+    local.headers["X-Local-OSD-Peer"]="true";
+    assert(!localGate.evaluate(local).allowed);
+    local.localOsdPeer=true;
+    auto localRead=localGate.evaluate(local);
+    assert(localRead.allowed && localRead.context.actor.actorId==fixture.actorId);
+    assert(!localRead.browserAuthenticated && !localRead.deviceAuthenticated);
+    local.path="/api/search?backend=secondary&query=Will%20Smith";
+    assert(!localGate.evaluate(local).allowed);
+    assert(fixture.grantRepository.revokeGrant(fixture.actorId,"recordings.view","default"));
+    assert(fixture.grantRepository.revokeGrant(fixture.actorId,"epg.view","default"));
+
     const SecurityGateDecision anonymous =
         fixture.gate.evaluate(getRequest());
     assert(!anonymous.allowed);
