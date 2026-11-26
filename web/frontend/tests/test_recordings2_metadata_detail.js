@@ -130,7 +130,7 @@ assert.strictEqual(personView.__test.isPublicRecordingImageUrl(publicImageUrl), 
 assert.strictEqual(personView.__test.isPublicRecordingImageUrl('https://image.tmdb.org/example.jpg'), false);
 const publicPersonPoster = personView.__test.createRecordingPoster({
   recordingId: publicRecordingId, backendId: 'remote', title: 'Film',
-  preferredArtworkId: 'b'.repeat(32)
+  recordedAt: '2026-11-20T20:15:00Z', preferredArtworkId: 'b'.repeat(32)
 });
 assert.strictEqual(publicPersonPoster.children.length, 1);
 assert.strictEqual(publicPersonPoster.children[0].src, publicImageUrl);
