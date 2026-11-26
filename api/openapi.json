@@ -553,6 +553,110 @@
         }
       }
     },
+    "/api/v1/backends/{backendId}/recordings/metadata/trailer": {
+      "get": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataTrailerRead",
+        "summary": "Read a trailer for an existing public Recording",
+        "description": "Resolves the current selected manual or persisted scraper identity server-side; never accepts a provider ID from the caller. Uses the existing on-demand trailer provider and recordings.view grant.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "recordingId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trailer descriptor or explicit absence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "available"
+                  ],
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "youtube"
+                      ]
+                    },
+                    "videoId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{11}$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "official": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing recordings.view grant denied for backend"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "502": {
+            "description": "Existing trailer provider failed or returned an invalid descriptor."
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing recordings.view@backendId permission."
+        }
+      }
+    },
     "/api/v1/backends/{backendId}/recordings/metadata/genre": {
       "get": {
         "tags": [
@@ -15692,6 +15796,10 @@
                 }
               }
             }
+          },
+          "trailerLookupAvailable": {
+            "type": "boolean",
+            "description": "A known internal metadata identity can be used for on-demand trailer lookup; not a guarantee a trailer exists."
           },
           "manualRevision": {
             "type": "integer",

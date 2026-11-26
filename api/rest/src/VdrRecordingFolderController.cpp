@@ -1092,6 +1092,55 @@ std::optional<ApiResponse> VdrRecordingFolderController::loadPublicMetadataArtwo
     return std::nullopt;
 }
 
+std::pair<std::string, std::string>
+VdrRecordingFolderController::metadataTrailerIdentity(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    const auto valid = [](const std::string& id) {
+        return !id.empty() && id.size() <= 16U &&
+            id.front() >= '1' && id.front() <= '9' &&
+            std::all_of(id.begin(), id.end(),
+                [](unsigned char c) { return c >= '0' && c <= '9'; });
+    };
+    if (manual.found && manual.relationshipLocked &&
+        manual.backendId == recording.backendId)
+    {
+        if (manual.providerId == "tmdb" && valid(manual.externalId))
+        {
+            if (manual.externalNamespace == "movie")
+                return {"movie", manual.externalId};
+            if (manual.externalNamespace == "tv")
+                return {"series", manual.externalId};
+        }
+        // A selected episode ID is not a parent series ID.
+        return {};
+    }
+    if (native.exists() && native.metadata.found &&
+        native.backendId == recording.backendId &&
+        native.backendNativeId == recording.backendNativeId)
+    {
+        const auto& value = native.metadata;
+        if (value.provider != "tvscraper" && value.provider != "recording-cache")
+            return {};
+        if (value.providerId <= 0) return {};
+        if (value.mediaType == "movie")
+            return {"movie", std::to_string(value.providerId)};
+        if (value.mediaType == "series" || value.mediaType == "episode")
+            return {"series", std::to_string(value.providerId)};
+        return {};
+    }
+    const auto& provider = recording.metadata.provider;
+    const int id = cachedProviderId(provider);
+    if (id <= 0) return {};
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        return {"movie", std::to_string(id)};
+    if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        return {"series", std::to_string(id)};
+    return {};
+}
+
 ApiResponse VdrRecordingFolderController::getMetadataImage(
     const std::string& backendId,
     const std::string& backendNativeId,

@@ -410,6 +410,7 @@ int main()
             result.item.genreText = "Drama";
             result.item.voteAverage = 7.5;
             result.item.voteCount = 123;
+            result.item.trailerLookupAvailable = true;
             result.item.firstAired = "2026-10-19";
             result.item.genres = {"Drama", "Mystery"};
             result.item.people.push_back({"actor", "Actor \"Name\"", "Character",
@@ -439,6 +440,7 @@ int main()
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
     assert(detail.body.find("\"voteAverage\":7.5") != std::string::npos);
     assert(detail.body.find("\"voteCount\":123") != std::string::npos);
+    assert(detail.body.find("\"trailerLookupAvailable\":true") != std::string::npos);
     assert(detail.body.find("\"preferredArtwork\":{\"available\":true") != std::string::npos);
     assert(detail.body.find("\"images\":[{\"orientation\":\"landscape\"") != std::string::npos);
     assert(detail.body.find("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/" +

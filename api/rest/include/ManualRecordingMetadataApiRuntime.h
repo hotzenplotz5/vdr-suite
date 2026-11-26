@@ -7,6 +7,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 class ManualRecordingMetadataApiRuntime
@@ -24,6 +25,9 @@ public:
     using PublicRecordingNativeLookup = std::function<std::string(
         const std::string& backendId, const std::string& recordingId)>;
     void registerPublicRecordingNativeLookup(PublicRecordingNativeLookup callback);
+    using PublicRecordingTrailerLookup = std::function<std::pair<std::string, std::string>(
+        const std::string& backendId, const std::string& nativeId)>;
+    void registerPublicRecordingTrailerLookup(PublicRecordingTrailerLookup callback);
     void reset();
 
     ManualRecordingMetadataAssignment findSelected(
@@ -79,4 +83,5 @@ private:
     RecordingPresentationChangedCallback
         recordingPresentationChangedCallback_;
     PublicRecordingNativeLookup publicRecordingNativeLookup_;
+    PublicRecordingTrailerLookup publicRecordingTrailerLookup_;
 };

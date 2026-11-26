@@ -135,6 +135,13 @@ public:
         const VdrRecordingNativeMetadataRecord& native,
         const std::string& artworkId) const;
 
+    // Provider identity remains internal. Both the detail's trailer hint
+    // and the public trailer lookup use this same current metadata evidence.
+    static std::pair<std::string, std::string> metadataTrailerIdentity(
+        const VdrRecording& recording,
+        const ManualRecordingMetadataAssignment& manual,
+        const VdrRecordingNativeMetadataRecord& native);
+
     ApiResponse getMetadata(
         const std::string& backendId,
         const std::string& backendNativeId) const;

@@ -704,6 +704,38 @@ int main()
         assert(provider.trailerCalls == 1);
     }
 
+    {
+        const auto publicId = "rec_0123456789abcdef0123456789abcdef";
+        const std::string route = "/api/v1/backends/living-room/recordings/metadata/trailer?recordingId=" +
+            std::string(publicId);
+        runtime.registerPublicRecordingNativeLookup(
+            [publicId](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == publicId
+                    ? std::string("recording/key") : std::string{};
+            });
+        runtime.registerPublicRecordingTrailerLookup(
+            [](const std::string& backend, const std::string& native) {
+                assert(backend == "living-room" && native == "recording/key");
+                return std::make_pair(std::string("movie"), std::string("13"));
+            });
+        ApiResponse response;
+        assert(runtime.tryHandleGet(route, response, {"other"}));
+        assert(response.statusCode == 403);
+        assert(runtime.tryHandleGet(route + "&externalId=99", response, {"living-room"}));
+        assert(response.statusCode == 400);
+        assert(runtime.tryHandleGet(route, response, {"living-room"}));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"videoId\":\"abcdefghijk\"") != std::string::npos);
+        assert(provider.trailerCalls == 2 && provider.lastTrailerExternalId == "13");
+        runtime.registerPublicRecordingTrailerLookup(
+            [](const std::string&, const std::string&) {
+                return std::pair<std::string, std::string>{};
+            });
+        assert(runtime.tryHandleGet(route, response, {"living-room"}));
+        assert(response.body == "{\"available\":false}");
+        assert(provider.trailerCalls == 2);
+    }
+
     provider.creditError = "provider temporarily unavailable";
     provider.creditProviderAvailable = false;
     {

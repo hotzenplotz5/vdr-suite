@@ -61,7 +61,8 @@ bool parseRoute(const std::string& target, Route& route)
     if (route.publicApi)
         return route.operation == "search" || route.operation == "seasons" ||
             route.operation == "episodes" || route.operation == "assign" ||
-            route.operation == "withdraw" || route.operation == "genre";
+            route.operation == "withdraw" || route.operation == "genre" ||
+            route.operation == "trailer";
     return route.operation == "manual" ||
         route.operation == "trailer" ||
         route.operation == "genre" ||
@@ -369,12 +370,20 @@ void ManualRecordingMetadataApiRuntime::registerPublicRecordingNativeLookup(
     publicRecordingNativeLookup_ = std::move(callback);
 }
 
+void ManualRecordingMetadataApiRuntime::registerPublicRecordingTrailerLookup(
+    PublicRecordingTrailerLookup callback)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingTrailerLookup_ = std::move(callback);
+}
+
 void ManualRecordingMetadataApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     controller_ = nullptr;
     recordingPresentationChangedCallback_ = {};
     publicRecordingNativeLookup_ = {};
+    publicRecordingTrailerLookup_ = {};
 }
 
 MetadataController* ManualRecordingMetadataApiRuntime::controller() const
@@ -417,7 +426,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
         return true;
     }
 
-    if (route.operation == "trailer")
+    if (route.operation == "trailer" && !route.publicApi)
     {
         response = metadata->getRecordingMetadataTrailer(
             route.backendId,
@@ -459,6 +468,32 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
         {
             response = errorResponse(404, "recording_not_found",
                 "Recording is not available on the requested backend");
+            return true;
+        }
+        if (route.operation == "trailer")
+        {
+            PublicRecordingTrailerLookup trailerLookup;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                trailerLookup = publicRecordingTrailerLookup_;
+            }
+            if (!trailerLookup)
+            {
+                response = errorResponse(503, "metadata_trailer_runtime_unavailable",
+                    "Recording trailer lookup is unavailable");
+                return true;
+            }
+            const auto identity = trailerLookup(route.backendId, native);
+            if (identity.first.empty() || identity.second.empty())
+            {
+                response.statusCode = 200;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.body = "{\"available\":false}";
+                return true;
+            }
+            response = metadata->getRecordingMetadataTrailer(
+                route.backendId, identity.first, identity.second);
             return true;
         }
         response = metadata->getManualRecordingGenre(route.backendId, native, publicId);

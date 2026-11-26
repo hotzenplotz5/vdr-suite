@@ -464,6 +464,7 @@ struct PublicRecordingDetailItem
     std::vector<Person> people;
     Artwork preferredArtwork;
     std::vector<GalleryImage> images;
+    bool trailerLookupAvailable = false;
 };
 
 struct PublicRecordingDetailResult

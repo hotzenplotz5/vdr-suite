@@ -8107,6 +8107,8 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("firstAired", item.firstAired);
         appendText("statusText", item.statusText);
         appendText("collectionName", item.collectionName);
+        if (item.trailerLookupAvailable)
+            body += ",\"trailerLookupAvailable\":true";
         if (item.absoluteEpisodeNumber > 0)
             body += ",\"absoluteEpisodeNumber\":" +
                 std::to_string(item.absoluteEpisodeNumber);

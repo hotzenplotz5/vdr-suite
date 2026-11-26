@@ -369,8 +369,9 @@ public:
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
         const bool isManualRecordingMetadataAction = isPost &&
             isManualRecordingMetadataRoute;
-        const bool isPublicManualGenreRead = request.method == "GET" &&
-            isManualRecordingMetadataRoute && manualMetadataOperation == "genre" &&
+        const bool isPublicManualMetadataRead = request.method == "GET" &&
+            isManualRecordingMetadataRoute &&
+            (manualMetadataOperation == "genre" || manualMetadataOperation == "trailer") &&
             path.compare(0, std::string("/api/v1/backends/").size(), "/api/v1/backends/") == 0;
         std::string recordingSeriesHierarchyBackendId;
         const bool isRecordingSeriesHierarchyAction =
@@ -1027,7 +1028,7 @@ public:
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
              isPublicRecordingEditRead ||
-             isPublicManualGenreRead ||
+             isPublicManualMetadataRead ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
@@ -1934,7 +1935,7 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
-            const auto scopes = isPublicManualGenreRead
+            const auto scopes = isPublicManualMetadataRead
                 ? std::vector<std::string>{manualMetadataBackendId}
                 : queryStringValues(request.path, "backendId");
             const bool validScope = scopes.size() == 1U &&
@@ -3723,7 +3724,8 @@ private:
             return false;
         return operation == "search" || operation == "seasons" ||
             operation == "episodes" || operation == "assign" ||
-            operation == "withdraw" || operation == "genre";
+            operation == "withdraw" || operation == "genre" ||
+            (publicApi && operation == "trailer");
     }
 
     static int hexValue(char value)

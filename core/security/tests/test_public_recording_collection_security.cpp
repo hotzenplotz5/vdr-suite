@@ -214,6 +214,24 @@ int main()
         assert(duplicated.rejection.statusCode == 400);
     }
 
+    // A public trailer uses the same existing backend grant as detail/artwork.
+    const std::string trailer =
+        "/api/v1/backends/backend-a/recordings/metadata/trailer"
+        "?recordingId=rec_0123456789abcdef0123456789abcdef";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, Permission, "backend-a"));
+        const auto allowed = fixture.gate.evaluate(browserGet(fixture, trailer));
+        assert(allowed.allowed && allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, Permission, "backend-b"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture, trailer));
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+    }
+
     // Public-v1 Genre collections use the same recordings.view authorization.
     for (const std::string& target : {
         "/api/v1/genres?backendId=backend-a&limit=30",

@@ -509,6 +509,19 @@ int main()
     artworkRecording.backendId = "default";
     const auto persisted = controller.findNativeMetadata(
         artworkRecording.backendId, artworkRecording.backendNativeId);
+    auto trailerMetadata = persisted;
+    trailerMetadata.metadata.providerId = 13;
+    assert(controller.metadataTrailerIdentity(artworkRecording, {}, trailerMetadata) ==
+        std::make_pair(std::string("movie"), std::string("13")));
+    auto manualTrailer = rootManualAssignment();
+    manualTrailer.backendId = artworkRecording.backendId;
+    manualTrailer.providerId = "tmdb";
+    manualTrailer.externalId = "99";
+    manualTrailer.externalNamespace = "movie";
+    assert(controller.metadataTrailerIdentity(artworkRecording, manualTrailer, trailerMetadata) ==
+        std::make_pair(std::string("movie"), std::string("99")));
+    manualTrailer.externalNamespace = "tv-episode";
+    assert(controller.metadataTrailerIdentity(artworkRecording, manualTrailer, trailerMetadata).first.empty());
     auto withPortrait = persisted;
     withPortrait.metadata.people.front().image = withPortrait.metadata.images.front();
     const auto assets = controller.publicMetadataArtwork(artworkRecording, {}, withPortrait);

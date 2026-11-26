@@ -155,3 +155,14 @@ same current metadata evidence resolves the binary image. A stale/replaced
 image ID does not resolve to a different image. Trailer identity and Web
 read-adapter migration remain separate work; this extension alone does not
 establish full Web parity.
+
+## On-demand trailer read
+
+`GET /api/v1/backends/{backendId}/recordings/metadata/trailer?recordingId=rec_...`
+uses the same `recordings.view` grant and the current recording identity. The
+server selects the existing manual or persisted native/cached scraper identity;
+it never accepts the provider identity from the public caller. The optional
+`metadata.trailerLookupAvailable` hint means lookup is supported, not that a
+trailer is already known. No provider request happens merely by opening detail.
+Manual episode IDs are not guessed to be parent series IDs. Web migration and
+full C++/CI acceptance remain pending.

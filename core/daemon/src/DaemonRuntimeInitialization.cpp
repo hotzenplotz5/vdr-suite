@@ -1977,6 +1977,26 @@ bool DaemonRuntime::initialize()
                 return found.status == PublicRecordingPlaybackTargetStatus::ready
                     ? found.recording.backendNativeId : std::string{};
             });
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerPublicRecordingTrailerLookup(
+            [this](const std::string& backendId, const std::string& nativeId)
+            {
+                VdrRecording recording;
+                if (!vdrRecordingCacheRepository_ || !metadataRepository_ ||
+                    !vdrRecordingFolderController_ ||
+                    !vdrRecordingCacheRepository_->findByBackendNativeId(
+                        backendId, nativeId, recording) ||
+                    recording.backendId != backendId ||
+                    recording.backendNativeId != nativeId)
+                    return std::pair<std::string, std::string>{};
+                const auto manual = metadataRepository_->getManualRecordingMetadataReadOnly(
+                    backendId, nativeId);
+                const auto native = manual.found && manual.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : vdrRecordingFolderController_->findNativeMetadata(backendId, nativeId);
+                return VdrRecordingFolderController::metadataTrailerIdentity(
+                    recording, manual, native);
+            });
 
     // After the existing authenticated assignment, resolve its native
     // Recording identity in the existing backend cache. Do not accept a path
@@ -3634,6 +3654,9 @@ bool DaemonRuntime::initialize()
             out.absoluteEpisodeNumber = source.absoluteEpisodeNumber;
             out.voteAverage = source.voteAverage;
             out.voteCount = source.voteCount;
+            out.trailerLookupAvailable =
+                !VdrRecordingFolderController::metadataTrailerIdentity(
+                    found.recording, manual, nativeDetail).first.empty();
             out.genres = source.genres;
             out.productionCountries = source.productionCountries;
             out.networks = source.networks;
