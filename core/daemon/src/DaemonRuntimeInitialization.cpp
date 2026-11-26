@@ -1516,7 +1516,13 @@ bool DaemonRuntime::initialize()
                 *recordingPersonSearchService_,
                 *recordingPersonSearchResultJsonSerializer_,
                 std::move(
-                    persistentRecordingPersonSearch));
+                    persistentRecordingPersonSearch),
+                [this](const std::string& backendId, const std::string& nativeId)
+                {
+                    if (!publicRecordingIdentities_) return std::string{};
+                    return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                        .value_or(std::string{});
+                });
 
     std::cout
         << "recording person search controller runtime initialized: "

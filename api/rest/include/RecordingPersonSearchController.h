@@ -22,10 +22,14 @@ public:
             int limit,
             int offset)>;
 
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+
     RecordingPersonSearchController(
         RecordingPersonSearchService& searchService,
         RecordingPersonSearchResultJsonSerializer& jsonSerializer,
-        PersistentSearch persistentSearch = {});
+        PersistentSearch persistentSearch = {},
+        PublicRecordingIdLookup publicRecordingIdLookup = {});
 
     bool usesPersistentSearch() const noexcept;
 
@@ -68,4 +72,5 @@ private:
     RecordingPersonSearchService& searchService_;
     RecordingPersonSearchResultJsonSerializer& jsonSerializer_;
     PersistentSearch persistentSearch_;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
 };

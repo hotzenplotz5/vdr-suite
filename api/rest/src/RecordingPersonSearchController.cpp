@@ -155,10 +155,12 @@ bool parseSource(
 RecordingPersonSearchController::RecordingPersonSearchController(
     RecordingPersonSearchService& searchService,
     RecordingPersonSearchResultJsonSerializer& jsonSerializer,
-    PersistentSearch persistentSearch)
+    PersistentSearch persistentSearch,
+    PublicRecordingIdLookup publicRecordingIdLookup)
     : searchService_(searchService),
       jsonSerializer_(jsonSerializer),
-      persistentSearch_(std::move(persistentSearch))
+      persistentSearch_(std::move(persistentSearch)),
+      publicRecordingIdLookup_(std::move(publicRecordingIdLookup))
 {
 }
 
@@ -299,5 +301,10 @@ ApiResponse RecordingPersonSearchController::searchRecordingPersonsInternal(
                 offset);
 
     return makeJsonResponse(
-        jsonSerializer_.serialize(result));
+        jsonSerializer_.serialize(result, [this, &backendId](const VdrRecording& recording)
+        {
+            if (!publicRecordingIdLookup_ || recording.backendId != backendId ||
+                recording.backendNativeId.empty()) return std::string{};
+            return publicRecordingIdLookup_(recording.backendId, recording.backendNativeId);
+        }));
 }
