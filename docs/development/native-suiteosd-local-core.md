@@ -32,3 +32,5 @@ actor and grants, default vs. ungranted backend, account lifecycle,
 same search counts/order, recording paths and Core presentation, and same
 account history. Native OSD test verifies AF_UNIX HTTP without Browser
 credentials. Full end-to-end and hardware acceptance are still required.
+
+The production HTTP server regression additionally creates an isolated existing-account fixture, compares the same recording query with the existing HTTP path, verifies denied backend scope, reaches the existing history dispatcher without a browser credential, rejects out-of-scope operations and checks account deactivation. It does not establish real-yaVDR acceptance.
