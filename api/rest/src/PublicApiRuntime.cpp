@@ -7626,11 +7626,14 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                     return (c >= '0' && c <= '9') ||
                            (c >= 'a' && c <= 'f');
                 });
+        const std::string query = requestQueryString(requestTarget);
+        const std::string baseQuery = authorizedBackendIds.size() == 1U ?
+            "backendId=" + authorizedBackendIds.front() : std::string{};
+        const bool nativeMatch = query == baseQuery + "&nativeMatch=1";
         if (!validId || authorizedBackendIds.size() != 1U ||
             authorizedBackendIds.front().empty() ||
             authorizedBackendIds.front() == "*" ||
-            requestQueryString(requestTarget) !=
-                "backendId=" + authorizedBackendIds.front())
+            (query != baseQuery && !nativeMatch))
         {
             response = invalidRequestProblem(path,
                 "A valid public Recording ID and one authorized backendId "
@@ -7639,7 +7642,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         }
 
         const auto found = lookupRecordingDetail(
-            {authorizedBackendIds.front(), recordingId});
+            {authorizedBackendIds.front(), recordingId, nativeMatch});
         switch (found.status)
         {
             case PublicRecordingDetailStatus::notFound:
@@ -7774,7 +7777,10 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                 "\",\"manualRevision\":" +
                 std::to_string(item.manualRevision);
         }
-        body += "}}";
+        body += "}";
+        if (nativeMatch && !item.nativeMatchProof.empty())
+            appendText("nativeMatchProof", item.nativeMatchProof);
+        body += "}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;

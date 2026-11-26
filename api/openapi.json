@@ -6388,7 +6388,14 @@
               "maxLength": 128,
               "pattern": "^[A-Za-z0-9._-]+$"
             },
-            "description": "Exactly one authorized backendId; no other query parameters"
+            "description": "Exactly one authorized backendId"
+          },
+          {
+            "name": "nativeMatch",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "enum": [1]},
+            "description": "Opt-in equality proof for local VDR integration; no raw native path."
           }
         ],
         "responses": {
@@ -12506,6 +12513,7 @@
               "metadata"
             ],
             "properties": {
+          "nativeMatchProof": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Optional exact native-path equality proof, scoped to public ID and backend. Not an authorization or identity token."},
               "metadata": {
                 "$ref": "#/components/schemas/PublicRecordingMetadataDetail"
               }

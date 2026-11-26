@@ -385,6 +385,7 @@ struct PublicRecordingDetailRequest
 {
     std::string backendId;
     std::string recordingId;
+    bool nativeMatch = false;
 };
 
 enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
@@ -392,6 +393,7 @@ enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
 struct PublicRecordingDetailItem
 {
     PublicRecordingCollectionItem recording;
+    std::string nativeMatchProof;
     std::string metadataState;
     std::string metadataSource;
     std::string contentKind;

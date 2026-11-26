@@ -1,3 +1,4 @@
+#include <openssl/evp.h>
 #include "DaemonRuntime.h"
 
 #include "DaemonRuntimeRecordingCut.h"
@@ -3535,6 +3536,23 @@ bool DaemonRuntime::initialize()
             out.recording.edited = source.recording.edited;
             out.recording.description = source.recording.description;
             out.recording.sizeMb = source.recording.sizeMb;
+            if (request.nativeMatch) {
+                // Opt-in equality proof; never return the native path itself.
+                // Not a credential or an alternate public Recording identity.
+                const std::string input = "suiteosd-native-match/1\n" +
+                    request.backendId + "\n" + request.recordingId + "\n" +
+                    found.recording.backendNativeId;
+                unsigned char digest[EVP_MAX_MD_SIZE];
+                unsigned int length = 0;
+                if (EVP_Digest(input.data(), input.size(), digest, &length,
+                               EVP_sha256(), nullptr) != 1 || length != 32U)
+                    return PublicRecordingDetailResult{};
+                static constexpr char hex[] = "0123456789abcdef";
+                for (unsigned int i = 0; i < length; ++i) {
+                    out.nativeMatchProof.push_back(hex[digest[i] >> 4U]);
+                    out.nativeMatchProof.push_back(hex[digest[i] & 15U]);
+                }
+            }
             out.metadataState = source.metadataState;
             out.metadataSource = source.metadataSource;
             out.contentKind = source.contentKind;
