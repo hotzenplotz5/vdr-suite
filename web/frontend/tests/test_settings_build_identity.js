@@ -16,7 +16,14 @@ class Element {
     this.children = [];
     this.className = '';
     this.textContent = '';
+    this.dataset = {};
+    this.attributes = {};
+    this.listeners = {};
+    this.hidden = false;
   }
+  replaceChildren(...items) { this.children = items; }
+  setAttribute(key, value) { this.attributes[key] = value; }
+  addEventListener(key, fn) { this.listeners[key] = fn; }
   appendChild(child) {
     this.children.push(child);
     return child;
@@ -109,6 +116,34 @@ function values() {
     'Settings must mount real build identity card');
   assert(!realRenderer.includes('git rev-parse'));
   assert(!realRenderer.includes('pluginVersion'));
+  // Exercise the actual production Settings composition and category buttons.
+  const viewStart = appSource.indexOf('let settingsCategory =');
+  const viewEnd = appSource.indexOf('// A compact shortcut', viewStart);
+  assert(viewStart >= 0 && viewEnd > viewStart);
+  const detail = new Element('main');
+  const mounted = [];
+  for (const key of ['DeviceAdmin', 'AccountAdmin', 'Addon']) {
+    window['VdrSuite' + key + 'Settings'] = {render(parent) { mounted.push([key, parent]); }};
+  }
+  const view = new Function('window', 'document', 'detailDataElement', 'addText',
+    'frontendTranslate', 'appendSettingsLanguageCard', 'appendSettingsBuildIdentityCard',
+    'appendSettingsLine', 'settingsBoolean', 'selectedBackend', 'selectedBackendId',
+    'selectedEpgBackendId', 'moduleLabels', 'selectedModule', 'epgTimeAxisMode',
+    'epgChannelOffset', 'epgTimeWindowPageOffset', 'firstValue',
+    appSource.slice(viewStart, viewEnd) + '\nreturn renderSettingsView;')(
+    window, document, detail, addText, (_, fallback) => fallback, () => {}, () => {},
+    appendSettingsLine, String, {}, 'default', () => 'default', {}, 'settings',
+    'vertical', 0, 0, () => '-');
+  view(null);
+  const [nav, content] = detail.children[0].children;
+  const section = id => content.children.find(x => x.dataset.settingsCategory === id);
+  assert(!section('general').hidden && section('devices').hidden);
+  nav.children.find(x => x.textContent === 'Geräte').listeners.click();
+  assert(section('general').hidden && !section('devices').hidden);
+  assert.strictEqual(mounted.length, 3, 'navigation does not remount owners');
+  assert.strictEqual(mounted.find(x => x[0] === 'DeviceAdmin')[1], section('devices'));
+  assert.strictEqual(mounted.find(x => x[0] === 'AccountAdmin')[1], section('accounts'));
+  assert.strictEqual(mounted.find(x => x[0] === 'Addon')[1], section('addons'));
   console.log('test_settings_build_identity passed');
 })().catch(function(error) {
   console.error(error);

@@ -355,7 +355,8 @@
   }
 
   function settingsMount() {
-    return document.querySelector('.settings-panel') ||
+    return document.querySelector('[data-settings-category="playback"]') ||
+      document.querySelector('.settings-panel') ||
       document.querySelector('[data-settings-panel]');
   }
 

@@ -182,7 +182,8 @@
   }
   function mount() {
     if (!selectedSettings() || loading) return;
-    const target = document.querySelector('.settings-panel') ||
+    const target = document.querySelector('[data-settings-category="addons"]') ||
+      document.querySelector('.settings-panel') ||
       document.querySelector('[data-settings-panel]');
     const id = backendId();
     if (!target || !id) return;
