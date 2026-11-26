@@ -6,6 +6,53 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
+
+async function testPublicMembershipPage() {
+  const requests = [];
+  const id = 'rec_' + '1'.repeat(32);
+  const item = {recordingId:id, backendId:'default', title:'Der Fall',
+    cardMetadata:{mediaType:'series', title:'Serie', episodeName:'Der Fall'},
+    preferredArtworkId:'2'.repeat(32), seriesGrouping:{groupKey:'sg1_' + '3'.repeat(32)}};
+  const pages = [
+    {items:[item], page:{limit:1, offset:0, totalCount:2, hasMore:true}, meta:{partial:false}},
+    {items:[], page:{limit:1, offset:2, totalCount:2, hasMore:false}, meta:{partial:false}}
+  ];
+  const error = new Error('403');
+  const window = {VdrSuiteClientApi:{requestJson(route, options) {
+    requests.push({route, options});
+    if (requests.length > pages.length) return Promise.reject(error);
+    return Promise.resolve(pages[requests.length - 1]);
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot, 'api', 'genre-client-api.js'), 'utf8'), {window, console});
+  const api = window.VdrSuiteClientApi;
+  const proofs = [];
+  const first = await api.fetchPublicGenreRecordings({backendId:'default', genreId:'series',
+    limit:1, offset:0, onPage:page => proofs.push(page)});
+  assert.strictEqual(requests[0].route, '/api/v1/genres/recordings');
+  assert.strictEqual(requests[0].options.query.backendId, 'default');
+  assert.strictEqual(requests[0].options.query.genreId, 'series');
+  assert.strictEqual(requests[0].options.query.locale, 'de');
+  assert.strictEqual(requests[0].options.query.limit, 1);
+  assert.strictEqual(requests[0].options.query.offset, 0);
+  assert.strictEqual(first.items, pages[0].items);
+  assert.strictEqual(first.recordings, first.items);
+  assert.strictEqual(first.recordings[0], item);
+  assert.strictEqual(first.recordings[0].backendNativeId, undefined);
+  assert.strictEqual(first.total, 2);
+  assert.strictEqual(first.totalCount, 2);
+  assert.strictEqual(first.hasMore, true);
+  assert.strictEqual(proofs[0], pages[0]);
+  const empty = await api.fetchPublicGenreRecordings({backendId:'default', genreId:'series', limit:1, offset:2});
+  assert.strictEqual(empty.recordings.length, 0);
+  assert.strictEqual(empty.total, 2);
+  assert.strictEqual(empty.hasMore, false);
+  assert.strictEqual(requests[1].options.query.offset, 2);
+  await assert.rejects(api.fetchPublicGenreRecordings({backendId:'default', genreId:'series'}),
+    e => e === error);
+  assert.strictEqual(requests.length, 3, '403 must not trigger a legacy fallback');
+}
+
+
 const source = [
   fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
   fs.readFileSync(path.join(frontendRoot, 'modules', 'genres.js'), 'utf8')
@@ -171,6 +218,7 @@ function richMetadata(nativeId, title) {
 }
 
 (async function main() {
+  await testPublicMembershipPage();
   const mount = new FakeElement('main');
   const elementsById = Object.create(null);
   const head = new FakeElement('head');

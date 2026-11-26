@@ -88,6 +88,31 @@
       totalItems: totals.totalItems, assignmentCount: totals.assignmentCount, genres};
   }
 
+  // Adapt the public membership page to the established browser list shape.
+  // Pass the original response to the existing Home cache ticket, not the
+  // projected object. Native identifiers are intentionally not fabricated.
+  async function fetchPublicGenreRecordings(options) {
+    const input = normalizeOptions(options);
+    const payload = await base.requestJson('/api/v1/genres/recordings', {
+      query: {
+        backendId: input.backendId, genreId: input.genreId,
+        locale: input.locale || 'de', limit: input.limit === undefined ? 30 : input.limit,
+        offset: input.offset === undefined ? 0 : input.offset
+      },
+      credentials: input.credentials || 'same-origin',
+      cache: input.cache || 'no-store',
+      signal: input.signal
+    });
+    const page = payload.page;
+    if (typeof input.onPage === 'function') input.onPage(payload);
+    return Object.assign({}, payload, {
+      recordings: payload.items,
+      total: page.totalCount,
+      totalCount: page.totalCount,
+      hasMore: page.hasMore
+    });
+  }
+
   function fetchClientGenreRecordings(options) {
     const normalized = normalizeOptions(options);
     return base.requestJson('/api/metadata/genres/recordings', withQuery(normalized, {
@@ -115,6 +140,7 @@
     fetchClientGenres: fetchClientGenres,
     fetchPublicRecordingGenres: fetchPublicRecordingGenres,
     fetchClientGenreRecordings: fetchClientGenreRecordings,
+    fetchPublicGenreRecordings: fetchPublicGenreRecordings,
     fetchClientGenreEpg: fetchClientGenreEpg
   }));
 }(window));
