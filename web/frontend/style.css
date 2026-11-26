@@ -5507,3 +5507,53 @@ body.channel-sorter-dragging * {
   padding: .75rem;
   box-sizing: border-box;
 }
+
+/* Settings UX: compact device selection and grant editor. */
+.settings-device-admin .settings-account-admin-account,
+.settings-device-admin button.settings-device-secondary {
+  background: #182334;
+  color: #dbe5f2;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  box-shadow: none;
+}
+.settings-device-admin .settings-account-admin-account[aria-current="true"] {
+  background: #23374b;
+  border-color: #60a5fa;
+}
+.settings-device-admin .settings-account-admin-account:hover,
+.settings-device-admin button.settings-device-secondary:hover {
+  background: #253449;
+}
+.settings-device-grant-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem;
+}
+.settings-device-grant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.35rem 0.75rem;
+}
+.settings-device-grant-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.45rem;
+  background: rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+.settings-device-grant-row input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  accent-color: #60a5fa;
+}
+.settings-device-grant-row:focus-within {
+  outline: 2px solid #60a5fa;
+  outline-offset: 1px;
+}
+.settings-device-grant-save { justify-self: start; }

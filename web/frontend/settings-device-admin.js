@@ -54,7 +54,7 @@
       return Promise.resolve(null);
     }
     const card = document.createElement('article');
-    card.className = 'module-placeholder settings-card settings-account-admin';
+    card.className = 'module-placeholder settings-card settings-account-admin settings-device-admin';
     // Pending pairing requests are *not* registered devices. Render them
     // independently so a Device-grants failure cannot hide admin approval.
     const pendingSection = document.createElement('section');
@@ -224,7 +224,7 @@
 
     const state = {items: [], cursor: '', selected: '', selectedDevice: null,
       backends: [], grants: null, revision: '', loading: false, listing: false,
-      showRevoked: false, serial: 0};
+      showRevoked: false, serial: 0, draft: new Map(), grantBackend: ''};
     function setError(error) { status.textContent = errorText(error); }
     function markSelected() {
       Array.from(list.querySelectorAll('button[data-device-id]')).forEach(function(node) {
@@ -232,9 +232,11 @@
           node.dataset.deviceId === state.selected ? 'true' : 'false');
       });
     }
-    function loadGrants(id) {
+    function loadGrants(id, keepBackend) {
       const ticket = ++state.serial;
       state.grants = null; state.revision = '';
+      state.draft.clear();
+      if (!keepBackend) state.grantBackend = '';
       detail.replaceChildren(text('p', 'Geräteberechtigungen werden geladen …'));
       return api.loadDevice(id).then(function(reply) {
         if (ticket !== state.serial || state.selected !== id) return;
@@ -250,40 +252,46 @@
         detail.replaceChildren(text('p', errorText(error)));
       });
     }
-    function act(permission, backendId, active) {
-      if (!state.selected || !state.revision || state.loading ||
-          !isDeviceId(state.selected) || !state.selectedDevice ||
-          !state.selectedDevice.active || state.selectedDevice.revoked) return;
-      if (!state.grants.supportedPermissions.includes(permission)) return;
-      // Removed backends may still have historical grants that an admin must
-      // be able to revoke; never allow a new grant for an unknown backend.
-      const knownBackend = state.backends.some(function(x) {
-        return x.backendId === backendId;
-      });
-      const existingGrant = state.grants.items.some(function(x) {
-        return x.permission === permission && x.backendId === backendId;
-      });
-      if (active ? !knownBackend : !existingGrant) return;
-      if (['timers.create', 'searchtimers.create'].includes(permission) &&
-          backendId === '*') return;
+    function grantKey(permission, backendId) {
+      return JSON.stringify([permission, backendId]);
+    }
+    function saveGrants() {
+      if (state.loading || !state.revision || !state.grants ||
+          !state.selectedDevice || !state.selectedDevice.active ||
+          state.selectedDevice.revoked || !isDeviceId(state.selected)) return;
       const target = state.selected;
-      const question = (active ? 'Freigeben: ' : 'Entziehen: ') +
-        (names[permission] || permission) + ' für Backend ' + backendId + '?';
-      if (typeof global.confirm !== 'function' || !global.confirm(question)) return;
+      const changes = Array.from(state.draft.values());
+      if (!changes.length) return;
+      let revision = state.revision, completed = 0;
       state.loading = true;
-      status.textContent = 'Berechtigung wird gespeichert …';
-      api.setGrant(target, state.revision, permission, backendId, active)
-        .then(function() {
-          status.textContent = 'Berechtigung gespeichert.';
-          if (state.selected === target) return loadGrants(target);
-        }).catch(function(error) {
-          setError(error);
-          // A 412 is not a retry authorization. Reload ETag for deliberate next click.
-          if (error && error.status === 412 && state.selected === target)
-            return loadGrants(target);
-        }).finally(function() {
-          state.loading = false;
+      status.textContent = 'Berechtigungen werden gespeichert …';
+      renderDetail();
+      // The existing API accepts one tuple per request. Carry the confirmed
+      // revision forward; never dispatch the remaining changes after a failure.
+      // The Save click is the administrator's explicit confirmation.
+      changes.reduce(function(chain, change) {
+        return chain.then(function() {
+          return api.setGrant(target, revision, change.permission,
+            change.backendId, change.active);
+        }).then(function(reply) {
+          if (!reply || !/^"[^"]{1,256}"$/.test(reply.etag || '') ||
+              !reply.data || reply.data.deviceId !== target ||
+              !Array.isArray(reply.data.items))
+            throw new Error('Invalid Device Grant mutation response');
+          revision = reply.etag;
+          completed++;
         });
+      }, Promise.resolve()).then(function() {
+        status.textContent = completed + ' Berechtigung(en) gespeichert.';
+      }).catch(function(error) {
+        status.textContent = completed + ' von ' + changes.length +
+          ' Änderungen bestätigt. ' + errorText(error) +
+          ' Bitte den aktuellen Stand prüfen.';
+      }).finally(function() {
+        state.loading = false;
+        if (state.selected === target) return loadGrants(target, true);
+        if (state.grants) renderDetail();
+      });
     }
     function retireDevice() {
       const device = state.selectedDevice;
@@ -325,6 +333,7 @@
           state.selectedDevice = null;
           state.grants = null;
           state.revision = '';
+          state.draft.clear();
           detail.replaceChildren(text('p', 'Gerät widerrufen. Andere Geräte bleiben unverändert.'));
         }
         renderList();
@@ -352,12 +361,13 @@
         !item.active ? 'Inaktiv – keine Rechteänderung möglich' :
         'Geräteidentität aktiv (Verbindungsstatus unbekannt)', 'settings-account-admin-meta'));
       const technical = document.createElement('details');
+      technical.className = 'settings-account-admin-technical';
       technical.appendChild(text('summary', 'Gerätekennung (technisch)'));
       technical.appendChild(text('p', 'Device-ID: ' + item.deviceId));
       technical.appendChild(text('p', 'Service-Actor: ' + item.actorId));
       detail.appendChild(technical);
       if (item.active && !item.revoked) {
-        const retire = button('Gerät entfernen', retireDevice);
+        const retire = button('Gerät entfernen', retireDevice, 'settings-device-secondary');
         retire.setAttribute('aria-label', 'Gerät entfernen: ' + item.deviceId);
         detail.appendChild(retire);
         detail.appendChild(text('p',
@@ -365,50 +375,118 @@
           'werden ausgeblendet; die Server-Historie bleibt erhalten.',
           'settings-account-admin-meta'));
       }
-      detail.appendChild(text('h4', 'Vorhandene Berechtigungen'));
-      if (!grant.items.length)
-        detail.appendChild(text('p', 'Noch keine Freigaben für dieses Gerät.'));
+      detail.appendChild(text('h4', 'Berechtigungen'));
+      const editable = item.active && !item.revoked;
+      const known = state.backends.filter(function(backend) {
+        return isBackendId(backend.backendId);
+      });
+      const scopes = known.slice();
       grant.items.forEach(function(entry) {
-        const row = document.createElement('div');
-        row.className = 'settings-account-admin-item';
-        row.appendChild(text('strong', names[entry.permission] || entry.permission));
-        row.appendChild(text('p', 'Backend: ' + entry.backendId,
-          'settings-account-admin-meta'));
-        if (item.active && !item.revoked)
-          row.appendChild(button('Entziehen', function() {
-            act(entry.permission, entry.backendId, false);
-          }));
-        detail.appendChild(row);
+        if (!scopes.some(function(backend) { return backend.backendId === entry.backendId; }))
+          scopes.push({backendId: entry.backendId, name: entry.backendId});
       });
-      if (!item.active || item.revoked) return;
-      detail.appendChild(text('h4', 'Berechtigung hinzufügen'));
-      detail.appendChild(text('p',
-        'Rechte werden nur nach ausdrücklicher Bestätigung vergeben.',
-        'settings-account-admin-meta'));
-      const controls = document.createElement('div');
-      controls.className = 'settings-account-admin-lifecycle settings-account-admin-grant-picker';
-      const permission = document.createElement('select');
-      permission.setAttribute('aria-label', 'Berechtigung');
-      permission.className = 'settings-account-admin-grant-permission-input';
-      const allow = grant.supportedPermissions.filter(function(p) {
-        return typeof p === 'string' && Object.prototype.hasOwnProperty.call(names, p);
-      });
-      allow.forEach(function(p) { option(permission, p, names[p]); });
+      if (!scopes.length) {
+        detail.appendChild(text('p', 'Keine Backend-Berechtigungen verfügbar.'));
+        return;
+      }
+      if (!scopes.some(function(scope) { return scope.backendId === state.grantBackend; }))
+        state.grantBackend = scopes[0].backendId;
       const backend = document.createElement('select');
       backend.setAttribute('aria-label', 'VDR-Backend');
-      backend.className = 'settings-account-admin-grant-backend-input';
-      state.backends.filter(function(b) {
-        return isBackendId(b.backendId);
-      }).forEach(function(b) {
-        option(backend, b.backendId, b.name || b.backendId);
+      backend.className = 'settings-account-admin-display-name-input';
+      scopes.forEach(function(scope) {
+        option(backend, scope.backendId, scope.name || scope.backendId);
       });
-      const save = button('Zugriff hinzufügen', function() {
-        act(permission.value, backend.value, true);
+      backend.value = state.grantBackend;
+      backend.addEventListener('change', function() {
+        state.grantBackend = backend.value;
+        renderDetail();
       });
-      save.disabled = !allow.length || !backend.options.length;
-      controls.appendChild(permission); controls.appendChild(backend);
-      controls.appendChild(save);
-      detail.appendChild(controls);
+      const toolbar = document.createElement('div');
+      toolbar.className = 'settings-device-grant-toolbar';
+      const scopeLabel = text('label', 'VDR-Backend', 'settings-account-admin-field');
+      scopeLabel.appendChild(backend);
+      toolbar.appendChild(scopeLabel);
+      detail.appendChild(toolbar);
+
+      const backendId = state.grantBackend;
+      const knownBackend = known.some(function(scope) { return scope.backendId === backendId; });
+      const existing = grant.items.filter(function(entry) { return entry.backendId === backendId; });
+      const allowed = grant.supportedPermissions.filter(function(permission) {
+        return Object.prototype.hasOwnProperty.call(names, permission);
+      });
+      const permissions = Array.from(new Set((knownBackend && editable ? allowed : [])
+        .concat(existing.map(function(entry) { return entry.permission; }))));
+      const rows = document.createElement('div');
+      rows.className = 'settings-device-grant-grid';
+      const controls = [];
+      const summary = text('p', '', 'settings-account-admin-meta');
+      const save = button('Berechtigungen speichern', saveGrants, 'settings-device-grant-save');
+      function refreshSummary() {
+        const count = controls.filter(function(control) { return control.input.checked; }).length;
+        summary.textContent = count + ' von ' + controls.length + ' Berechtigungen aktiv' +
+          (state.draft.size ? ' · ' + state.draft.size + ' ungespeicherte Änderung(en)' : '');
+        save.disabled = state.loading || !state.draft.size;
+      }
+      function stage(control, active) {
+        control.input.checked = active;
+        const key = grantKey(control.permission, backendId);
+        if (active === control.original) state.draft.delete(key);
+        else state.draft.set(key, {permission: control.permission, backendId: backendId, active: active});
+      }
+      permissions.forEach(function(permission) {
+        const original = existing.some(function(entry) { return entry.permission === permission; });
+        const key = grantKey(permission, backendId);
+        const draft = state.draft.get(key);
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = permission;
+        input.checked = draft ? draft.active : original;
+        // Historical scopes can only be revoked. Retain the existing allowlist
+        // and server-side scope/permission admission; never offer new scopes.
+        const supported = grant.supportedPermissions.includes(permission);
+        const canEdit = editable && supported && (knownBackend || original) &&
+          !(['timers.create', 'searchtimers.create'].includes(permission) && backendId === '*');
+        input.disabled = state.loading || !canEdit;
+        const control = {input: input, permission: permission, original: original,
+          canEdit: canEdit, canAdd: knownBackend && allowed.includes(permission)};
+        input.addEventListener('change', function() {
+          if (state.loading || !control.canEdit) return;
+          if (input.checked && !control.canAdd && !original) { input.checked = false; return; }
+          stage(control, input.checked);
+          refreshSummary();
+        });
+        const label = document.createElement('label');
+        label.className = 'settings-device-grant-row';
+        label.appendChild(input);
+        label.appendChild(text('span', names[permission] || permission));
+        rows.appendChild(label);
+        controls.push(control);
+      });
+      if (editable) {
+        const all = button('Alle auswählen', function() {
+          if (state.loading) return;
+          controls.forEach(function(control) {
+            if (control.canEdit && control.canAdd) stage(control, true);
+          });
+          refreshSummary();
+        }, 'settings-device-secondary');
+        const none = button('Alle abwählen', function() {
+          if (state.loading) return;
+          controls.forEach(function(control) {
+            if (control.canEdit) stage(control, false);
+          });
+          refreshSummary();
+        }, 'settings-device-secondary');
+        all.disabled = state.loading;
+        none.disabled = state.loading;
+        toolbar.appendChild(all);
+        toolbar.appendChild(none);
+      }
+      detail.appendChild(rows);
+      detail.appendChild(summary);
+      if (editable) detail.appendChild(save);
+      refreshSummary();
     }
     function selectDevice(device) {
       if (!isDeviceId(device.deviceId)) return Promise.resolve();
@@ -435,8 +513,7 @@
           function() { selectDevice(device); }, 'settings-account-admin-account');
         entry.dataset.deviceId = device.deviceId;
         entry.appendChild(text('span',
-          (device.revoked ? 'widerrufen' : device.active ? 'aktiv' : 'inaktiv') +
-          ' · Device-ID: ' + device.deviceId,
+          (device.revoked ? 'widerrufen' : device.active ? 'aktiv' : 'inaktiv'),
           'settings-account-admin-meta'));
         list.appendChild(entry);
       });
