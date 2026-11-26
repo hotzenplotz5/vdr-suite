@@ -99,16 +99,17 @@
     return /^rec_[0-9a-f]{32}$/.test(id) ? id : '';
   }
 
-  // MOVE retains the existing new-folder workflow until its public contract
-  // supports it. An error on a public action never falls back to native IDs.
+  // A public identity always uses the same Public-v1 mutation contract.
+  // An error on a public action never falls back to native IDs.
   function usesPublicAction(recording, action) {
-    return Boolean(publicRecordingId(recording)) && (action === 'RENAME' || action === 'DELETE');
+    return Boolean(publicRecordingId(recording)) && ['RENAME', 'MOVE', 'DELETE'].includes(action);
   }
 
   function publicActionPayload(recording, backendId, action, extra) {
     const payload = {backendId, recordingId: publicRecordingId(recording),
       action, dryRun: extra.dryRun !== false};
     if (action === 'RENAME') payload.newName = extra.newName;
+    if (action === 'MOVE') payload.targetFolder = extra.targetPath;
     if (action === 'DELETE' && !payload.dryRun) payload.confirmDelete = true;
     return payload;
   }

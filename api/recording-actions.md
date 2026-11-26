@@ -1,5 +1,15 @@
 # Public API v1 — Recording Actions
 
+**MOVE logical destination extension:** Clients may supply exactly one
+`targetFolderId` (existing opaque folder) or `targetFolder` (logical
+display folder relative to the recording root, e.g. `Filme/Klassiker`,
+or `/` for the root). Missing logical folders are created by the existing
+MOVE executor, not by a separate filesystem operation. Absolute native
+paths, traversal components and native `targetPath` remain prohibited.
+The provider preflight and strong ETag bind the exact destination, and
+execution still requires independent readback. Existing folder-ID clients
+retain their contract. Source tests are not new hardware acceptance.
+
 > **Latest runtime/hardware acceptance (2026-10-21):** At installed
 > source `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`, the Public-v1
 > flat Recording collection uses the ready backend Recording cache and

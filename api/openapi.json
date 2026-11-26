@@ -16646,7 +16646,7 @@
           "recordingId",
           "action"
         ],
-        "description": "Closed Public-v1 recording action DTO. RENAME requires newName; MOVE requires existing backend-scoped targetFolderId. DELETE real execution requires literal confirmDelete:true; dryRun defaults to true. Native backendNativeId, recordingPath, recordingTitle and targetPath are prohibited.",
+        "description": "Closed Public-v1 recording action DTO. RENAME requires newName; MOVE requires exactly one existing backend-scoped targetFolderId or logical targetFolder (including a new folder). DELETE real execution requires literal confirmDelete:true; dryRun defaults to true. Native backendNativeId, recordingPath, recordingTitle and targetPath are prohibited.",
         "properties": {
           "backendId": {
             "type": "string",
@@ -16676,6 +16676,12 @@
             "type": "string",
             "pattern": "^fld1_[0-9a-f]{32}$",
             "description": "Existing logical folder ID in this exact backend's Recording browse index."
+          },
+          "targetFolder": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Logical display folder relative to the recording root; slash separates folder names, / selects the root. A missing folder is created by the existing MOVE executor. Mutually exclusive with targetFolderId; never a native filesystem path."
           },
           "dryRun": {
             "type": "boolean",

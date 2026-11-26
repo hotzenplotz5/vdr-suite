@@ -58,26 +58,30 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
     if (execute && !request.dryRun)
         writeLock.lock();
 
-    // R3: map only an existing backend-scoped fld1_ ID to a server-side
-    // logical folder using the same Recording browse cache as clients.
-    // The native targetPath is never read from the public JSON.
+    // Existing folder IDs retain the established resolver. A logical display
+    // folder is validated by the public parser and may be created by MOVE.
     if (request.type == RecordingActionType::Move)
     {
-        if (!publicRecordingFolderResolver_)
-            return problem(503, "Service Unavailable",
-                "Public recording folder resolution is unavailable.");
-
-        const auto supplied =
-            request.parameters.find("publicTargetFolderId");
-        if (supplied == request.parameters.end())
-            return problem(400, "Bad Request",
-                "A public targetFolderId is required for MOVE.");
-
         std::string folderPath;
-        if (!publicRecordingFolderResolver_(
-                request.backendId, supplied->second, folderPath))
-            return problem(404, "Not Found",
-                "Target folder not available for this backend.");
+        const auto logical = request.parameters.find("publicTargetFolder");
+        if (logical != request.parameters.end())
+        {
+            folderPath = logical->second == "/" ? "" : logical->second;
+        }
+        else
+        {
+            if (!publicRecordingFolderResolver_)
+                return problem(503, "Service Unavailable",
+                    "Public recording folder resolution is unavailable.");
+            const auto supplied = request.parameters.find("publicTargetFolderId");
+            if (supplied == request.parameters.end())
+                return problem(400, "Bad Request",
+                    "A public folder destination is required for MOVE.");
+            if (!publicRecordingFolderResolver_(
+                    request.backendId, supplied->second, folderPath))
+                return problem(404, "Not Found",
+                    "Target folder not available for this backend.");
+        }
 
         // Even a cache-derived path must never become an absolute/escaping
         // backend path through a faulty backend inventory.

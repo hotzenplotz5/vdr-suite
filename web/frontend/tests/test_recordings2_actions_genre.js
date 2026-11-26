@@ -377,7 +377,7 @@ async function main() {
     getState:() => current, completeAction:() => publicCompleted++,
     completeDelete:() => publicCompleted++
   }).createPanel(publicRecording);
-  const [rename,, publicDelete] = publicPanel.children.at(-1).children;
+  const [rename, publicMove, publicDelete] = publicPanel.children.at(-1).children;
   const renameBody = rename.children[1];
   const renameInput = renameBody.children[0].children[1];
   const [checkRename, applyRename] = renameBody.children.at(-1).children;
@@ -400,11 +400,26 @@ async function main() {
   assert.strictEqual(publicCalls.at(-1).payload.confirmDelete, true);
   assert(publicCalls.every(c => c.payload.recordingId === publicId &&
     !('backendNativeId' in c.payload) && !('recordingPath' in c.payload)));
+  const moveBody = publicMove.children[1];
+  const moveInputs = moveBody.children.filter(child => child.tagName === 'LABEL');
+  const moveInput = moveInputs[0].children[1];
+  const newFolderInput = moveInputs[1].children[1];
+  const [, , , checkMove, applyMove] = moveBody.children.at(-1).children;
+  moveInput.value = 'Filme';
+  newFolderInput.value = 'Klassiker';
+  checkMove.click(); await flush();
+  assert(!applyMove.disabled);
+  assert.strictEqual(publicCalls.at(-1).payload.targetFolder, 'Filme/Klassiker');
+  applyMove.click(); await flush();
+  assert.strictEqual(publicCalls.at(-1).payload.targetFolder, 'Filme/Klassiker');
+  assert.strictEqual(publicCalls.at(-1).headers['If-Match'], '"revision-2"');
+  assert.strictEqual(publicCompleted, 3);
+  assert(publicCalls.every(c => !('targetPath' in c.payload)));
   failExecution = true;
   checkRename.click(); await flush(); applyRename.click(); await flush();
   assert(applyRename.disabled);
-  assert.strictEqual(publicCompleted, 2);
-  assert.strictEqual(publicCalls.filter(c => c.execute).length, 3, 'no automatic retry');
+  assert.strictEqual(publicCompleted, 3);
+  assert.strictEqual(publicCalls.filter(c => c.execute).length, 4, 'no automatic retry');
 
   console.log('recordings2 actions, genre and leaf resolution runtime ok');
 }
