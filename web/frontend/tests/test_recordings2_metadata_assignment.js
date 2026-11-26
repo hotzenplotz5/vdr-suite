@@ -153,3 +153,18 @@ assert.strictEqual(JSON.parse(calls[1].options.body).expectedRevision, 2);
 assert(calls.every(c => !c.options.body.includes('never-submit.rec')));
 
 console.log('recordings2 metadata assignment tests passed');
+
+// Genre changes share the existing assignment transport and never submit
+// the private resource key when a public identity is already known.
+const publicGenre = genreRuntime.__test.genrePayload({
+  publicRecordingId:recId, backendNativeId:'/native/never-submit.rec'
+}, 'crime');
+assert.deepStrictEqual(JSON.parse(JSON.stringify(publicGenre)), {recordingId:recId, genreId:'crime'});
+genreRuntime.__test.post('living-room', publicGenre);
+genreRuntime.__test.post('living-room', genreRuntime.__test.genrePayload({recordingId:recId}, ''));
+genreRuntime.__test.get('living-room', {publicRecordingId:recId, backendNativeId:'/native/never-submit.rec'});
+assert.strictEqual(calls[calls.length - 3].route, '/api/v1/backends/living-room/recordings/metadata/genre');
+assert.strictEqual(JSON.parse(calls[calls.length - 3].options.body).recordingId, recId);
+assert.strictEqual(JSON.parse(calls[calls.length - 2].options.body).genreId, '');
+assert.strictEqual(calls[calls.length - 1].route, '/api/v1/backends/living-room/recordings/metadata/genre?recordingId=' + recId);
+assert.strictEqual(calls[calls.length - 1].options.method, 'GET');

@@ -7,6 +7,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class ManualRecordingMetadataApiRuntime
 {
@@ -47,7 +48,8 @@ public:
 
     bool tryHandleGet(
         const std::string& requestTarget,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::vector<std::string>& authorizedBackendIds = {}) const;
 
     // Public-v1 façade: parse one canonical read-only resolve request.
     bool resolveReadOnly(

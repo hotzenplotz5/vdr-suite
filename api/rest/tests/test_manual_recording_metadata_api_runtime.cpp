@@ -1043,6 +1043,47 @@ int main()
         assert(publicPost("search", R"({"query":"Forrest Gump","kind":"movie","limit":5})").statusCode == 200);
         assert(publicPost("seasons", R"({"seriesExternalId":"19885","limit":20})").statusCode == 200);
         assert(publicPost("episodes", R"({"seriesExternalId":"19885","seasonNumber":1,"limit":20})").statusCode == 200);
+
+        const std::string genrePublicId = "rec_abcdef0123456789abcdef0123456789";
+        runtime.registerPublicRecordingNativeLookup(
+            [&](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == genrePublicId
+                    ? std::string("genre-native") : std::string{};
+            });
+        const auto genreRead = [&](const std::string& query,
+            const std::vector<std::string>& scopes) {
+            ApiResponse result;
+            assert(runtime.tryHandleGet(prefix + "genre" + query, result, scopes));
+            return result;
+        };
+        const auto genreQuery = "?recordingId=" + genrePublicId;
+        assert(genreRead(genreQuery, {}).statusCode == 403);
+        assert(genreRead(genreQuery, {"bedroom"}).statusCode == 403);
+        assert(genreRead("?resourceKey=genre-native", {"living-room"}).statusCode == 400);
+        assert(genreRead(genreQuery + "&recordingId=" + genrePublicId,
+            {"living-room"}).statusCode == 400);
+        assert(genreRead("?recordingId=rec_ffffffffffffffffffffffffffffffff",
+            {"living-room"}).statusCode == 404);
+        const auto availableGenres = genreRead(genreQuery, {"living-room"});
+        assert(availableGenres.statusCode == 200);
+        assert(availableGenres.body.find(genrePublicId) != std::string::npos);
+        assert(availableGenres.body.find("\"resourceKey\"") == std::string::npos);
+        assert(availableGenres.body.find("\"genres\":[") != std::string::npos);
+        const auto genreChanges = presentationChanges.size();
+        const auto identityBody = "{\"recordingId\":\"" + genrePublicId + "\"";
+        assert(publicPost("genre", identityBody + "}").statusCode == 400);
+        assert(publicPost("genre", "{\"resourceKey\":\"genre-native\",\"genreId\":\"crime\"}").statusCode == 400);
+        assert(publicPost("genre", identityBody + ",\"genreId\":\"crime\"}", "bedroom").statusCode == 403);
+        assert(presentationChanges.size() == genreChanges);
+        const auto selectedGenre = publicPost("genre", identityBody + ",\"genreId\":\"crime\"}");
+        assert(selectedGenre.statusCode == 200);
+        assert(selectedGenre.body.find("\"selectedGenreId\":\"crime\"") != std::string::npos);
+        assert(selectedGenre.body.find("\"resourceKey\"") == std::string::npos);
+        assert(genreRead(genreQuery, {"living-room"}).body.find("\"selectedGenreId\":\"crime\"") != std::string::npos);
+        const auto clearedGenre = publicPost("genre", identityBody + ",\"genreId\":\"\"}");
+        assert(clearedGenre.statusCode == 200);
+        assert(clearedGenre.body.find("\"selectedGenreId\":\"\"") != std::string::npos);
+        assert(presentationChanges.size() == genreChanges + 2U);
     }
 
     runtime.reset();

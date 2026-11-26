@@ -360,6 +360,10 @@
 
   global.VdrSuiteRecordings2MetadataAssignment = Object.freeze({
     mount: mount,
+    recordingIdentity: recordingIdentity,
+    post: post,
+    backendPath: backendPath,
+    publicBackendPath: publicBackendPath,
     __test: Object.freeze({
       backendPath: backendPath,
       publicBackendPath: publicBackendPath,

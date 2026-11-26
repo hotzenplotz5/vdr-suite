@@ -365,8 +365,13 @@ public:
         }
         std::string manualMetadataBackendId;
         std::string manualMetadataOperation;
-        const bool isManualRecordingMetadataAction = isPost &&
+        const bool isManualRecordingMetadataRoute =
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
+        const bool isManualRecordingMetadataAction = isPost &&
+            isManualRecordingMetadataRoute;
+        const bool isPublicManualGenreRead = request.method == "GET" &&
+            isManualRecordingMetadataRoute && manualMetadataOperation == "genre" &&
+            path.compare(0, std::string("/api/v1/backends/").size(), "/api/v1/backends/") == 0;
         std::string recordingSeriesHierarchyBackendId;
         const bool isRecordingSeriesHierarchyAction =
             isPost &&
@@ -1022,6 +1027,7 @@ public:
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
              isPublicRecordingEditRead ||
+             isPublicManualGenreRead ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
@@ -1928,8 +1934,9 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
-            const auto scopes = queryStringValues(
-                request.path, "backendId");
+            const auto scopes = isPublicManualGenreRead
+                ? std::vector<std::string>{manualMetadataBackendId}
+                : queryStringValues(request.path, "backendId");
             const bool validScope = scopes.size() == 1U &&
                 !scopes.front().empty() &&
                 scopes.front().size() <= 128U &&
@@ -3716,7 +3723,7 @@ private:
             return false;
         return operation == "search" || operation == "seasons" ||
             operation == "episodes" || operation == "assign" ||
-            operation == "withdraw" || (!publicApi && operation == "genre");
+            operation == "withdraw" || operation == "genre";
     }
 
     static int hexValue(char value)

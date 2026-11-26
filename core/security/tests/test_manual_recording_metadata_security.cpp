@@ -123,8 +123,27 @@ int main()
         "metadata.recording.assign",
         "living-room"));
 
+    // Public genre reads inherit the existing recordings.view scope, not
+    // the write grant and not a new role.
+    {
+        SecurityHttpGateBrowserTestFixture reader;
+        auto request = requestFor(reader, "living-room", "genre", false);
+        request.method = "GET";
+        request.path.insert(4, "/v1");
+        request.path += "?recordingId=rec_0123456789abcdef0123456789abcdef";
+        request.body.clear();
+        assert(!reader.gate.evaluate(request).allowed);
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "recordings.view", "living-room"));
+        const auto allowed = reader.gate.evaluate(request);
+        assert(allowed.allowed);
+        assert(allowed.authorizationDecision.permission == "recordings.view");
+        assert(allowed.authorizedBackendIds == std::vector<std::string>{"living-room"});
+        request.path.replace(request.path.find("living-room"), std::string("living-room").size(), "bedroom");
+        assert(!reader.gate.evaluate(request).allowed);
+    }
+
     // The public variants use the exact same scoped permission and CSRF.
-    for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw"})
+    for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {
         auto request = requestFor(fixture, "living-room", operation, true);
         request.path.insert(4, "/v1");

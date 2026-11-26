@@ -363,6 +363,16 @@ public:
             return response;
         }
 
+        // The existing metadata owner serves Public-v1 Genre reads before
+        // the general Public-v1 fallback and receives the admitted scope.
+        ManualRecordingMetadataApiRuntime::instance().registerController(
+            metadataController_);
+        if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
+                requestTarget, response, authorizedBackendRefs))
+        {
+            return response;
+        }
+
         if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
@@ -397,15 +407,6 @@ public:
         }
 
         if (TeletextApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
-        {
-            return response;
-        }
-
-        ManualRecordingMetadataApiRuntime::instance().registerController(
-            metadataController_);
-        if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
         {

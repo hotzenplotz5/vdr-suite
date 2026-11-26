@@ -169,8 +169,16 @@ and resolve the current backend-native key server-side. The existing
 candidate DTO and provider-relative poster reference are preserved.
 The separate read-only automatic metadata resolve endpoint is unchanged.
 Legacy-only recording entry points still use their existing write routes.
-Full rich metadata detail and manual Genre/series hierarchy editing remain
-private pending migration. Home Series membership,
+Manual recording Genre selection now supports GET and POST on
+`/api/v1/backends/{backendId}/recordings/metadata/genre`. GET accepts
+exactly one opaque `recordingId` query value and uses the existing
+`recordings.view` grant; POST accepts `recordingId` and an explicit
+`genreId` (empty clears the manual selection), using the existing
+`metadata.recording.assign` grant and Browser CSRF. The canonical genre
+list, automatic genres and presentation-change notification are preserved.
+The browser uses these operations whenever it has a public identity.
+Full rich metadata detail and series hierarchy editing remain private
+pending migration. Home Series membership,
 new cover writes from opaque-only clients, and enriched/Unicode grouping
 parity remain separate work; the existing Web cover workflow is unchanged.
 
