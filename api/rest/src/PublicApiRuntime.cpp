@@ -915,6 +915,8 @@ struct PublicRecordingCollectionQuery
     bool browseFolders = false;
     std::string folderId;
     std::size_t offset = 0U;
+    std::string homeView;
+    int movieReleaseYearFrom = 0, movieReleaseYearTo = 0;
 };
 
 bool parsePublicRecordingCollectionQuery(
@@ -976,9 +978,18 @@ bool parsePublicRecordingCollectionQuery(
         }
         else if (key == "view")
         {
-            if (viewSeen || value != "folders") return false;
+            if (viewSeen || (value != "folders" && value != "new" && value != "movies")) return false;
             viewSeen = true;
-            query.browseFolders = true;
+            query.browseFolders = value == "folders";
+            if (!query.browseFolders) query.homeView = value;
+        }
+        else if (key == "movieReleaseYearFrom" || key == "movieReleaseYearTo")
+        {
+            auto& year = key == "movieReleaseYearFrom" ? query.movieReleaseYearFrom : query.movieReleaseYearTo;
+            std::size_t parsed = 0;
+            if (year != 0 || !decimalSize(value, parsed) || parsed < 1888U || parsed > 9999U)
+                return false;
+            year = static_cast<int>(parsed);
         }
         else if (key == "folderId")
         {
@@ -1017,7 +1028,13 @@ bool parsePublicRecordingCollectionQuery(
         if (separator == std::string::npos) break;
         position = separator + 1U;
     }
-    return backendSeen &&
+    const bool yearsSeen = query.movieReleaseYearFrom != 0 || query.movieReleaseYearTo != 0;
+    if (!query.homeView.empty())
+        return backendSeen && !folderSeen && !cursorSeen && !sortSeen && !orderSeen &&
+            (query.homeView == "movies" ?
+                (query.movieReleaseYearFrom > 0 && query.movieReleaseYearTo >= query.movieReleaseYearFrom) :
+                !yearsSeen);
+    return backendSeen && !yearsSeen &&
         (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
             (!folderSeen && !offsetSeen));
 }
@@ -4885,7 +4902,10 @@ ApiResponse publicRecordingBrowseResponse(
             (item.durationKnown ? "true" : "false") +
             ",\"edited\":" + (item.edited ? "true" : "false") +
             ",\"description\":\"" + jsonEscape(item.description) +
-            "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
+            "\",\"sizeMb\":" + std::to_string(item.sizeMb);
+        if (!query.homeView.empty())
+            body += ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+        body += "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"offset\":" + std::to_string(query.offset) +
@@ -7896,21 +7916,25 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         read.browseFolders = query.browseFolders;
         read.folderId = query.folderId;
         read.offset = query.offset;
+        read.homeView = query.homeView;
+        read.movieReleaseYearFrom = query.movieReleaseYearFrom;
+        read.movieReleaseYearTo = query.movieReleaseYearTo;
         const auto page = lookupRecordingCollection(read);
 
         switch (page.status)
         {
             case PublicRecordingCollectionStatus::ok:
             {
-                if (query.browseFolders)
+                if (query.browseFolders || !query.homeView.empty())
                 {
                     const std::size_t count =
                         page.folders.size() + page.recordings.size();
                     if (count > query.limit ||
-                        page.totalEntries < query.offset ||
-                        count > page.totalEntries - query.offset ||
-                        page.hasMore !=
-                            (query.offset + count < page.totalEntries))
+                        (!query.homeView.empty() && !page.folders.empty()) ||
+                        (page.totalEntries < query.offset ?
+                            (query.homeView.empty() || count != 0U || page.hasMore) :
+                            (count > page.totalEntries - query.offset ||
+                             page.hasMore != (query.offset + count < page.totalEntries))))
                     {
                         std::cerr << "Public-v1 Recording browse unavailable: "
                                      "page shape/pagination invariant failed"

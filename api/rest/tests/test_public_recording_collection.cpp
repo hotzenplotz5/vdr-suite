@@ -102,8 +102,20 @@ int main()
         [](const PublicRecordingCollectionRequest& request)
         {
             PublicRecordingCollectionResult page;
-            if (!request.browseFolders || request.backendId != "backend-a")
+            if (request.backendId != "backend-a")
                 return page;
+            if (!request.homeView.empty()) {
+                assert(request.homeView == "movies" && request.movieReleaseYearFrom == 2022 &&
+                    request.movieReleaseYearTo == 2026);
+                page.status = PublicRecordingCollectionStatus::ok;
+                page.totalEntries = 2;
+                auto item = recording("rec_00000000000000000000000000000003");
+                item.subtitle = "2026";
+                if (request.offset == 0) page.recordings.push_back(item);
+                page.hasMore = request.offset == 0;
+                return page;
+            }
+            if (!request.browseFolders) return page;
             page.status = PublicRecordingCollectionStatus::ok;
             page.totalEntries = 3U;
             if (request.offset == 0U)
@@ -156,6 +168,20 @@ int main()
     assert(direct.statusCode == 200);
     assert(direct.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(direct.body.find("\"hasMore\":false") != std::string::npos);
+    ApiResponse movies;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=movies&movieReleaseYearFrom=2022&movieReleaseYearTo=2026&limit=1",
+        "actor:tv", "home-movies", "", movies, "", "", {"backend-a"}));
+    assert(movies.statusCode == 200);
+    assert(movies.body.find("\"subtitle\":\"2026\"") != std::string::npos);
+    assert(movies.body.find("\"totalCount\":2") != std::string::npos);
+    for (const std::string& query : {"view=movies", "view=new&movieReleaseYearFrom=2022",
+                                    "view=movies&movieReleaseYearFrom=2026&movieReleaseYearTo=2022"}) {
+        ApiResponse invalidHome;
+        assert(runtime.tryHandleGet("/api/v1/recordings?backendId=backend-a&" + query,
+            "actor:tv", "home-invalid", "", invalidHome, "", "", {"backend-a"}));
+        assert(invalidHome.statusCode == 400);
+    }
     ApiResponse invalidFolder;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&view=folders&folderId=/srv/private",

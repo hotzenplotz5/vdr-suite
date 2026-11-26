@@ -6667,7 +6667,7 @@
         ],
         "operationId": "listOrBrowsePublicRecordings",
         "summary": "List authorized recordings or browse a folder hierarchy",
-        "description": "Requires recordings.view@backendId. Two exclusive query modes exist on the same GET URL. Default/list: backendId, limit (1–100; default 50), opaque rc1_ cursor, optional sort=recordingId and order=asc; keyset recordingId order with page.nextCursor and links. Folder mode: view=folders, optional folderId matching fld1_+32 lowercase hex, limit (1–100), offset (0–1,000,000); returns mixed kind=folder/kind=recording items and offset/totalCount pagination. Folder mode prohibits cursor/sort/order; list mode prohibits folderId/offset. Folder leaf items may be recorded as kind=recording even when representing a single-recording title folder. Durable Suite recordingId is rec_+32 lowercase hex, not a native path or playable media URL. No collection ETag, native path, backendNativeId or automatic playlist/session creation.",
+        "description": "Requires recordings.view@backendId. Two exclusive query modes exist on the same GET URL. Default/list: backendId, limit (1–100; default 50), opaque rc1_ cursor, optional sort=recordingId and order=asc; keyset recordingId order with page.nextCursor and links. Folder mode: view=folders, optional folderId matching fld1_+32 lowercase hex, limit (1–100), offset (0–1,000,000); returns mixed kind=folder/kind=recording items and offset/totalCount pagination. Folder mode prohibits cursor/sort/order; list mode prohibits folderId/offset. Folder leaf items may be recorded as kind=recording even when representing a single-recording title folder. Durable Suite recordingId is rec_+32 lowercase hex, not a native path or playable media URL. No collection ETag, native path, backendNativeId or automatic playlist/session creation. Home views new and movies reuse the canonical Web recording query and return recording-only offset pages; movies requires both release year bounds.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
@@ -6733,11 +6733,25 @@
             "name": "view",
             "in": "query",
             "required": false,
-            "description": "Enable folder browsing; when omitted use keyset list view.",
+            "description": "Folder browse or Home discovery; when omitted use keyset list view.",
             "schema": {
               "type": "string",
-              "const": "folders"
+              "enum": ["folders", "new", "movies"]
             }
+          },
+          {
+            "name": "movieReleaseYearFrom",
+            "in": "query",
+            "required": false,
+            "description": "Required only for view=movies.",
+            "schema": {"type": "integer", "minimum": 1888, "maximum": 9999}
+          },
+          {
+            "name": "movieReleaseYearTo",
+            "in": "query",
+            "required": false,
+            "description": "Required only for view=movies.",
+            "schema": {"type": "integer", "minimum": 1888, "maximum": 9999}
           },
           {
             "name": "folderId",
@@ -6764,7 +6778,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Either the keyset recording collection or folder browse representation (selected by view=folders).",
+            "description": "Either the keyset recording collection or offset folder/Home browse representation.",
             "headers": {
               "Cache-Control": {
                 "description": "No storage.",
@@ -12606,6 +12620,7 @@
               "kind"
             ],
             "properties": {
+          "subtitle": {"type": "string"},
               "kind": {
                 "type": "string",
                 "const": "recording"

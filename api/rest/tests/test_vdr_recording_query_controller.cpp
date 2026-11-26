@@ -293,6 +293,11 @@ int main()
     const auto manualOrdered = manualMovies.getRecordings(
         "", "", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 0, 2022, 2026);
     assert(manualOrdered.body.find("\"id\":\"movie-18\"") != std::string::npos);
+    const auto publicHome = moviesController.homePage("default", true, 2022, 2026, 1, 0);
+    assert(publicHome.totalCount == 2 && publicHome.items.size() == 1U);
+    assert(publicHome.items.front().recording.id == "movie-19");
+    const auto manualHome = manualMovies.homePage("default", true, 2022, 2026, 1, 0);
+    assert(manualHome.totalCount == 2 && manualHome.items.front().recording.id == "movie-18");
     const auto unchangedPage = moviesController.getRecordings();
     assert(unchangedPage.body.find("\"totalCount\":20") != std::string::npos);
 

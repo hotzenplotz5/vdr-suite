@@ -244,6 +244,36 @@ ApiResponse VdrRecordingQueryController::getRecordings(
     int movieReleaseYearFrom,
     int movieReleaseYearTo)
 {
+    auto read = queryWithAssignments(title, backend, path, sort, order, from, to,
+        durationMin, durationMax, limit, offset, movieReleaseYearFrom, movieReleaseYearTo);
+    const auto& result = read.first;
+    const auto& manualAssignments = read.second;
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    if (manualAssignments.empty())
+    {
+        response.body = jsonSerializer_.serialize(result);
+        return response;
+    }
+    response.body = jsonSerializer_.serialize(result,
+        [&manualAssignments](const VdrRecording& recording) {
+            const auto* assignment = findManualAssignment(manualAssignments, recording);
+            if (assignment == nullptr || !assignment->found || !assignment->relationshipLocked)
+                return std::string{};
+            return vdrsuite::rest::manual_recording_metadata_json::serialize(
+                *assignment, recording.backendNativeId);
+        });
+    return response;
+}
+
+std::pair<VdrRecordingQueryResult, VdrRecordingQueryController::Assignments>
+VdrRecordingQueryController::queryWithAssignments(
+    const std::string& title, const std::string& backend, const std::string& path,
+    const std::string& sort, const std::string& order, const std::string& from,
+    const std::string& to, int durationMin, int durationMax, int limit,
+    int offset, int movieReleaseYearFrom, int movieReleaseYearTo)
+{
     const bool releaseOrder = sort == "movieReleaseDate";
     const int queryLimit = releaseOrder ? 0 : limit;
     const int queryOffset = releaseOrder ? 0 : offset;
@@ -273,12 +303,7 @@ ApiResponse VdrRecordingQueryController::getRecordings(
     VdrRecordingQueryResult result =
         queryService_.queryRecordings(query);
 
-    ApiResponse response;
-
-    response.statusCode = 200;
-    response.contentType = "application/json";
-
-    const auto manualAssignments =
+    auto manualAssignments =
         manualMetadataBatchLookup_ && !result.recordings().empty()
             ? manualMetadataBatchLookup_(assignmentBackendId(backend, result))
             : std::map<std::string, ManualRecordingMetadataAssignment>{};
@@ -287,39 +312,32 @@ ApiResponse VdrRecordingQueryController::getRecordings(
         result = movieReleasePage(result, query, manualAssignments, limit, offset,
                                   order == "desc");
 
-    if (manualAssignments.empty())
+    return {std::move(result), std::move(manualAssignments)};
+}
+
+VdrRecordingQueryController::HomePage VdrRecordingQueryController::homePage(
+    const std::string& backend, bool movies, int yearFrom, int yearTo, int limit, int offset)
+{
+    auto read = queryWithAssignments("", backend, "", movies ? "movieReleaseDate" : "startTime",
+        "desc", "", "", 0, 0, limit, offset, yearFrom, yearTo);
+    HomePage page;
+    page.totalCount = read.first.totalCount();
+    for (const auto& recording : read.first.recordings())
     {
-        response.body =
-            jsonSerializer_.serialize(result);
-
-        return response;
+        HomeItem item;
+        item.recording = recording;
+        const auto* assignment = findManualAssignment(read.second, recording);
+        if (assignment && assignment->found && assignment->relationshipLocked)
+        {
+            item.title = assignment->title;
+            item.subtitle = vdrsuite::rest::manual_recording_metadata_json::seasonEpisodeLabel(*assignment);
+        }
+        else
+        {
+            item.title = VdrRecordingMetadataJsonSerializer::presentationTitle(recording);
+            item.subtitle = VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+        }
+        page.items.push_back(std::move(item));
     }
-
-    response.body =
-        jsonSerializer_.serialize(
-            result,
-            [&manualAssignments](
-                const VdrRecording& recording)
-            {
-                const auto* assignment =
-                    findManualAssignment(
-                        manualAssignments,
-                        recording);
-
-                if (assignment == nullptr ||
-                    !assignment->found ||
-                    !assignment->relationshipLocked)
-                {
-                    return std::string{};
-                }
-
-                return
-                    vdrsuite::rest::
-                    manual_recording_metadata_json::
-                    serialize(
-                        *assignment,
-                        recording.backendNativeId);
-            });
-
-    return response;
+    return page;
 }

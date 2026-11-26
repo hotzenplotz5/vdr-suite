@@ -342,6 +342,7 @@ struct PublicRecordingCollectionItem
     // Read-only descriptive facts; no artwork/provider URL or native path.
     std::string description;
     long long sizeMb = 0;
+    std::string subtitle;
 };
 
 struct PublicRecordingFolderItem
@@ -363,6 +364,8 @@ struct PublicRecordingCollectionRequest
     bool browseFolders = false;
     std::string folderId;
     std::size_t offset = 0U;
+    std::string homeView;
+    int movieReleaseYearFrom = 0, movieReleaseYearTo = 0;
 };
 
 struct PublicRecordingCollectionResult

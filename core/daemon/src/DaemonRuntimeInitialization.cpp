@@ -3348,6 +3348,39 @@ bool DaemonRuntime::initialize()
                 result.status = PublicRecordingCollectionStatus::unavailable;
                 return result;
             }
+            if (!request.homeView.empty())
+            {
+                if (!vdrRecordingQueryController_)
+                    return result;
+                const auto page = vdrRecordingQueryController_->homePage(
+                    request.backendId, request.homeView == "movies",
+                    request.movieReleaseYearFrom, request.movieReleaseYearTo,
+                    static_cast<int>(request.limit), static_cast<int>(request.offset));
+                PublicRecordingCollectionProjection projection(*publicRecordingIdentities_);
+                for (const auto& row : page.items)
+                {
+                    const auto visible = projection.project(request.backendId, {row.recording});
+                    if (!visible.valid || visible.items.size() != 1U)
+                        return PublicRecordingCollectionResult{};
+                    const auto& item = visible.items.front();
+                    PublicRecordingCollectionItem entry;
+                    entry.recordingId = item.recordingId;
+                    entry.backendId = item.backendId;
+                    entry.title = row.title.empty() ? item.title : row.title;
+                    entry.subtitle = row.subtitle;
+                    entry.recordedAt = item.recordedAt;
+                    entry.durationSeconds = item.durationSeconds;
+                    entry.durationKnown = item.durationKnown;
+                    entry.edited = item.edited;
+                    entry.description = item.description;
+                    entry.sizeMb = item.sizeMb;
+                    result.recordings.push_back(std::move(entry));
+                }
+                result.totalEntries = static_cast<std::size_t>(std::max(0, page.totalCount));
+                result.hasMore = request.offset + result.recordings.size() < result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
+                return result;
+            }
             const auto cached =
                 vdrRecordingCacheRepository_->findAllForBackend(request.backendId);
             if (cached.empty() && cacheStatus.totalCount > 0)
