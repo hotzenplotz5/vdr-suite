@@ -157,7 +157,18 @@
     ));
   }
 
+  // A public read already contains a canonical display title and no native
+  // path. Do not split or VDR-decode that title a second time.
+  function isPublicRecording(recording) {
+    return Boolean(recording && /^rec_[0-9a-f]{32}$/.test(text(recording.recordingId)) &&
+      typeof recording.recordedAt === 'string' &&
+      !first(recording, ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'], ''));
+  }
+
   function recordingTitle(recording) {
+    if (isPublicRecording(recording))
+      return text(recording.cardMetadata && recording.cardMetadata.title) ||
+        text(recording.title) || 'Aufnahme';
     const manualTitle = manualAssignment(recording).active === true
       ? recordingMetadataTitle(recording) : '';
     const titleFromPath = recordingPathTitle(recording);
@@ -173,6 +184,9 @@
   }
 
   function recordingSubtitle(recording) {
+    if (isPublicRecording(recording))
+      return text(recording.cardMetadata && recording.cardMetadata.episodeName) ||
+        text(metadata(recording).episodeTitle || metadata(recording).subtitle);
     return decodeDisplayText(first(
       presentation(recording),
       ['subtitle', 'seasonEpisode'],
@@ -181,6 +195,8 @@
   }
 
   function recordingSummary(recording) {
+    if (isPublicRecording(recording))
+      return text(metadata(recording).overview || recording.description);
     return text(first(
       presentation(recording),
       ['summary'],
@@ -189,6 +205,13 @@
   }
 
   function recordingPosterUrl(recording) {
+    if (isPublicRecording(recording)) {
+      const id = text(recording.preferredArtworkId);
+      const backend = text(recording.backendId);
+      return /^[0-9a-f]{32}$/.test(id) && backend
+        ? '/api/v1/recordings/' + recording.recordingId + '/artwork/' + id +
+          '?backendId=' + encodeURIComponent(backend) : '';
+    }
     return text(first(
       presentation(recording),
       ['posterUrl'],
@@ -207,7 +230,12 @@
         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
       });
     }
-    return text(value) || 'Unbekannt';
+    const iso = text(value);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(iso)) {
+      const millis = Date.parse(iso);
+      if (Number.isFinite(millis)) return formatStart(millis / 1000);
+    }
+    return iso || 'Unbekannt';
   }
 
   function formatDuration(value) {

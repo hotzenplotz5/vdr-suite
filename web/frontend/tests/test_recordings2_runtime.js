@@ -257,6 +257,36 @@ async function run() {
     '/vdr-suite/api/recordings/artwork?id=poster'
   );
 
+  // Exercise the actual shared card DOM owner with an opaque Public-v1
+  // member rather than reconstructing a native path for display.
+  const publicMember = {
+    recordingId: 'rec_' + 'a'.repeat(32),
+    backendId: 'backend-a',
+    title: 'Original/Title_#20',
+    recordedAt: '2026-10-20T20:15:00Z',
+    durationKnown: false,
+    durationSeconds: 3600,
+    sizeMb: 1536,
+    cardMetadata: {mediaType: 'series', title: 'Face/Off', episodeName: 'Der Fall'},
+    preferredArtworkId: 'b'.repeat(32)
+  };
+  const expectedArtwork = '/api/v1/recordings/' + publicMember.recordingId +
+    '/artwork/' + publicMember.preferredArtworkId + '?backendId=backend-a';
+  assert.strictEqual(shared.recordingTitle(publicMember), 'Face/Off');
+  assert.strictEqual(shared.recordingSubtitle(publicMember), 'Der Fall');
+  assert.strictEqual(shared.recordingPosterUrl(publicMember), expectedArtwork);
+  const publicCard = window.VdrSuiteRecordings2Cards.createRecordingCard(publicMember);
+  assert.strictEqual(publicCard.children[0].children[0].src, '/vdr-suite' + expectedArtwork);
+  assert.strictEqual(publicCard.children[1].children[0].textContent, 'Face/Off');
+  assert.strictEqual(publicCard.children[1].children[1].textContent, 'Der Fall');
+  assert.strictEqual(publicCard.children[1].children[2].textContent,
+    shared.formatStart(Date.parse(publicMember.recordedAt) / 1000) +
+      ' · Dauer unbekannt · 1.5 GB');
+  const noArtwork = Object.assign({}, publicMember, {cardMetadata: undefined, preferredArtworkId: undefined});
+  assert.strictEqual(shared.recordingTitle(noArtwork), 'Original/Title_#20');
+  assert.strictEqual(shared.createPoster(noArtwork).textContent, '▶');
+  assert.strictEqual(publicMember.backendNativeId, undefined);
+
   const manualRecording = {
     title: 'Technischer_Titel',
     path: '/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',

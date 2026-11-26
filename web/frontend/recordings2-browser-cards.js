@@ -17,8 +17,9 @@
     const subtitle = shared.recordingSubtitle(recording);
     if (subtitle) copy.appendChild(shared.node('span', 'recordings2-subtitle', subtitle));
     copy.appendChild(shared.node('span', 'recordings2-meta',
-      shared.formatStart(shared.first(recording, ['startTime', 'start'], '')) + ' · ' +
-        shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
+      shared.formatStart(shared.first(recording, ['startTime', 'start', 'recordedAt'], '')) + ' · ' +
+        shared.formatDuration(recording.durationKnown === false ? 0 :
+          shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
         shared.formatSize(shared.first(recording, ['sizeMb'], 0))
     ));
     const summary = shared.recordingSummary(recording);
