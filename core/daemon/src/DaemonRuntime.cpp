@@ -87,7 +87,13 @@ int DaemonRuntime::run()
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
             database_,
-            *vdrRecordingCacheRepository_)) {
+            *vdrRecordingCacheRepository_,
+            [this](const std::string& backendId, const std::string& nativeId)
+            {
+                if (!publicRecordingIdentities_) return std::string{};
+                return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                    .value_or(std::string{});
+            })) {
         std::cerr << "Continue Watching runtime unavailable" << std::endl;
         return 1;
     }

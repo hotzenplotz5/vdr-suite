@@ -15,6 +15,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -257,10 +258,17 @@ std::string manualMetadataPosterUrl(
         std::to_string(assignment.revision);
 }
 
-std::string serializeRecording(const VdrRecording& recording)
+std::string serializeRecording(const VdrRecording& recording,
+    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup)
 {
     std::ostringstream out;
-    out << "{\"id\":\"" << jsonEscape(recording.id)
+    out << "{";
+    if (publicRecordingIdLookup && !recording.backendNativeId.empty()) {
+        const auto publicId = publicRecordingIdLookup(recording.backendId, recording.backendNativeId);
+        if (!publicId.empty())
+            out << "\"publicRecordingId\":\"" << jsonEscape(publicId) << "\",";
+    }
+    out << "\"id\":\"" << jsonEscape(recording.id)
         << "\",\"recordingId\":\"" << jsonEscape(recording.id)
         << "\",\"backendId\":\"" << jsonEscape(recording.backendId)
         << "\",\"title\":\"" << jsonEscape(recording.title)
@@ -277,7 +285,8 @@ std::string serializeRecording(const VdrRecording& recording)
 
 std::string serializeContinueWatching(
     const std::vector<ContinueWatchingItem>& items,
-    const std::vector<VdrRecording>& recordings)
+    const std::vector<VdrRecording>& recordings,
+    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup)
 {
     const std::string backendId =
         !recordings.empty()
@@ -353,7 +362,7 @@ std::string serializeContinueWatching(
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
             << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
-            << "\",\"recording\":" << serializeRecording(*currentRecording)
+            << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup)
             << "}";
     }
     out << "]}";
@@ -362,7 +371,8 @@ std::string serializeContinueWatching(
 
 std::string serializeRecentlyWatched(
     const std::vector<RecentlyWatchedItem>& items,
-    const std::vector<VdrRecording>& recordings)
+    const std::vector<VdrRecording>& recordings,
+    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup)
 {
     const std::string backendId =
         !recordings.empty()
@@ -441,7 +451,7 @@ std::string serializeRecentlyWatched(
             << ",\"resumeRelevant\":" << (item.resumeRelevant ? "true" : "false")
             << ",\"sourceEvidence\":\"" << jsonEscape(item.sourceEvidence)
             << "\",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
-            << "\",\"recording\":" << serializeRecording(*currentRecording)
+            << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup)
             << "}";
     }
     out << "]}";
@@ -457,10 +467,12 @@ ContinueWatchingApiRuntime& ContinueWatchingApiRuntime::instance()
 
 bool ContinueWatchingApiRuntime::configure(
     Database& database,
-    VdrRecordingCacheRepository& recordings)
+    VdrRecordingCacheRepository& recordings,
+    PublicRecordingIdLookup publicRecordingIdLookup)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     pendingProgressBackends_.clear();
+    publicRecordingIdLookup_ = {};
     repository_ = std::make_unique<ContinueWatchingRepository>(database);
     recentlyWatchedRepository_ = std::make_unique<RecentlyWatchedRepository>(database);
     if (!repository_->ensureSchema() || !recentlyWatchedRepository_->ensureSchema()) {
@@ -544,6 +556,7 @@ bool ContinueWatchingApiRuntime::configure(
             return std::nullopt;
         });
     recordings_ = &recordings;
+    publicRecordingIdLookup_ = std::move(publicRecordingIdLookup);
     return true;
 }
 
@@ -555,6 +568,7 @@ void ContinueWatchingApiRuntime::reset()
     service_.reset();
     repository_.reset();
     recordings_ = nullptr;
+    publicRecordingIdLookup_ = {};
     pendingProgressBackends_.clear();
 }
 
@@ -767,7 +781,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response.statusCode = 200;
             response.contentType = "application/json";
             response.headers["Cache-Control"] = "no-store";
-            response.body = serializeRecentlyWatched(items, currentRecordings);
+            response.body = serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_);
             return true;
         }
         if (operation != "activity") {
@@ -840,7 +854,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
         response.statusCode = 200;
         response.contentType = "application/json";
         response.headers["Cache-Control"] = "no-store";
-        response.body = serializeContinueWatching(items, currentRecordings);
+        response.body = serializeContinueWatching(items, currentRecordings, publicRecordingIdLookup_);
         return true;
     }
 

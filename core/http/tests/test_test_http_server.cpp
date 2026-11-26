@@ -1,4 +1,6 @@
 #include "BrowserLiveEventSubscription.h"
+#include "ContinueWatchingApiRuntime.h"
+#include "VdrRecordingCacheRepository.h"
 #include "ApiRouter.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryController.h"
@@ -143,6 +145,57 @@ static void assertEmptyDiscoveryResponse(
 
 int main()
 {
+    {
+        Database historyDb;
+        assert(historyDb.open(":memory:"));
+        VdrRecordingCacheRepository historyCache(historyDb);
+        assert(historyCache.ensureSchema());
+        VdrRecording recording;
+        recording.backendId = "default";
+        recording.id = "history-r1";
+        recording.backendNativeId = "/video/history-r1.rec";
+        recording.path = recording.backendNativeId;
+        recording.title = "History fixture";
+        recording.durationSeconds = 1800;
+        recording.recordingDurationKnown = true;
+        assert(historyCache.upsertRecordingsForBackend("default", {recording}));
+
+        auto& runtime = ContinueWatchingApiRuntime::instance();
+        runtime.reset();
+        int lookups = 0;
+        assert(runtime.configure(historyDb, historyCache,
+            [&lookups](const std::string& backend, const std::string& native)
+            {
+                ++lookups;
+                assert(backend == "default");
+                assert(native == "/video/history-r1.rec");
+                return std::string("rec_0123456789abcdef0123456789abcdef");
+            }));
+        ApiResponse history;
+        const std::string actor = "history-actor";
+        const std::string cw = "/api/media/continue-watching";
+        const std::string rw = "/api/media/recently-watched";
+        const std::string list = R"({"operation":"list","backendId":"default"})";
+        assert(runtime.tryHandlePost(cw,
+            R"({"operation":"progress","backendId":"default","recordingId":"history-r1","operationId":"history-progress","positionSeconds":120,"resumeSupported":true})",
+            actor, history));
+        assert(history.statusCode == 200);
+        assert(runtime.tryHandlePost(rw,
+            R"({"operation":"activity","backendId":"default","recordingId":"history-r1","operationId":"history-activity","positionSeconds":120,"resumeSupportKnown":true,"resumeSupported":true})",
+            actor, history));
+        assert(history.statusCode == 200);
+        for (const auto& route : {cw, rw}) {
+            assert(runtime.tryHandlePost(route, list, actor, history));
+            assert(history.statusCode == 200);
+            assert(history.body.find("\"recording\":{\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("\"recordingId\":\"history-r1\"") != std::string::npos);
+            assert(runtime.tryHandlePost(route, list, "other-actor", history));
+            assert(history.statusCode == 200);
+            assert(history.body.find("publicRecordingId") == std::string::npos);
+        }
+        assert(lookups == 2);
+        runtime.reset();
+    }
     {
         RequestSecurityContext context;
         context.authenticationState = AuthenticationState::Authenticated;

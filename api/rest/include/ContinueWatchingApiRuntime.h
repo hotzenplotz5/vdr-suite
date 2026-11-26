@@ -4,6 +4,7 @@
 #include "ContinueWatching.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -36,7 +37,11 @@ class ContinueWatchingApiRuntime
 public:
     static ContinueWatchingApiRuntime& instance();
 
-    bool configure(Database& database, VdrRecordingCacheRepository& recordings);
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+
+    bool configure(Database& database, VdrRecordingCacheRepository& recordings,
+                   PublicRecordingIdLookup publicRecordingIdLookup = {});
     void reset();
     // Read-once SSE invalidation hints; persistent progress stays in the repository.
     std::vector<std::string> takePendingProgressBackends();
@@ -69,5 +74,6 @@ private:
     std::unique_ptr<RecentlyWatchedRepository> recentlyWatchedRepository_;
     std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
     mutable std::set<std::string> pendingProgressBackends_;
 };
