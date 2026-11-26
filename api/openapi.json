@@ -85,6 +85,583 @@
     }
   ],
   "paths": {
+    "/api/v1/backends/{backendId}/recordings/metadata/search": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataSearch",
+        "summary": "Recording metadata search",
+        "description": "Uses the existing candidate browsing operation, preserving the candidate page and provider-relative artwork reference.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "query",
+                  "kind"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "movie",
+                      "series"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate page with the established candidates array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Assignment revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/recordings/metadata/seasons": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataSeasons",
+        "summary": "Recording metadata seasons",
+        "description": "Uses the existing candidate browsing operation, preserving the candidate page and provider-relative artwork reference.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "seriesExternalId"
+                ],
+                "properties": {
+                  "seriesExternalId": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate page with the established candidates array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Assignment revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/recordings/metadata/episodes": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataEpisodes",
+        "summary": "Recording metadata episodes",
+        "description": "Uses the existing candidate browsing operation, preserving the candidate page and provider-relative artwork reference.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "seriesExternalId",
+                  "seasonNumber"
+                ],
+                "properties": {
+                  "seriesExternalId": {
+                    "type": "string"
+                  },
+                  "seasonNumber": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate page with the established candidates array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Assignment revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/recordings/metadata/assign": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataAssign",
+        "summary": "Recording metadata assign",
+        "description": "Uses the existing manual assignment service and expectedRevision. Resolves the public recordingId server-side; native resourceKey is not accepted.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "recordingId",
+                  "providerId",
+                  "externalNamespace",
+                  "externalId",
+                  "mediaType",
+                  "title",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "providerId": {
+                    "type": "string"
+                  },
+                  "externalNamespace": {
+                    "type": "string"
+                  },
+                  "externalId": {
+                    "type": "string"
+                  },
+                  "mediaType": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "seriesTitle": {
+                    "type": "string"
+                  },
+                  "originalTitle": {
+                    "type": "string"
+                  },
+                  "overview": {
+                    "type": "string"
+                  },
+                  "releaseDate": {
+                    "type": "string"
+                  },
+                  "posterReference": {
+                    "type": "string"
+                  },
+                  "seasonNumber": {
+                    "type": "integer"
+                  },
+                  "episodeNumber": {
+                    "type": "integer"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing assignment result, including revision and public recordingId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "relationshipLocked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Assignment revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/recordings/metadata/withdraw": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingMetadataWithdraw",
+        "summary": "Recording metadata withdraw",
+        "description": "Uses the existing manual assignment service and expectedRevision. Resolves the public recordingId server-side; native resourceKey is not accepted.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "recordingId",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing assignment result, including revision and public recordingId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "relationshipLocked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or metadata selection"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Assignment revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
     "/api/v1/backends/{backendId}/metadata/resolve": {
       "post": {
         "tags": [

@@ -157,8 +157,20 @@ contracts are unchanged. A failed optional enrichment leaves the public card
 visible; a failed detail resolution is shown locally without selecting a
 different recording.
 
-This is a compatibility step, not a migration of the underlying private
-metadata assignment and Recording mutation endpoints. Home Series membership,
+Recording RENAME/DELETE now use the existing Public-v1 action contract
+when a public recording identity is present; MOVE remains private until
+new-folder creation is represented. Candidate search, seasons and episodes,
+plus manual assignment/withdrawal with a public identity, now use
+`POST /api/v1/backends/{backendId}/recordings/metadata/{operation}`.
+These calls reuse the existing scoped `metadata.recording.assign`
+permission, Browser CSRF, controller, revision and presentation-change
+notification. Assignment/withdrawal accept only an opaque recordingId
+and resolve the current backend-native key server-side. The existing
+candidate DTO and provider-relative poster reference are preserved.
+The separate read-only automatic metadata resolve endpoint is unchanged.
+Legacy-only recording entry points still use their existing write routes.
+Full rich metadata detail and manual Genre/series hierarchy editing remain
+private pending migration. Home Series membership,
 new cover writes from opaque-only clients, and enriched/Unicode grouping
 parity remain separate work; the existing Web cover workflow is unchanged.
 

@@ -123,6 +123,23 @@ int main()
         "metadata.recording.assign",
         "living-room"));
 
+    // The public variants use the exact same scoped permission and CSRF.
+    for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw"})
+    {
+        auto request = requestFor(fixture, "living-room", operation, true);
+        request.path.insert(4, "/v1");
+        const auto decision = fixture.gate.evaluate(request);
+        assert(decision.allowed);
+        assert(decision.authorizationDecision.permission == "metadata.recording.assign");
+        assert(decision.authorizationDecision.backendId == "living-room");
+        auto wrongBackend = requestFor(fixture, "bedroom", operation, true);
+        wrongBackend.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(wrongBackend).allowed);
+        auto noCsrf = requestFor(fixture, "living-room", operation, false);
+        noCsrf.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(noCsrf).allowed);
+    }
+
     for (const std::string operation : {
              "search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {

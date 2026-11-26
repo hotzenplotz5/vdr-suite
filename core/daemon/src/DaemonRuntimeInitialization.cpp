@@ -1944,6 +1944,21 @@ bool DaemonRuntime::initialize()
                     backendId, recordingNativeId);
             });
 
+    // Resolve public recording identities against the same current cache as
+    // Public-v1 detail. Metadata editing does not require a playable media ID.
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerPublicRecordingNativeLookup(
+            [this](const std::string& backendId, const std::string& publicId)
+            {
+                if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
+                    return std::string{};
+                PublicRecordingPlaybackTargetResolver resolver(
+                    *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+                const auto found = resolver.resolveForRead(backendId, publicId);
+                return found.status == PublicRecordingPlaybackTargetStatus::ready
+                    ? found.recording.backendNativeId : std::string{};
+            });
+
     // After the existing authenticated assignment, resolve its native
     // Recording identity in the existing backend cache. Do not accept a path
     // from the browser, request another TMDb search or submit another import.

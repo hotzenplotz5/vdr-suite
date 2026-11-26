@@ -129,4 +129,27 @@ assert(!genreSource.includes('api.themoviedb.org'));
 assert(!genreSource.includes('image.tmdb.org'));
 assert(!genreSource.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'));
 
+const recId = 'rec_' + 'a'.repeat(32);
+const publicPayload = runtime.__test.assignmentPayload({
+  publicRecordingId:recId, backendNativeId:'/native/never-submit.rec'
+}, {kind:'movie', providerId:'tmdb', externalNamespace:'movie', externalId:'13',
+  title:'Forrest Gump'}, 1, 'movie');
+assert.strictEqual(publicPayload.recordingId, recId);
+assert(!('resourceKey' in publicPayload));
+const calls = [];
+windowObject.VdrSuiteBrowserSession = {csrfHeaders:() => ({'X-CSRF-Token':'existing-session'})};
+windowObject.VdrSuiteClientApi = {requestJson(route, options) {
+  calls.push({route, options});
+  return Promise.resolve({revision:2});
+}};
+runtime.__test.post('living-room','assign',publicPayload);
+runtime.__test.post('living-room','withdraw',Object.assign(
+  runtime.__test.recordingIdentity({recordingId:recId}), {expectedRevision:2}));
+runtime.__test.post('living-room','search',{query:'Forrest Gump',kind:'movie',limit:12});
+assert(calls.every(c => c.route.startsWith('/api/v1/backends/living-room/recordings/metadata/')));
+assert(calls.every(c => c.options.headers['X-CSRF-Token'] === 'existing-session'));
+assert.strictEqual(JSON.parse(calls[0].options.body).recordingId, recId);
+assert.strictEqual(JSON.parse(calls[1].options.body).expectedRevision, 2);
+assert(calls.every(c => !c.options.body.includes('never-submit.rec')));
+
 console.log('recordings2 metadata assignment tests passed');

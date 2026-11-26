@@ -1004,6 +1004,47 @@ int main()
         assert(nativeUpdateCalls == beforeWriter + 1);
     }
 
+    // Public and private variants share the same assignment repository,
+    // revision and presentation-change notification.
+    {
+        const std::string publicId = "rec_0123456789abcdef0123456789abcdef";
+        const std::string prefix = "/api/v1/backends/living-room/recordings/metadata/";
+        runtime.registerPublicRecordingNativeLookup(
+            [&](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == publicId
+                    ? std::string("public-test/key") : std::string{};
+            });
+        const auto publicPost = [&](const std::string& operation,
+            const std::string& body, const std::string& backend = "living-room") {
+            ApiResponse result;
+            assert(runtime.tryHandlePost(prefix + operation, body,
+                "user:real-admin", result, backend, "application/json"));
+            return result;
+        };
+        const auto before = presentationChanges.size();
+        auto body = assignmentBody(publicId);
+        body.replace(body.find("resourceKey"), std::string("resourceKey").size(), "recordingId");
+        assert(publicPost("assign", body, "bedroom").statusCode == 403);
+        assert(publicPost("assign", assignmentBody("public-test/key")).statusCode == 400);
+        assert(publicPost("withdraw",
+            R"({"recordingId":"rec_ffffffffffffffffffffffffffffffff","expectedRevision":1})").statusCode == 404);
+        assert(presentationChanges.size() == before);
+        const auto assigned = publicPost("assign", body);
+        assert(assigned.statusCode == 200);
+        assert(assigned.body.find(publicId) != std::string::npos);
+        assert(assigned.body.find("public-test/key") == std::string::npos);
+        assert(assigned.body.find("\"revision\":1") != std::string::npos);
+        assert(runtime.findSelected("living-room", "public-test/key").found);
+        const auto removed = publicPost("withdraw",
+            "{\"recordingId\":\"" + publicId + "\",\"expectedRevision\":1}");
+        assert(removed.statusCode == 200);
+        assert(removed.body.find("\"relationshipLocked\":false") != std::string::npos);
+        assert(presentationChanges.size() == before + 2U);
+        assert(publicPost("search", R"({"query":"Forrest Gump","kind":"movie","limit":5})").statusCode == 200);
+        assert(publicPost("seasons", R"({"seriesExternalId":"19885","limit":20})").statusCode == 200);
+        assert(publicPost("episodes", R"({"seriesExternalId":"19885","seasonNumber":1,"limit":20})").statusCode == 200);
+    }
+
     runtime.reset();
     std::filesystem::remove_all(nativeRoot);
     database.close();

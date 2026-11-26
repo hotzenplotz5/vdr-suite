@@ -20,6 +20,9 @@ public:
     void registerController(MetadataController& controller);
     void registerRecordingPresentationChangedCallback(
         RecordingPresentationChangedCallback callback);
+    using PublicRecordingNativeLookup = std::function<std::string(
+        const std::string& backendId, const std::string& recordingId)>;
+    void registerPublicRecordingNativeLookup(PublicRecordingNativeLookup callback);
     void reset();
 
     ManualRecordingMetadataAssignment findSelected(
@@ -57,7 +60,9 @@ public:
         const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& authorizedBackendId = "",
+        const std::string& contentType = "") const;
 
 private:
     ManualRecordingMetadataApiRuntime() = default;
@@ -71,4 +76,5 @@ private:
     MetadataController* controller_ = nullptr;
     RecordingPresentationChangedCallback
         recordingPresentationChangedCallback_;
+    PublicRecordingNativeLookup publicRecordingNativeLookup_;
 };

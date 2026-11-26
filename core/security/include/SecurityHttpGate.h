@@ -3696,7 +3696,9 @@ private:
     {
         backendId.clear();
         operation.clear();
-        const std::string prefix = "/api/backends/";
+        const std::string publicPrefix = "/api/v1/backends/";
+        const bool publicApi = path.compare(0, publicPrefix.size(), publicPrefix) == 0;
+        const std::string prefix = publicApi ? publicPrefix : "/api/backends/";
         const std::string segment = "/recordings/metadata/";
         if (path.compare(0, prefix.size(), prefix) != 0) return false;
         const std::size_t separator = path.find(segment, prefix.size());
@@ -3714,7 +3716,7 @@ private:
             return false;
         return operation == "search" || operation == "seasons" ||
             operation == "episodes" || operation == "assign" ||
-            operation == "withdraw" || operation == "genre";
+            operation == "withdraw" || (!publicApi && operation == "genre");
     }
 
     static int hexValue(char value)
