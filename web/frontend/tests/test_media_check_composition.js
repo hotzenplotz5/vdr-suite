@@ -17,7 +17,7 @@ assert(hero.includes('renderMediaCheck(root, copy, recording, backendId, actions
 assert(hero.includes('VdrSuiteBrowserSession'));
 assert(hero.includes('session.csrfHeaders()'));
 assert(hero.includes('mediaCheckSummary(result.report)'));
-assert(hero.includes('resolveMediaCheckIdentity(client, recording, backendId)'));
+assert(hero.includes('shared.resolvePublicRecordingId(recording, backendId)'));
 assert(!hero.includes('innerHTML'));
 assert(packaging.includes('node web/frontend/tests/test_media_check_composition.js'));
 
@@ -241,39 +241,17 @@ const api = clientFactory.createClient({
   });
   assert.strictEqual(publishStatus.resultReconciled, false);
 
-  const context = {
-    window: null, console,
-    VdrSuiteRecordings2Shared: {
-      text(value) { return value == null ? '' : String(value); },
-      first(item, names, fallback) {
-        for (const name of names) if (item && item[name]) return item[name];
-        return fallback;
-      }
-    }
-  };
+  const context = {window: null, console};
   context.window = context;
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), context);
   vm.runInContext(hero, context);
-  const functions = context.VdrSuiteRecordings2HeroDetail.__test;
-  const direct = await functions.resolveMediaCheckIdentity(
-    api, {recordingId: id}, backend);
-  assert.strictEqual(direct, id);
-  const resolved = await functions.resolveMediaCheckIdentity(
-    api, {title: 'Beispiel', startTime: '2026-10-22T10:00:00Z'}, backend);
-  assert.strictEqual(resolved, id);
-  const normalizedTitle = await functions.resolveMediaCheckIdentity(
-    api, {title: 'Beispiel (Metadaten)', startTime: '2026-10-22T10:00:00Z'},
-    backend);
-  assert.strictEqual(normalizedTitle, id);
-  ambiguousRecordings = true;
-  const exactTitle = await functions.resolveMediaCheckIdentity(
-    api, {title: 'Beispiel', startTime: '2026-10-22T10:00:00Z'}, backend);
-  assert.strictEqual(exactTitle, id);
-  await assert.rejects(function () {
-    return functions.resolveMediaCheckIdentity(api, {
-      title: 'Kein Treffer', startTime: '2026-10-22T10:00:00Z'
-    }, backend);
-  });
+  const runtime = context.VdrSuiteRecordings2HeroDetail;
+  const functions = runtime.__test;
+  assert.strictEqual(await runtime.resolvePublicRecordingId({recordingId: id}, backend), id);
+  await assert.rejects(runtime.resolvePublicRecordingId({
+    title: 'Beispiel', startTime: '2026-10-22T10:00:00Z'
+  }, backend), /Kanonische Aufnahme-ID/);
   assert(functions.mediaCheckSummary({status: 'errors', segments: 2,
     segmentReports: [{name: '00002.ts', status: 'errors'}]})
     .includes('00002.ts'));

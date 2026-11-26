@@ -370,60 +370,8 @@
     });
   }
 
-  function resolveMediaCheckIdentity(client, recording, backendId) {
-    const direct = text(recording && (recording.publicRecordingId || recording.recordingId));
-    if (/^rec_[0-9a-f]{32}$/.test(direct)) return Promise.resolve(direct);
-    const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
-    if (!recordedAt) return Promise.reject(
-      new Error('Für diese Aufnahme ist keine eindeutige Aufnahme-ID verfügbar.'));
-    const expectedTitle = text(recording && recording.title);
-    let cursor = '';
-    let matches = [];
-    let pageCount = 0;
-    function page() {
-      if (++pageCount > 20) throw new Error(
-        'Die Aufnahmenliste ist zu groß; eindeutige Zuordnung nicht möglich.');
-      const query = {backendId: backendId, limit: 100};
-      if (cursor) query.cursor = cursor;
-      return client.getRecordings({query: query, credentials: 'same-origin',
-        cache: 'no-store'}).then(function (response) {
-        if (!response || !Array.isArray(response.items) || !response.page)
-          throw new Error('Ungültige Antwort der Aufnahme-API.');
-        // Legacy Recordings 2 can display a decoded or metadata-enriched
-        // title. Preserve a unique timestamp fallback instead of rejecting
-        // the same recording merely because its public title differs.
-        matches = matches.concat(response.items.filter(function (item) {
-          return item && item.backendId === backendId &&
-            item.recordedAt === recordedAt;
-        }));
-        if (matches.length > 100) throw new Error(
-          'Zu viele Aufnahmen mit gleichem Aufnahmezeitpunkt.');
-        if (response.page.hasMore) {
-          if (!/^rc1_[a-f0-9]+$/.test(response.page.nextCursor || '') ||
-              response.page.nextCursor === cursor)
-            throw new Error('Ungültiger Aufnahme-Seitencursor.');
-          cursor = response.page.nextCursor;
-          return page();
-        }
-        const byTitle = expectedTitle ? matches.filter(function (item) {
-          return item.title === expectedTitle;
-        }) : [];
-        const candidates = byTitle.length ? byTitle : matches;
-        if (candidates.length !== 1 ||
-            !/^rec_[0-9a-f]{32}$/.test(candidates[0].recordingId))
-          throw new Error('Kanonische Aufnahme-ID nicht eindeutig gefunden.');
-        return candidates[0].recordingId;
-      });
-    }
-    return page();
-  }
-
-  // Share the existing exact public Recording identity resolution with
-  // the Marks/Cut owner; no second mapper and no native-ID fallback.
   function resolvePublicRecordingId(recording, backendId) {
-    const client = mediaCheckClient();
-    if (!client) return Promise.reject(new Error('recording_public_identity_unavailable'));
-    return resolveMediaCheckIdentity(client, recording, backendId);
+    return shared.resolvePublicRecordingId(recording, backendId);
   }
 
   function mediaCheckSummary(report) {
@@ -522,7 +470,7 @@
         status.textContent = 'Aufnahme wird zugeordnet …';
         output.textContent = '';
         Promise.resolve().then(function () {
-          return resolveMediaCheckIdentity(client, recording, backendId);
+          return resolvePublicRecordingId(recording, backendId);
         }).then(function (recordingId) {
           const session = global.VdrSuiteBrowserSession;
           if (!session || typeof session.restore !== 'function' ||
@@ -626,7 +574,7 @@
         planStatus.hidden = false;
         planStatus.textContent = 'Aufnahme wird geprüft …';
         Promise.resolve().then(function () {
-          return resolveMediaCheckIdentity(client, recording, backendId);
+          return resolvePublicRecordingId(recording, backendId);
         }).then(function (identity) {
           recordingId = identity;
           const session = global.VdrSuiteBrowserSession;
@@ -1117,7 +1065,7 @@
       // Always discover a completed Stage from the durable backend journal.
       // This works on a phone or after browser storage has been cleared.
       Promise.resolve(recordingId ||
-        resolveMediaCheckIdentity(client, recording, backendId)
+        resolvePublicRecordingId(recording, backendId)
       ).then(function (identity) {
         if (!/^rec_[0-9a-f]{32}$/.test(identity) ||
             !panel.parentNode) return;
@@ -1635,7 +1583,6 @@
       matchingGenre,
       trailerIdentity,
       validYoutubeVideoId,
-      resolveMediaCheckIdentity,
       mediaCheckSummary,
       placeTrailerAfterRelated
     })

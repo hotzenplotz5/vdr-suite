@@ -236,6 +236,7 @@ const trailerContext = vm.createContext({
   },
   console
 });
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), trailerContext);
 vm.runInContext(source, trailerContext, {filename: 'recordings2-hero-detail.js'});
 const trailerRuntime = trailerContext.window.VdrSuiteRecordings2HeroDetail;
 assert(trailerRuntime && trailerRuntime.__test);
@@ -325,73 +326,51 @@ assert.strictEqual(trailerIdentity({
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('abcdefghijk'), true);
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
 
-// F6.3: the actual Hero identity mapper is shared with Marks/Cut. Test
-// pagination and unique timestamp/title selection, not a second fake mapper.
+// The actual Hero owner delegates identity resolution to the shared server
+// binding, including old cached cards; never guess from title or timestamp.
 const publicId = 'rec_fedcba9876543210fedcba9876543210';
-let publicPages = [];
-const publicRequests = [];
-trailerContext.window.VdrSuitePublicV1Client = {
-  createClient(options) {
-    assert.strictEqual(options.credentials, 'same-origin');
-    return {
-      getRecordings(options) {
-        publicRequests.push(options);
-        assert(publicPages.length, 'unexpected public Recording page');
-        return Promise.resolve(publicPages.shift());
-      }
-    };
-  }
-};
 const legacyRecording = {
   id: '7', backendId: 'default', startTime: '1788696000',
   title: 'Original', backendNativeId: '/private/video/Original.rec'
 };
-publicPages = [
-  {items: [{
-    backendId: 'default', recordedAt: '1788696000',
-    title: 'Other', recordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-  }], page: {hasMore: true, nextCursor: 'rc1_abcdef'}},
-  {items: [{
-    backendId: 'default', recordedAt: '1788696000',
-    title: 'Original', recordingId: publicId
-  }], page: {hasMore: false}}
+const publicRequests = [];
+let pages = [
+  {recordings: [{backendId: 'default', backendNativeId: '/private/video/Other.rec',
+    title: 'Original', publicRecordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}], totalCount: 2},
+  {recordings: [Object.assign({}, legacyRecording, {publicRecordingId: publicId})], totalCount: 2}
 ];
-trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default')
-  .then(function (resolved) {
-    assert.strictEqual(resolved, publicId);
-    assert.strictEqual(publicRequests.length, 2);
-    assert.strictEqual(publicRequests[0].query.backendId, 'default');
-    assert.strictEqual(publicRequests[1].query.cursor, 'rc1_abcdef');
-    assert(publicRequests.every(request =>
-      !JSON.stringify(request).includes('/private/') &&
-      request.credentials === 'same-origin'));
-    return trailerRuntime.resolvePublicRecordingId(
-      {recordingId: publicId}, 'default');
-  }).then(function (direct) {
-    assert.strictEqual(direct, publicId);
-    assert.strictEqual(publicRequests.length, 2,
-      'already public rec_ IDs must not scan the collection');
-    return trailerRuntime.resolvePublicRecordingId(
-      {publicRecordingId:publicId, id:'native-7', backendNativeId:'/private/video/Original.rec'}, 'default');
-  }).then(function (bound) {
-    assert.strictEqual(bound, publicId);
-    assert.strictEqual(publicRequests.length, 2,
-      'server-bound public identity must not scan by timestamp or title');
-    publicPages = [{items: [
-      {backendId: 'default', recordedAt: '1788696000', title: 'Original',
-        recordingId: publicId},
-      {backendId: 'default', recordedAt: '1788696000', title: 'Original',
-        recordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}
-    ], page: {hasMore: false}}];
-    return assert.rejects(
-      trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'),
-      /Kanonische Aufnahme-ID nicht eindeutig/
-    );
-  }).then(function () {
-    console.log('recordings2 hero public identity pagination and ambiguity contract ok');
-  }).catch(function (error) {
-    console.error(error);
-    process.exitCode = 1;
-  });
+trailerContext.window.VdrSuiteClientApi = {
+  fetchClientRecordings(options) {
+    publicRequests.push(options);
+    assert(pages.length, 'unexpected Recording page');
+    return Promise.resolve(pages.shift());
+  }
+};
+(async function () {
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'), publicId);
+  assert.strictEqual(publicRequests.length, 2);
+  assert.strictEqual(publicRequests[0].query.backend, 'default');
+  assert.strictEqual(publicRequests[1].query.offset, 1);
+  assert(publicRequests.every(request => request.credentials === 'same-origin'));
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId({recordingId: publicId}, 'default'), publicId);
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId({
+    publicRecordingId: publicId, id: 'native-7', backendNativeId: '/private/video/Original.rec'
+  }, 'default'), publicId);
+  assert.strictEqual(publicRequests.length, 2, 'already bound IDs must not scan the collection');
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId({
+    title: 'Original', startTime: '1788696000'
+  }, 'default'), /Kanonische Aufnahme-ID/);
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId({
+    recordingId: publicId, backendId: 'other'
+  }, 'default'), /Kanonische Aufnahme-ID/);
+  pages = [{recordings: [{backendId: 'default', backendNativeId: '/private/video/Other.rec',
+    title: 'Original', publicRecordingId: publicId}], totalCount: 1}];
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'),
+    /Kanonische Aufnahme-ID/);
+  console.log('recordings2 hero public identity binding contract ok');
+})().catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 console.log('recordings2 hero/playback placement contract ok');
