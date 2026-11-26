@@ -80,6 +80,48 @@
     return fallback;
   }
 
+  // Canonical identities come from the server, never from title, timestamp
+  // or a recycled VDR list position. Older browser-cached cards are refreshed
+  // through the existing exact-backend recording query before a public write.
+  function publicRecordingId(recording) {
+    for (const value of [recording && recording.publicRecordingId,
+      recording && recording.recordingId, recording && recording.id]) {
+      if (/^rec_[0-9a-f]{32}$/.test(String(value || ''))) return String(value);
+    }
+    return '';
+  }
+
+  function resolvePublicRecordingId(recording, backendId, api) {
+    const backend = String(backendId || '');
+    const unavailable = () => new Error('Kanonische Aufnahme-ID nicht verfügbar. Bitte Aufnahme aktualisieren.');
+    if (!recording || !backend || (recording.backendId && recording.backendId !== backend))
+      return Promise.reject(unavailable());
+    const direct = publicRecordingId(recording);
+    if (direct) return Promise.resolve(direct);
+    const native = String(recording.backendNativeId || recording.nativePath || '');
+    const client = api || clientApi();
+    if (!native || !client || typeof client.fetchClientRecordings !== 'function')
+      return Promise.reject(unavailable());
+    const path = String(recording.path || recording.recordingPath || '');
+    function page(offset) {
+      const query = {backend, limit: PAGE_SIZE, offset};
+      if (path) query.path = path;
+      return Promise.resolve(client.fetchClientRecordings({
+        query, cache: 'no-store', credentials: 'same-origin'
+      })).then(function (data) {
+        const rows = recordingList(data);
+        const match = rows.find(candidate => candidate.backendId === backend &&
+          candidate.backendNativeId === native && publicRecordingId(candidate));
+        if (match) return publicRecordingId(match);
+        const total = Number(data && data.totalCount);
+        if (!rows.length || !Number.isSafeInteger(total) || offset + rows.length >= total)
+          throw unavailable();
+        return page(offset + rows.length);
+      });
+    }
+    return page(0);
+  }
+
   function normalizePath(value) {
     return text(value)
       .replace(/^\/+|\/+$/g, '')
@@ -317,6 +359,8 @@
     number,
     first,
     normalizePath,
+    publicRecordingId,
+    resolvePublicRecordingId,
     decodeDisplayText,
     folderList,
     recordingList,

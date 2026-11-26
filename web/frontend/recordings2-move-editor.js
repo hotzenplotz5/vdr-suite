@@ -45,11 +45,10 @@
     const state = deps.state;
     const validate = deps.validate;
     const execute = deps.execute;
-    const moveReadback = deps.moveReadback;
     if (!shared || typeof editor !== 'function' || typeof textInput !== 'function' ||
         typeof renderFolderBrowser !== 'function' || typeof setStatus !== 'function' ||
         typeof state !== 'function' || typeof validate !== 'function' ||
-        typeof execute !== 'function' || typeof moveReadback !== 'function') {
+        typeof execute !== 'function') {
       throw new Error('Recordings 2 Move-Editor-Abhängigkeiten sind nicht verfügbar.');
     }
 
@@ -139,7 +138,6 @@
         {targetPath: targetPath},
         status,
         apply,
-        moveReadback(recording, targetPath),
         'Verschieben abgeschlossen.'
       ).catch(function () {});
     });

@@ -10,8 +10,6 @@
   }
 
   const STYLE_ID = 'vdr-suite-recordings2-actions-styles';
-  const READBACK_ATTEMPTS = 45;
-  const READBACK_DELAY_MS = 1000;
   const DELETE_QUEUE_BY_BACKEND = new Map();
 
   function moveEditorRuntime() {
@@ -46,47 +44,10 @@
     return parts.length ? parts[parts.length - 1] : 'Aufnahme';
   }
 
-  function nativeLeaf(recording) {
-    const value = String(shared.first(
-      recording,
-      ['backendNativeId', 'nativePath', 'path', 'fileName'],
-      ''
-    )).replace(/\\/g, '/').replace(/\/+$/, '');
-    const parts = value.split('/').filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : '';
-  }
-
-  function identity(recording) {
-    return {
-      nativeLeaf: nativeLeaf(recording),
-      title: localTitle(recording).toLocaleLowerCase('de-DE'),
-      start: String(shared.first(recording, ['startTime', 'start', 'date'], '')),
-      duration: String(shared.first(recording, ['durationSeconds', 'duration'], ''))
-    };
-  }
-
-  function candidateMatches(recording, expected) {
-    const candidate = identity(recording);
-    if (expected.nativeLeaf && candidate.nativeLeaf === expected.nativeLeaf) return true;
-    if (!expected.title || candidate.title !== expected.title) return false;
-    return Boolean(
-      (expected.start && candidate.start === expected.start) ||
-      (expected.duration && candidate.duration === expected.duration)
-    );
-  }
-
   function stringList(value) {
     return Array.isArray(value)
       ? value.map(function (entry) { return String(entry || '').trim(); }).filter(Boolean)
       : [];
-  }
-
-  function isDryRunReady(result) {
-    return Boolean(result) &&
-      result.success === false &&
-      String(result.message || '') === 'dry-run backend execution skipped' &&
-      stringList(result.warnings).includes('dry-run only') &&
-      stringList(result.errors).length === 0;
   }
 
   function actionError(result, fallback) { const errors = stringList(result && result.errors);
@@ -95,14 +56,7 @@
     return errors.join('; ') || String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
   }
   function publicRecordingId(recording) {
-    const id = String(recording.publicRecordingId || recording.recordingId || '');
-    return /^rec_[0-9a-f]{32}$/.test(id) ? id : '';
-  }
-
-  // A public identity always uses the same Public-v1 mutation contract.
-  // An error on a public action never falls back to native IDs.
-  function usesPublicAction(recording, action) {
-    return Boolean(publicRecordingId(recording)) && ['RENAME', 'MOVE', 'DELETE'].includes(action);
+    return shared.publicRecordingId(recording);
   }
 
   function publicActionPayload(recording, backendId, action, extra) {
@@ -111,28 +65,6 @@
     if (action === 'RENAME') payload.newName = extra.newName;
     if (action === 'MOVE') payload.targetFolder = extra.targetPath;
     if (action === 'DELETE' && !payload.dryRun) payload.confirmDelete = true;
-    return payload;
-  }
-
-  function actionPayload(recording, backendId, action, extra) {
-    const payload = {
-      backendId: String(backendId || 'default'),
-      recordingId: String(shared.first(recording, ['recordingId', 'id', 'nativeId'], '')),
-      action: String(action || '').toUpperCase(),
-      dryRun: true
-    };
-    const optional = {
-      recordingPath: shared.first(recording, ['path', 'fileName', 'directory'], ''),
-      backendNativeId: shared.first(recording, ['backendNativeId', 'nativePath'], ''),
-      recordingTitle: shared.first(recording, ['title', 'name', 'displayName'], '')
-    };
-    Object.keys(optional).forEach(function (key) {
-      if (String(optional[key] || '').trim()) payload[key] = String(optional[key]);
-    });
-    Object.keys(extra || {}).forEach(function (key) {
-      const value = extra[key];
-      if (value !== undefined && value !== null && value !== '') payload[key] = value;
-    });
     return payload;
   }
 
@@ -198,51 +130,6 @@
       });
     }
 
-    function findMatchingRecording(data, expected, leafName, exactNative, backendId) {
-      function matches(candidate) {
-        return exactNative ? String(shared.first(candidate, ['backendNativeId', 'nativePath', 'path', 'fileName'], '')) === exactNative : candidateMatches(candidate, expected);
-      }
-      const direct = shared.recordingList(data).find(matches);
-      if (direct) return Promise.resolve(direct);
-
-      const normalizedLeaf = String(leafName || '').trim().toLocaleLowerCase('de-DE');
-      if (!normalizedLeaf) return Promise.resolve(null);
-      const folder = shared.folderList(data).find(function (entry) {
-        const name = shared.decodeDisplayText(shared.first(entry, ['name'], ''))
-          .toLocaleLowerCase('de-DE');
-        return shared.number(entry.recordingCount, 0) === 1 && name === normalizedLeaf;
-      });
-      if (!folder) return Promise.resolve(null);
-      return requestFolder(shared.first(folder, ['path'], ''), backendId).then(function (child) {
-        return shared.recordingList(child).find(matches) || null;
-      });
-    }
-
-    function run(mode, recording, action, extra) {
-      const api = clientApi();
-      const backendId = recording.backendId || state().backendId || shared.selectedBackendId();
-      const payload = actionPayload(recording, backendId, action, extra);
-      if (!api) return Promise.reject(new Error('Recording-Action-API ist nicht verfügbar.'));
-      if (mode === 'execute') {
-        if (typeof api.fetchClientRecordingActionExecution !== 'function') {
-          return Promise.reject(new Error('Recording-Action-Ausführung ist nicht verfügbar.'));
-        }
-        return api.fetchClientRecordingActionExecution({
-          payload: payload,
-          cache: 'no-store',
-          credentials: 'same-origin'
-        });
-      }
-      if (typeof api.fetchClientRecordingActionValidation !== 'function') {
-        return Promise.reject(new Error('Recording-Action-Validierung ist nicht verfügbar.'));
-      }
-      return api.fetchClientRecordingActionValidation({
-        payload: payload,
-        cache: 'no-store',
-        credentials: 'same-origin'
-      });
-    }
-
     function setStatus(node, type, message) {
       node.className = 'recordings2-action-status' + (type ? ' ' + type : '');
       node.textContent = String(message || '');
@@ -255,56 +142,6 @@
       }
       if (typeof config.closeDetail === 'function') config.closeDetail();
       if (typeof config.reload === 'function') config.reload();
-    }
-
-    function poll(check, status, successMessage) {
-      let attempts = 0;
-      function attempt() {
-        attempts += 1;
-        Promise.resolve(check()).then(function (ready) {
-          if (ready) {
-            setStatus(status, 'success', successMessage);
-            global.setTimeout(finishAction, 250);
-            return;
-          }
-          if (attempts >= READBACK_ATTEMPTS) {
-            setStatus(status, 'error', 'Backend bestätigt, aber der neue Recording-Cache-Stand ist noch nicht sichtbar. Bitte neu laden.');
-            return;
-          }
-          global.setTimeout(attempt, READBACK_DELAY_MS);
-        }).catch(function (error) {
-          if (attempts >= READBACK_ATTEMPTS) {
-            setStatus(status, 'error', 'Cache-Abgleich fehlgeschlagen: ' + error.message);
-            return;
-          }
-          global.setTimeout(attempt, READBACK_DELAY_MS);
-        });
-      }
-      attempt();
-    }
-
-    function renameReadback(recording, newName) {
-      const expected = identity(recording);
-      const normalizedName = shared.decodeDisplayText(newName).toLocaleLowerCase('de-DE');
-      return function () {
-        return requestFolder(state().path || '').then(function (data) {
-          return findMatchingRecording(data, expected, normalizedName);
-        }).then(function (candidate) {
-          return Boolean(candidate) &&
-            localTitle(candidate).toLocaleLowerCase('de-DE') === normalizedName;
-        });
-      };
-    }
-
-    function moveReadback(recording, targetPath) {
-      const expected = identity(recording);
-      return function () {
-        return requestFolder(targetPath).then(function (data) {
-          return findMatchingRecording(data, expected, expected.title);
-        }).then(function (candidate) {
-          return Boolean(candidate);
-        });
-      };
     }
 
     function publicRequest(recording, action, extra, execute, etag) {
@@ -321,15 +158,20 @@
       button.disabled = true;
       publicPreflights.delete(button);
       setStatus(status, 'pending', 'Aktion wird geprüft …');
-      const payload = publicActionPayload(recording, recording.backendId, action, extra || {});
-      return publicRequest(recording, action, Object.assign({}, extra, {dryRun:true}), false)
-        .then(function (result) {
+      let target, payload;
+      return shared.resolvePublicRecordingId(recording, recording.backendId, clientApi())
+        .then(function (id) {
+          target = Object.freeze(Object.assign({}, recording, {publicRecordingId: id}));
+          payload = publicActionPayload(target, target.backendId, action,
+            Object.assign({}, extra, {dryRun:true}));
+          return publicRequest(target, action, Object.assign({}, extra, {dryRun:true}), false);
+        }).then(function (result) {
           if (!result || !result.data || result.data.valid !== true ||
               result.data.recordingId !== payload.recordingId ||
               !/^"[^"]+"$/.test(result.etag || ''))
             throw new Error(actionError(result && result.data && result.data.valid === false ? result.data : null,
               'Backend-Prüfung nicht bestätigt.'));
-          publicPreflights.set(button, {key:JSON.stringify(payload), etag:result.etag});
+          publicPreflights.set(button, {recording:target, source:recording, key:JSON.stringify(payload), etag:result.etag});
           button.disabled = false;
           setStatus(status, 'success', 'Prüfung erfolgreich. Die Aktion kann ausgeführt werden.');
           return result.data;
@@ -344,19 +186,19 @@
       const proof = publicPreflights.get(button);
       publicPreflights.delete(button);
       button.disabled = true;
-      const key = JSON.stringify(publicActionPayload(recording, recording.backendId, action,
+      const key = proof && JSON.stringify(publicActionPayload(proof.recording, recording.backendId, action,
         Object.assign({}, extra, {dryRun:true})));
-      if (!proof || proof.key !== key) {
+      if (!proof || proof.source !== recording || proof.key !== key) {
         const error = new Error('Ziel geändert – bitte erneut prüfen.');
         setStatus(status, 'error', error.message);
         return Promise.reject(error);
       }
       setStatus(status, 'pending', 'Aktion wird ausgeführt …');
-      return publicRequest(recording, action, Object.assign({}, extra, {dryRun:false}), true, proof.etag)
+      return publicRequest(proof.recording, action, Object.assign({}, extra, {dryRun:false}), true, proof.etag)
         .then(function (result) {
           const data = result && result.data;
           if (!data || data.success !== true || data.executed !== true ||
-              data.readbackVerified !== true || data.recordingId !== publicRecordingId(recording) ||
+              data.readbackVerified !== true || data.recordingId !== publicRecordingId(proof.recording) ||
               data.backendId !== recording.backendId || data.action !== action)
             throw new Error('Ausführung nicht eindeutig bestätigt. Bitte Aufnahmezustand prüfen.');
           return data;
@@ -366,123 +208,29 @@
         });
     }
 
-    function validate(recording, action, extra, status, executeButton, safetyCheck) {
-      if (usesPublicAction(recording, action))
-        return publicValidate(recording, action, extra, status, executeButton);
-      executeButton.disabled = true;
-      setStatus(status, 'pending', 'Aktion wird geprüft …');
-      return run('validate', recording, action, Object.assign({dryRun: true}, extra || {}))
-        .then(function (result) {
-          if (!result || result.valid !== true) {
-            throw new Error(actionError(result, 'Validierung nicht freigegeben.'));
-          }
-          if (!safetyCheck) return result;
-          setStatus(status, 'pending', 'Backend-Sicherheit wird als Dry-Run geprüft …');
-          return run('execute', recording, action, Object.assign({dryRun: true}, extra || {}))
-            .then(function (safetyResult) {
-              if (!safetyCheck(safetyResult)) {
-                throw new Error(actionError(safetyResult, 'Die Backend-Sicherheitsprüfung hat die Aktion nicht freigegeben.'));
-              }
-              return safetyResult;
-            });
-        })
-        .then(function (result) {
-          executeButton.disabled = false;
-          setStatus(status, 'success', 'Prüfung erfolgreich. Die Aktion kann ausgeführt werden.');
-          return result;
-        })
-        .catch(function (error) {
-          executeButton.disabled = true;
-          setStatus(status, 'error', error.message);
-          throw error;
-        });
+    function validate(recording, action, extra, status, button) {
+      return publicValidate(recording, action, extra, status, button);
     }
 
-    function execute(recording, action, extra, status, button, readback, successMessage) {
-      if (usesPublicAction(recording, action))
-        return publicExecute(recording, action, extra, status, button).then(function (result) {
-          setStatus(status, 'success', successMessage);
-          finishAction();
-          return result;
-        });
-      button.disabled = true;
-      setStatus(status, 'pending', 'Aktion wird ausgeführt …');
-      return run('execute', recording, action, Object.assign({dryRun: false}, extra || {}))
-        .then(function (result) {
-          if (!result || result.success !== true) {
-            throw new Error(actionError(result, 'Das Backend hat die Aktion abgelehnt.'));
-          }
-          setStatus(status, 'pending', 'Backend bestätigt. Recording-Cache wird abgeglichen …');
-          poll(readback, status, successMessage);
-          return result;
-        })
-        .catch(function (error) {
-          button.disabled = false;
-          setStatus(status, 'error', error.message);
-          throw error;
-        });
+    function execute(recording, action, extra, status, button, successMessage) {
+      return publicExecute(recording, action, extra, status, button).then(function (result) {
+        setStatus(status, 'success', successMessage);
+        finishAction();
+        return result;
+      });
     }
 
     function executeDelete(recording, status, button) {
-      if (usesPublicAction(recording, 'DELETE'))
-        return publicExecute(recording, 'DELETE', {}, status, button).then(function (result) {
-          setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
-          if (typeof config.completeDelete === 'function') config.completeDelete(recording);
-          else finishAction();
-          return result;
-        });
-      button.disabled = true;
-      setStatus(status, 'pending', 'Aufnahme wird in den VDR-Papierkorb verschoben …');
-      return run('execute', recording, 'DELETE', {dryRun: false})
-        .then(function (result) {
-          if (!result || result.success !== true) {
-            throw new Error(actionError(result, 'Das Backend hat die Aktion abgelehnt.'));
-          }
-          setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
-          if (typeof config.completeDelete === 'function') config.completeDelete(recording);
-          else finishAction();
-          return result;
-        })
-        .catch(function (error) {
-          button.disabled = false;
-          setStatus(status, 'error', error.message);
-          throw error;
-        });
-    }
-
-    function waitForDeleteSettlement(recording, sourcePath) {
-      const native = String(shared.first(recording, ['backendNativeId', 'nativePath', 'path', 'fileName'], ''));
-      let attempts = 0;
-      return new Promise(function (resolve, reject) {
-        function check() {
-          attempts += 1;
-          requestFolder(sourcePath, recording.backendId).then(function (data) {
-            return findMatchingRecording(data, identity(recording), localTitle(recording), native, recording.backendId);
-          }).then(function (candidate) {
-            if (!candidate) {
-              resolve();
-              return;
-            }
-            if (attempts >= READBACK_ATTEMPTS) {
-              reject(new Error('Vorherige Papierkorb-Aktion ist noch nicht vollständig abgeschlossen.'));
-              return;
-            }
-            global.setTimeout(check, READBACK_DELAY_MS);
-          }).catch(function (error) {
-            if (attempts >= READBACK_ATTEMPTS) {
-              reject(error);
-              return;
-            }
-            global.setTimeout(check, READBACK_DELAY_MS);
-          });
-        }
-        check();
+      return publicExecute(recording, 'DELETE', {}, status, button).then(function (result) {
+        setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
+        if (typeof config.completeDelete === 'function') config.completeDelete(recording);
+        else finishAction();
+        return result;
       });
     }
 
     function enqueueDelete(recording, status, button, confirmDelete) {
       const backendId = recording.backendId;
-      const sourcePath = state().path || '';
       let queue = DELETE_QUEUE_BY_BACKEND.get(backendId);
       if (!queue) {
         queue = {tail: Promise.resolve(), pending: 0};
@@ -494,7 +242,7 @@
       button.disabled = true;
       if (wasQueued) setStatus(status, 'pending', 'Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion …');
       const execution = previous.then(function () {
-        return validate(recording, 'DELETE', {}, status, button, isDryRunReady)
+        return validate(recording, 'DELETE', {}, status, button)
           .then(function () {
             button.disabled = true;
             if (!confirmDelete()) {
@@ -504,14 +252,8 @@
             return executeDelete(recording, status, button);
           });
       });
-      const settled = execution.then(function (result) {
-        if (!result) return null;
-        // The public server already confirmed deletion with independent readback.
-        if (usesPublicAction(recording, 'DELETE')) return result;
-        return waitForDeleteSettlement(recording, sourcePath).then(function () {
-          return result;
-        });
-      });
+      // The public server already confirms deletion through independent readback.
+      const settled = execution;
       queue.tail = settled;
       const cleanup = function () {
         queue.pending = Math.max(0, queue.pending - 1);
@@ -565,7 +307,7 @@
         const newName = input.value.trim();
         if (!newName || !global.confirm('Aufnahme wirklich in „' + newName + '“ umbenennen?')) return;
         execute(recording, 'RENAME', {newName: newName}, status, apply,
-          renameReadback(recording, newName), 'Umbenennen abgeschlossen.').catch(function () {});
+          'Umbenennen abgeschlossen.').catch(function () {});
       });
       apply.disabled = true;
       input.addEventListener('input', function () {
@@ -625,8 +367,7 @@
         setStatus: setStatus,
         state: state,
         validate: validate,
-        execute: execute,
-        moveReadback: moveReadback
+        execute: execute
       });
     }
 
@@ -652,7 +393,7 @@
       function check() {
         if (busy || !current()) return;
         busy = true; ready = false; retry.disabled = true;
-        validate(recording, 'DELETE', {}, status, apply, isDryRunReady)
+        validate(recording, 'DELETE', {}, status, apply)
           .then(function () { ready = current(); apply.disabled = !ready; })
           .catch(function () {}).finally(function () { busy = false; retry.disabled = false; });
       }
@@ -689,11 +430,7 @@
       composeNewFolderTarget: composeNewFolderTarget,
       resolveMoveTarget: resolveMoveTarget,
       localTitle: localTitle,
-      identity: identity,
-      candidateMatches: candidateMatches,
-      isDryRunReady: isDryRunReady,
       actionError: actionError,
-      actionPayload: actionPayload,
       publicActionPayload: publicActionPayload
     })
   });

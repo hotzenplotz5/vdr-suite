@@ -2279,6 +2279,22 @@ int main()
         "{\"backendId\":\"router-backend\","
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"DELETE\",\"dryRun\":true}";
+    recordingActionValidationService.setRequestGuard(
+        [](const RecordingActionRequest&) {
+            return std::string("recording_cut_active_delete_blocked");
+        });
+    const auto cutBlocked = router.handlePost(
+        "/api/v1/recordings/actions/validate", deletePreviewBody);
+    assert(cutBlocked.statusCode == 200);
+    assert(cutBlocked.body.find("recording_cut_active_delete_blocked") != std::string::npos);
+    assert(cutBlocked.headers.count("ETag") == 0U);
+    recordingActionValidationService.setRequestGuard(
+        [](const RecordingActionRequest&) { return std::string("/private/native-error"); });
+    const auto sanitized = router.handlePost(
+        "/api/v1/recordings/actions/validate", deletePreviewBody);
+    assert(sanitized.body.find("/private/native-error") == std::string::npos);
+    assert(sanitized.body.find("Recording action validation failed") != std::string::npos);
+    recordingActionValidationService.setRequestGuard({});
     const auto deletePreflight = router.handlePost(
         "/api/v1/recordings/actions/validate", deletePreviewBody);
     assert(deletePreflight.statusCode == 200);

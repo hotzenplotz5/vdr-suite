@@ -161,7 +161,23 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
     // include backend-native diagnostics.
     validation.recordingId = publicId;
     if (!validation.valid)
-        validation.errors = {"Recording action validation failed"};
+    {
+        // These existing recording-cut guard codes contain no native data.
+        // Retain the actionable browser explanation without exposing other
+        // provider or internal validation diagnostics.
+        for (auto& error : validation.errors)
+        {
+            if (error != "recording_cut_operation_pending_delete_blocked" &&
+                error != "recording_cut_active_delete_blocked" &&
+                error != "recording_cut_state_unavailable_delete_blocked" &&
+                error != "recording_cut_journal_unavailable_delete_blocked" &&
+                error != "recording_cut_journal_invalid_delete_blocked" &&
+                error != "recording_identity_unavailable_delete_blocked")
+                error = "Recording action validation failed";
+        }
+        if (validation.errors.empty())
+            validation.errors = {"Recording action validation failed"};
+    }
 
     RecordingActionValidationResultJsonSerializer serializer;
     const std::string safeValidation = serializer.serialize(validation);

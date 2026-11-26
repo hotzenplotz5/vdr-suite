@@ -93,6 +93,12 @@ const context = vm.createContext({
   Set
 });
 
+// Load the actual identity resolver while retaining the existing DOM test double.
+const identityContext = vm.createContext({window: {}, document, console});
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), identityContext);
+shared.publicRecordingId = identityContext.window.VdrSuiteRecordings2Shared.publicRecordingId;
+shared.resolvePublicRecordingId = identityContext.window.VdrSuiteRecordings2Shared.resolvePublicRecordingId;
+
 [
   'web/frontend/recordings2-folder-artwork.js',
   'web/frontend/recordings2-actions.js',
@@ -208,9 +214,10 @@ async function main() {
   assert(!actionsSource.includes("shared.createButton('Papierkorb prüfen'"));
   assert(!actionsSource.includes('deleteReadback(recording)'));
   assert(actionsSource.includes('const DELETE_QUEUE_BY_BACKEND = new Map();'));
-  assert(actionsSource.includes('function waitForDeleteSettlement(recording, sourcePath)'));
+  assert(!actionsSource.includes('fetchClientRecordingActionValidation'));
+  assert(!actionsSource.includes('fetchClientRecordingActionExecution'));
   assert(actionsSource.includes('function enqueueDelete(recording, status, button, confirmDelete)'));
-  assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, button, isDryRunReady)"));
+  assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, button)"));
   assert(actionsSource.includes('return executeDelete(recording, status, button);'));
   assert(actionsSource.includes("Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion"));
   assert(actionsSource.includes("typeof config.completeDelete === 'function'"));
@@ -258,29 +265,24 @@ async function main() {
     startTime: 1767294900,
     durationSeconds: 5400
   };
-  const expected = test.identity(recording);
-  assert.strictEqual(test.candidateMatches(Object.assign({}, recording), expected), true);
-  assert.strictEqual(test.candidateMatches(Object.assign({}, recording, {
-    backendNativeId: '/srv/vdr/video/Andere/2026-01-01.20.15.1-0.rec'
-  }), expected), true);
-
-  const payload = test.actionPayload(recording, 'default', 'RENAME', {
-    dryRun: false,
-    newName: 'Tatort neu'
-  });
-  assert.strictEqual(payload.action, 'RENAME');
-  assert.strictEqual(payload.backendId, 'default');
-  assert.strictEqual(payload.dryRun, false);
-  assert.strictEqual(payload.newName, 'Tatort neu');
-  assert.strictEqual(payload.backendNativeId, recording.backendNativeId);
-
-  assert.strictEqual(test.isDryRunReady({
-    success: false,
-    message: 'dry-run backend execution skipped',
-    warnings: ['dry-run only'],
-    errors: []
-  }), true);
-  assert.strictEqual(test.isDryRunReady({success: true}), false);
+  const legacyPublicId = 'rec_' + 'b'.repeat(32);
+  const identityCalls = [];
+  const oldCard = Object.assign({backendId:'default'}, recording);
+  const identityApi = {fetchClientRecordings(options) {
+    identityCalls.push(options);
+    return Promise.resolve({totalCount:2, recordings:options.query.offset === 0
+      ? [Object.assign({}, oldCard, {backendId:'other', publicRecordingId:'rec_' + 'c'.repeat(32)})]
+      : [Object.assign({}, oldCard, {publicRecordingId:legacyPublicId})]});
+  }};
+  assert.strictEqual(await shared.resolvePublicRecordingId(oldCard, 'default', identityApi), legacyPublicId);
+  assert.deepStrictEqual(identityCalls.map(call => call.query.offset), [0, 1]);
+  assert(identityCalls.every(call => call.query.backend === 'default'));
+  await assert.rejects(shared.resolvePublicRecordingId(oldCard, 'other', identityApi));
+  await assert.rejects(shared.resolvePublicRecordingId(oldCard, 'default', {
+    fetchClientRecordings: () => Promise.resolve({totalCount:1, recordings:[
+      Object.assign({}, oldCard, {backendNativeId:'/different.rec', publicRecordingId:legacyPublicId})
+    ]})
+  }));
   assert.strictEqual(
     test.actionError({
       errors: ['recording_cut_operation_pending_delete_blocked']
@@ -301,17 +303,23 @@ async function main() {
   let release, allow = false, confirmAnswer = true, completed = null;
   const current = {backendId: 'default', path: ''};
   shared.clientApi = () => ({
-    fetchClientRecordingActionValidation({payload}) {
-      calls.push({kind: 'validate', payload}); return Promise.resolve({valid: true});
+    fetchClientRecordings({query}) {
+      assert.strictEqual(query.backend, 'default');
+      return Promise.resolve({totalCount:1, recordings:[
+        Object.assign({}, oldCard, {publicRecordingId:legacyPublicId})
+      ]});
     },
-    fetchClientRecordingActionExecution({payload}) {
-      calls.push({kind: payload.dryRun ? 'preview' : 'delete', payload});
-      if (!payload.dryRun) return Promise.resolve({success: true});
+    fetchClientRecordingActionValidation() { throw new Error('legacy validation called'); },
+    fetchClientRecordingActionExecution() { throw new Error('legacy execution called'); },
+    fetchPublicRecordingAction({execute, payload, headers}) {
+      calls.push({kind: execute ? 'delete' : 'preview', payload, headers});
+      if (execute) return Promise.resolve({data:{success:true, executed:true, readbackVerified:true,
+        recordingId:legacyPublicId, backendId:'default', action:'DELETE'}});
       return new Promise(resolve => { release = () => resolve(allow ? {
-        success: false, message: 'dry-run backend execution skipped', warnings: ['dry-run only'], errors: []
-      } : {success: false, errors: ['recording_cut_active_delete_blocked']}); });
+        data:{valid:true, recordingId:legacyPublicId}, etag:'"legacy-card-revision"'
+      } : {data:{valid:false, errors:['recording_cut_active_delete_blocked']}, etag:''}); });
     },
-    fetchClientRecordingFolder() { return Promise.resolve({recordings: []}); }
+    fetchClientRecordingFolder() { throw new Error('legacy action readback called'); }
   });
   window.confirm = () => { calls.push({kind: 'confirm'}); return confirmAnswer; };
   const panel = window.VdrSuiteRecordings2Actions.create({
@@ -347,7 +355,9 @@ async function main() {
   assert.strictEqual(calls.filter(c => c.kind === 'delete').length, 1);
   assert.strictEqual(calls.at(-2).kind, 'confirm');
   assert.strictEqual(calls.at(-1).kind, 'delete');
-  assert(calls.filter(c => c.payload).every(c => c.payload.backendNativeId === sourceNative && c.payload.recordingId === 'default:4711' && c.payload.backendId === 'default'));
+  assert(calls.filter(c => c.payload).every(c => !('backendNativeId' in c.payload) &&
+    !('recordingPath' in c.payload) && c.payload.recordingId === legacyPublicId && c.payload.backendId === 'default'));
+  assert.strictEqual(calls.at(-1).headers['If-Match'], '"legacy-card-revision"');
   assert.strictEqual(completed.backendNativeId, sourceNative);
   current.backendId = 'other'; retry.click(); await flush();
   assert.strictEqual(calls.filter(c => c.kind === 'delete').length, 1);
