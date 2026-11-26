@@ -174,6 +174,9 @@ RECORDING_METADATA_AUDITED = {
     }
     for operation in ("search", "seasons", "episodes", "assign", "withdraw")
 }
+RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/trailer"] = {
+    "get": 'const auto identity = trailerLookup(route.backendId, native);',
+}
 RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/genre"] = {
     "get": 'metadata->getManualRecordingGenre(route.backendId, native, publicId)',
     "post": 'route.operation == "genre"',
@@ -485,12 +488,20 @@ def validate(
                 router_marker = "ManualRecordingMetadataApiRuntime::instance().tryHandle" + (
                     "Get(" if method == "get" else "Post(")
                 if method == "get" and (
-                    "isPublicManualGenreRead" not in security_source or
+                    "isPublicManualMetadataRead" not in security_source or
+                    '(manualMetadataOperation == "genre" || manualMetadataOperation == "trailer")' not in security_source or
+                    'std::vector<std::string>{manualMetadataBackendId}' not in security_source or
                     'recordingReadRequest.permission = "recordings.view"' not in security_source or
                     native_router_source.find(router_marker) >
                     native_router_source.find("PublicApiRuntime::instance().tryHandleGet(")
                 ):
-                    errors.append(f"{where}: public genre read scope or routing missing")
+                    errors.append(f"{where}: public metadata read scope or routing missing")
+                if method == "get" and (
+                    'authorizedBackendIds.front() != route.backendId' not in recording_metadata_source or
+                    'const auto native = lookup(route.backendId, publicId);' not in recording_metadata_source or
+                    'validPublicRecordingId(publicId)' not in recording_metadata_source
+                ):
+                    errors.append(f"{where}: public metadata GET identity binding missing")
                 if native_router_source.count(router_marker) != 1:
                     errors.append(f"{where}: manual metadata router owner missing")
                 if marker not in recording_metadata_source or (

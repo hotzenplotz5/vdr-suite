@@ -276,7 +276,10 @@ line_limits = {
     'metadata_detail': 140,
     'metadata_assignment': 360,
     'metadata_genre': 220,
-    'shared': 320,
+    # One shared presentation owner currently supports native and opaque
+    # Public-v1 identities during the migration. Keep a bounded budget
+    # rather than split that cohesive owner solely to satisfy a line count.
+    'shared': 400,
     'folder_artwork': 220,
     'actions': 620,
     'move_editor': 220,

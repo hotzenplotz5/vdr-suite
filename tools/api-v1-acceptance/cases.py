@@ -194,7 +194,12 @@ def source_contract_tests(a):
                            check=False, timeout=25)
     except (OSError, subprocess.SubprocessError):
         raise Problem("contract_audit_failed", "OpenAPI drift audit could not run")
-    a.require(r.returncode == 0, "authoritative OpenAPI drift auditor failed")
+    if r.returncode != 0:
+        # Source-only audit output identifies the failed route/contract; no
+        # runtime requests or credentials are involved in this subprocess.
+        detail = (r.stdout + r.stderr).decode("utf-8", errors="replace").strip()
+        raise Problem("contract_audit_failed",
+                      "authoritative OpenAPI drift auditor failed: " + detail[:3000])
 
 
 def controlled_contracts_offline(a):

@@ -48,6 +48,15 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/assign"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_public_trailer_contract_and_read_scope(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/trailer"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            ' || manualMetadataOperation == "trailer"', "", 1)
+        self.assert_rejected(security_source=changed_security,
+                             reason="public metadata read scope or routing missing")
+
     def test_missing_native_timer_aux_contract(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/native-timers/{timerId}/aux"]
