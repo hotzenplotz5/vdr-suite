@@ -23,20 +23,19 @@
     return element;
   }
 
-  function backendPath(backendId, operation) {
-    return '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +
-      '/recordings/metadata/' + operation;
-  }
-
   function publicBackendPath(backendId, operation) {
     return '/api/v1/backends/' + encodeURIComponent(text(backendId) || 'default') +
       '/recordings/metadata/' + operation;
   }
 
   function recordingIdentity(recording) {
-    const id = text(recording && (recording.publicRecordingId || recording.recordingId));
-    return /^rec_[0-9a-f]{32}$/.test(id)
-      ? {recordingId:id} : {resourceKey:text(recording && recording.backendNativeId)};
+    const id = shared.publicRecordingId(recording);
+    return id ? {recordingId:id} : {};
+  }
+
+  function resolveRecordingIdentity(recording, backendId) {
+    return shared.resolvePublicRecordingId(recording, backendId)
+      .then(function (recordingId) { return {recordingId:recordingId}; });
   }
 
   function csrfHeaders() {
@@ -55,8 +54,7 @@
   }
 
   function post(backendId, operation, payload) {
-    const route = payload && Object.prototype.hasOwnProperty.call(payload, 'resourceKey')
-      ? backendPath(backendId, operation) : publicBackendPath(backendId, operation);
+    const route = publicBackendPath(backendId, operation);
     return api().requestJson(route, {
       method: 'POST',
       headers: Object.assign({
@@ -65,6 +63,12 @@
       body: JSON.stringify(payload || {}),
       cache: 'no-store',
       credentials: 'same-origin'
+    });
+  }
+
+  function postRecording(backendId, operation, recording, payload) {
+    return resolveRecordingIdentity(recording, backendId).then(function (identity) {
+      return post(backendId, operation, Object.assign({}, payload, identity));
     });
   }
 
@@ -184,9 +188,9 @@
     if (current) {
       toolbar.appendChild(button('Manuelle Zuordnung entfernen', function () {
         setStatus('Zuordnung wird entfernt …', false);
-        post(backendId, 'withdraw', Object.assign(recordingIdentity(recording), {
+        postRecording(backendId, 'withdraw', recording, {
           expectedRevision: revision
-        })).then(function () {
+        }).then(function () {
           setStatus('Manuelle Zuordnung wurde entfernt.', false);
           refreshDetail();
         }).catch(function (error) {
@@ -257,9 +261,10 @@
 
     function assign(candidate, mediaType) {
       setStatus('Metadaten werden zugeordnet …', false);
-      post(
+      postRecording(
         backendId,
         'assign',
+        recording,
         assignmentPayload(recording, candidate, revision, mediaType)
       ).then(function (result) {
         revision = Number(result && result.revision || revision + 1);
@@ -362,13 +367,14 @@
     mount: mount,
     recordingIdentity: recordingIdentity,
     post: post,
-    backendPath: backendPath,
+    postRecording: postRecording,
+    resolveRecordingIdentity: resolveRecordingIdentity,
     publicBackendPath: publicBackendPath,
     __test: Object.freeze({
-      backendPath: backendPath,
       publicBackendPath: publicBackendPath,
       recordingIdentity: recordingIdentity,
       post: post,
+      postRecording: postRecording,
       assignmentPayload: assignmentPayload,
       candidateLabel: candidateLabel
     })

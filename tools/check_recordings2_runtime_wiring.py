@@ -190,8 +190,9 @@ required_tokens = {
     ),
     'metadata_genre': (
         'global.VdrSuiteRecordings2MetadataGenre',
-        "'/recordings/metadata/genre'",
-        'VdrSuiteBrowserSession',
+        'assignment().publicBackendPath',
+        'assignment().postRecording',
+        'assignment().resolveRecordingIdentity',
         'Genre hinzufügen',
         'Manuelles Genre entfernen',
     ),

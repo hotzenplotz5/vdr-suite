@@ -23,25 +23,25 @@
   }
 
   function backendPath(backendId) {
-    return assignment().backendPath(backendId, 'genre');
+    return assignment().publicBackendPath(backendId, 'genre');
   }
 
   function genrePayload(recording, genreId) {
     return Object.assign(assignment().recordingIdentity(recording), {genreId: text(genreId)});
   }
 
-  function post(backendId, payload) {
-    return assignment().post(backendId, 'genre', payload);
+  function post(backendId, recording, genreId) {
+    return assignment().postRecording(backendId, 'genre', recording, {
+      genreId: text(genreId)
+    });
   }
 
   function get(backendId, recording) {
-    const identity = assignment().recordingIdentity(recording);
-    const publicId = identity.recordingId;
-    const route = publicId
-      ? assignment().publicBackendPath(backendId, 'genre') + '?recordingId=' + encodeURIComponent(publicId)
-      : backendPath(backendId) + '?resourceKey=' + encodeURIComponent(identity.resourceKey);
-    return global.VdrSuiteClientApi.requestJson(route,
-      {method: 'GET', cache: 'no-store', credentials: 'same-origin'});
+    return assignment().resolveRecordingIdentity(recording, backendId).then(function (identity) {
+      const route = backendPath(backendId) + '?recordingId=' + encodeURIComponent(identity.recordingId);
+      return global.VdrSuiteClientApi.requestJson(route,
+        {method: 'GET', cache: 'no-store', credentials: 'same-origin'});
+    });
   }
 
   function mount(section, recording, backendId, dependencies) {
@@ -73,7 +73,7 @@
     const saveGenreButton = button('Genre speichern', function () {
       saveGenreButton.disabled = true;
       setStatus('Genre wird gespeichert …', false);
-      post(backendId, genrePayload(recording, genreSelect.value)).then(function (result) {
+      post(backendId, recording, genreSelect.value).then(function (result) {
         const selected = text(result && result.selectedGenreId);
         genreSelect.value = selected;
         clearGenreButton.disabled = !selected;
@@ -93,7 +93,7 @@
       clearGenreButton.disabled = true;
       saveGenreButton.disabled = true;
       setStatus('Manuelles Genre wird entfernt …', false);
-      post(backendId, genrePayload(recording, '')).then(function () {
+      post(backendId, recording, '').then(function () {
         genreSelect.value = '';
         clearGenreButton.disabled = true;
         saveGenreButton.disabled = false;

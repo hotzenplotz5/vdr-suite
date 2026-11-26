@@ -14,11 +14,7 @@ const source = fs.readFileSync(sourcePath, 'utf8');
 const genreSourcePath = path.join(__dirname, '..', 'recordings2-metadata-genre.js');
 const genreSource = fs.readFileSync(genreSourcePath, 'utf8');
 
-const windowObject = {
-  VdrSuiteRecordings2Shared: {
-    recordingTitle: recording => String(recording && recording.title || '')
-  }
-};
+const windowObject = {};
 const context = vm.createContext({
   window: windowObject,
   WeakSet: WeakSet,
@@ -30,6 +26,8 @@ const context = vm.createContext({
   Promise: Promise,
   console: console
 });
+const sharedSourcePath = path.join(__dirname, '..', 'recordings2-shared.js');
+vm.runInContext(fs.readFileSync(sharedSourcePath, 'utf8'), context, {filename: sharedSourcePath});
 vm.runInContext(source, context, {filename: sourcePath});
 vm.runInContext(genreSource, context, {filename: genreSourcePath});
 
@@ -43,8 +41,8 @@ assert.strictEqual(typeof genreRuntime.mount, 'function');
 assert(genreRuntime.__test);
 
 assert.strictEqual(
-  runtime.__test.backendPath('living room', 'search'),
-  '/api/backends/living%20room/recordings/metadata/search'
+  runtime.__test.publicBackendPath('living room', 'search'),
+  '/api/v1/backends/living%20room/recordings/metadata/search'
 );
 assert.strictEqual(
   runtime.__test.candidateLabel({kind: 'movie'}),
@@ -82,7 +80,6 @@ const payload = runtime.__test.assignmentPayload(
   'episode'
 );
 assert.deepStrictEqual(JSON.parse(JSON.stringify(payload)), {
-  resourceKey: '/video/Sherlock/episode.rec',
   providerId: 'tmdb',
   externalNamespace: 'tv-episode',
   externalId: '123',
@@ -103,7 +100,6 @@ assert.deepStrictEqual(
     'crime'
   ))),
   {
-    resourceKey: '/video/Sherlock/episode.rec',
     genreId: 'crime'
   }
 );
@@ -116,9 +112,11 @@ assert(source.includes('VdrSuiteBrowserSession'));
 assert(hasPostOperation('search'));
 assert(hasPostOperation('seasons'));
 assert(hasPostOperation('episodes'));
-assert(hasPostOperation('assign'));
-assert(hasPostOperation('withdraw'));
-assert(genreSource.includes('post(backendId, genrePayload'));
+assert(source.includes("'assign',\n        recording,"));
+assert(source.includes("postRecording(backendId, 'withdraw', recording"));
+assert(genreSource.includes('assignment().postRecording'));
+assert(!source.includes("'/api/backends/'"));
+assert(!genreSource.includes('resourceKey'));
 assert(genreSource.includes('function get(backendId, recording)'));
 assert(genreSource.includes('Genre hinzufügen'));
 assert(source.includes('VdrSuiteRecordings2MetadataGenre'));
@@ -136,16 +134,27 @@ const publicPayload = runtime.__test.assignmentPayload({
   title:'Forrest Gump'}, 1, 'movie');
 assert.strictEqual(publicPayload.recordingId, recId);
 assert(!('resourceKey' in publicPayload));
+async function verifyRequests() {
 const calls = [];
 windowObject.VdrSuiteBrowserSession = {csrfHeaders:() => ({'X-CSRF-Token':'existing-session'})};
-windowObject.VdrSuiteClientApi = {requestJson(route, options) {
-  calls.push({route, options});
-  return Promise.resolve({revision:2});
-}};
-runtime.__test.post('living-room','assign',publicPayload);
-runtime.__test.post('living-room','withdraw',Object.assign(
-  runtime.__test.recordingIdentity({recordingId:recId}), {expectedRevision:2}));
-runtime.__test.post('living-room','search',{query:'Forrest Gump',kind:'movie',limit:12});
+const oldCard = {backendId:'living-room', backendNativeId:'/video/Sherlock/episode.rec',
+  path:'/video/Sherlock/episode.rec', recordingId:'old-native-id'};
+const lookups = [];
+windowObject.VdrSuiteClientApi = {
+  fetchClientRecordings(options) {
+    lookups.push(options);
+    return Promise.resolve({totalCount:1, recordings:[
+      Object.assign({}, oldCard, {publicRecordingId:recId})
+    ]});
+  },
+  requestJson(route, options) {
+    calls.push({route, options});
+    return Promise.resolve({revision:2});
+  }
+};
+await runtime.__test.postRecording('living-room','assign',oldCard,publicPayload);
+await runtime.__test.postRecording('living-room','withdraw',{recordingId:recId}, {expectedRevision:2});
+await runtime.__test.post('living-room','search',{query:'Forrest Gump',kind:'movie',limit:12});
 assert(calls.every(c => c.route.startsWith('/api/v1/backends/living-room/recordings/metadata/')));
 assert(calls.every(c => c.options.headers['X-CSRF-Token'] === 'existing-session'));
 assert.strictEqual(JSON.parse(calls[0].options.body).recordingId, recId);
@@ -160,11 +169,23 @@ const publicGenre = genreRuntime.__test.genrePayload({
   publicRecordingId:recId, backendNativeId:'/native/never-submit.rec'
 }, 'crime');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(publicGenre)), {recordingId:recId, genreId:'crime'});
-genreRuntime.__test.post('living-room', publicGenre);
-genreRuntime.__test.post('living-room', genreRuntime.__test.genrePayload({recordingId:recId}, ''));
-genreRuntime.__test.get('living-room', {publicRecordingId:recId, backendNativeId:'/native/never-submit.rec'});
+await genreRuntime.__test.post('living-room', oldCard, 'crime');
+await genreRuntime.__test.post('living-room', {recordingId:recId}, '');
+await genreRuntime.__test.get('living-room', oldCard);
 assert.strictEqual(calls[calls.length - 3].route, '/api/v1/backends/living-room/recordings/metadata/genre');
 assert.strictEqual(JSON.parse(calls[calls.length - 3].options.body).recordingId, recId);
 assert.strictEqual(JSON.parse(calls[calls.length - 2].options.body).genreId, '');
 assert.strictEqual(calls[calls.length - 1].route, '/api/v1/backends/living-room/recordings/metadata/genre?recordingId=' + recId);
 assert.strictEqual(calls[calls.length - 1].options.method, 'GET');
+
+assert.strictEqual(lookups.length, 3);
+assert(lookups.every(call => call.query.backend === 'living-room'));
+assert(calls.every(call => !String(call.options.body || '').includes('resourceKey')));
+assert(calls.every(call => !String(call.options.body || '').includes('/video/')));
+const before = calls.length;
+await assert.rejects(runtime.__test.postRecording('other','withdraw',oldCard,{expectedRevision:2}));
+assert.strictEqual(calls.length,before);
+console.log('recordings2 metadata assignment and genre public identity requests passed');
+}
+
+verifyRequests().catch(error => {console.error(error); process.exitCode = 1;});
