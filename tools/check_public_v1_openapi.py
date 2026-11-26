@@ -153,6 +153,10 @@ RECORDING_ACTION_AUDITED = {
 }
 
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/recently-watched": {
+        "get": ('const std::string historyPath = collection + "/recently-watched";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
     "/api/v1/recording-playback-sessions/continue-watching": {
         "get": ('const std::string continuePath = collection + "/continue-watching";',
                 'isPublicDeviceRecordingSessionRead'),

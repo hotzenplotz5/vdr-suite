@@ -227,14 +227,17 @@ int runRecordingMediaHttpRuntime(
             // Without an explicit Human<->Device binding, the Service actor
             // receives only its OWN progress, never a guessed Human account.
             const std::string continuePath = collection + "/continue-watching";
-            if (target.rfind(continuePath, 0) == 0) {
+            const std::string historyPath = collection + "/recently-watched";
+            const bool history = target.rfind(historyPath, 0) == 0;
+            if (history || target.rfind(continuePath, 0) == 0) {
+                const auto& readPath = history ? historyPath : continuePath;
                 // Only exact GET path+query; POST bodies must not access
                 // this read surface or silently turn into a write.
                 if (!body.empty() ||
-                    target.rfind(continuePath + "?backendId=", 0) != 0)
+                    target.rfind(readPath + "?backendId=", 0) != 0)
                     return error(400, "continue_watching_request_invalid");
                 const std::string backendId =
-                    target.substr((continuePath + "?backendId=").size());
+                    target.substr((readPath + "?backendId=").size());
                 if (backendId.empty() || backendId.size() > 128U ||
                     backendId == "." || backendId == ".." ||
                     !std::all_of(backendId.begin(), backendId.end(),
@@ -267,6 +270,21 @@ int runRecordingMediaHttpRuntime(
                     return error(403, "recording_progress_context_forbidden");
                 if (actor.status == DevicePlaybackActorStatus::unavailable)
                     return error(503, "recording_progress_context_unavailable");
+                if (history) {
+                    // Same verified Device, actor binding, backend grant and
+                    // current Recording admission as Continue Watching.
+                    return ContinueWatchingApiRuntime::instance().publicRecentlyWatched(
+                        actor.actorId, backendId,
+                        [&](const std::string& nativeId) -> std::optional<std::string> {
+                            const auto publicId = recordingIdentities.find(backendId, nativeId);
+                            if (!publicId) return std::nullopt;
+                            const auto admitted = admission.admit(verifiedDevice, backendId, *publicId);
+                            if (admitted.status != PublicRecordingDevicePlaybackAdmissionStatus::ready ||
+                                admitted.recording.backendNativeId != nativeId)
+                                return std::nullopt;
+                            return publicId;
+                        });
+                }
                 const auto entries =
                     ContinueWatchingApiRuntime::instance().publicCandidates(
                         actor.actorId, backendId);
