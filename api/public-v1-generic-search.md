@@ -59,3 +59,7 @@ Live-TV playback **is not provided by these search GETs**. The pre-existing
 safe to expose to a paired TV client without dedicated Public-v1 device
 authorization, MediaAccess credential binding and lifecycle tests. Do not
 wire it directly to TV or expose stream URLs.
+
+### Person matches (additive projection)
+
+Both authorized search routes return `personProjectionVersion: 1` and per-item `matchedPerson`, `matchedRole`, `matchReason`, and `personKey` from the existing global search owner. The key uses the same Unicode folding and role as the Web people grouping. Clients combine the already authorized recording and EPG pages in key order, counting only returned matches. No extra permission, second matcher, native ID or filesystem path is introduced. Older servers lack the version marker. Recording subtitles and EPG channel name/description are also projected.

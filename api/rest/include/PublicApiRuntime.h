@@ -452,6 +452,7 @@ struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;
     std::string title, subtitle, startTime, endTime;
     bool edited = false;
+    std::string matchedPerson, matchedRole, matchReason, personKey, channelName, description;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;

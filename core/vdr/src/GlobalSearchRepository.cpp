@@ -244,6 +244,11 @@ std::string epgCandidateSql()
         "FROM candidate_hits GROUP BY backend_id,channel_id,event_id) ";
 }
 
+std::string personSummaryKey(const std::string& name, const std::string& role)
+{
+    return name.empty() ? std::string{} : GlobalSearchRepository::foldText(name) + "\n" + role;
+}
+
 void addPersonSummary(
     std::map<std::string, GlobalSearchPersonSummary>& people,
     const std::string& name,
@@ -251,7 +256,7 @@ void addPersonSummary(
     bool recording)
 {
     if (name.empty()) return;
-    const std::string key = GlobalSearchRepository::foldText(name) + "\n" + role;
+    const std::string key = personSummaryKey(name, role);
     auto& summary = people[key];
     summary.name = name;
     summary.role = role;
@@ -421,16 +426,18 @@ GlobalSearchResult GlobalSearchRepository::search(
     searchEpg(result);
 
     std::map<std::string, GlobalSearchPersonSummary> summaries;
-    for (const auto& recording : result.recordings)
+    for (auto& recording : result.recordings)
     {
+        recording.personKey = personSummaryKey(recording.matchedPerson, recording.matchedRole);
         addPersonSummary(
             summaries,
             recording.matchedPerson,
             recording.matchedRole,
             true);
     }
-    for (const auto& event : result.epg)
+    for (auto& event : result.epg)
     {
+        event.personKey = personSummaryKey(event.matchedPerson, event.matchedRole);
         addPersonSummary(
             summaries,
             event.matchedPerson,

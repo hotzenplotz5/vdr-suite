@@ -7830,10 +7830,17 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                     "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
             else
                 body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
-                    "\",\"edited\":" + (item.edited ? "true" : "false");
-            body += "}";
+                    "\",\"edited\":" + (item.edited ? "true" : "false") +
+                    ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+            if (request.epg)
+                body += ",\"channelName\":\"" + jsonEscape(item.channelName) +
+                    "\",\"description\":\"" + jsonEscape(item.description) + "\"";
+            body += ",\"matchedPerson\":\"" + jsonEscape(item.matchedPerson) +
+                "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
+                "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +
+                "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"}";
         }
-        body += "],\"page\":{\"offset\":" +
+        body += "],\"personProjectionVersion\":1,\"page\":{\"offset\":" +
             std::to_string(request.offset) + ",\"limit\":" +
             std::to_string(request.limit) + ",\"totalCount\":" +
             std::to_string(result.totalCount) + ",\"hasMore\":" +

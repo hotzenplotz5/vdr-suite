@@ -300,6 +300,10 @@ int main()
             result.backendNativeId = "hobbit-" + std::to_string(i);
             result.title = "Der Hobbit " + std::to_string(i);
             result.path = "/private/recordings/hobbit";
+            result.matchedPerson = "Ewan McGregor";
+            result.matchedRole = "actor";
+            result.personKey = "ewan mcgregor\nactor";
+            result.matchReason = "person";
             web.recordings.push_back(result);
             VdrRecording current;
             current.backendId = request.backendId;
@@ -332,6 +336,9 @@ int main()
     assert(parity.body.find("\"title\":\"Der Hobbit 2\"") != std::string::npos);
     assert(parity.body.find("VDR-native-title") == std::string::npos);
     assert(parity.body.find("/private") == std::string::npos);
+    assert(parity.body.find("\"personProjectionVersion\":1") != std::string::npos);
+    assert(parity.body.find("\"matchedPerson\":\"Ewan McGregor\"") != std::string::npos);
+    assert(parity.body.find("\"personKey\":\"ewan mcgregor\\nactor\"") != std::string::npos);
     assert(parity.body.find("backendNativeId") == std::string::npos);
     assert(parity.body.find("\"hasMore\":false") != std::string::npos);
 

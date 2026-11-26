@@ -8668,12 +8668,31 @@
                     "page"
                   ],
                   "properties": {
+                    "personProjectionVersion": {
+                      "type": "integer",
+                      "const": 1
+                    },
                     "items": {
                       "type": "array",
                       "maxItems": 30,
                       "items": {
                         "type": "object",
                         "properties": {
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "matchedPerson": {
+                            "type": "string"
+                          },
+                          "matchedRole": {
+                            "type": "string"
+                          },
+                          "matchReason": {
+                            "type": "string"
+                          },
+                          "personKey": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "const": "recording"
@@ -8839,12 +8858,34 @@
                     "page"
                   ],
                   "properties": {
+                    "personProjectionVersion": {
+                      "type": "integer",
+                      "const": 1
+                    },
                     "items": {
                       "type": "array",
                       "maxItems": 30,
                       "items": {
                         "type": "object",
                         "properties": {
+                          "matchedPerson": {
+                            "type": "string"
+                          },
+                          "matchedRole": {
+                            "type": "string"
+                          },
+                          "matchReason": {
+                            "type": "string"
+                          },
+                          "personKey": {
+                            "type": "string"
+                          },
+                          "channelName": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "const": "epg"

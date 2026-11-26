@@ -19,6 +19,11 @@ GlobalSearchRecording recording(
     item.backendNativeId = native;
     item.title = effectiveTitle;
     item.path = "/private/must-not-leak";
+    item.matchedPerson = "Bruce Willis";
+    item.matchedRole = "actor";
+    item.personKey = "bruce willis\nactor";
+    item.matchReason = "person";
+    item.subtitle = "Episode";
     item.startTime = "1760000000";
     return item;
 }
@@ -73,6 +78,11 @@ int main()
     for (std::size_t index = 0; index < 3U; ++index)
     {
         assert(page.items[index].title == web.recordings[index].title);
+        assert(page.items[index].matchedPerson == "Bruce Willis");
+        assert(page.items[index].matchedRole == "actor");
+        assert(page.items[index].personKey == "bruce willis\nactor");
+        assert(page.items[index].matchReason == "person");
+        assert(page.items[index].subtitle == "Episode");
         assert(page.items[index].recordingId.rfind("rec_", 0U) == 0U);
         assert(page.items[index].channelId.empty());
         assert(page.items[index].eventId.empty());
@@ -110,6 +120,10 @@ int main()
         event.channelId = "channel";
         event.eventId = std::to_string(i+1);
         event.title = "Young Sheldon";
+        event.matchedPerson = "Ewan McGregor";
+        event.personKey = "ewan mcgregor\nactor";
+        event.matchedRole = "actor";
+        event.channelName = "Test channel";
         event.subtitle = "Hobbits und die Wissenschaftspause";
         event.startTime = "1792000000";
         event.endTime = "1792001800";
@@ -124,6 +138,9 @@ int main()
     assert(epgPage.items.front().subtitle ==
         "Hobbits und die Wissenschaftspause");
     assert(epgPage.items.front().recordingId.empty());
+    assert(epgPage.items.front().matchedPerson == "Ewan McGregor");
+    assert(epgPage.items.front().personKey == "ewan mcgregor\nactor");
+    assert(epgPage.items.front().channelName == "Test channel");
 
     // Never allow an item from another backend through the public adapter.
     web.status = "ready";

@@ -19,6 +19,7 @@ struct GlobalSearchRecording
     std::string matchedPerson;
     std::string matchedRole;
     std::string matchReason;
+    std::string personKey;
 };
 
 struct GlobalSearchEpgEvent
@@ -37,6 +38,7 @@ struct GlobalSearchEpgEvent
     std::string matchedPerson;
     std::string matchedRole;
     std::string matchReason;
+    std::string personKey;
 };
 
 struct GlobalSearchPersonSummary
