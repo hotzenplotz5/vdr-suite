@@ -7876,7 +7876,14 @@
               "maxLength": 128,
               "pattern": "^[A-Za-z0-9._-]+$"
             },
-            "description": "Exactly one authorized backendId; no other query parameters"
+            "description": "Exactly one authorized backendId"
+          },
+          {
+            "name": "nativeMatch",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "enum": [1]},
+            "description": "Opt-in equality proof for local VDR integration; no raw native path."
           }
         ],
         "responses": {
@@ -8918,7 +8925,7 @@
         ],
         "operationId": "listOrBrowsePublicRecordings",
         "summary": "List authorized recordings or browse a folder hierarchy",
-        "description": "Requires recordings.view@backendId. Two exclusive query modes exist on the same GET URL. Default/list: backendId, limit (1–100; default 50), opaque rc1_ cursor, optional sort=recordingId and order=asc; keyset recordingId order with page.nextCursor and links. Folder mode: view=folders, optional folderId matching fld1_+32 lowercase hex, limit (1–100), offset (0–1,000,000); returns mixed kind=folder/kind=recording items and offset/totalCount pagination. Folder mode prohibits cursor/sort/order; list mode prohibits folderId/offset. Folder leaf items may be recorded as kind=recording even when representing a single-recording title folder. Durable Suite recordingId is rec_+32 lowercase hex, not a native path or playable media URL. No collection ETag, native path, backendNativeId or automatic playlist/session creation.",
+        "description": "Requires recordings.view@backendId. Two exclusive query modes exist on the same GET URL. Default/list: backendId, limit (1–100; default 50), opaque rc1_ cursor, optional sort=recordingId and order=asc; keyset recordingId order with page.nextCursor and links. Folder mode: view=folders, optional folderId matching fld1_+32 lowercase hex, limit (1–100), offset (0–1,000,000); returns mixed kind=folder/kind=recording items and offset/totalCount pagination. Folder mode prohibits cursor/sort/order; list mode prohibits folderId/offset. Folder leaf items may be recorded as kind=recording even when representing a single-recording title folder. Durable Suite recordingId is rec_+32 lowercase hex, not a native path or playable media URL. No collection ETag, native path, backendNativeId or automatic playlist/session creation. Home views new and movies reuse the canonical Web recording query and return recording-only offset pages; movies requires both release year bounds.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
@@ -8984,11 +8991,25 @@
             "name": "view",
             "in": "query",
             "required": false,
-            "description": "Enable folder browsing; when omitted use keyset list view.",
+            "description": "Folder browse or Home discovery; when omitted use keyset list view.",
             "schema": {
               "type": "string",
-              "const": "folders"
+              "enum": ["folders", "new", "movies"]
             }
+          },
+          {
+            "name": "movieReleaseYearFrom",
+            "in": "query",
+            "required": false,
+            "description": "Required only for view=movies.",
+            "schema": {"type": "integer", "minimum": 1888, "maximum": 9999}
+          },
+          {
+            "name": "movieReleaseYearTo",
+            "in": "query",
+            "required": false,
+            "description": "Required only for view=movies.",
+            "schema": {"type": "integer", "minimum": 1888, "maximum": 9999}
           },
           {
             "name": "folderId",
@@ -9015,7 +9036,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Either the keyset recording collection or folder browse representation (selected by view=folders).",
+            "description": "Either the keyset recording collection or offset folder/Home browse representation.",
             "headers": {
               "Cache-Control": {
                 "description": "No storage.",
@@ -9976,6 +9997,8 @@
                             "type": "string",
                             "pattern": "^rec_[0-9a-f]{32}$"
                           },
+                          "title": {"type": "string"},
+                          "subtitle": {"type": "string"},
                           "positionSeconds": {
                             "type": "integer",
                             "minimum": 1
@@ -10017,6 +10040,117 @@
           }
         ],
         "x-vdr-suite-auth-profile": "device"
+      }
+    },
+    "/api/v1/recording-playback-sessions/recently-watched": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "listDeviceRecentlyWatched",
+        "summary": "List canonical recent recording activity for the resolved Device playback actor",
+        "description": "Existing RecentlyWatched owner; same verified Device, backend grant, explicit playback-account binding and current per-recording admission as Continue Watching. No native identifiers or paths.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device Credential and media.recording.play@backendId grant, per-entry current rec_ identity admission."
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "backendId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to 100 admitted current history entries in canonical activity order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "items",
+                    "limit"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "const": 100
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "recordingId",
+                          "title",
+                          "subtitle",
+                          "positionKnown",
+                          "positionSeconds",
+                          "completionKnown",
+                          "completed",
+                          "lastActivityAt"
+                        ],
+                        "properties": {
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "positionKnown": {
+                            "type": "boolean"
+                          },
+                          "positionSeconds": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "completionKnown": {
+                            "type": "boolean"
+                          },
+                          "completed": {
+                            "type": "boolean"
+                          },
+                          "lastActivityAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid exact backend."
+          },
+          "401": {
+            "description": "Missing Device proof."
+          },
+          "403": {
+            "description": "Missing live Device backend playback grant."
+          },
+          "503": {
+            "description": "Recording backend or progress owner unavailable."
+          }
+        }
       }
     },
     "/api/v1/recording-playback-sessions/progress": {
@@ -11041,12 +11175,31 @@
                     "page"
                   ],
                   "properties": {
+                    "personProjectionVersion": {
+                      "type": "integer",
+                      "const": 1
+                    },
                     "items": {
                       "type": "array",
                       "maxItems": 30,
                       "items": {
                         "type": "object",
                         "properties": {
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "matchedPerson": {
+                            "type": "string"
+                          },
+                          "matchedRole": {
+                            "type": "string"
+                          },
+                          "matchReason": {
+                            "type": "string"
+                          },
+                          "personKey": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "const": "recording"
@@ -11224,12 +11377,34 @@
                     "page"
                   ],
                   "properties": {
+                    "personProjectionVersion": {
+                      "type": "integer",
+                      "const": 1
+                    },
                     "items": {
                       "type": "array",
                       "maxItems": 30,
                       "items": {
                         "type": "object",
                         "properties": {
+                          "matchedPerson": {
+                            "type": "string"
+                          },
+                          "matchedRole": {
+                            "type": "string"
+                          },
+                          "matchReason": {
+                            "type": "string"
+                          },
+                          "personKey": {
+                            "type": "string"
+                          },
+                          "channelName": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "const": "epg"
@@ -15891,6 +16066,7 @@
               "metadata"
             ],
             "properties": {
+          "nativeMatchProof": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Optional exact native-path equality proof, scoped to public ID and backend. Not an authorization or identity token."},
               "metadata": {
                 "$ref": "#/components/schemas/PublicRecordingMetadataDetail"
               }
@@ -16007,6 +16183,7 @@
               "kind"
             ],
             "properties": {
+          "subtitle": {"type": "string"},
               "kind": {
                 "type": "string",
                 "const": "recording"

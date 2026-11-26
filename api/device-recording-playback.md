@@ -154,3 +154,7 @@ owner may establish a fresh revision at user-initiated start. The former
 legacy request without `expectedRevision` is still accepted as a
 migration-compatibility contract and is **not** claimed to be protected
 against competing older clients.
+
+### Recently Watched Device read
+
+`GET /api/v1/recording-playback-sessions/recently-watched?backendId=...` projects the existing canonical RecentlyWatched service, not Continue Watching or a new history store. It uses the same verified Device credential, exact-backend playback grant, explicit playback-account binding and current per-recording admission as Continue Watching. It returns up to 100 public recording IDs in canonical activity order, title/subtitle, position and completion known flags and last activity. Native IDs and paths remain private. This read alone does not create activity, provide a native playback mapping or establish live SSE delivery.

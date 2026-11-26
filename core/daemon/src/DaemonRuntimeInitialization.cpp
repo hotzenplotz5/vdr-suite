@@ -1,3 +1,4 @@
+#include <openssl/evp.h>
 #include "DaemonRuntime.h"
 
 #include "DaemonRuntimeRecordingCut.h"
@@ -3464,6 +3465,39 @@ bool DaemonRuntime::initialize()
                 result.status = PublicRecordingCollectionStatus::unavailable;
                 return result;
             }
+            if (!request.homeView.empty())
+            {
+                if (!vdrRecordingQueryController_)
+                    return result;
+                const auto page = vdrRecordingQueryController_->homePage(
+                    request.backendId, request.homeView == "movies",
+                    request.movieReleaseYearFrom, request.movieReleaseYearTo,
+                    static_cast<int>(request.limit), static_cast<int>(request.offset));
+                PublicRecordingCollectionProjection projection(*publicRecordingIdentities_);
+                for (const auto& row : page.items)
+                {
+                    const auto visible = projection.project(request.backendId, {row.recording});
+                    if (!visible.valid || visible.items.size() != 1U)
+                        return PublicRecordingCollectionResult{};
+                    const auto& item = visible.items.front();
+                    PublicRecordingCollectionItem entry;
+                    entry.recordingId = item.recordingId;
+                    entry.backendId = item.backendId;
+                    entry.title = row.title.empty() ? item.title : row.title;
+                    entry.subtitle = row.subtitle;
+                    entry.recordedAt = item.recordedAt;
+                    entry.durationSeconds = item.durationSeconds;
+                    entry.durationKnown = item.durationKnown;
+                    entry.edited = item.edited;
+                    entry.description = item.description;
+                    entry.sizeMb = item.sizeMb;
+                    result.recordings.push_back(std::move(entry));
+                }
+                result.totalEntries = static_cast<std::size_t>(std::max(0, page.totalCount));
+                result.hasMore = request.offset + result.recordings.size() < result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
+                return result;
+            }
             const auto cached =
                 vdrRecordingCacheRepository_->findAllForBackend(request.backendId);
             if (cached.empty() && cacheStatus.totalCount > 0)
@@ -3628,6 +3662,23 @@ bool DaemonRuntime::initialize()
             out.recording.edited = source.recording.edited;
             out.recording.description = source.recording.description;
             out.recording.sizeMb = source.recording.sizeMb;
+            if (request.nativeMatch) {
+                // Opt-in equality proof; never return the native path itself.
+                // Not a credential or an alternate public Recording identity.
+                const std::string input = "suiteosd-native-match/1\n" +
+                    request.backendId + "\n" + request.recordingId + "\n" +
+                    found.recording.backendNativeId;
+                unsigned char digest[EVP_MAX_MD_SIZE];
+                unsigned int length = 0;
+                if (EVP_Digest(input.data(), input.size(), digest, &length,
+                               EVP_sha256(), nullptr) != 1 || length != 32U)
+                    return PublicRecordingDetailResult{};
+                static constexpr char hex[] = "0123456789abcdef";
+                for (unsigned int i = 0; i < length; ++i) {
+                    out.nativeMatchProof.push_back(hex[digest[i] >> 4U]);
+                    out.nativeMatchProof.push_back(hex[digest[i] & 15U]);
+                }
+            }
             out.metadataState = source.metadataState;
             out.metadataSource = source.metadataSource;
             out.contentKind = source.contentKind;

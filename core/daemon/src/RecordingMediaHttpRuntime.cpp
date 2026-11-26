@@ -227,14 +227,17 @@ int runRecordingMediaHttpRuntime(
             // Without an explicit Human<->Device binding, the Service actor
             // receives only its OWN progress, never a guessed Human account.
             const std::string continuePath = collection + "/continue-watching";
-            if (target.rfind(continuePath, 0) == 0) {
+            const std::string historyPath = collection + "/recently-watched";
+            const bool history = target.rfind(historyPath, 0) == 0;
+            if (history || target.rfind(continuePath, 0) == 0) {
+                const auto& readPath = history ? historyPath : continuePath;
                 // Only exact GET path+query; POST bodies must not access
                 // this read surface or silently turn into a write.
                 if (!body.empty() ||
-                    target.rfind(continuePath + "?backendId=", 0) != 0)
+                    target.rfind(readPath + "?backendId=", 0) != 0)
                     return error(400, "continue_watching_request_invalid");
                 const std::string backendId =
-                    target.substr((continuePath + "?backendId=").size());
+                    target.substr((readPath + "?backendId=").size());
                 if (backendId.empty() || backendId.size() > 128U ||
                     backendId == "." || backendId == ".." ||
                     !std::all_of(backendId.begin(), backendId.end(),
@@ -267,47 +270,32 @@ int runRecordingMediaHttpRuntime(
                     return error(403, "recording_progress_context_forbidden");
                 if (actor.status == DevicePlaybackActorStatus::unavailable)
                     return error(503, "recording_progress_context_unavailable");
-                const auto entries =
-                    ContinueWatchingApiRuntime::instance().publicCandidates(
-                        actor.actorId, backendId);
-                ApiResponse response;
-                response.statusCode = 200;
-                response.contentType = "application/json";
-                response.headers["Cache-Control"] = "no-store";
-                response.headers["X-Content-Type-Options"] = "nosniff";
-                response.body = "{\"backendId\":\"" + backendId +
-                    "\",\"items\":[";
-                std::size_t included = 0;
-                for (const auto& item : entries) {
-                    if (included >= 50) break;
-                    // Stable public rec_ lookup is read-only and must refer
-                    // to today's exact native backend Recording. Re-run the
-                    // admission on each item before any client-visible data.
-                    const auto publicId = recordingIdentities.find(
-                        backendId, item.recording.backendNativeId);
-                    if (!publicId) continue;
-                    const auto admitted = admission.admit(
-                        verifiedDevice, backendId, *publicId);
-                    if (admitted.status !=
-                            PublicRecordingDevicePlaybackAdmissionStatus::ready ||
-                        admitted.recording.backendNativeId !=
-                            item.recording.backendNativeId)
-                        continue;
-                    if (included++ != 0) response.body += ",";
-                    response.body += "{\"recordingId\":\"" + *publicId +
-                        "\",\"positionSeconds\":" +
-                        std::to_string(item.resumePositionSeconds) +
-                        ",\"durationSeconds\":";
-                    if (item.recording.durationKnown &&
-                        item.recording.durationSeconds > 0)
-                        response.body +=
-                            std::to_string(item.recording.durationSeconds);
-                    else response.body += "null";
-                    response.body +=
-                        ",\"resumeSupport\":\"profile_dependent\"}";
+                if (history) {
+                    // Same verified Device, actor binding, backend grant and
+                    // current Recording admission as Continue Watching.
+                    return ContinueWatchingApiRuntime::instance().publicRecentlyWatched(
+                        actor.actorId, backendId,
+                        [&](const std::string& nativeId) -> std::optional<std::string> {
+                            const auto publicId = recordingIdentities.find(backendId, nativeId);
+                            if (!publicId) return std::nullopt;
+                            const auto admitted = admission.admit(verifiedDevice, backendId, *publicId);
+                            if (admitted.status != PublicRecordingDevicePlaybackAdmissionStatus::ready ||
+                                admitted.recording.backendNativeId != nativeId)
+                                return std::nullopt;
+                            return publicId;
+                        });
                 }
-                response.body += "],\"limit\":50}";
-                return response;
+                return ContinueWatchingApiRuntime::instance().publicContinueWatching(
+                    actor.actorId, backendId,
+                    [&](const std::string& nativeId) -> std::optional<std::string> {
+                        const auto publicId = recordingIdentities.find(backendId, nativeId);
+                        if (!publicId) return std::nullopt;
+                        const auto admitted = admission.admit(verifiedDevice, backendId, *publicId);
+                        if (admitted.status != PublicRecordingDevicePlaybackAdmissionStatus::ready ||
+                            admitted.recording.backendNativeId != nativeId)
+                            return std::nullopt;
+                        return publicId;
+                    });
             }
             const std::string progressPath = collection + "/progress";
             if (target == progressPath ||

@@ -204,6 +204,10 @@ RECORDING_NATIVE_MARKS = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
 RECORDING_NATIVE_CUT = ROOT / "api/rest/src/RecordingCutApiRuntime.cpp"
 
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/recently-watched": {
+        "get": ('const std::string historyPath = collection + "/recently-watched";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
     "/api/v1/recording-playback-sessions/continue-watching": {
         "get": ('const std::string continuePath = collection + "/continue-watching";',
                 'isPublicDeviceRecordingSessionRead'),

@@ -65,6 +65,12 @@ inline PublicSearchResult project(
             item.subtitle = event.subtitle;
             item.startTime = event.startTime;
             item.endTime = event.endTime;
+            item.channelName = event.channelName;
+            item.description = event.description;
+            item.matchedPerson = event.matchedPerson;
+            item.matchedRole = event.matchedRole;
+            item.matchReason = event.matchReason;
+            item.personKey = event.personKey;
             result.items.push_back(std::move(item));
         }
     }
@@ -99,6 +105,11 @@ inline PublicSearchResult project(
             item.title = recording.title == live->title ? display.title : recording.title;
             item.edited = display.edited;
             item.startTime = recording.startTime;
+            item.subtitle = recording.subtitle;
+            item.matchedPerson = recording.matchedPerson;
+            item.matchedRole = recording.matchedRole;
+            item.matchReason = recording.matchReason;
+            item.personKey = recording.personKey;
             result.items.push_back(std::move(item));
         }
     }

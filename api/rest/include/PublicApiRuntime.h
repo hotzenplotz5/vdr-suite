@@ -364,6 +364,7 @@ struct PublicRecordingCollectionItem
     // Read-only descriptive facts; no artwork/provider URL or native path.
     std::string description;
     long long sizeMb = 0;
+    std::string subtitle;
 };
 
 struct PublicRecordingFolderItem
@@ -385,6 +386,8 @@ struct PublicRecordingCollectionRequest
     bool browseFolders = false;
     std::string folderId;
     std::size_t offset = 0U;
+    std::string homeView;
+    int movieReleaseYearFrom = 0, movieReleaseYearTo = 0;
 };
 
 struct PublicRecordingCollectionResult
@@ -404,6 +407,7 @@ struct PublicRecordingDetailRequest
 {
     std::string backendId;
     std::string recordingId;
+    bool nativeMatch = false;
 };
 
 enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
@@ -411,6 +415,7 @@ enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
 struct PublicRecordingDetailItem
 {
     PublicRecordingCollectionItem recording;
+    std::string nativeMatchProof;
     std::string metadataState;
     std::string metadataSource;
     std::string contentKind;
@@ -508,6 +513,7 @@ struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;
     std::string title, subtitle, startTime, endTime;
     bool edited = false;
+    std::string matchedPerson, matchedRole, matchReason, personKey, channelName, description;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;

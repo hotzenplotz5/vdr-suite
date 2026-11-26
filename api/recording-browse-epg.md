@@ -246,3 +246,7 @@ These HTTP reads cannot create Timer assignments, start playback or select track
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+### Home discovery views
+
+`GET /api/v1/recordings?backendId=...&view=new&limit=12&offset=0` uses the same newest-recording query as Web Home. `view=movies` requires `movieReleaseYearFrom` and `movieReleaseYearTo` (inclusive) and reuses the Web owner's release-date order and manual metadata overlay. Both return the existing offset browse response with recording-only items and optional subtitle; no native path or extra permission. The legacy keyset and folder views remain unchanged.

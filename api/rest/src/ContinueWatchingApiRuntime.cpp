@@ -624,6 +624,75 @@ std::vector<ContinueWatchingItem> ContinueWatchingApiRuntime::publicCandidates(
     return service_->list(actorId, backendId);
 }
 
+ApiResponse ContinueWatchingApiRuntime::publicContinueWatching(
+    const std::string& actorId, const std::string& backendId,
+    const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const
+{
+    if (actorId.empty() || backendId.empty() || !admittedPublicId)
+        return errorResponse(503, "continue_watching_unavailable");
+    const auto items = publicCandidates(actorId, backendId);
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    response.body = "{\"backendId\":\"" + jsonEscape(backendId) + "\",\"items\":[";
+    std::size_t included = 0;
+    for (const auto& item : items) {
+        if (included >= 50) break;
+        if (item.recording.backendId != backendId) continue;
+        const auto id = admittedPublicId(item.recording.backendNativeId);
+        if (!id) continue;
+        if (included++ != 0) response.body += ",";
+        response.body += "{\"recordingId\":\"" + jsonEscape(*id) +
+            "\",\"title\":\"" + jsonEscape(item.recording.title) +
+            "\",\"subtitle\":\"" + jsonEscape(item.recording.subtitle) +
+            "\",\"positionSeconds\":" + std::to_string(item.resumePositionSeconds) +
+            ",\"durationSeconds\":";
+        if (item.recording.durationKnown && item.recording.durationSeconds > 0)
+            response.body += std::to_string(item.recording.durationSeconds);
+        else response.body += "null";
+        response.body += ",\"resumeSupport\":\"profile_dependent\"}";
+    }
+    response.body += "],\"limit\":50}";
+    return response;
+}
+
+ApiResponse ContinueWatchingApiRuntime::publicRecentlyWatched(
+    const std::string& actorId, const std::string& backendId,
+    const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!recentlyWatchedService_ || actorId.empty() || backendId.empty() || !admittedPublicId)
+        return errorResponse(503, "recently_watched_unavailable");
+    const auto items = recentlyWatchedService_->list(actorId, backendId);
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    response.body = "{\"backendId\":\"" + jsonEscape(backendId) + "\",\"items\":[";
+    std::size_t included = 0;
+    for (const auto& item : items)
+    {
+        if (included >= RecentlyWatchedRepository::MaxItemsPerActorBackend) break;
+        if (item.recording.backendId != backendId) continue;
+        const auto id = admittedPublicId(item.recording.backendNativeId);
+        if (!id) continue;
+        if (included++ != 0) response.body += ",";
+        response.body += "{\"recordingId\":\"" + jsonEscape(*id) +
+            "\",\"title\":\"" + jsonEscape(item.recording.title) +
+            "\",\"subtitle\":\"" + jsonEscape(item.recording.subtitle) +
+            "\",\"positionKnown\":" + (item.positionKnown ? "true" : "false") +
+            ",\"positionSeconds\":" + (item.positionKnown ? std::to_string(item.positionSeconds) : "null") +
+            ",\"completionKnown\":" + (item.completionKnown ? "true" : "false") +
+            ",\"completed\":" + (item.completionKnown && item.completed ? "true" : "false") +
+            ",\"lastActivityAt\":\"" + jsonEscape(item.lastActivityAt) + "\"}";
+    }
+    response.body += "],\"limit\":100}";
+    return response;
+}
+
 ApiResponse ContinueWatchingApiRuntime::publicProgressGet(
     const std::string& actorId,
     const VdrRecording& admittedRecording,
@@ -809,6 +878,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response = errorResponse(503, "recently_watched_write_failed");
             return true;
         }
+        pendingProgressBackends_.insert(backendId);
         response.statusCode = 200;
         response.contentType = "application/json";
         response.headers["Cache-Control"] = "no-store";
