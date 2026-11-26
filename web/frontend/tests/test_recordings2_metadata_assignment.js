@@ -104,14 +104,7 @@ assert.deepStrictEqual(
   }
 );
 
-function hasPostOperation(operation) {
-  return new RegExp("post\\(\\s*backendId\\s*,\\s*'" + operation + "'").test(source);
-}
-
 assert(source.includes('VdrSuiteBrowserSession'));
-assert(hasPostOperation('search'));
-assert(hasPostOperation('seasons'));
-assert(hasPostOperation('episodes'));
 assert(source.includes("'assign',\n        recording,"));
 assert(source.includes("postRecording(backendId, 'withdraw', recording"));
 assert(genreSource.includes('assignment().postRecording'));
@@ -134,6 +127,121 @@ const publicPayload = runtime.__test.assignmentPayload({
   title:'Forrest Gump'}, 1, 'movie');
 assert.strictEqual(publicPayload.recordingId, recId);
 assert(!('resourceKey' in publicPayload));
+// Exercise the actual mounted UI, not the internal name or spelling of
+// its candidate-loading helper. Every click must reach the scoped transport.
+async function verifyCandidateNavigation() {
+  class Element {
+    constructor(tag) {
+      this.tag = tag;
+      this.children = [];
+      this.dataset = {};
+      this.listeners = {};
+      this.textContent = '';
+      this.className = '';
+      this.value = '';
+    }
+    appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
+    append(...children) { children.forEach(child => this.appendChild(child)); }
+    addEventListener(name, handler) { this.listeners[name] = handler; }
+    setAttribute() {}
+    remove() {
+      const parent = this.parentNode;
+      if (parent) parent.children.splice(parent.children.indexOf(this), 1);
+    }
+    querySelectorAll(selector) {
+      const results = [];
+      const matches = child => child.className.split(/\s+/).includes(selector.slice(1));
+      this.children.forEach(child => {
+        if (matches(child)) results.push(child);
+        results.push(...child.querySelectorAll(selector));
+      });
+      return results;
+    }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    find(predicate) {
+      if (predicate(this)) return this;
+      for (const child of this.children) {
+        const match = child.find(predicate);
+        if (match) return match;
+      }
+      return null;
+    }
+  }
+  const root = new Element('div');
+  context.document = {
+    createElement:tag => new Element(tag),
+    getElementById:() => null,
+    head:new Element('head')
+  };
+  const requests = [];
+  const responses = [
+    {candidates:[{kind:'series', title:'Sherlock', externalId:'123'}]},
+    {candidates:[{kind:'season', title:'Staffel 2', seasonNumber:2}]},
+    {candidates:[{kind:'episode', title:'Folge 4', seasonNumber:2, episodeNumber:4}]},
+    new Error('Kandidatensuche fehlgeschlagen'),
+    {candidates:[{kind:'movie', title:'Forrest Gump', externalId:'13'}]}
+  ];
+  windowObject.VdrSuiteBrowserSession = {csrfHeaders:() => ({'X-CSRF-Token':'existing-session'})};
+  windowObject.VdrSuiteClientApi = {requestJson(route, options) {
+    requests.push({route, options});
+    const response = responses.shift();
+    return response instanceof Error ? Promise.reject(response) : Promise.resolve(response);
+  }};
+  // Genre controls have their own transport regression below.
+  const genre = windowObject.VdrSuiteRecordings2MetadataGenre;
+  try {
+    windowObject.VdrSuiteRecordings2MetadataGenre = null;
+    runtime.mount(root, {recordingId:recId, title:'Sherlock'}, 'living-room', {});
+  } finally {
+    windowObject.VdrSuiteRecordings2MetadataGenre = genre;
+  }
+  function click(label) {
+    const control = root.find(element => element.tag === 'button' && element.textContent === label);
+    assert(control, 'Missing button: ' + label);
+    assert(!control.disabled, 'Disabled button: ' + label);
+    control.listeners.click();
+    return control;
+  }
+  const flush = async () => { for (let i=0; i<8; i++) await Promise.resolve(); };
+  click('Metadaten suchen');
+  const kind = root.find(element => element.tag === 'select');
+  const input = root.find(element => element.tag === 'input');
+  kind.value = 'series';
+  const search = click('Suchen');
+  assert(search.disabled);
+  await flush();
+  assert(!search.disabled);
+  click('Staffeln anzeigen');
+  await flush();
+  click('Folgen anzeigen');
+  await flush();
+  assert(root.find(element => element.textContent === 'Folge 4'));
+  kind.value = 'movie';
+  input.value = 'Forrest Gump';
+  click('Suchen');
+  await flush();
+  assert(!search.disabled);
+  assert(root.find(element => element.textContent === 'Kandidatensuche fehlgeschlagen'));
+  click('Suchen');
+  await flush();
+  assert(root.find(element => element.textContent === 'Forrest Gump'));
+  assert(!search.disabled);
+  assert.deepStrictEqual(requests.map(request => request.route), [
+    'search','seasons','episodes','search','search'
+  ].map(operation => '/api/v1/backends/living-room/recordings/metadata/' + operation));
+  assert.deepStrictEqual(requests.map(request => JSON.parse(request.options.body)), [
+    {query:'Sherlock',kind:'series',limit:12},
+    {seriesExternalId:'123',limit:20},
+    {seriesExternalId:'123',limit:20,seasonNumber:2},
+    {query:'Forrest Gump',kind:'movie',limit:12},
+    {query:'Forrest Gump',kind:'movie',limit:12}
+  ]);
+  assert(requests.every(request => request.options.method === 'POST' &&
+    request.options.headers['X-CSRF-Token'] === 'existing-session' &&
+    request.options.credentials === 'same-origin'));
+  console.log('recordings2 mounted movie/series/season/episode navigation and retry passed');
+}
+
 async function verifyRequests() {
 const calls = [];
 windowObject.VdrSuiteBrowserSession = {csrfHeaders:() => ({'X-CSRF-Token':'existing-session'})};
@@ -188,4 +296,4 @@ assert.strictEqual(calls.length,before);
 console.log('recordings2 metadata assignment and genre public identity requests passed');
 }
 
-verifyRequests().catch(error => {console.error(error); process.exitCode = 1;});
+verifyCandidateNavigation().then(verifyRequests).catch(error => {console.error(error); process.exitCode = 1;});

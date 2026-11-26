@@ -97,6 +97,15 @@ for route in ("'/api/v1/epg/event'", "'/api/v1/epg/timer-intents'"):
     require(browser_client.count(route) == 1,
             "reviewed Browser EPG timer route missing: " + route)
     browser_client = browser_client.replace(route, "'reviewed-epg-timer'")
+# R4 explicitly migrates these bounded recording operations. Keep the
+# discovery boundary and reject every other unreviewed public route.
+for route in (
+    "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'",
+    "'/api/v1/recordings/actions/' +\n      (input.execute === true ? 'execute' : 'validate')",
+):
+    require(browser_client.count(route) == 1,
+            "reviewed Browser recording route missing or duplicated: " + route)
+    browser_client = browser_client.replace(route, "'reviewed-recording-route'")
 require("/api/v1" not in browser_client,
         "non-equivalent bundled browser was silently migrated to public-v1")
 
@@ -146,4 +155,4 @@ require("test-phase69f-public-v1-discovery-reference-client" in read("mk/test-gr
 
 print("Phase 69.F public-v1 discovery reference-client guard passed.")
 print("Reference client consumes only root, capabilities and Backend discovery.")
-print("Bundled browser remains on its explicitly non-equivalent transition contracts.")
+print("Browser transition contracts and explicitly reviewed successor routes retained.")
