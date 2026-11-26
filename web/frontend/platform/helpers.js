@@ -66,6 +66,7 @@
   function isPublicRecordingMetadataImageUrl(value) {
     const url = normalizedText(value);
     return url.startsWith('/api/vdr/recordings/metadata/image?') ||
+      /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}\?backendId=[A-Za-z0-9._-]+$/.test(url) ||
       /^\/recording-artwork\/[^/?#]+\/[0-9a-fA-F]{32}(?:\?|$)/.test(url);
   }
 
@@ -90,6 +91,39 @@
     }
 
     return preferredRecordingMetadataArtworkUrl(value);
+  }
+
+  // Keep the existing metadata view and DOM owners. This is a pure
+  // translation of the typed Public-v1 detail, not a second read model.
+  function publicRecordingMetadataView(detail) {
+    if (!detail || !detail.metadata) throw new Error('Ungültige Aufnahme-Metadaten.');
+    const data = detail.metadata;
+    const manual = data.source === 'manual';
+    const images = Array.isArray(data.images) ? data.images : [];
+    const people = Array.isArray(data.people) ? data.people : [];
+    const artwork = data.preferredArtwork || {available: false};
+    const genres = Array.isArray(data.genres) ? data.genres :
+      normalizedText(data.genreText).split(/[|,;]/).map(normalizedText).filter(Boolean);
+    return {
+      available: data.state !== 'absent' || artwork.available === true || images.length > 0,
+      recordingId: detail.recordingId, backendId: detail.backendId,
+      provider: manual ? 'manual' : (data.source === 'restfulapi-scraper-bridge' ? 'tvscraper' : 'recording-cache'),
+      mediaType: data.contentKind === 'series-episode' ? 'episode' : data.contentKind,
+      title: data.providerTitle || data.seriesTitle || data.epgTitle || detail.title,
+      originalTitle: data.originalTitle, episodeName: data.episodeTitle,
+      overview: data.overview || detail.description || data.epgDescription,
+      tagline: data.tagline, releaseDate: data.releaseDate, firstAired: data.firstAired,
+      seasonNumber: data.seasonNumber, episodeNumber: data.episodeNumber,
+      absoluteEpisodeNumber: data.absoluteEpisodeNumber, runtimeMinutes: data.providerRuntimeMinutes,
+      voteAverage: data.voteAverage, voteCount: data.voteCount, statusText: data.statusText,
+      collectionName: data.collectionName, imdbId: data.imdbId, genres,
+      productionCountries: data.productionCountries || [], networks: data.networks || [],
+      people, images, preferredArtwork: artwork,
+      trailerLookupAvailable: data.trailerLookupAvailable === true,
+      manualAssignment: manual ? {active: true, relationshipLocked: true,
+        revision: data.manualRevision, metadataAssignmentId: data.manualAssignmentId,
+        metadataEntityId: data.metadataEntityId} : {active: false}
+    };
   }
 
   function homeArtworkPreviewUrl(value) {
@@ -117,7 +151,8 @@
     formatEpochClock: formatEpochClock,
     isPublicRecordingMetadataImageUrl: isPublicRecordingMetadataImageUrl,
     preferredRecordingMetadataArtworkUrl: preferredRecordingMetadataArtworkUrl,
-    recordingMetadataPosterUrl: recordingMetadataPosterUrl
+    recordingMetadataPosterUrl: recordingMetadataPosterUrl,
+    publicRecordingMetadataView: publicRecordingMetadataView
   });
 
   global.VdrSuiteFrontendHelpers = helpersApi;

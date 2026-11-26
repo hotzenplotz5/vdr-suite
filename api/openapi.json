@@ -15801,6 +15801,11 @@
             "type": "boolean",
             "description": "A known internal metadata identity can be used for on-demand trailer lookup; not a guarantee a trailer exists."
           },
+          "imdbId": {
+            "type": "string",
+            "pattern": "^tt[0-9]+$",
+            "description": "Optional public IMDb title identifier for display; never a Recording or provider lookup key."
+          },
           "manualRevision": {
             "type": "integer",
             "minimum": 1,

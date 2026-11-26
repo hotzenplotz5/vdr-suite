@@ -45,6 +45,7 @@ struct PublicRecordingMetadataDetail
     std::string firstAired;
     std::string statusText;
     std::string collectionName;
+    std::string imdbId;
     int absoluteEpisodeNumber = 0;
     double voteAverage = 0.0;
     int voteCount = 0;
@@ -129,6 +130,9 @@ public:
         if (item.overview == publicItem.description)
             item.overview.clear();
 
+        if (hasProvider && std::isfinite(provider.rating) &&
+            provider.rating > 0.0 && provider.rating <= 10.0)
+            item.voteAverage = provider.rating;
         const bool hasNative = native.hasText();
         const bool hasUsefulProvider = hasProvider &&
             (!item.providerTitle.empty() || !item.originalTitle.empty() ||
@@ -155,6 +159,31 @@ public:
             native.backendNativeId != source.backendNativeId)
             return;
         const auto& value = native.metadata;
+        // The existing Web detail prefers the persisted native detail over
+        // the compact Recording cache. Preserve the separate VDR EPG facts.
+        item.metadataState = "available";
+        item.metadataSource = "restfulapi-scraper-bridge";
+        if (value.mediaType == "movie") item.contentKind = "movie";
+        else if (value.mediaType == "series") item.contentKind = "series";
+        else if (value.mediaType == "episode") item.contentKind = "series-episode";
+        if (!value.title.empty()) item.providerTitle = bounded(value.title, 1024U);
+        if (!value.originalTitle.empty()) item.originalTitle = bounded(value.originalTitle, 1024U);
+        if (!value.overview.empty())
+            item.overview = value.overview == item.recording.description
+                ? std::string{} : bounded(value.overview, 4096U);
+        if (!value.tagline.empty()) item.tagline = bounded(value.tagline, 1024U);
+        if (!value.episodeName.empty()) item.episodeTitle = bounded(value.episodeName, 1024U);
+        if (!value.releaseDate.empty()) item.releaseDate = bounded(value.releaseDate, 32U);
+        if (value.seasonNumber > 0) item.seasonNumber = value.seasonNumber;
+        if (value.episodeNumber > 0) item.episodeNumber = value.episodeNumber;
+        if (value.runtimeMinutes > 0) item.providerRuntimeMinutes = value.runtimeMinutes;
+        // IMDb title IDs are public display metadata, not provider lookup
+        // credentials or an alternative Recording identity.
+        if (value.imdbId.size() > 2 && value.imdbId.size() <= 32 &&
+            value.imdbId.compare(0, 2, "tt") == 0 &&
+            std::all_of(value.imdbId.begin() + 2, value.imdbId.end(),
+                [](unsigned char c) { return c >= '0' && c <= '9'; }))
+            item.imdbId = value.imdbId;
         item.firstAired = bounded(value.firstAired, 32U);
         item.statusText = bounded(value.status, 1024U);
         item.collectionName = bounded(value.collectionName, 1024U);
@@ -220,6 +249,7 @@ public:
         item.firstAired.clear();
         item.statusText.clear();
         item.collectionName.clear();
+        item.imdbId.clear();
         item.absoluteEpisodeNumber = 0;
         item.voteAverage = 0.0;
         item.voteCount = 0;

@@ -184,37 +184,11 @@
     return root.dataset.recordings2HeroMode === 'playback';
   }
 
-  function positiveExternalId(value) {
-    const raw = text(value).trim();
-    return /^[1-9][0-9]{0,15}$/.test(raw) ? raw : '';
-  }
-
   function trailerIdentity(metadata) {
     if (!metadata || metadata.available !== true) return null;
-    const manual = metadata.manualAssignment;
-    if (manual && manual.active === true &&
-        text(manual.providerId).toLowerCase() === 'tmdb') {
-      const externalId = positiveExternalId(manual.externalId);
-      const externalNamespace = text(manual.externalNamespace).toLowerCase();
-      if (externalId && externalNamespace === 'movie') {
-        return {mediaType: 'movie', externalId: externalId};
-      }
-      if (externalId && externalNamespace === 'tv') {
-        return {mediaType: 'series', externalId: externalId};
-      }
-      return null;
-    }
-
-    const provider = text(metadata.provider).toLowerCase();
-    if (provider !== 'tvscraper' && provider !== 'recording-cache') return null;
-    const externalId = positiveExternalId(metadata.providerId);
-    if (!externalId) return null;
-    const mediaType = text(metadata.mediaType).toLowerCase();
-    if (mediaType === 'movie') return {mediaType: 'movie', externalId: externalId};
-    if (mediaType === 'series' || mediaType === 'episode') {
-      return {mediaType: 'series', externalId: externalId};
-    }
-    return null;
+    if (metadata.trailerLookupAvailable !== true ||
+        !/^rec_[0-9a-f]{32}$/.test(text(metadata.recordingId))) return null;
+    return {recordingId: metadata.recordingId};
   }
 
   function validYoutubeVideoId(value) {
@@ -282,10 +256,7 @@
 
     api.fetchClientRecordingTrailer({
       backendId: text(backendId) || 'default',
-      query: {
-        mediaType: identity.mediaType,
-        externalId: identity.externalId
-      },
+      query: {recordingId: identity.recordingId},
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
@@ -1158,7 +1129,12 @@
 
   function syncHeroTrailerAction(actions, root, backendId, metadata) {
     const identity = trailerIdentity(metadata);
-    if (!identity || actions.querySelector('[data-recordings2-hero-trailer]')) return;
+    const existing = actions.querySelector('[data-recordings2-hero-trailer]');
+    if (!identity) {
+      if (metadata && existing) { existing.remove(); closeTrailer(root); }
+      return;
+    }
+    if (existing) return;
     const trailer = makeButton('▶ Trailer', function () { showTrailer(root, backendId, identity); });
     trailer.dataset.recordings2HeroTrailer = 'true';
     actions.insertBefore(trailer, actions.querySelector('button:not(.primary)'));

@@ -265,64 +265,17 @@ trailerRuntime.__test.showMode({
 assert.strictEqual(unchangedExits, 0, 'Already-visible Details should not recreate the owner');
 
 const trailerIdentity = trailerRuntime.__test.trailerIdentity;
-
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    manualAssignment: {
-      active: true,
-      providerId: 'tmdb',
-      externalNamespace: 'movie',
-      externalId: '11120'
-    }
-  }))),
-  {mediaType: 'movie', externalId: '11120'}
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    manualAssignment: {
-      active: true,
-      providerId: 'tmdb',
-      externalNamespace: 'tv',
-      externalId: '19885'
-    }
-  }))),
-  {mediaType: 'series', externalId: '19885'}
-);
-assert.strictEqual(trailerIdentity({
-  available: true,
-  manualAssignment: {
-    active: true,
-    providerId: 'tmdb',
-    externalNamespace: 'tv-episode',
-    externalId: '123'
-  }
-}), null, 'episode assignments must not guess a parent TMDB series identity');
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    provider: 'tvscraper',
-    mediaType: 'movie',
-    providerId: 11120
-  }))),
-  {mediaType: 'movie', externalId: '11120'}
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    provider: 'tvscraper',
-    mediaType: 'episode',
-    providerId: 19885
-  }))),
-  {mediaType: 'series', externalId: '19885'}
-);
-assert.strictEqual(trailerIdentity({
-  available: true,
-  provider: 'tvscraper',
-  mediaType: 'series',
-  providerId: -74205
-}), null, 'negative TVDB identity must not be sent to TMDB');
+const trailerRecordingId = 'rec_' + 'a'.repeat(32);
+assert.deepStrictEqual(JSON.parse(JSON.stringify(trailerIdentity({
+  available:true, trailerLookupAvailable:true, recordingId:trailerRecordingId
+}))), {recordingId:trailerRecordingId});
+assert.strictEqual(trailerIdentity({available:true, recordingId:trailerRecordingId}), null);
+assert.strictEqual(trailerIdentity({available:true, trailerLookupAvailable:true,
+  recordingId:'/private/recording.rec'}), null);
+assert.strictEqual(trailerIdentity({available:true, provider:'tvscraper',
+  providerId:11120,mediaType:'movie'}), null);
+assert(source.includes('query: {recordingId: identity.recordingId}'));
+assert(!source.includes('externalId: identity.externalId'));
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('abcdefghijk'), true);
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
 

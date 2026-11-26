@@ -437,6 +437,7 @@ struct PublicRecordingDetailItem
     std::string firstAired;
     std::string statusText;
     std::string collectionName;
+    std::string imdbId;
     int absoluteEpisodeNumber = 0;
     double voteAverage = 0.0;
     int voteCount = 0;

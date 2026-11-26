@@ -827,7 +827,7 @@
     const normalized = normalizeOptions(options);
     const backendId = normalized.backendId ? String(normalized.backendId) : 'default';
     return requestJson(
-      '/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer',
+      '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer',
       Object.assign({}, normalized, {backendId: undefined})
     );
   }

@@ -2544,7 +2544,7 @@ def check_client_api_contract():
 
     require(
         "function fetchClientRecordingTrailer(options)" in client_api
-        and "'/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'" in client_api,
+        and "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'" in client_api,
         "fetchClientRecordingTrailer() must own the backend-scoped Recording trailer route"
     )
 

@@ -100,6 +100,8 @@ int main()
     native.metadata.voteAverage = 7.5;
     native.metadata.voteCount = 123;
     native.metadata.firstAired = "2026-10-19";
+    native.metadata.title = "Persisted scraper title";
+    native.metadata.imdbId = "tt1234567";
     native.metadata.status = "Returning Series";
     native.metadata.collectionName = "Collection";
     native.metadata.absoluteEpisodeNumber = 24;
@@ -115,6 +117,8 @@ int main()
     PublicRecordingMetadataDetailProjection::applyNativeDetails(original, native, *result);
     assert(result->voteAverage == 7.5 && result->voteCount == 123);
     assert(result->firstAired == "2026-10-19");
+    assert(result->providerTitle == "Persisted scraper title");
+    assert(result->imdbId == "tt1234567");
     assert(result->genres.size() == 2 && result->networks.size() == 1);
     assert(result->people.size() == 1 && result->people.front().name == "Example Actor");
     auto wrongNative = native;

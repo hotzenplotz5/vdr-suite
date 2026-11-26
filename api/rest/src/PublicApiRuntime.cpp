@@ -8107,6 +8107,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("firstAired", item.firstAired);
         appendText("statusText", item.statusText);
         appendText("collectionName", item.collectionName);
+        appendText("imdbId", item.imdbId);
         if (item.trailerLookupAvailable)
             body += ",\"trailerLookupAvailable\":true";
         if (item.absoluteEpisodeNumber > 0)

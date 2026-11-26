@@ -3651,6 +3651,7 @@ bool DaemonRuntime::initialize()
             out.firstAired = source.firstAired;
             out.statusText = source.statusText;
             out.collectionName = source.collectionName;
+            out.imdbId = source.imdbId;
             out.absoluteEpisodeNumber = source.absoluteEpisodeNumber;
             out.voteAverage = source.voteAverage;
             out.voteCount = source.voteCount;
@@ -3680,6 +3681,27 @@ bool DaemonRuntime::initialize()
                 else if (entry.kind == "gallery")
                     out.images.push_back({entry.orientation,
                         {entry.artworkId, entry.width, entry.height}});
+            }
+            // Cache-only recordings use the existing M2 artwork identities,
+            // matching the Web's cached fallback without another HTTP request.
+            if (source.metadataSource != "manual" &&
+                !(nativeDetail.exists() && nativeDetail.metadata.found))
+            {
+                const auto* preferred = VdrRecordingArtworkIdentity::preferredArtwork(found.recording);
+                if (preferred)
+                    out.preferredArtwork = {
+                        VdrRecordingArtworkIdentity::assetId(found.recording, *preferred),
+                        preferred->width, preferred->height};
+                for (const auto& artwork : found.recording.metadata.artwork)
+                {
+                    if (!artwork.isValid()) continue;
+                    std::string orientation = "landscape";
+                    if (artwork.kind == VdrRecordingArtworkKind::Poster) orientation = "portrait";
+                    else if (artwork.kind == VdrRecordingArtworkKind::Banner) orientation = "banner";
+                    out.images.push_back({orientation, {
+                        VdrRecordingArtworkIdentity::assetId(found.recording, artwork),
+                        artwork.width, artwork.height}});
+                }
             }
             result.status = PublicRecordingDetailStatus::ok;
             return result;

@@ -173,7 +173,9 @@ required_tokens = {
     ),
     'metadata_detail': (
         'global.VdrSuiteRecordings2MetadataDetail',
-        "'/api/vdr/recordings/metadata'",
+        "'/api/v1/recordings/'",
+        'resolvePublicRecordingId',
+        'publicRecordingMetadataView',
         'metadataView.mount',
         'assignmentRuntimePath',
         'loadAssignmentRuntime',

@@ -166,3 +166,10 @@ it never accepts the provider identity from the public caller. The optional
 trailer is already known. No provider request happens merely by opening detail.
 Manual episode IDs are not guessed to be parent series IDs. Web migration and
 full C++/CI acceptance remain pending.
+
+The Web Recordings 2 detail now reads this Public-v1 resource and adapts it to
+its existing visual owner. Trailer requests use the public recording identity.
+Cached artwork is projected when a richer persisted detail is absent. The
+optional public IMDb title identifier is display-only; private TMDb/Scraper
+lookup identities remain server-side. The collection, search and other private
+Web routes still require their own migration and runtime verification.

@@ -23,6 +23,9 @@ assert(metadataDetailSource.includes('root.insertBefore(box, tabs)'),
 assert(metadataViewSource.includes("panel.scrollIntoView({behavior: 'smooth', block: 'start'})"),
   'selecting a bottom metadata tab must bring its content panel into view');
 
+const publicRecordingId = 'rec_' + 'a'.repeat(32);
+const publicImageUrl = '/api/v1/recordings/' + publicRecordingId + '/artwork/' +
+  'b'.repeat(32) + '?backendId=remote';
 let requestedPath = '';
 let requestedOptions = null;
 let personSearchOptions = null;
@@ -55,7 +58,21 @@ const window = {
     requestJson(path, options) {
       requestedPath = path;
       requestedOptions = options;
-      return Promise.resolve({available: false});
+      return Promise.resolve({recordingId:publicRecordingId, backendId:'remote',
+        title:'VDR Titel', description:'VDR Beschreibung', metadata:{
+          state:'available', source:'manual', contentKind:'movie', providerTitle:'Manuell',
+          manualRevision:3, manualAssignmentId:'mdasg_'+'c'.repeat(32),
+          trailerLookupAvailable:true, voteAverage:8.7, genres:['Drama'],
+          preferredArtwork:{available:true,url:publicImageUrl},
+          people:[{role:'actor',name:'Actor',characterName:'Role',
+            image:{available:true,url:publicImageUrl}}],
+          images:[{orientation:'portrait',image:{available:true,url:publicImageUrl}}]
+        }});
+    },
+    fetchClientRecordings(options) {
+      assert.strictEqual(options.query.backend, 'remote');
+      return Promise.resolve({totalCount:1, recordings:[{backendId:'remote',
+        backendNativeId:'/srv/vdr/video/Inferno.rec',publicRecordingId}]});
     },
     fetchClientRecordingPersons(options) {
       personSearchOptions = options;
@@ -102,6 +119,12 @@ const context = vm.createContext({
 
 const personView = window.VdrSuiteRecordings2PersonSearchView;
 const api = window.VdrSuiteRecordings2MetadataDetail;
+assert.strictEqual(api.isPublicMetadataImageUrl(publicImageUrl), true);
+assert.strictEqual(api.isPublicMetadataImageUrl(publicImageUrl + '&assignmentRevision=3'), false);
+assert.strictEqual(api.versionManualMetadataArtwork({
+  manualAssignment:{active:true,revision:3},
+  preferredArtwork:{available:true,url:publicImageUrl}
+}).preferredArtwork.url, publicImageUrl);
 assert.ok(personView);
 assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
@@ -393,10 +416,15 @@ function verifyFirstFrameHeroWithLateMetadata() {
       for (const key of keys) if (value && value[key] != null) return value[key];
       return fallback;
     },
+    resolvePublicRecordingId(recording) {
+      return recording.publicRecordingId
+        ? Promise.resolve(recording.publicRecordingId)
+        : Promise.reject(new Error('Kanonische Aufnahme-ID nicht verfügbar'));
+    },
     clientApi() {
       return {
         requestJson(path) {
-          assert.strictEqual(path, '/api/vdr/recordings/metadata');
+          assert.strictEqual(path, '/api/v1/recordings/' + publicRecordingId);
           events.push('fetch');
           return new Promise((resolve, reject) => pending.push({resolve, reject}));
         }
@@ -421,6 +449,7 @@ function verifyFirstFrameHeroWithLateMetadata() {
   };
   const isolatedWindow = {
     VdrSuiteRecordings2Shared: sharedForDetail,
+    VdrSuiteFrontendHelpers: window.VdrSuiteFrontendHelpers,
     VdrSuiteRecordings2MetadataView: metadataView,
     VdrSuiteRecordings2MetadataAssignment: {mount() { events.push('assignment'); }},
     VdrSuiteRecordings2HeroDetail: {
@@ -438,23 +467,26 @@ function verifyFirstFrameHeroWithLateMetadata() {
   vm.runInContext(metadataDetailSource, isolated, {filename: 'recordings2-metadata-detail.js'});
   const adapter = isolatedWindow.VdrSuiteRecordings2MetadataDetail;
   assert(adapter);
-  const recording = {backendNativeId: 'local-recording', title: 'Film'};
+  const recording = {publicRecordingId, backendNativeId: 'local-recording', title: 'Film'};
   function root() {
     return {
       dataset: {}, __vdrSuiteRecordingPlaybackOwner: owner,
       querySelector() { return null; }, querySelectorAll() { return []; }
     };
   }
-  async function flush() { await Promise.resolve(); await Promise.resolve(); }
+  async function flush() { for (let i = 0; i < 12; ++i) await Promise.resolve(); }
   return (async () => {
     const available = root();
     adapter.enhance(available, recording, 'default');
+    assert.deepStrictEqual(events.slice(0, 2), ['mount', 'hero-first']);
+    await flush();
     assert.deepStrictEqual(events.slice(0, 3), ['mount', 'hero-first', 'fetch']);
     assert.strictEqual(available.dataset.recordings2HeroMode, 'detail');
     assert.strictEqual(available.__vdrSuiteRecordingPlaybackOwner, owner);
     adapter.enhance(available, recording, 'default');
     assert.strictEqual(pending.length, 1, 'enhance must fetch only once');
-    pending.shift().resolve({available: true, genres: ['Drama']});
+    pending.shift().resolve({recordingId:publicRecordingId, metadata:{
+      state:'available',source:'restfulapi-scraper-bridge',contentKind:'movie',genres:['Drama']}});
     await flush();
     assert(events.includes('hero-late'));
     assert(events.includes('metadata:true'));
@@ -463,7 +495,8 @@ function verifyFirstFrameHeroWithLateMetadata() {
     const missing = root();
     adapter.enhance(missing, recording, 'default');
     assert.strictEqual(missing.dataset.recordings2HeroMode, 'detail');
-    pending.shift().resolve({available: false});
+    await flush();
+    pending.shift().resolve({recordingId:publicRecordingId,metadata:{state:'absent',source:'none',contentKind:'unknown'}});
     await flush();
     assert.strictEqual(missing.dataset.recordings2HeroMode, 'detail');
     assert.strictEqual(missing.__vdrSuiteRecordingPlaybackOwner, owner);
@@ -471,6 +504,7 @@ function verifyFirstFrameHeroWithLateMetadata() {
     const failed = root();
     adapter.enhance(failed, recording, 'default');
     assert.strictEqual(failed.dataset.recordings2HeroMode, 'detail');
+    await flush();
     pending.shift().reject(new Error('TVScraper offline'));
     await flush();
     assert(events.includes('error'));
@@ -492,9 +526,16 @@ Promise.all([
   verifyFirstFrameHeroWithLateMetadata()
 ]).then(results => {
   const recordings = results[1];
-  assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
-  assert.strictEqual(requestedOptions.query.backend, 'remote');
-  assert.strictEqual(requestedOptions.query.backendNativeId, '/srv/vdr/video/Inferno.rec');
+  assert.strictEqual(requestedPath, '/api/v1/recordings/' + publicRecordingId);
+  assert.strictEqual(requestedOptions.query.backendId, 'remote');
+  assert.strictEqual(requestedOptions.query.backendNativeId, undefined);
+  const metadata = results[0];
+  assert.strictEqual(metadata.title, 'Manuell');
+  assert.strictEqual(metadata.manualAssignment.revision, 3);
+  assert.strictEqual(metadata.people[0].image.url, publicImageUrl);
+  assert.strictEqual(metadata.images[0].image.url, publicImageUrl);
+  assert.strictEqual(metadata.trailerLookupAvailable, true);
+  assert.strictEqual(metadata.voteAverage, 8.7);
   assert.strictEqual(personSearchOptions.backendId, 'remote');
   assert.strictEqual(personSearchOptions.query.name, 'Harrison Ford');
   assert.strictEqual(personSearchOptions.query.limit, 12);
