@@ -1242,6 +1242,13 @@ bool DaemonRuntime::initialize()
 
                 return VdrRecordingNativeMetadataRecord{};
             });
+    vdrRecordingFolderController_->setPublicRecordingIdLookup(
+        [this](const std::string& backendId, const std::string& nativeId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            const auto id = publicRecordingIdentities_->resolveOrCreate(backendId, nativeId);
+            return id.value_or(std::string{});
+        });
     vdrRecordingFolderController_->setPublicRecordingNativeLookup(
         [this](const std::string& backendId, const std::string& publicId)
         {

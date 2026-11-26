@@ -359,9 +359,16 @@ void appendRecordingJson(
     std::ostringstream& json,
     const VdrRecording& recording,
     const ManualRecordingMetadataAssignment& manual,
-    const VdrRecordingNativeMetadataRecord& nativeMetadata)
+    const VdrRecordingNativeMetadataRecord& nativeMetadata,
+    const std::string& publicId = {})
 {
     json << "{";
+    if (!publicId.empty())
+    {
+        json << "\"publicRecordingId\":";
+        appendJsonString(json, publicId);
+        json << ",";
+    }
     json << "\"id\":";
     appendJsonString(json, recording.id);
     json << ",\"backendId\":";
@@ -791,6 +798,13 @@ ApiResponse VdrRecordingFolderController::getFolder(
             recording.backendNativeId);
     };
 
+    auto publicIdFor = [this, &page](const VdrRecording& recording)
+    {
+        if (!publicRecordingIdLookup_ || recording.backendNativeId.empty())
+            return std::string{};
+        return publicRecordingIdLookup_(page.backendId, recording.backendNativeId);
+    };
+
     std::ostringstream json;
     json << "{\"recordingFolder\":true,\"backendId\":";
     appendJsonString(json, page.backendId);
@@ -850,7 +864,8 @@ ApiResponse VdrRecordingFolderController::getFolder(
                 json,
                 folder.singleRecording,
                 manual,
-                nativeMetadata);
+                nativeMetadata,
+                publicIdFor(folder.singleRecording));
         }
         else if (homeCards && folder.hasRepresentativeRecording)
         {
@@ -880,7 +895,8 @@ ApiResponse VdrRecordingFolderController::getFolder(
             json,
             recording,
             manual,
-            nativeMetadata);
+            nativeMetadata,
+            publicIdFor(recording));
     }
     json << "]}";
     return jsonResponse(json.str());
@@ -920,7 +936,7 @@ ApiResponse VdrRecordingFolderController::getRecordingForBrowser(
     json << "{\"publicRecordingId\":";
     appendJsonString(json, publicRecordingId);
     json << ",\"recording\":";
-    appendRecordingJson(json, recording, manual, native);
+    appendRecordingJson(json, recording, manual, native, publicRecordingId);
     json << ",\"metadataDetail\":";
     if (locked)
         json << serializeManualMetadata(manual, nativeId);

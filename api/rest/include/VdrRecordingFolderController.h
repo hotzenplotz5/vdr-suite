@@ -91,6 +91,13 @@ public:
     {
         publicRecordingNativeLookup_ = std::move(lookup);
     }
+    // Existing Web folder DTOs expose the same durable public ID as v1.
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+    void setPublicRecordingIdLookup(PublicRecordingIdLookup lookup)
+    {
+        publicRecordingIdLookup_ = std::move(lookup);
+    }
     ApiResponse getRecordingForBrowser(
         const std::string& backendId,
         const std::string& publicRecordingId) const;
@@ -108,6 +115,7 @@ public:
 private:
     VdrRecordingCacheRepository& repository_;
     PublicRecordingNativeLookup publicRecordingNativeLookup_;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
     NativeMetadataLookup nativeMetadataLookup_;
     ManualMetadataLookup manualMetadataLookup_;
     ManualMetadataBatchLookup manualMetadataBatchLookup_;

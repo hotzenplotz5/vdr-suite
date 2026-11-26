@@ -2335,13 +2335,39 @@ int main()
     assert(moved.body.find("Movies/Archive") == std::string::npos);
     assert(publicReadbacks == 3);
 
+    // New logical folders use the same provider revision and write stack.
+    const std::string newFolderPrefix =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\",\"targetFolder\":\"Movies/New Archive\",";
+    const auto newFolderPreview = router.handlePost(
+        "/api/v1/recordings/actions/validate",
+        newFolderPrefix + "\"dryRun\":true}");
+    assert(newFolderPreview.statusCode == 200);
+    assert(newFolderPreview.headers.count("ETag") == 1U);
+    const auto newFolderTag = newFolderPreview.headers.at("ETag");
+    assert(newFolderTag != moveTag);
+    assert(newFolderTag.find("Movies/New Archive") == std::string::npos);
+    const auto staleNewFolder = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        newFolderPrefix + "\"dryRun\":false}", moveTag);
+    assert(staleNewFolder.statusCode == 412);
+    assert(publicReadbacks == 3);
+    const auto newFolderMoved = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        newFolderPrefix + "\"dryRun\":false}", newFolderTag);
+    assert(newFolderMoved.statusCode == 200);
+    assert(newFolderMoved.body.find("\"readbackVerified\":true") != std::string::npos);
+    assert(newFolderMoved.body.find("Movies/New Archive") == std::string::npos);
+    assert(publicReadbacks == 4);
+
     int moveDispatches = 0;
     int deleteDispatches = 0;
     for (const auto& url : safeHttp.urls) {
         if (url == "/recordings/move.json") ++moveDispatches;
         if (url == "/recordings/trash.json") ++deleteDispatches;
     }
-    assert(moveDispatches == 1 && deleteDispatches == 1);
+    assert(moveDispatches == 2 && deleteDispatches == 1);
 
     std::cout
         << "test_api_router passed"

@@ -252,6 +252,14 @@ int main()
         },
         {"/tmp"});
 
+    controller.setPublicRecordingIdLookup(
+        [](const std::string& backendId, const std::string& nativeId)
+        {
+            return backendId == "default" &&
+                nativeId == "/srv/vdr/video/2026-07-03.20.15.1-0.rec"
+                ? std::string("rec_0123456789abcdef0123456789abcdef")
+                : std::string{};
+        });
     controller.setPublicRecordingNativeLookup(
         [](const std::string& backendId, const std::string& publicId)
         {
@@ -304,6 +312,7 @@ int main()
     assert(contains(root.body, "\"Movies\""));
     assert(contains(root.body, "\"Drama\""));
     assert(contains(root.body, "\"Root Recording\""));
+    assert(contains(root.body, "\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\""));
     assert(contains(root.body, "\"metadata\":{"));
     assert(contains(root.body, "\"providerAvailable\":false"));
     assert(contains(root.body, "\"artworkPrepared\":false"));

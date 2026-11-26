@@ -42,7 +42,7 @@ function element() {
 const document = {
   head: {appendChild() {}},
   getElementById() { return null; },
-  createElement() { return element(); }
+  createElement(tag) { return Object.assign(element(), {tagName:String(tag).toUpperCase()}); }
 };
 
 let publicBasePath = '';
