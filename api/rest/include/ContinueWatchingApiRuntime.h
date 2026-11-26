@@ -46,6 +46,9 @@ public:
     static PublicRecordingProgressRequest parsePublicProgressRequest(const std::string& body);
     std::vector<ContinueWatchingItem> publicCandidates(
         const std::string& actorId, const std::string& backendId) const;
+    ApiResponse publicContinueWatching(const std::string& actorId,
+        const std::string& backendId,
+        const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const;
     ApiResponse publicRecentlyWatched(const std::string& actorId,
         const std::string& backendId,
         const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const;

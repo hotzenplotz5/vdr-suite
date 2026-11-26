@@ -285,47 +285,17 @@ int runRecordingMediaHttpRuntime(
                             return publicId;
                         });
                 }
-                const auto entries =
-                    ContinueWatchingApiRuntime::instance().publicCandidates(
-                        actor.actorId, backendId);
-                ApiResponse response;
-                response.statusCode = 200;
-                response.contentType = "application/json";
-                response.headers["Cache-Control"] = "no-store";
-                response.headers["X-Content-Type-Options"] = "nosniff";
-                response.body = "{\"backendId\":\"" + backendId +
-                    "\",\"items\":[";
-                std::size_t included = 0;
-                for (const auto& item : entries) {
-                    if (included >= 50) break;
-                    // Stable public rec_ lookup is read-only and must refer
-                    // to today's exact native backend Recording. Re-run the
-                    // admission on each item before any client-visible data.
-                    const auto publicId = recordingIdentities.find(
-                        backendId, item.recording.backendNativeId);
-                    if (!publicId) continue;
-                    const auto admitted = admission.admit(
-                        verifiedDevice, backendId, *publicId);
-                    if (admitted.status !=
-                            PublicRecordingDevicePlaybackAdmissionStatus::ready ||
-                        admitted.recording.backendNativeId !=
-                            item.recording.backendNativeId)
-                        continue;
-                    if (included++ != 0) response.body += ",";
-                    response.body += "{\"recordingId\":\"" + *publicId +
-                        "\",\"positionSeconds\":" +
-                        std::to_string(item.resumePositionSeconds) +
-                        ",\"durationSeconds\":";
-                    if (item.recording.durationKnown &&
-                        item.recording.durationSeconds > 0)
-                        response.body +=
-                            std::to_string(item.recording.durationSeconds);
-                    else response.body += "null";
-                    response.body +=
-                        ",\"resumeSupport\":\"profile_dependent\"}";
-                }
-                response.body += "],\"limit\":50}";
-                return response;
+                return ContinueWatchingApiRuntime::instance().publicContinueWatching(
+                    actor.actorId, backendId,
+                    [&](const std::string& nativeId) -> std::optional<std::string> {
+                        const auto publicId = recordingIdentities.find(backendId, nativeId);
+                        if (!publicId) return std::nullopt;
+                        const auto admitted = admission.admit(verifiedDevice, backendId, *publicId);
+                        if (admitted.status != PublicRecordingDevicePlaybackAdmissionStatus::ready ||
+                            admitted.recording.backendNativeId != nativeId)
+                            return std::nullopt;
+                        return publicId;
+                    });
             }
             const std::string progressPath = collection + "/progress";
             if (target == progressPath ||

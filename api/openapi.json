@@ -7671,6 +7671,8 @@
                             "type": "string",
                             "pattern": "^rec_[0-9a-f]{32}$"
                           },
+                          "title": {"type": "string"},
+                          "subtitle": {"type": "string"},
                           "positionSeconds": {
                             "type": "integer",
                             "minimum": 1

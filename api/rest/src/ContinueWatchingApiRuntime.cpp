@@ -610,6 +610,40 @@ std::vector<ContinueWatchingItem> ContinueWatchingApiRuntime::publicCandidates(
     return service_->list(actorId, backendId);
 }
 
+ApiResponse ContinueWatchingApiRuntime::publicContinueWatching(
+    const std::string& actorId, const std::string& backendId,
+    const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const
+{
+    if (actorId.empty() || backendId.empty() || !admittedPublicId)
+        return errorResponse(503, "continue_watching_unavailable");
+    const auto items = publicCandidates(actorId, backendId);
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    response.body = "{\"backendId\":\"" + jsonEscape(backendId) + "\",\"items\":[";
+    std::size_t included = 0;
+    for (const auto& item : items) {
+        if (included >= 50) break;
+        if (item.recording.backendId != backendId) continue;
+        const auto id = admittedPublicId(item.recording.backendNativeId);
+        if (!id) continue;
+        if (included++ != 0) response.body += ",";
+        response.body += "{\"recordingId\":\"" + jsonEscape(*id) +
+            "\",\"title\":\"" + jsonEscape(item.recording.title) +
+            "\",\"subtitle\":\"" + jsonEscape(item.recording.subtitle) +
+            "\",\"positionSeconds\":" + std::to_string(item.resumePositionSeconds) +
+            ",\"durationSeconds\":";
+        if (item.recording.durationKnown && item.recording.durationSeconds > 0)
+            response.body += std::to_string(item.recording.durationSeconds);
+        else response.body += "null";
+        response.body += ",\"resumeSupport\":\"profile_dependent\"}";
+    }
+    response.body += "],\"limit\":50}";
+    return response;
+}
+
 ApiResponse ContinueWatchingApiRuntime::publicRecentlyWatched(
     const std::string& actorId, const std::string& backendId,
     const std::function<std::optional<std::string>(const std::string&)>& admittedPublicId) const
