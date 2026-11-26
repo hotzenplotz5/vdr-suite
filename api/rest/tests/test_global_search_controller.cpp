@@ -124,7 +124,15 @@ int main()
     GlobalSearchApiRuntime& runtime = GlobalSearchApiRuntime::instance();
     runtime.reset();
     runtime.setPersonPortraitLookup(portraits);
-    assert(runtime.configure(database, registryService));
+    int identityLookups = 0;
+    assert(runtime.configure(database, registryService,
+        [&identityLookups](const std::string& backend, const std::string& native)
+        {
+            ++identityLookups;
+            assert(backend == "default");
+            assert(native == "native-1");
+            return std::string("rec_0123456789abcdef0123456789abcdef");
+        }));
     ApiResponse routed;
     assert(runtime.tryHandleGet(
         "/api/search?backend=default&query=John%20Travolta&from=1785000000&until=1785400000&limit=1&offset=0",
@@ -133,6 +141,15 @@ int main()
     assert(routed.body.find("\"recordingTotal\":1") != std::string::npos);
     assert(routed.body.find("\"epgTotal\":1") != std::string::npos);
     assert(routed.body.find(portraitUrl) != std::string::npos);
+    assert(identityLookups == 1);
+    assert(routed.body.find("\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+    assert(routed.body.find("\"backendNativeId\":\"native-1\"") != std::string::npos);
+    assert(runtime.tryHandleGet(
+        "/api/search?backend=default&query=Kein%20Treffer&from=1785000000&until=1785400000",
+        routed));
+    assert(routed.statusCode == 200);
+    assert(identityLookups == 1);
+    assert(routed.body.find("publicRecordingId") == std::string::npos);
     assert(!runtime.tryHandleGet("/api/other", routed));
     runtime.reset();
 

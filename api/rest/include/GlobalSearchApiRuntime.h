@@ -23,7 +23,8 @@ public:
 
     bool configure(
         Database& database,
-        BackendRegistryService& backendRegistryService);
+        BackendRegistryService& backendRegistryService,
+        GlobalSearchController::PublicRecordingIdLookup publicRecordingIdLookup = {});
 
     void setPersonPortraitLookup(
         GlobalSearchController::PersonPortraitLookup personPortraitLookup);

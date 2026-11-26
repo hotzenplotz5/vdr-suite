@@ -203,7 +203,8 @@ PersonPortraitMap personPortraits(
 
 std::string serialize(
     const GlobalSearchResult& result,
-    const PersonPortraitMap& portraits)
+    const PersonPortraitMap& portraits,
+    const GlobalSearchController::PublicRecordingIdLookup& publicRecordingIdLookup = {})
 {
     std::ostringstream json;
     json << "{\"query\":";
@@ -225,6 +226,16 @@ std::string serialize(
         const auto& item = result.recordings[index];
         const std::string artworkUrl = recordingArtworkUrl(item);
         json << "{\"id\":"; appendJsonString(json, item.id);
+        if (publicRecordingIdLookup && !item.backendNativeId.empty() &&
+            item.backendId == result.backendId)
+        {
+            const auto publicId = publicRecordingIdLookup(item.backendId, item.backendNativeId);
+            if (!publicId.empty())
+            {
+                json << ",\"publicRecordingId\":";
+                appendJsonString(json, publicId);
+            }
+        }
         json << ",\"backendId\":"; appendJsonString(json, item.backendId);
         json << ",\"backendNativeId\":"; appendJsonString(json, item.backendNativeId);
         json << ",\"title\":"; appendJsonString(json, item.title);
@@ -301,10 +312,12 @@ std::string serialize(
 GlobalSearchController::GlobalSearchController(
     GlobalSearchService& service,
     BackendRegistryService& backendRegistryService,
-    PersonPortraitLookup personPortraitLookup)
+    PersonPortraitLookup personPortraitLookup,
+    PublicRecordingIdLookup publicRecordingIdLookup)
     : service_(service),
       backendRegistryService_(backendRegistryService),
-      personPortraitLookup_(std::move(personPortraitLookup))
+      personPortraitLookup_(std::move(personPortraitLookup)),
+      publicRecordingIdLookup_(std::move(publicRecordingIdLookup))
 {
 }
 
@@ -372,5 +385,5 @@ ApiResponse GlobalSearchController::search(
     const PersonPortraitMap portraits = personPortraitLookup_
         ? personPortraits(personPortraitLookup_(normalizedBackendId))
         : PersonPortraitMap{};
-    return jsonResponse(200, serialize(result, portraits));
+    return jsonResponse(200, serialize(result, portraits, publicRecordingIdLookup_));
 }

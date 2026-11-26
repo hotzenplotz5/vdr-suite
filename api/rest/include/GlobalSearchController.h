@@ -17,10 +17,14 @@ public:
     using PersonPortraitLookup = std::function<
         std::vector<GlobalSearchPersonPortrait>(const std::string&)>;
 
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+
     GlobalSearchController(
         GlobalSearchService& service,
         BackendRegistryService& backendRegistryService,
-        PersonPortraitLookup personPortraitLookup = {});
+        PersonPortraitLookup personPortraitLookup = {},
+        PublicRecordingIdLookup publicRecordingIdLookup = {});
 
     void setPersonPortraitLookup(
         PersonPortraitLookup personPortraitLookup);
@@ -37,4 +41,5 @@ private:
     GlobalSearchService& service_;
     BackendRegistryService& backendRegistryService_;
     PersonPortraitLookup personPortraitLookup_;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
 };

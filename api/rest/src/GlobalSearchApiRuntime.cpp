@@ -57,7 +57,8 @@ GlobalSearchApiRuntime& GlobalSearchApiRuntime::instance()
 
 bool GlobalSearchApiRuntime::configure(
     Database& database,
-    BackendRegistryService& backendRegistryService)
+    BackendRegistryService& backendRegistryService,
+    GlobalSearchController::PublicRecordingIdLookup publicRecordingIdLookup)
 {
     auto writerRepository = std::make_unique<GlobalSearchRepository>(database);
     if (!writerRepository->ensureSchema()) return false;
@@ -110,7 +111,8 @@ bool GlobalSearchApiRuntime::configure(
     auto controller = std::make_unique<GlobalSearchController>(
         *service,
         backendRegistryService,
-        std::move(personPortraitLookup));
+        std::move(personPortraitLookup),
+        std::move(publicRecordingIdLookup));
 
     std::lock_guard<std::mutex> lock(mutex_);
     controller_.reset();
