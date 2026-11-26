@@ -50,6 +50,23 @@ async function testPublicMembershipPage() {
   await assert.rejects(api.fetchPublicGenreRecordings({backendId:'default', genreId:'series'}),
     e => e === error);
   assert.strictEqual(requests.length, 3, '403 must not trigger a legacy fallback');
+  const native = {id:'native-list-id', backendId:'default', backendNativeId:'/video/exact.rec'};
+  const bridgeRequests = [];
+  const bridgeWindow = {VdrSuiteClientApi:{requestJson(route, options) {
+    bridgeRequests.push({route, options});
+    return Promise.resolve({publicRecordingId:id, recording:native, metadataDetail:{available:true}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot, 'api', 'genre-client-api.js'), 'utf8'), {window:bridgeWindow, console});
+  const detail = await bridgeWindow.VdrSuiteClientApi.fetchClientRecordingForPublicId({backendId:'default', recordingId:id});
+  assert.strictEqual(bridgeRequests[0].route, '/api/vdr/recordings/folder');
+  assert.strictEqual(bridgeRequests[0].options.query.recordingId, id);
+  assert.strictEqual(detail.recording.backendNativeId, native.backendNativeId);
+  assert.strictEqual(detail.recording.id, native.id);
+  assert.strictEqual(detail.recording.publicRecordingId, id);
+  await assert.rejects(bridgeWindow.VdrSuiteClientApi.fetchClientRecordingForPublicId({
+    backendId:'other', recordingId:id
+  }), e => /Aufnahmeidentität/.test(e.message));
+  assert.strictEqual(bridgeRequests.length, 2);
 }
 
 
@@ -245,6 +262,7 @@ function richMetadata(nativeId, title) {
   const recordingCards = [];
   const openedRecordings = [];
   const recordingMetadataCalls = [];
+  const membershipCalls = [];
   let activeMetadataCalls = 0;
   let maximumActiveMetadataCalls = 0;
 
@@ -265,6 +283,11 @@ function richMetadata(nativeId, title) {
     recording('native-bond', 'Thriller/James Bond 007 - Dr. No', '/Thriller/James_Bond/example.rec')
   ];
 
+  const publicMembers = genreRecordings.map((item, index) => ({
+    recordingId:'rec_' + String(index + 1).repeat(32),
+    backendId:'default', title:item.title.split('/').pop(),
+    recordedAt:'2026-08-16T01:00:00Z', durationSeconds:3600, durationKnown:true
+  }));
   const client = {
     fetchClientGenres: options => {
       overviewRequests += 1;
@@ -310,11 +333,29 @@ function richMetadata(nativeId, title) {
       channelRequests += 1;
       return new Promise(() => {});
     },
-    fetchClientGenreRecordings: () => Promise.resolve({
-      items: genreRecordings,
-      total: genreRecordings.length,
-      hasMore:false
-    }),
+    fetchClientGenreRecordings: () => { throw new Error('legacy membership must not be called'); },
+    fetchPublicGenreRecordings: options => {
+      membershipCalls.push(options);
+      return Promise.resolve({items:publicMembers, total:publicMembers.length, hasMore:false});
+    },
+    fetchClientRecordingForPublicId(options) {
+      assert.strictEqual(options.backendId, 'default');
+      const index = publicMembers.findIndex(item => item.recordingId === options.recordingId);
+      assert(index >= 0, 'private detail must use the exact public member identity');
+      const item = genreRecordings[index];
+      recordingMetadataCalls.push(options.recordingId);
+      activeMetadataCalls += 1;
+      maximumActiveMetadataCalls = Math.max(maximumActiveMetadataCalls, activeMetadataCalls);
+      const result = item.backendNativeId === 'native-no-match'
+        ? {available:false, status:'not-found'}
+        : richMetadata(item.backendNativeId, item.backendNativeId === 'native-largo'
+          ? 'Largo Winch - Tödliches Erbe' : item.title.replace(/^[^/]+\//, ''));
+      return Promise.resolve({
+        publicRecordingId:options.recordingId,
+        recording:Object.assign({}, item, {publicRecordingId:options.recordingId}),
+        metadataDetail:result
+      }).finally(() => { activeMetadataCalls -= 1; });
+    },
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
       epgQueries.push({
@@ -398,26 +439,7 @@ function richMetadata(nativeId, title) {
       }
     },
     VdrSuiteRecordings2MetadataDetail: {
-      fetchMetadata(item, backendId) {
-        assert.strictEqual(backendId, 'default');
-        recordingMetadataCalls.push(item.backendNativeId);
-        activeMetadataCalls += 1;
-        maximumActiveMetadataCalls = Math.max(
-          maximumActiveMetadataCalls,
-          activeMetadataCalls
-        );
-        const result = item.backendNativeId === 'native-no-match'
-          ? {available:false, status:'not-found'}
-          : richMetadata(
-              item.backendNativeId,
-              item.backendNativeId === 'native-largo'
-                ? 'Largo Winch - Tödliches Erbe'
-                : item.title.replace(/^[^/]+\//, '')
-            );
-        return Promise.resolve(result).finally(function () {
-          activeMetadataCalls -= 1;
-        });
-      }
+      fetchMetadata() { throw new Error('Genre membership must enrich by public identity'); }
     }
   };
   context.window = context;
@@ -445,6 +467,9 @@ function richMetadata(nativeId, title) {
   await flush();
   await flush();
 
+  assert.strictEqual(membershipCalls.length, 1);
+  assert.strictEqual(membershipCalls[0].limit, 30);
+  assert.strictEqual(membershipCalls[0].genreId, 'action');
   assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length);
   assert(
     maximumActiveMetadataCalls <= 4,
@@ -481,7 +506,12 @@ function richMetadata(nativeId, title) {
   );
 
   largoCard.card.dispatch('click');
+  await flush();
+  await flush();
   assert.strictEqual(openedRecordings.length, 1);
+  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length + 1);
+  assert.strictEqual(recordingMetadataCalls[recordingMetadataCalls.length - 1], publicMembers[0].recordingId);
+  assert.strictEqual(openedRecordings[0].item.publicRecordingId, publicMembers[0].recordingId);
   assert.strictEqual(
     openedRecordings[0].item.path,
     genreRecordings[0].path,

@@ -8,6 +8,8 @@
   }
 
   const PAGE_SIZE = 48;
+  const RECORDING_PAGE_SIZE = 30;
+  let detailRequest = 0;
   const RECORDING_METADATA_CONCURRENCY = 4;
   const state = {
     active:false,
@@ -23,8 +25,9 @@
     loading:false,
     loadingMore:false,
     error:null,
+    detailError:null,
     requestSequence:0,
-    recordingMetadataByNativeId:new Map()
+    recordingDetailsById:new Map()
   };
 
   const text = (value, fallback) => String(
@@ -193,8 +196,8 @@
     return {from:now, until:now + 172800};
   }
 
-  function recordingNativeId(recording) {
-    return text(recording && recording.backendNativeId);
+  function recordingPublicId(recording) {
+    return text(recording && recording.recordingId);
   }
 
   function recordingMetadataPosterUrl(value) {
@@ -256,44 +259,36 @@
 
   function enrichRecordingItems(recordings, sequence, requestedScope, requestedBackend) {
     if (requestedScope !== 'recordings') return Promise.resolve();
-    const owner = global.VdrSuiteRecordings2MetadataDetail;
-    if (!owner || typeof owner.fetchMetadata !== 'function') return Promise.resolve();
-
+    const client = api();
+    // Preserve the established rich card presentation during the migration.
+    // The public list owns membership/order; private detail reads are keyed
+    // only by its exact public ID, with the previous four-read concurrency.
     const queue = (Array.isArray(recordings) ? recordings : []).filter(recording => {
-      const nativeId = recordingNativeId(recording);
-      return nativeId && !state.recordingMetadataByNativeId.has(nativeId);
+      const id = recordingPublicId(recording);
+      return id && !state.recordingDetailsById.has(id);
     });
     let cursor = 0;
 
     function worker() {
-      const index = cursor;
-      cursor += 1;
-      if (index >= queue.length) return Promise.resolve();
-      const recording = queue[index];
-      const nativeId = recordingNativeId(recording);
-      return Promise.resolve(owner.fetchMetadata(recording, requestedBackend))
-        .then(value => {
-          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
-            state.recordingMetadataByNativeId.set(
-              nativeId,
-              value && value.available === true ? value : null
-            );
-          }
-        })
-        .catch(() => {
-          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
-            state.recordingMetadataByNativeId.set(nativeId, null);
-          }
-        })
-        .then(worker);
+      const index = cursor++;
+      if (index >= queue.length ||
+          !currentRecordingRequest(sequence, requestedScope, requestedBackend))
+        return Promise.resolve();
+      const recordingId = recordingPublicId(queue[index]);
+      return Promise.resolve().then(() => client.fetchClientRecordingForPublicId({
+        backendId:requestedBackend, recordingId
+      })).then(value => {
+        if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
+          state.recordingDetailsById.set(recordingId, value);
+        }
+      }).catch(() => {
+        // A failed optional card enrichment does not hide a public member.
+        // The click always resolves the selected recording again.
+      }).then(worker);
     }
 
-    const workers = [];
-    const workerCount = Math.min(RECORDING_METADATA_CONCURRENCY, queue.length);
-    for (let index = 0; index < workerCount; index += 1) {
-      workers.push(worker());
-    }
-    return Promise.all(workers).then(() => undefined);
+    return Promise.all(Array.from({length: Math.min(RECORDING_METADATA_CONCURRENCY, queue.length)}, worker))
+      .then(() => undefined);
   }
 
   function synchronizeSelectedCount(total) {
@@ -325,7 +320,8 @@
     state.total = 0;
     state.hasMore = false;
     state.loadingMore = false;
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
   }
 
   function renderHeader(root) {
@@ -454,19 +450,34 @@
 
   function openRecording(recording) {
     const owner = global.VdrSuiteRecordings2;
+    const request = ++detailRequest;
+    const sequence = state.requestSequence;
+    const backendId = state.backendId;
+    const current = () => request === detailRequest &&
+      currentRecordingRequest(sequence, 'recordings', backendId);
+    state.detailError = null;
     if (!owner || typeof owner.openRecording !== 'function') {
-      state.error = new Error(
-        'Recordings 2 Detail-Owner ist nicht verfügbar.'
-      );
+      state.detailError = new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
       return render();
     }
-    owner.openRecording(recording, {
-      backendId:state.backendId,
-      backLabel:closeLabel(),
-      onClose:() => {
-        state.active = true;
-        render();
-      }
+    // Re-resolve at the point of opening, so a moved or deleted recording
+    // cannot silently be replaced by an unrelated native list entry.
+    return Promise.resolve().then(() => api().fetchClientRecordingForPublicId({
+      backendId, recordingId:recordingPublicId(recording)
+    })).then(detail => {
+      if (!current()) return;
+      owner.openRecording(detail.recording, {
+        backendId,
+        backLabel:closeLabel(),
+        onClose:() => {
+          state.active = true;
+          render();
+        }
+      });
+    }).catch(error => {
+      if (!current()) return;
+      state.detailError = error;
+      render();
     });
   }
 
@@ -490,7 +501,8 @@
     state.total = 0;
     state.hasMore = false;
     state.selectedGenre = null;
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
     if (state.scope === 'epg' &&
         state.selectedCategory &&
         state.selectedCategory.id === 'movie') {
@@ -522,6 +534,10 @@
       node('h4', '', resultLabel() + ' · ' + state.total + ' Treffer')
     );
     root.appendChild(header);
+    if (state.detailError) {
+      root.appendChild(node('section', 'genres-status error',
+        state.detailError.message || state.detailError));
+    }
 
     if (!state.items.length) {
       root.appendChild(node(
@@ -541,10 +557,10 @@
       state.items.forEach(recording => {
         if (cardOwner &&
             typeof cardOwner.createRecordingCard === 'function') {
-          const rich = state.recordingMetadataByNativeId.get(
-            recordingNativeId(recording)
-          );
-          const projected = recordingCardProjection(recording, rich);
+          const detail = state.recordingDetailsById.get(recordingPublicId(recording));
+          const projected = detail && detail.recording
+            ? recordingCardProjection(detail.recording, detail.metadataDetail)
+            : recording;
           list.appendChild(
             cardOwner.createRecordingCard(projected, function () {
               openRecording(recording);
@@ -718,13 +734,13 @@
     const options = {
       backendId:state.backendId,
       genreId:text(state.selectedGenre && state.selectedGenre.id),
-      limit:PAGE_SIZE,
+      limit:state.scope === 'recordings' ? RECORDING_PAGE_SIZE : PAGE_SIZE,
       offset:offset,
       cache:'no-store',
       credentials:'same-origin'
     };
     if (state.scope === 'recordings') {
-      return client.fetchClientGenreRecordings(options);
+      return client.fetchPublicGenreRecordings(options);
     }
     const window = epgWindow();
     return client.fetchClientGenreEpg(Object.assign({}, options, {
@@ -746,7 +762,8 @@
 
   function beginResultLoad() {
     state.items = [];
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
     state.total = number(
       (state.selectedGenre && state.selectedGenre.count) ||
       (state.selectedCategory && state.selectedCategory.count),

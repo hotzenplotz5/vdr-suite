@@ -142,10 +142,25 @@ existing partial-root/full-direct-folder rules and original-folder escape
 remain unchanged. The same Series group and selected cover are reused on
 both surfaces. No new browse database, lookup or folder ID scheme is used.
 
-The browser membership call remains on its existing route until poster/preview
-and recording detail/action identity parity are covered. New cover writes
-from an opaque-only client and the remaining enriched grouping cases require
-review at the browser migration; the existing Web cover workflow is unchanged.
+The standalone Web Genres module now reads membership from
+`GET /api/v1/genres/recordings` in pages of 30. The existing rich card
+presentation is retained during migration by bounded, four-at-a-time private
+Web detail reads keyed by the public member identity. The existing private
+folder endpoint accepts `backend` and `recordingId` for one exact recording:
+it resolves the backend-scoped public ID using the existing identity
+repository, verifies the cached native recording, and returns the established
+Browser-only recording/metadata model. On selection the module resolves that
+identity again before handing the recording to the existing detail/action
+owner; no title-based lookup or native ID substitution. Native paths are not
+added to Public-v1 responses. The private Web authorization and all action
+contracts are unchanged. A failed optional enrichment leaves the public card
+visible; a failed detail resolution is shown locally without selecting a
+different recording.
+
+This is a compatibility step, not a migration of the underlying private
+metadata assignment and Recording mutation endpoints. Home Series membership,
+new cover writes from opaque-only clients, and enriched/Unicode grouping
+parity remain separate work; the existing Web cover workflow is unchanged.
 
 ## Recording titles and edited cuts: public presentation parity
 
