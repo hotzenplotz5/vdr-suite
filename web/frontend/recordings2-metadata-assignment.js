@@ -237,11 +237,11 @@
             assign(candidate, 'series');
           }, 'primary'));
           actions.appendChild(button('Staffeln anzeigen', function () {
-            loadSeasons(candidate);
+            loadSeriesLevel(candidate);
           }));
         } else if (mode === 'season') {
           actions.appendChild(button('Folgen anzeigen', function () {
-            loadEpisodes(parentSeries, candidate);
+            loadSeriesLevel(parentSeries, candidate);
           }, 'primary'));
         } else {
           actions.appendChild(button('Diesen Treffer verwenden', function () {
@@ -275,33 +275,26 @@
       });
     }
 
-    function loadSeasons(series) {
+    function loadCandidates(operation, payload, mode, parentSeries, message, trigger) {
       clearResults();
-      setStatus('Staffeln werden geladen …', false);
-      post(backendId, 'seasons', {
-        seriesExternalId: text(series.externalId),
-        limit: 20
-      }).then(function (result) {
+      if (trigger) trigger.disabled = true;
+      setStatus(message, false);
+      post(backendId, operation, payload).then(function (result) {
+        if (trigger) trigger.disabled = false;
         setStatus('', false);
-        renderCandidates(result && result.candidates, 'season', series);
+        renderCandidates(result && result.candidates, mode, parentSeries);
       }).catch(function (error) {
+        if (trigger) trigger.disabled = false;
         setStatus(error.message || String(error), true);
       });
     }
 
-    function loadEpisodes(series, season) {
-      clearResults();
-      setStatus('Folgen werden geladen …', false);
-      post(backendId, 'episodes', {
-        seriesExternalId: text(series.externalId),
-        seasonNumber: Number(season.seasonNumber || 0),
-        limit: 20
-      }).then(function (result) {
-        setStatus('', false);
-        renderCandidates(result && result.candidates, 'episode', series);
-      }).catch(function (error) {
-        setStatus(error.message || String(error), true);
-      });
+    function loadSeriesLevel(series, season) {
+      const payload = {seriesExternalId: text(series.externalId), limit: 20};
+      if (season) payload.seasonNumber = Number(season.seasonNumber || 0);
+      loadCandidates(season ? 'episodes' : 'seasons', payload,
+        season ? 'episode' : 'season', series,
+        season ? 'Folgen werden geladen …' : 'Staffeln werden geladen …');
     }
 
     function openSearch() {
@@ -331,24 +324,9 @@
           setStatus('Bitte mindestens zwei Zeichen eingeben.', true);
           return;
         }
-        clearResults();
-        searchButton.disabled = true;
-        setStatus('Kandidaten werden gesucht …', false);
-        post(backendId, 'search', {
-          query: query,
-          kind: kind.value,
-          limit: 12
-        }).then(function (result) {
-          searchButton.disabled = false;
-          setStatus('', false);
-          renderCandidates(
-            result && result.candidates,
-            kind.value === 'series' ? 'series' : 'movie'
-          );
-        }).catch(function (error) {
-          searchButton.disabled = false;
-          setStatus(error.message || String(error), true);
-        });
+        const mode = kind.value === 'series' ? 'series' : 'movie';
+        loadCandidates('search', {query: query, kind: kind.value, limit: 12},
+          mode, undefined, 'Kandidaten werden gesucht …', searchButton);
       }, 'primary');
       row.append(input, kind, searchButton);
       searchArea.appendChild(row);

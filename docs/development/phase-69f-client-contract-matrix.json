@@ -205,7 +205,7 @@
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution"
       ],
-      "note": "Recording collection/action contracts are not yet public-v1."
+      "note": "Legacy recording collection/action wrappers remain transition surfaces; the scoped public action wrapper is inventoried separately."
     },
     {
       "domain": "recording-support",
@@ -214,9 +214,19 @@
       "exports": [
         "fetchClientRecordingCacheStatus",
         "fetchClientRecordingFolder",
+        "fetchClientRecordingForPublicId"
+      ],
+      "note": "Cache/folder and opaque-to-private recording detail helpers remain first-party support surfaces, not public compatibility promises."
+    },
+    {
+      "domain": "recording-public-candidates",
+      "classification": "bounded-domain-plane",
+      "publicV1Relation": "partial-non-equivalent",
+      "exports": [
+        "fetchPublicRecordingAction",
         "fetchClientRecordingTrailer"
       ],
-      "note": "Cache/folder/trailer helpers are first-party support surfaces and are not public compatibility promises."
+      "note": "Scoped Public-v1 recording action validate/execute and backend-scoped metadata trailer wrappers. Source candidates, not new accepted compatibility promises."
     },
     {
       "domain": "search-timers",
@@ -253,9 +263,10 @@
         "fetchClientGenres",
         "fetchPublicRecordingGenres",
         "fetchClientGenreRecordings",
-        "fetchClientGenreEpg"
+        "fetchClientGenreEpg",
+        "fetchPublicGenreRecordings"
       ],
-      "note": "Recording overview uses GET /api/v1/genres with existing recordings.view and backend scope; membership and EPG retain their pre-v1 routes pending parity."
+      "note": "Recording overview and candidate membership wrappers use Public v1; legacy membership and EPG wrappers remain until caller parity is established."
     },
     {
       "domain": "live-remote-extension",

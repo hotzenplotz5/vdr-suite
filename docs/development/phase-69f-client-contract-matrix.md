@@ -1,5 +1,7 @@
 # Phase 69.F — Client Contract Matrix and Stable Integration Boundary
 
+**2026-11-26 browser inventory reconciliation:** 77 classified operations (67 base, six Genre, four Live Remote). Public recording action, metadata trailer and Genre membership wrappers are source candidates; the legacy opaque-to-private recording detail bridge remains explicitly private. This does not expand the historical accepted reference-client contracts or establish hardware acceptance.
+
 **2026-10-11 reconciliation:** The Phase-69.F **original eight accepted method/resource contracts** and their accepted reference-client coverage remain the frozen closeout baseline. Subsequent Account work extends the accepted inventory; the later Recording R2 collection is represented in the machine-readable `publicV1Resources` inventory as a separately gated candidate. The 2026-10-11 matrix currently contains **10 entries: nine accepted plus one named Recording candidate**; inclusion in the JSON array or merge into `main` does not itself promote R2 to accepted compatibility. The historical slice-specific statements below retain their acceptance-time meaning. See [Current State](../CURRENT.md).
 
 ## Status

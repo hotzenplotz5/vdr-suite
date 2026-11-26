@@ -36,8 +36,8 @@ base_client = read("web/frontend/api/client-api.js")
 genre_client = read("web/frontend/api/genre-client-api.js")
 remote_client = read("web/frontend/api/live-remote-client-api.js")
 
-base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer)[A-Za-z0-9_]*)\s*\(", base_client))
-genre_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicRecordingGenres)[A-Za-z0-9_]*)\s*\(", genre_client))
+base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction)[A-Za-z0-9_]*)\s*\(", base_client))
+genre_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicRecordingGenres|fetchPublicGenreRecordings)[A-Za-z0-9_]*)\s*\(", genre_client))
 remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", remote_client))
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
 remote_operations.add("createClientLiveUpdateSource")
@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 66, f"expected 66 base client operations, found {len(base_operations)}")
-require(len(genre_operations) == 4, f"expected 4 Genre client operations, found {len(genre_operations)}")
+require(len(base_operations) == 67, f"expected 67 base client operations, found {len(base_operations)}")
+require(len(genre_operations) == 6, f"expected 6 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 74, f"expected 74 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 77, f"expected 77 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -102,13 +102,24 @@ for source_name, source in (
             require(source.count(route) == 1,
                     "browser EPG timer v1 route must be exact: " + route)
             source = source.replace(route, "'approved-epg-timer'")
+        # Scoped recording action and trailer wrappers, not broad route prefixes.
+        for route in (
+            "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'",
+            "'/api/v1/recordings/actions/' +\n      (input.execute === true ? 'execute' : 'validate')",
+        ):
+            require(source.count(route) == 1, "reviewed recording route drifted: " + route)
+            source = source.replace(route, "'approved-recording-route'")
     if source_name == "genre":
-        # Reviewed recording facet root; membership and EPG remain legacy.
+        # Reviewed recording facet and membership; EPG remains legacy.
         route = "'/api/v1/genres'"
         require(source.count(route) == 1, "recording Genre overview route must be exact")
         require("return fetchPublicRecordingGenres(normalized);" in source,
                 "recording Genre overview must use the reviewed public route")
         source = source.replace(route, "'approved-recording-genre-overview'")
+        membership_route = "'/api/v1/genres/recordings'"
+        require(source.count(membership_route) == 1,
+                "recording Genre membership route must be exact")
+        source = source.replace(membership_route, "'approved-recording-genre-membership'")
     if source_name == "live-remote":
         # MT.EVENT: explicitly reviewed actor-owned, read-only Operation SSE.
         # Does not add a general browser public-v1 client migration.
@@ -405,6 +416,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 74 exactly once (including guarded SearchTimer, EPG Timer CREATE and recording Genre overview).")
+print("Classified browser Client API operations: 77 exactly once (including guarded recording actions, trailer and Genre membership).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")
