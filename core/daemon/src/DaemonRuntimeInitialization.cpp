@@ -1208,6 +1208,12 @@ bool DaemonRuntime::initialize()
             return metadataController_
                 ->findManualRecordingMetadataForBackend(
                     backendId);
+        },
+        [this](const std::string& backendId, const std::string& nativeId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                .value_or(std::string{});
         });
     vdrRecordingFolderController_ =
         std::make_unique<VdrRecordingFolderController>(

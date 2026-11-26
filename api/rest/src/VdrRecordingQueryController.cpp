@@ -179,11 +179,13 @@ VdrRecordingQueryController::VdrRecordingQueryController(
 VdrRecordingQueryController::VdrRecordingQueryController(
     VdrRecordingQueryService& queryService,
     VdrRecordingQueryResultJsonSerializer& jsonSerializer,
-    ManualMetadataBatchLookup manualMetadataBatchLookup)
+    ManualMetadataBatchLookup manualMetadataBatchLookup,
+    PublicRecordingIdLookup publicRecordingIdLookup)
     : queryService_(queryService),
       jsonSerializer_(jsonSerializer),
       manualMetadataBatchLookup_(
-          std::move(manualMetadataBatchLookup))
+          std::move(manualMetadataBatchLookup)),
+      publicRecordingIdLookup_(std::move(publicRecordingIdLookup))
 {
 }
 
@@ -287,10 +289,18 @@ ApiResponse VdrRecordingQueryController::getRecordings(
         result = movieReleasePage(result, query, manualAssignments, limit, offset,
                                   order == "desc");
 
+    const auto publicIdLookup = [this](const VdrRecording& recording)
+    {
+        if (!publicRecordingIdLookup_ || recording.backendNativeId.empty())
+            return std::string{};
+        return publicRecordingIdLookup_(recording.backendId,
+                                        recording.backendNativeId);
+    };
+
     if (manualAssignments.empty())
     {
         response.body =
-            jsonSerializer_.serialize(result);
+            jsonSerializer_.serialize(result, {}, publicIdLookup);
 
         return response;
     }
@@ -319,7 +329,7 @@ ApiResponse VdrRecordingQueryController::getRecordings(
                     serialize(
                         *assignment,
                         recording.backendNativeId);
-            });
+            }, publicIdLookup);
 
     return response;
 }

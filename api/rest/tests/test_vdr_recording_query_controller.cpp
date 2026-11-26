@@ -21,6 +21,8 @@ public:
             VdrRecording recording;
             recording.id = "movie-" + std::to_string(i);
             recording.title = recording.id;
+            recording.backendId = "default";
+            recording.backendNativeId = "/Mock/" + recording.id + ".rec";
             recording.metadata.provider.contentKind = VdrRecordingContentKind::Movie;
             recording.metadata.provider.releaseDate = i < 18 ? "2000" : (i == 18 ? "2024" : "2025");
             recordings.push_back(recording);
@@ -293,6 +295,23 @@ int main()
     const auto manualOrdered = manualMovies.getRecordings(
         "", "", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 0, 2022, 2026);
     assert(manualOrdered.body.find("\"id\":\"movie-18\"") != std::string::npos);
+    int identityLookups = 0;
+    VdrRecordingQueryController publicMovies(moviesQuery, jsonSerializer, {},
+        [&identityLookups](const std::string& backend, const std::string& native)
+        {
+            ++identityLookups;
+            assert(backend == "default");
+            assert(native == "/Mock/movie-19.rec");
+            return std::string("rec_0123456789abcdef0123456789abcdef");
+        });
+    const auto publicPage = publicMovies.getRecordings(
+        "", "default", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 0, 2022, 2026);
+    assert(publicPage.statusCode == 200);
+    assert(identityLookups == 1);
+    assert(publicPage.body.find("\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+    assert(publicPage.body.find("\"recordingId\":\"movie-19\"") != std::string::npos);
+    assert(publicPage.body.find("\"totalCount\":2") != std::string::npos);
+
     const auto unchangedPage = moviesController.getRecordings();
     assert(unchangedPage.body.find("\"totalCount\":20") != std::string::npos);
 
