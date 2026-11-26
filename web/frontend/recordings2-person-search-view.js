@@ -26,7 +26,9 @@
 
   function isPublicRecordingImageUrl(value) {
     const url = shared.text(value);
-    return url.startsWith('/recording-artwork/') ||
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return (helpers && helpers.isPublicRecordingMetadataImageUrl(url)) ||
+      url.startsWith('/recording-artwork/') ||
       url.startsWith('/api/vdr/recordings/artwork') ||
       url.startsWith('/api/recordings/artwork') ||
       url.startsWith('/api/vdr/recordings/metadata/image?') ||

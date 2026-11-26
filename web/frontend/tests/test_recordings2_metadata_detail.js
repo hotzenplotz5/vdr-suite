@@ -126,6 +126,14 @@ assert.strictEqual(api.versionManualMetadataArtwork({
   preferredArtwork:{available:true,url:publicImageUrl}
 }).preferredArtwork.url, publicImageUrl);
 assert.ok(personView);
+assert.strictEqual(personView.__test.isPublicRecordingImageUrl(publicImageUrl), true);
+assert.strictEqual(personView.__test.isPublicRecordingImageUrl('https://image.tmdb.org/example.jpg'), false);
+const publicPersonPoster = personView.__test.createRecordingPoster({
+  recordingId: publicRecordingId, backendId: 'remote', title: 'Film',
+  preferredArtworkId: 'b'.repeat(32)
+});
+assert.strictEqual(publicPersonPoster.children.length, 1);
+assert.strictEqual(publicPersonPoster.children[0].src, publicImageUrl);
 assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
 assert.strictEqual(api.roleLabel('actor'), 'Schauspiel');
