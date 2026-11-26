@@ -371,6 +371,12 @@ trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default')
     assert.strictEqual(direct, publicId);
     assert.strictEqual(publicRequests.length, 2,
       'already public rec_ IDs must not scan the collection');
+    return trailerRuntime.resolvePublicRecordingId(
+      {publicRecordingId:publicId, id:'native-7', backendNativeId:'/private/video/Original.rec'}, 'default');
+  }).then(function (bound) {
+    assert.strictEqual(bound, publicId);
+    assert.strictEqual(publicRequests.length, 2,
+      'server-bound public identity must not scan by timestamp or title');
     publicPages = [{items: [
       {backendId: 'default', recordedAt: '1788696000', title: 'Original',
         recordingId: publicId},

@@ -71,7 +71,7 @@
 
   function fetchMarks(recording, selectedBackendId) {
     const client = global.VdrSuiteClientApi;
-    const id = text(recording && (recording.recordingId || recording.id)).trim();
+    const id = text(recording && (recording.publicRecordingId || recording.recordingId || recording.id)).trim();
     const backend = backendId(recording, selectedBackendId);
     if (!client || typeof client.requestJson !== 'function') {
       return Promise.reject(new Error('recording_marks_client_unavailable'));

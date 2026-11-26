@@ -371,7 +371,7 @@
   }
 
   function resolveMediaCheckIdentity(client, recording, backendId) {
-    const direct = text(recording && recording.recordingId);
+    const direct = text(recording && (recording.publicRecordingId || recording.recordingId));
     if (/^rec_[0-9a-f]{32}$/.test(direct)) return Promise.resolve(direct);
     const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
     if (!recordedAt) return Promise.reject(
@@ -1095,7 +1095,7 @@
       (actionHost || copy).appendChild(panel);
       // Restore the saved Operation at mount, not only after a new manual
       // "Vorprüfung starten" POST. This is a read-only operation + SSE path.
-      const directId = text(recording && recording.recordingId);
+      const directId = text(recording && (recording.publicRecordingId || recording.recordingId));
       if (/^rec_[0-9a-f]{32}$/.test(directId)) recordingId = directId;
       if (!recordingId) {
         try {

@@ -165,6 +165,16 @@ RECORDING_ACTION_AUDITED = {
     },
 }
 
+# Existing manual metadata service, shared by private and public Browser
+# callers. Audit its actual router owner and scoped permission dispatch.
+RECORDING_METADATA_RUNTIME = ROOT / "api/rest/src/ManualRecordingMetadataApiRuntime.cpp"
+RECORDING_METADATA_AUDITED = {
+    "/api/v1/backends/{backendId}/recordings/metadata/" + operation: {
+        "post": 'route.operation == "' + operation + '"'
+    }
+    for operation in ("search", "seasons", "episodes", "assign", "withdraw")
+}
+
 # F6 Public-v1 operations reuse the existing native RecordingMarks/Cut
 # owners. Audit both dispatch reachability and URL/body identity checks.
 RECORDING_NATIVE_EDITING_AUDITED = {
@@ -360,6 +370,7 @@ def validate(
     native_router_source: str | None = None,
     native_marks_source: str | None = None,
     native_cut_source: str | None = None,
+    recording_metadata_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -377,6 +388,8 @@ def validate(
         native_marks_source = RECORDING_NATIVE_MARKS.read_text(encoding="utf-8")
     if native_cut_source is None:
         native_cut_source = RECORDING_NATIVE_CUT.read_text(encoding="utf-8")
+    if recording_metadata_source is None:
+        recording_metadata_source = RECORDING_METADATA_RUNTIME.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -392,7 +405,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -429,7 +442,8 @@ def validate(
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
-        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED
+        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
+        **RECORDING_METADATA_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -463,6 +477,19 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in RECORDING_METADATA_AUDITED:
+                router_marker = "ManualRecordingMetadataApiRuntime::instance().tryHandlePost("
+                if native_router_source.count(router_marker) != 1:
+                    errors.append(f"{where}: manual metadata router owner missing")
+                if marker not in recording_metadata_source or (
+                    'publicPrefix = "/api/v1/backends/"' not in recording_metadata_source or
+                    'authorizedBackendId != route.backendId' not in recording_metadata_source or
+                    'strings["resourceKey"] = native' not in recording_metadata_source):
+                    errors.append(f"{where}: public metadata handler/identity binding missing")
+                if ('publicPrefix = "/api/v1/backends/"' not in security_source or
+                    'isManualRecordingMetadataAction' not in security_source or
+                    'requestToAuthorize.permission = "metadata.recording.assign"' not in security_source):
+                    errors.append(f"{where}: existing metadata assignment authorization missing")
             elif path in RECORDING_NATIVE_EDITING_AUDITED:
                 router_marker, gate_marker, native_owner = marker
                 native_source = (
@@ -579,7 +606,8 @@ def main() -> int:
             print(f"- {message}")
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED}
+             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED,
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

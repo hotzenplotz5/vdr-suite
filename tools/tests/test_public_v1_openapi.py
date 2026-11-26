@@ -43,6 +43,11 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_manual_metadata_public_route_inventory(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/assign"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
     def test_missing_native_timer_aux_contract(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/native-timers/{timerId}/aux"]
