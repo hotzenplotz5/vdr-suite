@@ -864,6 +864,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response = errorResponse(503, "recently_watched_write_failed");
             return true;
         }
+        pendingProgressBackends_.insert(backendId);
         response.statusCode = 200;
         response.contentType = "application/json";
         response.headers["Cache-Control"] = "no-store";

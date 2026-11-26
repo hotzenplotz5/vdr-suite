@@ -2576,7 +2576,7 @@ public:
             const auto requested = queryStringValues(request.path, "domain");
             if (requested.size() != 1U ||
                 (requested.front() != "timers" &&
-                 requested.front() != "recordings"))
+                 requested.front() != "recordings" && requested.front() != "continueWatching"))
             {
                 AuthorizationDecision invalid;
                 invalid.permission = "timers.view";
@@ -2584,11 +2584,12 @@ public:
                 invalid.action = "device_events.subscribe";
                 invalid.reasonCode = "invalid_event_domain";
                 return rejectWithAudit(gate, invalid, 400,
-                    "One native timers or recordings domain is required.", "");
+                    "One native timers, recordings or continueWatching domain is required.", "");
             }
             AuthorizationRequest read;
             read.permission = requested.front() == "timers"
-                ? "timers.view" : "recordings.view";
+                ? "timers.view" : requested.front() == "continueWatching"
+                    ? "media.recording.play" : "recordings.view";
             read.backendId = scopes.front();
             read.action = "device_events.subscribe";
             const AuthorizationDecision decision =

@@ -18,6 +18,12 @@ static void test_grant_scoped_backend_filter_and_cursor()
     auto timers = hub.subscribe("vdr-a", {"timers"});
     auto recordings = hub.subscribe("vdr-a", {"recordings"});
     auto foreign = hub.subscribe("vdr-b", {"timers"});
+    auto progress = hub.subscribe("vdr-a", {"continueWatching"});
+    assert(progress);
+    consume(*progress);
+    hub.publish(LiveUpdateEvent(76, 5, {"continueWatching"}, "vdr-b"));
+    hub.publish(LiveUpdateEvent(77, 5, {"continueWatching"}, "vdr-a"));
+    assert(consume(*progress).find("\"changedDomains\":[\"continueWatching\"]") != std::string::npos);
     assert(timers && recordings && foreign);
     assert(consume(*timers).find("event: hello") != std::string::npos);
     assert(consume(*recordings).find("\"recordings\"") != std::string::npos);

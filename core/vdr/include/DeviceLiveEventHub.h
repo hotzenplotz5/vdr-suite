@@ -63,13 +63,14 @@ public:
         if (event.backendId() != backend_) return;
         std::lock_guard<std::mutex> lock(mutex_);
         if (closed_ || std::chrono::steady_clock::now() >= expires_) return;
-        bool timers = false, recordings = false;
+        bool timers = false, recordings = false, progress = false;
         for (const auto& domain : event.changedDomains()) {
             if (domain == "timers" && hasDomain("timers")) timers = true;
             if ((domain == "recordings" || domain == "recordingMarks") &&
                 hasDomain("recordings")) recordings = true;
+            if (domain == "continueWatching" && hasDomain("continueWatching")) progress = true;
         }
-        if (!timers && !recordings) return;
+        if (!timers && !recordings && !progress) return;
         if (pending_.size() >= 64) {
             pending_.clear();
             pending_.push_back("event: resync\ndata: {}\n\n");
@@ -87,6 +88,10 @@ public:
         if (recordings) {
             if (timers) json << ",";
             json << "\"recordings\"";
+        }
+        if (progress) {
+            if (timers || recordings) json << ",";
+            json << "\"continueWatching\"";
         }
         json << "]}";
         pending_.push_back("event: update\nid: " +
