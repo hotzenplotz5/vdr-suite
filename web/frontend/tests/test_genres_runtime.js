@@ -193,45 +193,20 @@ function recording(nativeId, title, pathValue) {
   };
 }
 
-function richMetadata(nativeId, title) {
-  return {
-    available:true,
-    provider:'tvscraper',
-    mediaType:'movie',
-    providerId:14400,
-    title:title,
-    episodeName:'',
-    overview:'TVScraper-Beschreibung zu ' + title,
-    preferredArtwork:{
-      available:true,
-      url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-        encodeURIComponent(nativeId) + '&kind=preferred&index=0',
-      width:1920,
-      height:1080
-    },
-    images:[
-      {
-        orientation:'landscape',
-        image:{
-          available:true,
-          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-            encodeURIComponent(nativeId) + '&kind=gallery&index=0',
-          width:1920,
-          height:1080
-        }
-      },
-      {
-        orientation:'portrait',
-        image:{
-          available:true,
-          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-            encodeURIComponent(nativeId) + '&kind=gallery&index=1',
-          width:500,
-          height:750
-        }
-      }
-    ]
-  };
+function publicDetail(member, title, absent) {
+  const artworkUrl = id => '/api/v1/recordings/' + member.recordingId +
+    '/artwork/' + id + '?backendId=' + member.backendId;
+  return Object.assign({}, member, {
+    metadata:absent ? {state:'absent'} : {
+      state:'available', source:'restfulapi-scraper-bridge', contentKind:'movie',
+      providerTitle:title, overview:'TVScraper-Beschreibung zu ' + title,
+      preferredArtwork:{available:true, url:artworkUrl('a'.repeat(32)), width:1920, height:1080},
+      images:[
+        {orientation:'landscape', image:{available:true, url:artworkUrl('b'.repeat(32)), width:1920, height:1080}},
+        {orientation:'portrait', image:{available:true, url:artworkUrl('c'.repeat(32)), width:500, height:750}}
+      ]
+    }
+  });
 }
 
 (async function main() {
@@ -262,6 +237,7 @@ function richMetadata(nativeId, title) {
   const recordingCards = [];
   const openedRecordings = [];
   const recordingMetadataCalls = [];
+  const recordingOpenCalls = [];
   const membershipCalls = [];
   let activeMetadataCalls = 0;
   let maximumActiveMetadataCalls = 0;
@@ -338,23 +314,27 @@ function richMetadata(nativeId, title) {
       membershipCalls.push(options);
       return Promise.resolve({items:publicMembers, total:publicMembers.length, hasMore:false});
     },
+    requestJson(route, options) {
+      assert.strictEqual(options.query.backendId, 'default');
+      const index = publicMembers.findIndex(item => route === '/api/v1/recordings/' + item.recordingId);
+      assert(index >= 0, 'metadata must use the exact public member identity');
+      const item = genreRecordings[index];
+      recordingMetadataCalls.push(publicMembers[index].recordingId);
+      activeMetadataCalls += 1;
+      maximumActiveMetadataCalls = Math.max(maximumActiveMetadataCalls, activeMetadataCalls);
+      return Promise.resolve(publicDetail(publicMembers[index],
+        item.title.replace(/^[^/]+\//, ''), item.backendNativeId === 'native-no-match'))
+        .finally(() => { activeMetadataCalls -= 1; });
+    },
     fetchClientRecordingForPublicId(options) {
       assert.strictEqual(options.backendId, 'default');
       const index = publicMembers.findIndex(item => item.recordingId === options.recordingId);
       assert(index >= 0, 'private detail must use the exact public member identity');
-      const item = genreRecordings[index];
-      recordingMetadataCalls.push(options.recordingId);
-      activeMetadataCalls += 1;
-      maximumActiveMetadataCalls = Math.max(maximumActiveMetadataCalls, activeMetadataCalls);
-      const result = item.backendNativeId === 'native-no-match'
-        ? {available:false, status:'not-found'}
-        : richMetadata(item.backendNativeId, item.backendNativeId === 'native-largo'
-          ? 'Largo Winch - Tödliches Erbe' : item.title.replace(/^[^/]+\//, ''));
+      recordingOpenCalls.push(options.recordingId);
       return Promise.resolve({
         publicRecordingId:options.recordingId,
-        recording:Object.assign({}, item, {publicRecordingId:options.recordingId}),
-        metadataDetail:result
-      }).finally(() => { activeMetadataCalls -= 1; });
+        recording:Object.assign({}, genreRecordings[index], {publicRecordingId:options.recordingId})
+      });
     },
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
@@ -423,9 +403,8 @@ function richMetadata(nativeId, title) {
     VdrSuiteRecordings2BrowserView: {
       createRecordingCard(projected, onSelect) {
         const card = new FakeElement('button');
-        const presentation = projected && projected.metadata &&
-          projected.metadata.presentation || {};
-        card.textContent = presentation.title || projected.title || 'Aufnahme';
+        card.textContent = projected.cardMetadata && projected.cardMetadata.title ||
+          projected.title || 'Aufnahme';
         card.addEventListener('click', function () {
           if (typeof onSelect === 'function') onSelect(projected);
         });
@@ -478,39 +457,27 @@ function richMetadata(nativeId, title) {
   assert.strictEqual(recordingCards.length, genreRecordings.length);
 
   const largoCard = recordingCards.find(entry =>
-    entry.projected.backendNativeId === 'native-largo');
+    entry.projected.recordingId === publicMembers[0].recordingId);
   assert(largoCard, 'enriched Largo Winch card was not rendered');
-  assert.strictEqual(largoCard.projected.path, '');
-  assert.strictEqual(
-    largoCard.projected.metadata.presentation.title,
-    'Largo Winch - Tödliches Erbe'
-  );
-  const portraitUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-    'native-largo&kind=gallery&index=1';
-  assert.strictEqual(
-    largoCard.projected.metadata.presentation.posterUrl,
-    portraitUrl
-  );
-  assert(!largoCard.projected.metadata.presentation.posterUrl.includes('kind=preferred'));
+  assert.strictEqual(largoCard.projected.backendNativeId, undefined);
+  assert.strictEqual(largoCard.projected.path, undefined);
+  assert.strictEqual(largoCard.projected.cardMetadata.title, 'Largo Winch - Tödliches Erbe');
+  assert.strictEqual(largoCard.projected.preferredArtworkId, 'c'.repeat(32));
+  assert.strictEqual(largoCard.projected.metadata.overview,
+    'TVScraper-Beschreibung zu Largo Winch - Tödliches Erbe');
 
   const fallbackCard = recordingCards.find(entry =>
-    entry.projected.backendNativeId === 'native-no-match');
+    entry.projected.recordingId === publicMembers[1].recordingId);
   assert(fallbackCard, 'no-match fallback card was not rendered');
-  assert.strictEqual(
-    fallbackCard.projected.path,
-    genreRecordings[1].path
-  );
-  assert.strictEqual(
-    fallbackCard.projected.metadata.presentation.title,
-    'Action/Todliche Weihnachten'
-  );
+  assert.strictEqual(fallbackCard.projected, publicMembers[1]);
+  assert.strictEqual(recordingOpenCalls.length, 0, 'rendering cards must not resolve private paths');
 
   largoCard.card.dispatch('click');
   await flush();
   await flush();
   assert.strictEqual(openedRecordings.length, 1);
-  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length + 1);
-  assert.strictEqual(recordingMetadataCalls[recordingMetadataCalls.length - 1], publicMembers[0].recordingId);
+  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length);
+  assert.deepStrictEqual(recordingOpenCalls, [publicMembers[0].recordingId]);
   assert.strictEqual(openedRecordings[0].item.publicRecordingId, publicMembers[0].recordingId);
   assert.strictEqual(
     openedRecordings[0].item.path,

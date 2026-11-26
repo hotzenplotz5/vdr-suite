@@ -211,42 +211,22 @@
     if (!recording || !richMetadata || richMetadata.available !== true) {
       return recording;
     }
-
-    const sourceMetadata = recording.metadata &&
-      typeof recording.metadata === 'object'
-      ? recording.metadata
-      : {};
-    const sourcePresentation = sourceMetadata.presentation &&
-      typeof sourceMetadata.presentation === 'object'
-      ? sourceMetadata.presentation
-      : {};
-    const sourceArtwork = sourceMetadata.artwork &&
-      typeof sourceMetadata.artwork === 'object'
-      ? sourceMetadata.artwork
-      : {};
-    const title = text(richMetadata.title) ||
-      text(sourcePresentation.title) ||
-      text(recording.title);
-    const posterUrl = recordingMetadataPosterUrl(richMetadata) ||
-      text(sourcePresentation.posterUrl) ||
-      text(sourceArtwork.preferredUrl);
-    const presentation = Object.assign({}, sourcePresentation, {
-      title:title,
-      subtitle:text(richMetadata.episodeName) || text(sourcePresentation.subtitle),
-      summary:text(richMetadata.overview) || text(sourcePresentation.summary),
-      posterUrl:posterUrl
-    });
-    const artwork = Object.assign({}, sourceArtwork, {
-      preferredUrl:posterUrl
-    });
-
+    const card = recording.cardMetadata || {};
+    const posterUrl = recordingMetadataPosterUrl(richMetadata);
+    const prefix = '/api/v1/recordings/' + recordingPublicId(recording) + '/artwork/';
+    const suffix = '?backendId=' + encodeURIComponent(recording.backendId);
+    const artworkId = posterUrl.startsWith(prefix) && posterUrl.endsWith(suffix)
+      ? posterUrl.slice(prefix.length, -suffix.length) : '';
     return Object.assign({}, recording, {
-      path:'',
-      title:title,
-      metadata:Object.assign({}, sourceMetadata, {
-        presentation:presentation,
-        artwork:artwork
-      })
+      cardMetadata:Object.assign({}, card, {
+        title:text(richMetadata.title) || text(card.title) || text(recording.title),
+        episodeName:text(richMetadata.episodeName) || text(card.episodeName)
+      }),
+      metadata:Object.assign({}, recording.metadata, {
+        overview:text(richMetadata.overview) || text(recording.description)
+      }),
+      preferredArtworkId:/^[0-9a-f]{32}$/.test(artworkId)
+        ? artworkId : recording.preferredArtworkId
     });
   }
 
@@ -261,8 +241,8 @@
     if (requestedScope !== 'recordings') return Promise.resolve();
     const client = api();
     // Preserve the established rich card presentation during the migration.
-    // The public list owns membership/order; private detail reads are keyed
-    // only by its exact public ID, with the previous four-read concurrency.
+    // Public membership and metadata detail use the same opaque identity.
+    // Preserve the existing four-read concurrency and stale-response checks.
     const queue = (Array.isArray(recordings) ? recordings : []).filter(recording => {
       const id = recordingPublicId(recording);
       return id && !state.recordingDetailsById.has(id);
@@ -275,11 +255,15 @@
           !currentRecordingRequest(sequence, requestedScope, requestedBackend))
         return Promise.resolve();
       const recordingId = recordingPublicId(queue[index]);
-      return Promise.resolve().then(() => client.fetchClientRecordingForPublicId({
-        backendId:requestedBackend, recordingId
-      })).then(value => {
-        if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
-          state.recordingDetailsById.set(recordingId, value);
+      return Promise.resolve().then(() => client.requestJson(
+        '/api/v1/recordings/' + encodeURIComponent(recordingId), {
+          query:{backendId:requestedBackend}, cache:'no-store', credentials:'same-origin'
+        }
+      )).then(value => {
+        if (currentRecordingRequest(sequence, requestedScope, requestedBackend) &&
+            value && value.recordingId === recordingId && value.backendId === requestedBackend) {
+          state.recordingDetailsById.set(recordingId,
+            global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value));
         }
       }).catch(() => {
         // A failed optional card enrichment does not hide a public member.
@@ -559,9 +543,7 @@
         if (cardOwner &&
             typeof cardOwner.createRecordingCard === 'function') {
           const detail = state.recordingDetailsById.get(recordingPublicId(recording));
-          const projected = detail && detail.recording
-            ? recordingCardProjection(detail.recording, detail.metadataDetail)
-            : recording;
+          const projected = recordingCardProjection(recording, detail);
           list.appendChild(
             cardOwner.createRecordingCard(projected, function () {
               openRecording(recording);
