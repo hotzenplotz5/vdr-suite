@@ -179,7 +179,7 @@
     scheduleFolderRefresh();
   }
   function leaveExternalDetail(callback) { if (view && typeof view.destroy === 'function') view.destroy(); state.requestSequence += 1; state.selectedRecording = null; clearExternalDetailReturn(); if (typeof callback !== 'function') return false; stopFolderRefresh(); state.active = false; callback(); return true; }
-  function closeDetail() { const detailReturn = state.detailReturn; if (leaveExternalDetail(detailReturn)) return; render(); scheduleFolderRefresh(0); }
+  function closeDetail(changed) { const detailReturn = state.detailReturn; if (leaveExternalDetail(typeof detailReturn === 'function' ? function () { detailReturn(changed === true); } : null)) return; render(); scheduleFolderRefresh(0); }
   function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; leaveExternalDetail(function () { if (typeof global.selectModule === 'function') global.selectModule('overview'); if (typeof global.scrollTo === 'function') global.scrollTo({top: 0, left: 0, behavior: 'auto'}); }); }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
@@ -193,7 +193,8 @@
     getState: function () { return state; },
     openFolder: loadFolder, loadMore: loadMore, selectRecording: selectRecording,
     closeDetail: closeDetail, goHome: goHomeDetail, reload: reload,
-    completeDelete: function (recording) { forgetRecording(recording); if (typeof state.detailHome === 'function') return goHomeDetail(); closeDetail(); }
+    completeAction: function () { if (typeof state.detailReturn === 'function') return closeDetail(true); closeDetail(); reload(); },
+    completeDelete: function (recording) { forgetRecording(recording); if (typeof state.detailHome === 'function') return goHomeDetail(); closeDetail(true); }
   });
   const moduleApi = Object.freeze({
     activate: function () {

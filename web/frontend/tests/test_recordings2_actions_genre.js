@@ -352,6 +352,60 @@ async function main() {
   current.backendId = 'other'; retry.click(); await flush();
   assert.strictEqual(calls.filter(c => c.kind === 'delete').length, 1);
 
+  // Real editor controls: public identity, provider ETag, one confirmed
+  // execution, no native transport or legacy folder readback.
+  current.backendId = 'default';
+  const publicId = 'rec_' + 'a'.repeat(32);
+  const publicRecording = {backendId:'default', publicRecordingId:publicId,
+    id:'native-7', backendNativeId:'/native/7.rec', title:'Tatort'};
+  const publicCalls = [];
+  let publicCompleted = 0, tag = '"revision-1"', failExecution = false;
+  shared.clientApi = () => ({
+    fetchClientRecordingActionValidation() { throw new Error('legacy validation called'); },
+    fetchClientRecordingActionExecution() { throw new Error('legacy execution called'); },
+    fetchClientRecordingFolder() { throw new Error('legacy readback called'); },
+    fetchPublicRecordingAction(options) {
+      publicCalls.push(options);
+      if (!options.execute) return Promise.resolve({etag:tag,
+        data:{valid:true, recordingId:publicId}});
+      if (failExecution) return Promise.reject(new Error('412'));
+      return Promise.resolve({data:{success:true, executed:true, readbackVerified:true,
+        recordingId:publicId, backendId:'default', action:options.payload.action}});
+    }
+  });
+  const publicPanel = window.VdrSuiteRecordings2Actions.create({
+    getState:() => current, completeAction:() => publicCompleted++,
+    completeDelete:() => publicCompleted++
+  }).createPanel(publicRecording);
+  const [rename,, publicDelete] = publicPanel.children.at(-1).children;
+  const renameBody = rename.children[1];
+  const renameInput = renameBody.children[0].children[1];
+  const [checkRename, applyRename] = renameBody.children.at(-1).children;
+  renameInput.value = 'Neuer Name';
+  checkRename.click(); await flush();
+  assert(!applyRename.disabled);
+  applyRename.click(); await flush();
+  assert.strictEqual(publicCompleted, 1);
+  assert.strictEqual(publicCalls.at(-1).headers['If-Match'], '"revision-1"');
+  assert.strictEqual(publicCalls.at(-1).payload.newName, 'Neuer Name');
+  const publicDeleteBody = publicDelete.children[1];
+  const [checkDelete, applyDelete] = publicDeleteBody.children.at(-1).children;
+  tag = ''; checkDelete.click(); await flush();
+  assert(applyDelete.disabled, 'no provider ETag means no confirmed preflight');
+  tag = '"revision-2"'; checkDelete.click(); await flush();
+  assert(!applyDelete.disabled);
+  applyDelete.click(); await flush();
+  assert.strictEqual(publicCompleted, 2);
+  assert.strictEqual(publicCalls.at(-1).headers['If-Match'], '"revision-2"');
+  assert.strictEqual(publicCalls.at(-1).payload.confirmDelete, true);
+  assert(publicCalls.every(c => c.payload.recordingId === publicId &&
+    !('backendNativeId' in c.payload) && !('recordingPath' in c.payload)));
+  failExecution = true;
+  checkRename.click(); await flush(); applyRename.click(); await flush();
+  assert(applyRename.disabled);
+  assert.strictEqual(publicCompleted, 2);
+  assert.strictEqual(publicCalls.filter(c => c.execute).length, 3, 'no automatic retry');
+
   console.log('recordings2 actions, genre and leaf resolution runtime ok');
 }
 

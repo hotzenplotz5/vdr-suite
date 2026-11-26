@@ -469,8 +469,9 @@
       owner.openRecording(detail.recording, {
         backendId,
         backLabel:closeLabel(),
-        onClose:() => {
+        onClose:changed => {
           state.active = true;
+          if (changed === true) return beginResultLoad();
           render();
         }
       });

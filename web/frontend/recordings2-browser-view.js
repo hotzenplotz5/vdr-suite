@@ -22,7 +22,8 @@
           getState: getState,
           closeDetail: options.closeDetail,
           reload: options.reload,
-          completeDelete: options.completeDelete
+          completeDelete: options.completeDelete,
+          completeAction: options.completeAction
         })
       : null;
     let activePlayback = null; let detailStartRevealed = false;

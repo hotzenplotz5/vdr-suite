@@ -844,6 +844,22 @@
     return requestJson('/api/vdr/recordings/folder', backendQueryOptions(options));
   }
 
+  // Keep the exact provider preflight ETag with the public action response.
+  // Browser CSRF comes from the same existing session transport.
+  function fetchPublicRecordingAction(options) {
+    const input = normalizeOptions(options);
+    const path = '/api/v1/recordings/actions/' +
+      (input.execute === true ? 'execute' : 'validate');
+    return fetch(path, requestOptions(queryMutationOptions(jsonPostOptions(input))))
+      .then(function (response) {
+        return parseJsonResponse(path, response).then(function (data) {
+          if (!response.ok) throw createClientError(path, response.status, data);
+          return {data: data, etag: response.headers &&
+            typeof response.headers.get === 'function' ? response.headers.get('ETag') || '' : ''};
+        });
+      });
+  }
+
   function fetchClientRecordingActionValidation(options) {
     return requestJson(
       '/api/vdr/recordings/actions/validate',
@@ -1121,6 +1137,7 @@
     fetchClientRecordings: fetchClientRecordings,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
+    fetchPublicRecordingAction: fetchPublicRecordingAction,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
     fetchClientSearchTimers: fetchClientSearchTimers,

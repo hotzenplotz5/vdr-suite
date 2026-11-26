@@ -94,6 +94,25 @@
     if (errors.some(function (value) { return ['recording_cut_state_unavailable_delete_blocked', 'recording_cut_journal_unavailable_delete_blocked', 'recording_cut_journal_invalid_delete_blocked', 'recording_identity_unavailable_delete_blocked'].includes(value); })) return 'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.';
     return errors.join('; ') || String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
   }
+  function publicRecordingId(recording) {
+    const id = String(recording.publicRecordingId || recording.recordingId || '');
+    return /^rec_[0-9a-f]{32}$/.test(id) ? id : '';
+  }
+
+  // MOVE retains the existing new-folder workflow until its public contract
+  // supports it. An error on a public action never falls back to native IDs.
+  function usesPublicAction(recording, action) {
+    return Boolean(publicRecordingId(recording)) && (action === 'RENAME' || action === 'DELETE');
+  }
+
+  function publicActionPayload(recording, backendId, action, extra) {
+    const payload = {backendId, recordingId: publicRecordingId(recording),
+      action, dryRun: extra.dryRun !== false};
+    if (action === 'RENAME') payload.newName = extra.newName;
+    if (action === 'DELETE' && !payload.dryRun) payload.confirmDelete = true;
+    return payload;
+  }
+
   function actionPayload(recording, backendId, action, extra) {
     const payload = {
       backendId: String(backendId || 'default'),
@@ -138,6 +157,7 @@
 
   function create(options) {
     const config = options && typeof options === 'object' ? options : {};
+    const publicPreflights = new WeakMap();
 
     function state() {
       return typeof config.getState === 'function' ? config.getState() : {};
@@ -286,7 +306,68 @@
       };
     }
 
+    function publicRequest(recording, action, extra, execute, etag) {
+      const api = clientApi();
+      if (!api || typeof api.fetchPublicRecordingAction !== 'function')
+        return Promise.reject(new Error('Public-v1-Aufnahmeaktionen sind nicht verfügbar.'));
+      const backendId = recording.backendId || state().backendId || shared.selectedBackendId();
+      const payload = publicActionPayload(recording, backendId, action, extra);
+      return api.fetchPublicRecordingAction({execute, payload, headers: etag ? {'If-Match':etag} : {},
+        cache:'no-store', credentials:'same-origin'});
+    }
+
+    function publicValidate(recording, action, extra, status, button) {
+      button.disabled = true;
+      publicPreflights.delete(button);
+      setStatus(status, 'pending', 'Aktion wird geprüft …');
+      const payload = publicActionPayload(recording, recording.backendId, action, extra || {});
+      return publicRequest(recording, action, Object.assign({}, extra, {dryRun:true}), false)
+        .then(function (result) {
+          if (!result || !result.data || result.data.valid !== true ||
+              result.data.recordingId !== payload.recordingId ||
+              !/^"[^"]+"$/.test(result.etag || ''))
+            throw new Error(actionError(result && result.data && result.data.valid === false ? result.data : null,
+              'Backend-Prüfung nicht bestätigt.'));
+          publicPreflights.set(button, {key:JSON.stringify(payload), etag:result.etag});
+          button.disabled = false;
+          setStatus(status, 'success', 'Prüfung erfolgreich. Die Aktion kann ausgeführt werden.');
+          return result.data;
+        }).catch(function (error) {
+          button.disabled = true;
+          setStatus(status, 'error', error.message);
+          throw error;
+        });
+    }
+
+    function publicExecute(recording, action, extra, status, button) {
+      const proof = publicPreflights.get(button);
+      publicPreflights.delete(button);
+      button.disabled = true;
+      const key = JSON.stringify(publicActionPayload(recording, recording.backendId, action,
+        Object.assign({}, extra, {dryRun:true})));
+      if (!proof || proof.key !== key) {
+        const error = new Error('Ziel geändert – bitte erneut prüfen.');
+        setStatus(status, 'error', error.message);
+        return Promise.reject(error);
+      }
+      setStatus(status, 'pending', 'Aktion wird ausgeführt …');
+      return publicRequest(recording, action, Object.assign({}, extra, {dryRun:false}), true, proof.etag)
+        .then(function (result) {
+          const data = result && result.data;
+          if (!data || data.success !== true || data.executed !== true ||
+              data.readbackVerified !== true || data.recordingId !== publicRecordingId(recording) ||
+              data.backendId !== recording.backendId || data.action !== action)
+            throw new Error('Ausführung nicht eindeutig bestätigt. Bitte Aufnahmezustand prüfen.');
+          return data;
+        }).catch(function (error) {
+          setStatus(status, 'error', error.message);
+          throw error;
+        });
+    }
+
     function validate(recording, action, extra, status, executeButton, safetyCheck) {
+      if (usesPublicAction(recording, action))
+        return publicValidate(recording, action, extra, status, executeButton);
       executeButton.disabled = true;
       setStatus(status, 'pending', 'Aktion wird geprüft …');
       return run('validate', recording, action, Object.assign({dryRun: true}, extra || {}))
@@ -317,6 +398,12 @@
     }
 
     function execute(recording, action, extra, status, button, readback, successMessage) {
+      if (usesPublicAction(recording, action))
+        return publicExecute(recording, action, extra, status, button).then(function (result) {
+          setStatus(status, 'success', successMessage);
+          finishAction();
+          return result;
+        });
       button.disabled = true;
       setStatus(status, 'pending', 'Aktion wird ausgeführt …');
       return run('execute', recording, action, Object.assign({dryRun: false}, extra || {}))
@@ -336,6 +423,13 @@
     }
 
     function executeDelete(recording, status, button) {
+      if (usesPublicAction(recording, 'DELETE'))
+        return publicExecute(recording, 'DELETE', {}, status, button).then(function (result) {
+          setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
+          if (typeof config.completeDelete === 'function') config.completeDelete(recording);
+          else finishAction();
+          return result;
+        });
       button.disabled = true;
       setStatus(status, 'pending', 'Aufnahme wird in den VDR-Papierkorb verschoben …');
       return run('execute', recording, 'DELETE', {dryRun: false})
@@ -411,6 +505,8 @@
       });
       const settled = execution.then(function (result) {
         if (!result) return null;
+        // The public server already confirmed deletion with independent readback.
+        if (usesPublicAction(recording, 'DELETE')) return result;
         return waitForDeleteSettlement(recording, sourcePath).then(function () {
           return result;
         });
@@ -596,7 +692,8 @@
       candidateMatches: candidateMatches,
       isDryRunReady: isDryRunReady,
       actionError: actionError,
-      actionPayload: actionPayload
+      actionPayload: actionPayload,
+      publicActionPayload: publicActionPayload
     })
   });
 }(window));
