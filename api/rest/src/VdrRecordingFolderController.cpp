@@ -6,6 +6,7 @@
 #include "VdrRecordingMetadataJsonSerializer.h"
 #include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <limits>
 #include <map>
@@ -882,6 +883,56 @@ ApiResponse VdrRecordingFolderController::getFolder(
             nativeMetadata);
     }
     json << "]}";
+    return jsonResponse(json.str());
+}
+
+ApiResponse VdrRecordingFolderController::getRecordingForBrowser(
+    const std::string& backendId,
+    const std::string& publicRecordingId) const
+{
+    if (publicRecordingId.size() != 36U ||
+        publicRecordingId.compare(0, 4, "rec_") != 0 ||
+        !std::all_of(publicRecordingId.begin() + 4, publicRecordingId.end(),
+            [](char c) { return (c >= '0' && c <= '9') ||
+                                 (c >= 'a' && c <= 'f'); }))
+        return jsonError(400, "invalid recordingId");
+    if (!publicRecordingNativeLookup_)
+        return jsonError(503, "recording identity unavailable");
+
+    const auto nativeId = publicRecordingNativeLookup_(
+        backendId, publicRecordingId);
+    VdrRecording recording;
+    if (nativeId.empty() ||
+        !repository_.findByBackendNativeId(backendId, nativeId, recording) ||
+        recording.backendId != backendId ||
+        recording.backendNativeId != nativeId)
+        return jsonError(404, "recording not found");
+
+    const auto manual = manualMetadataLookup_
+        ? manualMetadataLookup_(backendId, nativeId)
+        : ManualRecordingMetadataAssignment{};
+    const bool locked = manual.found && manual.relationshipLocked;
+    const auto native = !locked && nativeMetadataLookup_
+        ? nativeMetadataLookup_(backendId, nativeId)
+        : VdrRecordingNativeMetadataRecord{};
+
+    std::ostringstream json;
+    json << "{\"publicRecordingId\":";
+    appendJsonString(json, publicRecordingId);
+    json << ",\"recording\":";
+    appendRecordingJson(json, recording, manual, native);
+    json << ",\"metadataDetail\":";
+    if (locked)
+        json << serializeManualMetadata(manual, nativeId);
+    else if (native.exists() && native.metadata.found)
+        json << VdrRecordingNativeMetadataPublicJsonSerializer().serialize(native);
+    else
+    {
+        const auto cached = serializeCachedMetadata(recording);
+        if (!cached.empty()) json << cached;
+        else json << VdrRecordingNativeMetadataPublicJsonSerializer().serialize(native);
+    }
+    json << "}";
     return jsonResponse(json.str());
 }
 

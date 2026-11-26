@@ -83,6 +83,18 @@ public:
         int offset,
         bool homeCards = false);
 
+    // Existing private Web browse route, for opening an opaque Public-v1
+    // list item in the established Browser detail/action owner.
+    using PublicRecordingNativeLookup = std::function<std::string(
+        const std::string& backendId, const std::string& publicRecordingId)>;
+    void setPublicRecordingNativeLookup(PublicRecordingNativeLookup lookup)
+    {
+        publicRecordingNativeLookup_ = std::move(lookup);
+    }
+    ApiResponse getRecordingForBrowser(
+        const std::string& backendId,
+        const std::string& publicRecordingId) const;
+
     ApiResponse getMetadata(
         const std::string& backendId,
         const std::string& backendNativeId) const;
@@ -95,6 +107,7 @@ public:
 
 private:
     VdrRecordingCacheRepository& repository_;
+    PublicRecordingNativeLookup publicRecordingNativeLookup_;
     NativeMetadataLookup nativeMetadataLookup_;
     ManualMetadataLookup manualMetadataLookup_;
     ManualMetadataBatchLookup manualMetadataBatchLookup_;

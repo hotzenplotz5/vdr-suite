@@ -1242,6 +1242,14 @@ bool DaemonRuntime::initialize()
 
                 return VdrRecordingNativeMetadataRecord{};
             });
+    vdrRecordingFolderController_->setPublicRecordingNativeLookup(
+        [this](const std::string& backendId, const std::string& publicId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            const auto native = publicRecordingIdentities_->findNativeForPublicId(
+                backendId, publicId);
+            return native.value_or(std::string{});
+        });
 
     capabilityResolver_ =
         std::make_unique<BackendRegistryCapabilityResolver>(

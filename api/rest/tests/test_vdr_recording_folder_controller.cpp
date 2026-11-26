@@ -252,6 +252,31 @@ int main()
         },
         {"/tmp"});
 
+    controller.setPublicRecordingNativeLookup(
+        [](const std::string& backendId, const std::string& publicId)
+        {
+            return backendId == "default" &&
+                publicId == "rec_0123456789abcdef0123456789abcdef"
+                ? std::string("/srv/vdr/video/2026-07-03.20.15.1-0.rec")
+                : std::string{};
+        });
+    const auto publicId = "rec_0123456789abcdef0123456789abcdef";
+    const auto browserDetail = controller.getRecordingForBrowser("default", publicId);
+    assert(browserDetail.statusCode == 200);
+    assert(contains(browserDetail.body, "\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\""));
+    assert(contains(browserDetail.body, "\"id\":\"root-1\""));
+    assert(contains(browserDetail.body, "\"backendNativeId\":\"/srv/vdr/video/2026-07-03.20.15.1-0.rec\""));
+    assert(contains(browserDetail.body, "\"metadataDetail\":{"));
+    assert(contains(browserDetail.body, "Manuell ausgewählte Beschreibung"));
+    assert(controller.getRecordingForBrowser("other", publicId).statusCode == 404);
+    assert(controller.getRecordingForBrowser("default", "root-1").statusCode == 400);
+    assert(controller.getRecordingForBrowser("default",
+        "rec_ffffffffffffffffffffffffffffffff").statusCode == 404);
+    // Leave the existing folder batching assertions independent.
+    manualLookupCalls = 0;
+    manualBatchLookupCalls = 0;
+    nativeLookupCalls = 0;
+
     const ApiResponse status =
         controller.getStatus("default");
 

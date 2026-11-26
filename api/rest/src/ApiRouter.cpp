@@ -735,6 +735,14 @@ ApiResponse ApiRouter::handleGet(
             return response;
         }
 
+        // This is the established private Web browse endpoint, not a
+        // Public-v1 response. Preserve its existing authorization boundary.
+        const std::string publicId = queryParameters.get("recordingId");
+        if (!publicId.empty())
+        {
+            return vdrRecordingFolderController_->getRecordingForBrowser(
+                normalizeBackendId(queryParameters.get("backend")), publicId);
+        }
         return vdrRecordingFolderController_->getFolder(
             normalizeBackendId(queryParameters.get("backend")),
             queryParameters.get("path"),

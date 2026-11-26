@@ -113,6 +113,26 @@
     });
   }
 
+  // Resolve an opaque list identity to the existing private Browser
+  // detail model. Never infer a native path from a display title or timestamp.
+  async function fetchClientRecordingForPublicId(options) {
+    const input = normalizeOptions(options);
+    const payload = await base.requestJson('/api/vdr/recordings/folder', {
+      query: {backend: input.backendId, recordingId: input.recordingId},
+      credentials: input.credentials || 'same-origin',
+      cache: input.cache || 'no-store',
+      signal: input.signal
+    });
+    const recording = payload && payload.recording;
+    if (!recording || payload.publicRecordingId !== input.recordingId ||
+        recording.backendId !== input.backendId || !recording.backendNativeId) {
+      throw new Error('Aufnahmeidentität konnte nicht eindeutig zugeordnet werden.');
+    }
+    return Object.assign({}, payload, {
+      recording: Object.assign({}, recording, {publicRecordingId: payload.publicRecordingId})
+    });
+  }
+
   function fetchClientGenreRecordings(options) {
     const normalized = normalizeOptions(options);
     return base.requestJson('/api/metadata/genres/recordings', withQuery(normalized, {
@@ -141,6 +161,7 @@
     fetchPublicRecordingGenres: fetchPublicRecordingGenres,
     fetchClientGenreRecordings: fetchClientGenreRecordings,
     fetchPublicGenreRecordings: fetchPublicGenreRecordings,
+    fetchClientRecordingForPublicId: fetchClientRecordingForPublicId,
     fetchClientGenreEpg: fetchClientGenreEpg
   }));
 }(window));
