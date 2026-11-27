@@ -79,7 +79,11 @@
     });
 
     function resolvePendingTarget() {
-      const targetPath = resolveMoveTarget(input.value, newFolder.value, state().path);
+      const current = state();
+      const base = typeof current.folderId === 'string'
+        ? normalizeFolderPath(recording.path).split('/').slice(0, (current.breadcrumbs || []).length).join('/')
+        : current.path;
+      const targetPath = resolveMoveTarget(input.value, newFolder.value, base);
       if (!targetPath) return '';
       if (String(newFolder.value || '').trim()) {
         input.value = targetPath;

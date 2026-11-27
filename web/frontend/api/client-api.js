@@ -1100,6 +1100,102 @@
     return requestJson('/api/vdr/recordings/folder', backendQueryOptions(options));
   }
 
+  // Mixed public browse pages are already promoted and enriched by the
+  // server. Adapt the transport only; do not manufacture native paths.
+  async function fetchPublicRecordingFolder(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = input.backendId || query.backend;
+    const folderId = query.folderId || '';
+    const start = Number(query.offset || 0);
+    const count = Number(query.limit);
+    const folderPattern = /^fld1_[0-9a-f]{32}$/;
+    const recordingPattern = /^rec_[0-9a-f]{32}$/;
+    const validFolderId = id => id === '' || folderPattern.test(id);
+    const nonnegative = n => Number.isSafeInteger(n) && n >= 0;
+    if (!backendId || !validFolderId(folderId) || !nonnegative(start) ||
+        !Number.isSafeInteger(count) || count < 1) throw new Error('Ungültiger Aufnahmeordner.');
+    let offset = start, context = null, total, hasMore = false;
+    const folders = [], recordings = [], seen = new Set();
+    const legacy = () => {
+      // Only an explicit older-server response may use the existing private
+      // compatibility read, and only when a real legacy path is available.
+      if (folderId && typeof input.legacyPath !== 'string')
+        throw new Error('Die öffentliche Ordnerschnittstelle ist nicht verfügbar.');
+      return fetchClientRecordingFolder(Object.assign({}, input, {
+        query: {backend:backendId, path:input.legacyPath || '', limit:count, offset:start}
+      }));
+    };
+    do {
+      const limit = Math.min(100, count - (folders.length + recordings.length));
+      let payload;
+      try {
+        payload = await requestJson('/api/v1/recordings', {
+          query: {backendId, view: 'folders', limit, offset, folderId:folderId || undefined},
+          cache: input.cache || 'no-store', credentials:input.credentials || 'same-origin',
+          signal:input.signal
+        });
+      } catch (error) {
+        if (!context && (error.status === 404 || error.status === 501)) return legacy();
+        throw error;
+      }
+      const page = payload && payload.page, items = payload && payload.items;
+      if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+          page.limit !== limit || page.offset !== offset || !nonnegative(page.totalCount) ||
+          offset + items.length > page.totalCount || items.length > limit ||
+          page.hasMore !== (offset + items.length < page.totalCount) ||
+          (page.hasMore && items.length !== limit))
+        throw new Error('Unvollständige öffentliche Ordnerseite.');
+      const current = payload.folderContext;
+      if (!current && !context) return legacy();
+      if (!current || current.folderId !== folderId || !validFolderId(current.parentFolderId) ||
+          !nonnegative(current.folderCount) || !nonnegative(current.recordingCount) ||
+          current.folderCount + current.recordingCount !== page.totalCount ||
+          !nonnegative(current.catalogTotalCount) || typeof current.cacheState !== 'string' ||
+          typeof current.cacheReady !== 'boolean' || !Array.isArray(current.breadcrumbs) ||
+          current.breadcrumbs.some(crumb => !crumb || !folderPattern.test(crumb.folderId) ||
+            typeof crumb.name !== 'string' || !crumb.name) ||
+          new Set(current.breadcrumbs.map(crumb=>crumb.folderId)).size !== current.breadcrumbs.length ||
+          (current.breadcrumbs.length ? current.breadcrumbs.at(-1).folderId : '') !== folderId ||
+          (current.breadcrumbs.length > 1 ? current.breadcrumbs.at(-2).folderId : '') !== current.parentFolderId ||
+          (context && (JSON.stringify(context) !== JSON.stringify(current) || total !== page.totalCount)))
+        throw new Error('Uneinheitliche öffentliche Ordnerseite.');
+      context = current; total = page.totalCount;
+      for (const item of items) {
+        if (!item || item.path !== undefined || item.backendNativeId !== undefined)
+          throw new Error('Ungültiger öffentlicher Ordnereintrag.');
+        if (item.kind === 'folder') {
+          const representative = item.representativeRecording;
+          if (!folderPattern.test(item.folderId) || typeof item.name !== 'string' ||
+              !nonnegative(item.recordingCount) || seen.has(item.folderId) ||
+              (representative && (representative.backendId !== backendId ||
+                !recordingPattern.test(representative.recordingId) ||
+                typeof representative.recordedAt !== 'string' ||
+                !/^[0-9a-f]{32}$/.test(representative.preferredArtworkId) ||
+                representative.path !== undefined || representative.backendNativeId !== undefined)))
+            throw new Error('Ungültiger öffentlicher Ordner.');
+          seen.add(item.folderId); folders.push(item);
+        } else if (item.kind === 'recording') {
+          if (!recordingPattern.test(item.recordingId) || item.backendId !== backendId ||
+              typeof item.recordedAt !== 'string' || typeof item.title !== 'string' ||
+              seen.has(item.recordingId))
+            throw new Error('Ungültige öffentliche Aufnahme.');
+          seen.add(item.recordingId);
+          recordings.push(Object.assign({}, item, {folderCard:true}));
+        } else throw new Error('Unbekannter öffentlicher Ordnereintrag.');
+      }
+      offset += items.length;
+      hasMore = page.hasMore;
+      if (!hasMore) break;
+    } while (offset - start < count);
+    return {recordingFolder:true, publicFolder:true, backendId,
+      folderId, parentFolderId:context.parentFolderId, breadcrumbs:context.breadcrumbs,
+      folderCount:context.folderCount, recordingCount:context.recordingCount,
+      totalCount:context.catalogTotalCount, cacheState:context.cacheState,
+      cacheReady:context.cacheReady, cardCount:total, returnedCards:offset-start,
+      offset:start, nextOffset:offset, hasMore, folders, recordings};
+  }
+
   // Keep the exact provider preflight ETag with the public action response.
   // Browser CSRF comes from the same existing session transport.
   function fetchPublicRecordingAction(options) {
@@ -1395,6 +1491,7 @@
     fetchPublicHomeNew: fetchPublicHomeNew,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
+    fetchPublicRecordingFolder: fetchPublicRecordingFolder,
     fetchPublicRecordingAction: fetchPublicRecordingAction,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,

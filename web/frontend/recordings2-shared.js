@@ -209,7 +209,7 @@
 
   function recordingTitle(recording) {
     if (isPublicRecording(recording))
-      return text(recording.cardMetadata && recording.cardMetadata.title) ||
+      return (recording.folderCard !== true && text(recording.cardMetadata && recording.cardMetadata.title)) ||
         text(recording.title) || 'Aufnahme';
     const manualTitle = manualAssignment(recording).active === true
       ? recordingMetadataTitle(recording) : '';
@@ -227,8 +227,9 @@
 
   function recordingSubtitle(recording) {
     if (isPublicRecording(recording))
-      return text(recording.cardMetadata && recording.cardMetadata.episodeName) ||
-        text(metadata(recording).episodeTitle || metadata(recording).subtitle);
+      return (recording.folderCard === true && text(recording.subtitle)) ||
+        text(recording.cardMetadata && recording.cardMetadata.episodeName) ||
+        text(recording.subtitle || metadata(recording).episodeTitle || metadata(recording).subtitle);
     return decodeDisplayText(first(
       presentation(recording),
       ['subtitle', 'seasonEpisode'],

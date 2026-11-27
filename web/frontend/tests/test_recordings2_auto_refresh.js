@@ -13,10 +13,10 @@ function deferred() {
   return {promise, resolve, reject};
 }
 async function flush() {
-  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  for (let i = 0; i < 24; i += 1) await Promise.resolve();
 }
 
-function makeHarness() {
+function makeHarness(publicMode = false) {
   let now = 0;
   let nextTimer = 1;
   let backend = 'default';
@@ -46,7 +46,10 @@ function makeHarness() {
   const shared = {
     PAGE_SIZE: 2,
     selectedBackendId() { return backend; },
-    clientApi() { return {fetchClientRecordingFolder(options) {
+    clientApi() { return {fetchPublicRecordingFolder:publicMode ? window.VdrSuiteClientApi.fetchPublicRecordingFolder : undefined,
+      fetchClientRecordingForPublicId({backendId,recordingId}) {
+        return Promise.resolve({recording:{backendId, publicRecordingId:recordingId, title:'Resolved detail', path:'Alpha/Title/1.rec'}});
+      }, fetchClientRecordingFolder(options) {
       const pending = deferred();
       requests.push({options, pending});
       return pending.promise;
@@ -116,6 +119,15 @@ function makeHarness() {
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
     String, Number, Math, Array, JSON, Map, Set});
+  if (publicMode) vm.runInContext(fs.readFileSync('web/frontend/api/client-api.js','utf8'),
+    vm.createContext({window,URLSearchParams,fetch(url) {
+      const parsed = new URL(url,'https://test.invalid');
+      assert.strictEqual(parsed.pathname,'/api/v1/recordings');
+      assert.strictEqual(parsed.searchParams.get('view'),'folders');
+      const pending = deferred();
+      requests.push({options:{query:Object.fromEntries(parsed.searchParams)},pending});
+      return pending.promise.then(payload=>({ok:true,text:()=>Promise.resolve(JSON.stringify(payload))}));
+    }}));
   for (const path of [
     'web/frontend/recordings2-folder-refresh.js',
     'web/frontend/recordings2.js'
@@ -332,7 +344,53 @@ async function run() {
   console.log('recordings2 automatic folder refresh lifecycle ok');
 }
 
-run().catch(error => {
+async function testPublicMixedPages() {
+  const h = makeHarness(true), api = h.api;
+  const fid = 'fld1_' + 'a'.repeat(32), rid = 'rec_' + 'b'.repeat(32);
+  const folder = {kind:'folder',folderId:fid,name:'Alpha',recordingCount:3};
+  const recording = {kind:'recording',recordingId:rid,backendId:'default',
+    title:'Title',recordedAt:'2026-11-27',preferredArtworkId:'c'.repeat(32)};
+  const wire = (items, offset, total, context, limit=2) => ({items,
+    page:{offset,limit,totalCount:total,hasMore:offset+items.length<total},
+    meta:{partial:false},folderContext:context});
+  const root = {folderId:'',parentFolderId:'',breadcrumbs:[],folderCount:1,
+    recordingCount:2,catalogTotalCount:3,cacheReady:true,cacheState:'ready'};
+  api.activate();
+  assert.strictEqual(h.requests.length,1);
+  await h.respond(0,wire([folder,recording],0,3,root));
+  let state=h.owner().getState();
+  assert.strictEqual(state.folderId,'');
+  assert.strictEqual(state.data.folderCount,1);
+  assert.strictEqual(state.data.nextOffset,2);
+  assert.strictEqual(state.serverRecordings.length,1);
+  assert.strictEqual(h.requests.length,1,'no leaf or metadata fanout');
+  h.owner().loadMore();
+  assert.strictEqual(h.requests[1].options.query.offset,'2');
+  const second={...recording,recordingId:'rec_'+'d'.repeat(32)};
+  await h.respond(1,wire([second],2,3,root));
+  assert.strictEqual(state.data.nextOffset,3);
+  assert.strictEqual(state.serverRecordings.length,2);
+  assert.strictEqual(state.data.folders[0].folderId,fid);
+  h.owner().openFolder({folderId:fid});
+  assert.strictEqual(h.requests[2].options.query.folderId,fid);
+  const nested={...root,folderId:fid,breadcrumbs:[{folderId:fid,name:'Alpha'}],folderCount:0,recordingCount:1};
+  await h.respond(2,wire([recording],0,1,nested));
+  assert.strictEqual(state.folderId,fid);
+  assert.strictEqual(state.path,'','public folder IDs are not native paths');
+  assert.strictEqual(state.breadcrumbs[0].name,'Alpha');
+  h.owner().selectRecording(state.serverRecordings[0]);
+  await flush();
+  assert.strictEqual(state.selectedRecording.publicRecordingId,rid);
+  h.owner().closeDetail();
+  await h.advance(0);
+  assert.strictEqual(h.requests[3].options.query.folderId,fid);
+  await h.respond(3,wire([recording],0,1,nested));
+  const before=h.requests.length;
+  await h.advance(90000);
+  assert.strictEqual(h.requests.length,before,'public browse uses SSE/lifecycle, not polling');
+  api.deactivate();
+}
+run().then(testPublicMixedPages).catch(error => {
   console.error(error);
   process.exitCode = 1;
 });

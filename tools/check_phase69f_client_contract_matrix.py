@@ -36,7 +36,7 @@ base_client = read("web/frontend/api/client-api.js")
 genre_client = read("web/frontend/api/genre-client-api.js")
 remote_client = read("web/frontend/api/live-remote-client-api.js")
 
-base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction|fetchPublicHomeMovies|fetchPublicHomeNew)[A-Za-z0-9_]*)\s*\(", base_client))
+base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction|fetchPublicHomeMovies|fetchPublicHomeNew|fetchPublicRecordingFolder)[A-Za-z0-9_]*)\s*\(", base_client))
 genre_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicRecordingGenres|fetchPublicGenreRecordings)[A-Za-z0-9_]*)\s*\(", genre_client))
 remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", remote_client))
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 69, f"expected 69 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 70, f"expected 70 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 6, f"expected 6 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 79, f"expected 79 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 80, f"expected 80 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -119,11 +119,11 @@ for source_name, source in (
             require(source.count(route) == 1, "reviewed search route drifted: " + route)
             source = source.replace(route, "'approved-global-search-route'")
         # Reviewed Home offset reads: exactly one dispatch for each view;
-        # the third literal is the cache proof restriction, not a dispatch.
+        # the fourth literal is the cache proof restriction, not a dispatch.
         home_route = "'/api/v1/recordings'"
-        require(source.count(home_route) == 3,
+        require(source.count(home_route) == 4,
                 "Home movie/new read/cache evidence route drifted")
-        for view in ("movies", "new"):
+        for view in ("movies", "new", "folders"):
             require(source.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
                     "Home recording view must be exact: " + view)
         source = source.replace(home_route, "'approved-home-recording-view'")
@@ -434,6 +434,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 79 exactly once (including recording actions, trailer, Genre membership and Home movies/new).")
+print("Classified browser Client API operations: 80 exactly once (including recording actions, trailer, Genre membership and public folder/movies/new reads).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

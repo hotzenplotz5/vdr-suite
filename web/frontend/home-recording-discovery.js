@@ -1369,7 +1369,9 @@
     releasePreview('Recording Discovery Ordner geöffnet');
     return ensureRecordings2().then(function (ready) {
       if (!ready || !selectShellModule('recordings2')) return false;
-      global.VdrSuiteRecordings2.openFolder(path);
+      if (folder && /^fld1_[0-9a-f]{32}$/.test(folder.folderId || ''))
+        global.VdrSuiteRecordings2.openFolder({folderId:folder.folderId, legacyPath:path});
+      else global.VdrSuiteRecordings2.openFolder(path);
       return true;
     });
   }

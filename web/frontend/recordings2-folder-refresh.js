@@ -57,12 +57,26 @@
     }
 
     function requestFolder(path, offset, limit, backendId) {
+      const opaque = path && typeof path === 'object' && typeof path.folderId === 'string';
+      const backend = backendId || state().backendId;
+      const pageLimit = limit === undefined ? options.pageSize : limit;
+      const pageOffset = Math.max(0, options.number(offset, 0));
+      if ((opaque || !path) && typeof options.fetchPublicRecordingFolder === 'function') {
+        const result = options.fetchPublicRecordingFolder({
+          query: {backend, folderId:opaque ? path.folderId : '', limit:pageLimit, offset:pageOffset},
+          legacyPath:opaque ? path.legacyPath : '',
+          cache:'no-store', credentials:'same-origin'
+        });
+        if (result) return result;
+      }
+      if (opaque && path.folderId && typeof path.legacyPath !== 'string')
+        return Promise.reject(new Error('Die öffentliche Ordnerschnittstelle ist nicht verfügbar.'));
       return options.fetchClientRecordingFolder({
         query: {
-          backend: backendId || state().backendId,
-          path: options.normalizePath(path),
-          limit: limit === undefined ? options.pageSize : limit,
-          offset: Math.max(0, options.number(offset, 0)),
+          backend,
+          path: options.normalizePath(opaque ? path.legacyPath : path),
+          limit: pageLimit,
+          offset: pageOffset,
           _: String(Date.now())
         },
         cache: 'no-store',
@@ -72,7 +86,8 @@
 
     function signature(data) {
       return JSON.stringify([
-        data.path, data.totalCount, data.recordingCount,
+        data.path, data.folderId, data.breadcrumbs, data.folderCount, data.cardCount,
+        data.totalCount, data.recordingCount,
         data.folders, data.recordings
       ]);
     }
@@ -83,7 +98,7 @@
       value.recordings = value.serverRecordings.concat(value.promotedRecordings);
       value.data = Object.assign({}, value.data || {}, {
         folders: folders,
-        folderCount: folders.length,
+        folderCount: value.data && value.data.publicFolder === true ? value.data.folderCount : folders.length,
         recordingCount: value.serverRecordingCount + value.promotedRecordings.length,
         returnedCount: value.serverRecordings.length + value.promotedRecordings.length
       });
@@ -93,6 +108,10 @@
       const candidateBackend = String(candidate.backendId || state().backendId || 'default');
       const recordingBackend = String(recording.backendId || state().backendId || 'default');
       if (candidateBackend !== recordingBackend) return false;
+      if (typeof options.shared.publicRecordingId === 'function') {
+        const a = options.shared.publicRecordingId(candidate), b = options.shared.publicRecordingId(recording);
+        if (a && b) return a === b;
+      }
       const candidateNative = String(options.shared.first(candidate, ['backendNativeId', 'nativePath', 'path'], ''));
       const recordingNative = String(options.shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
       if (candidateNative || recordingNative) return Boolean(candidateNative && recordingNative && candidateNative === recordingNative);
@@ -130,6 +149,7 @@
     }
 
     function resolveLeaves(data, guard) {
+      if (data && data.publicFolder === true) return Promise.resolve();
       const resolver = options.folderArtwork;
       if (!resolver || typeof resolver.resolveLeaves !== 'function') {
         return Promise.resolve();
@@ -182,28 +202,33 @@
         return;
       }
       if (!currentState.data || currentState.error) {
-        options.loadFolder(currentState.path || '');
+        options.loadFolder(currentState.folderId !== null && currentState.folderId !== undefined
+          ? {folderId:currentState.folderId, legacyPath:currentState.legacyFolderPath} : currentState.path || '');
         return;
       }
       const sequence = currentState.requestSequence;
       const backendId = currentState.backendId;
       const path = currentState.path;
-      const limit = Math.max(options.pageSize, currentState.serverRecordings.length);
+      const folderId = currentState.folderId;
+      const opaque = currentState.data.publicFolder === true;
+      const target = opaque ? {folderId, legacyPath:currentState.legacyFolderPath} : path;
+      const limit = Math.max(options.pageSize, opaque ? currentState.data.nextOffset : currentState.serverRecordings.length);
       const current = function () {
         const value = state();
         return value.active && sequence === value.requestSequence &&
-          value.backendId === backendId && value.path === path &&
+          value.backendId === backendId && value.path === path && value.folderId === folderId &&
           !value.loading && !value.loadingMore && !value.selectedRecording &&
           !(global.document && global.document.hidden);
       };
       busy = true;
       pending = false;
       let applied = false;
-      requestFolder(path, 0, limit, backendId)
+      requestFolder(target, 0, limit, backendId)
         .then(function (data) {
           if (!current()) return null;
           if (!data || data.recordingFolder !== true ||
-              options.normalizePath(data.path) !== path) {
+              (opaque ? data.publicFolder !== true || data.folderId !== folderId :
+                data.publicFolder !== true && options.normalizePath(data.path) !== path)) {
             throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
           }
           if (signature(data) === state().serverSignature) return null;

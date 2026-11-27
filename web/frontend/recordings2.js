@@ -14,6 +14,10 @@
     backendId: '',
     path: '',
     parentPath: '',
+    folderId: null,
+    parentFolderId: '',
+    breadcrumbs: [],
+    legacyFolderPath: undefined,
     data: null,
     serverRecordings: [],
     promotedRecordings: [],
@@ -68,6 +72,11 @@
         ? api.fetchClientRecordingFolder(options)
         : Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
     },
+    fetchPublicRecordingFolder: function (options) {
+      const api = shared.clientApi();
+      return api && typeof api.fetchPublicRecordingFolder === 'function'
+        ? api.fetchPublicRecordingFolder(options) : null;
+    },
     pageSize: shared.PAGE_SIZE,
     normalizePath: shared.normalizePath,
     number: shared.number,
@@ -96,15 +105,30 @@
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
     }
+    const publicPage = data.publicFolder === true;
     const previousFolders = append && state.data
       ? shared.folderList(state.data).slice()
       : shared.folderList(data).slice();
+    if (append && publicPage) {
+      if (!state.data || state.data.publicFolder !== true ||
+          data.folderId !== state.folderId || data.offset !== state.data.nextOffset)
+        throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
+      const folderIds = new Set(previousFolders.map(folder => folder.folderId));
+      const recordingIds = new Set(state.serverRecordings.map(recording => recording.recordingId));
+      if (shared.folderList(data).some(folder=>folderIds.has(folder.folderId)) ||
+          shared.recordingList(data).some(recording=>recordingIds.has(recording.recordingId)))
+        throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
+      previousFolders.push(...shared.folderList(data));
+    }
     const incomingRecordings = normalizeRecordings(shared.recordingList(data));
     state.data = append
       ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
       : Object.assign({}, data, {folders: previousFolders});
-    state.path = shared.normalizePath(shared.first(data, ['path'], state.path));
-    state.parentPath = shared.normalizePath(shared.first(data, ['parentPath'], ''));
+    state.folderId = publicPage ? data.folderId : null;
+    state.parentFolderId = publicPage ? data.parentFolderId : '';
+    state.breadcrumbs = publicPage ? data.breadcrumbs : [];
+    state.path = publicPage ? '' : shared.normalizePath(shared.first(data, ['path'], state.path));
+    state.parentPath = publicPage ? '' : shared.normalizePath(shared.first(data, ['parentPath'], ''));
     state.serverRecordingCount = shared.number(data.recordingCount, incomingRecordings.length);
     state.serverRecordings = append
       ? state.serverRecordings.concat(incomingRecordings)
@@ -114,11 +138,19 @@
     updatePresentedFolderState();
   }
   function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; state.detailHome = null; state.detailHomeLabel = ''; }
+  function folderTarget() {
+    return state.folderId !== null ? {folderId:state.folderId, legacyPath:state.legacyFolderPath} : state.path || '';
+  }
   function loadFolder(path) {
     stopFolderRefresh();
     state.active = true;
     state.backendId = shared.selectedBackendId();
-    state.path = shared.normalizePath(path);
+    const opaque = path && typeof path === 'object' && typeof path.folderId === 'string';
+    state.folderId = opaque ? path.folderId : null;
+    state.parentFolderId = '';
+    state.breadcrumbs = [];
+    state.legacyFolderPath = opaque ? path.legacyPath : undefined;
+    state.path = opaque ? '' : shared.normalizePath(path);
     state.parentPath = state.path.split('/').slice(0, -1).join('/');
     state.selectedRecording = null;
     clearExternalDetailReturn();
@@ -130,7 +162,7 @@
       return state.active && sequence === state.requestSequence;
     };
     render();
-    requestFolder(state.path, 0)
+    requestFolder(folderTarget(), 0)
       .then(function (data) {
         if (!current()) return null;
         applyFolderData(data, false);
@@ -155,7 +187,8 @@
     state.loadingMore = true;
     const sequence = ++state.requestSequence;
     render();
-    requestFolder(state.path, state.serverRecordings.length)
+    requestFolder(folderTarget(), state.data && state.data.publicFolder === true
+      ? state.data.nextOffset : state.serverRecordings.length)
       .then(function (data) {
         if (!state.active || sequence !== state.requestSequence) return;
         applyFolderData(data, true);
@@ -172,8 +205,40 @@
       });
   }
   function selectRecording(recording) {
-    state.requestSequence += 1;
+    const sequence = ++state.requestSequence;
     clearExternalDetailReturn();
+    const id = recording && recording.folderCard === true && recording.recordingId;
+    if (/^rec_[0-9a-f]{32}$/.test(id || '')) {
+      // Only this explicit selection needs the still-private detail bridge.
+      // The list remains public and no per-card detail requests are made.
+      const api = shared.clientApi();
+      if (!api || typeof api.fetchClientRecordingForPublicId !== 'function') {
+        state.error = new Error('Aufnahmedetails sind nicht verfügbar.');
+        render();
+        return;
+      }
+      const backendId = state.backendId;
+      state.loadingMore = false;
+      state.loading = true;
+      api.fetchClientRecordingForPublicId({backendId, recordingId:id})
+        .then(function (detail) {
+          if (!state.active || sequence !== state.requestSequence || state.backendId !== backendId) return;
+          state.loading = false;
+          if (!detail || !detail.recording || detail.recording.backendId !== backendId ||
+              detail.recording.publicRecordingId !== id)
+            throw new Error('Die Aufnahme konnte nicht eindeutig aufgelöst werden.');
+          state.selectedRecording = normalizeRecording(Object.assign({}, detail.recording,
+            recording.__vdrSuiteOpenHevcShrink ? {__vdrSuiteOpenHevcShrink:true} : {}));
+          render();
+          scheduleFolderRefresh();
+        }).catch(function (error) {
+          if (!state.active || sequence !== state.requestSequence) return;
+          state.loading = false;
+          state.error = error;
+          render();
+        });
+      return;
+    }
     state.selectedRecording = normalizeRecording(recording);
     render();
     scheduleFolderRefresh();
@@ -187,7 +252,7 @@
       return;
     }
     if (state.selectedRecording) state.selectedRecording = null;
-    loadFolder(state.path || '');
+    loadFolder(folderTarget());
   }
   view = browserView.create({
     getState: function () { return state; },
@@ -220,7 +285,7 @@
     },
     refresh: function () {
       state.active = true;
-      loadFolder(state.path || '');
+      loadFolder(folderTarget());
     },
     openFolder: function (path) {
       loadFolder(path || '');

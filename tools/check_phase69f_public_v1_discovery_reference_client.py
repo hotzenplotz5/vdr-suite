@@ -117,9 +117,9 @@ for route in (
     browser_client = browser_client.replace(route, "'reviewed-global-search-route'")
 # Reviewed Home movie/new offset reads and their shared cache-evidence path.
 home_route = "'/api/v1/recordings'"
-require(browser_client.count(home_route) == 3,
+require(browser_client.count(home_route) == 4,
         "reviewed Home recording route missing or duplicated")
-for view in ("movies", "new"):
+for view in ("movies", "new", "folders"):
     require(browser_client.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
             "reviewed Home recording view missing or duplicated: " + view)
 browser_client = browser_client.replace(home_route, "'reviewed-home-recording-view'")
