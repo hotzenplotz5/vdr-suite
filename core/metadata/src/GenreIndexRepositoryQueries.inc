@@ -291,9 +291,70 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
     }
     sqlite3_finalize(statement);
 
+    populateRecordingCardSummariesLocked(page);
+    return page;
+}
+
+GenreRecordingPage GenreIndexRepository::recordingCards(
+    const std::string& backendId,
+    const std::vector<std::string>& nativeIds) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    GenreRecordingPage page;
+    page.backendId = normalizeBackendId(backendId);
+    if (backendId.empty() || nativeIds.empty() || nativeIds.size() > 100U ||
+        !ensureSchemaLocked()) return page;
+
+    // The caller already selected the page/order in the canonical recording
+    // query. Read only its current cache keys and effective Genre membership.
+    // No second catalog scan, metadata resolver or per-recording query.
+    std::string sql =
+        "SELECT c.recording_id,c.backend_id,c.backend_native_id,c.cache_key,c.title,c.path,"
+        "c.start_time,c.duration_seconds,c.size_mb,"
+        "(SELECT GROUP_CONCAT(DISTINCT a.genre_id) FROM suite_metadata_target_bindings b "
+        "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
+        "WHERE b.backend_id=c.backend_id AND b.resource_key=c.cache_key "
+        "AND b.target_type='recording' AND b.lifecycle_state='active' "
+        "AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
+        "SELECT 1 FROM suite_metadata_assignments ma "
+        "WHERE ma.metadata_target_id=b.metadata_target_id AND ma.assignment_state='selected' "
+        "AND ma.manual_assignment=1 AND ma.relationship_locked=1))) "
+        "FROM vdr_recording_cache c WHERE c.backend_id=? AND c.backend_native_id IN (";
+    for (std::size_t i = 0; i < nativeIds.size(); ++i)
+        sql += i == 0 ? "?" : ",?";
+    sql += ");";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return page;
+    bindText(statement, 1, page.backendId);
+    for (std::size_t i = 0; i < nativeIds.size(); ++i)
+        bindText(statement, static_cast<int>(i) + 2, nativeIds[i]);
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreRecordingItem item;
+        item.id = columnText(statement, 0);
+        item.backendId = columnText(statement, 1);
+        item.backendNativeId = columnText(statement, 2);
+        item.resourceKey = columnText(statement, 3);
+        item.title = columnText(statement, 4);
+        item.path = columnText(statement, 5);
+        item.startTime = columnText(statement, 6);
+        item.durationSeconds = sqlite3_column_int(statement, 7);
+        item.sizeMb = sqlite3_column_int64(statement, 8);
+        item.genreIds = splitCommaList(columnText(statement, 9));
+        page.recordings.push_back(std::move(item));
+    }
+    sqlite3_finalize(statement);
+    page.totalCount = static_cast<int>(page.recordings.size());
+    populateRecordingCardSummariesLocked(page);
+    return page;
+}
+
+void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPage& page) const
+{
     // One cache-only summary query for the page, without descriptions/cast/images.
     // Older/partial schemas keep the existing recording fallback.
-    if (page.recordings.empty()) return page;
+    if (page.recordings.empty()) return;
     std::string summarySql =
         "SELECT n.backend_native_id,n.title,n.provider,n.provider_id,"
         "n.season_number,n.episode_number,n.episode_name,"
@@ -508,7 +569,6 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
 
         sqlite3_finalize(hierarchy);
     }
-    return page;
 }
 
 GenreEpgPage GenreIndexRepository::epgByGenre(

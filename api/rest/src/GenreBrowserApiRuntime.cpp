@@ -612,6 +612,19 @@ bool GenreBrowserApiRuntime::recordingPage(
     return true;
 }
 
+bool GenreBrowserApiRuntime::recordingCards(
+    const std::string& backendId, const std::vector<std::string>& nativeIds,
+    GenreRecordingPage& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository || backendId.empty() || nativeIds.size() > 100U)
+        return false;
+    result = repository->recordingCards(backendId, nativeIds);
+    return true;
+}
+
 std::string GenreBrowserApiRuntime::projectRecordingCard(
     const GenreRecordingItem& source, PublicGenreRecordingItem& target)
 {

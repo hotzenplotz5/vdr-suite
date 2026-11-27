@@ -84,6 +84,10 @@ public:
         int limit, int offset,
         GenreRecordingPage& result) const;
 
+    // Read card summaries for a page already selected by the Recording query.
+    bool recordingCards(const std::string& backendId,
+        const std::vector<std::string>& nativeIds, GenreRecordingPage& result) const;
+
     // Projects card facts and returns the private, non-wire grouping seed
     // for the daemon's backend-scoped opaque Series group key.
     static std::string projectRecordingCard(
