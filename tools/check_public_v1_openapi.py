@@ -24,6 +24,39 @@ DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 # Each anchor is an actual branch in the corresponding C++ GET/POST dispatcher.
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
 # This explicit inventory must be reviewed when already-audited routes move.
+MEDIA_PROCESSING_AUDITED = {
+    "/api/v1/backends/{backendId}/capabilities/media-check": {
+        "get": ("MediaCheck", "isPublicMediaCheckCapabilityResource", "/capabilities/media-check"),
+    },
+    "/api/v1/backends/{backendId}/media-checks": {
+        "post": ("MediaCheck", "isPublicMediaCheckCreate", "/media-checks"),
+    },
+    "/api/v1/backends/{backendId}/media-checks/{checkId}": {
+        "get": ("MediaCheck", "isPublicMediaCheckStatusResource", "/media-checks/"),
+    },
+    "/api/v1/backends/{backendId}/capabilities/media-shrink": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkCapabilityResource", "/capabilities/media-shrink"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-plans": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkPlanCreate", "/media-shrink-plans"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-stages": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkStageCreate", "/media-shrink-stages"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-publications": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkPublishCreate", "/media-shrink-publications"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-reviews/{reviewId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkReviewResource", "/media-shrink-reviews/"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-operations/{operationId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkOperationResource", "/media-shrink-operations/"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-recordings/{recordingId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkRecordingResource", "/media-shrink-recordings/"),
+    },
+}
+
 AUDITED = {
     "/api/v1/backends/{backendId}/capabilities/media-import": {
         "get": "if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))",
@@ -313,6 +346,8 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/backends/{backendId}/media-shrink-stages"),
+    ("post", "/api/v1/backends/{backendId}/media-shrink-publications"),
     ("post", "/api/v1/backends/{backendId}/media-imports"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
@@ -444,7 +479,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -482,7 +517,7 @@ def validate(
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
         **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
-        **RECORDING_METADATA_AUDITED
+        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -522,6 +557,17 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in MEDIA_PROCESSING_AUDITED:
+                owner, gate_marker, suffix = marker
+                verb = "Get" if method == "get" else "Post"
+                router_marker = owner + "ApiRuntime::instance().tryHandle" + verb + "("
+                public_dispatch = "PublicApiRuntime::instance().tryHandle" + verb + "("
+                owner_source = (ROOT / ("api/rest/include/" + owner + "ApiRuntime.h")).read_text(encoding="utf-8")
+                if (native_router_source.count(router_marker) != 1 or
+                    public_dispatch not in native_router_source or
+                    native_router_source.find(router_marker) > native_router_source.find(public_dispatch) or
+                    gate_marker not in security_source or suffix not in owner_source):
+                    errors.append(f"{where}: Media Tools route/owner/security anchor missing")
             elif path in RECORDING_METADATA_AUDITED:
                 router_marker = "ManualRecordingMetadataApiRuntime::instance().tryHandle" + (
                     "Get(" if method == "get" else "Post(")
@@ -668,7 +714,7 @@ def main() -> int:
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
              **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
-             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED}
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

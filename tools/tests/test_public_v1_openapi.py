@@ -50,6 +50,14 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_media_processing_contract_and_security(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/media-checks/{checkId}"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace("isPublicMediaShrinkStageCreate", "obsoleteStageCreate")
+        self.assert_rejected(security_source=changed_security,
+                             reason="Media Tools route/owner/security anchor missing")
+
     def test_missing_path(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends"]

@@ -30,7 +30,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The current integration candidate specifies **105 documented HTTP method/resource contracts** across **86 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The current integration candidate specifies **115 documented HTTP method/resource contracts** across **96 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 F2 introduced five source-grounded authentication transport schemes for the original 75 operations; F6 has added four more Recording-editing operations using those same schemes. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.
 
@@ -98,8 +98,13 @@ The five existing Media Import operations now describe capability discovery,
 opaque source catalog pagination, source inspection, recent operation recovery,
 and single/batch admission. The established `addons.media.import` grant,
 CSRF, durable Operation readback and SSE lifecycle remain unchanged. A 202
-admission is not a successful VDR import. Check, Shrink, add-on administration
-and media transport coverage remain to be audited; this is not F8 acceptance.
+admission is not a successful VDR import. Media Check and HEVC Shrink are also represented by ten existing operations:
+capabilities, check start/status, read-only shrink planning, stage/publication
+admission, and recording/review/operation readback. Existing playback and
+shrink grants remain unchanged. Their runtime errors may use application/json
+with an error field, independently of the security gate's Problem Details.
+Add-on administration and media transport coverage remain to be audited;
+this is not F8 acceptance.
 
 ## What is implemented but not yet in this OpenAPI subset?
 

@@ -89,6 +89,2871 @@
     }
   ],
   "paths": {
+    "/api/v1/backends/{backendId}/capabilities/media-check": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaCheckCapability",
+        "summary": "Read Media Check capability",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Availability reflects the existing local backend checker.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; capability is not an authorization grant."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capability availability.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "capability": {
+                      "type": "string",
+                      "const": "addons.media.check"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "capability",
+                    "available"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-checks": {
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "submitPublicMediaCheck",
+        "summary": "Start a read-only media check",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Exactly recordingId and mode, either field order; at most 256 body bytes. A 202 indicates a running check; a concurrent check may return 409. No recording mutation.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped. Browser CSRF applies."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Running check identity and snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkId": {
+                      "type": "string",
+                      "pattern": "^chk_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "structure",
+                        "decode"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "running",
+                        "completed"
+                      ]
+                    },
+                    "report": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "schemaVersion": {
+                              "type": "integer",
+                              "const": 1
+                            },
+                            "recording": {
+                              "type": "string",
+                              "pattern": "^rec_[0-9a-f]{32}$"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "segments": {
+                              "type": "integer"
+                            },
+                            "bytes": {
+                              "type": "integer"
+                            },
+                            "packets": {
+                              "type": "integer"
+                            },
+                            "syncErrors": {
+                              "type": "integer"
+                            },
+                            "transportErrors": {
+                              "type": "integer"
+                            },
+                            "adaptationErrors": {
+                              "type": "integer"
+                            },
+                            "trailingBytes": {
+                              "type": "integer"
+                            },
+                            "continuityWarnings": {
+                              "type": "integer"
+                            },
+                            "discontinuities": {
+                              "type": "integer"
+                            },
+                            "indexPresent": {
+                              "type": "boolean"
+                            },
+                            "sidecarErrors": {
+                              "type": "integer"
+                            },
+                            "sidecarWarnings": {
+                              "type": "integer"
+                            },
+                            "analysis": {
+                              "type": "string",
+                              "enum": [
+                                "ts_structure_only",
+                                "ts_structure_and_ffmpeg_decode"
+                              ]
+                            },
+                            "readOnly": {
+                              "type": "boolean",
+                              "const": true
+                            },
+                            "segmentReports": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "bytes": {
+                                    "type": "integer"
+                                  },
+                                  "packets": {
+                                    "type": "integer"
+                                  },
+                                  "syncErrors": {
+                                    "type": "integer"
+                                  },
+                                  "transportErrors": {
+                                    "type": "integer"
+                                  },
+                                  "adaptationErrors": {
+                                    "type": "integer"
+                                  },
+                                  "trailingBytes": {
+                                    "type": "integer"
+                                  },
+                                  "continuityWarnings": {
+                                    "type": "integer"
+                                  },
+                                  "discontinuities": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "status",
+                                  "bytes",
+                                  "packets",
+                                  "syncErrors",
+                                  "transportErrors",
+                                  "adaptationErrors",
+                                  "trailingBytes",
+                                  "continuityWarnings",
+                                  "discontinuities"
+                                ]
+                              }
+                            },
+                            "sidecarReports": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "bytes": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "status",
+                                  "bytes"
+                                ]
+                              }
+                            },
+                            "decoder": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "exitCode": {
+                                  "type": "integer"
+                                },
+                                "timedOut": {
+                                  "type": "boolean"
+                                },
+                                "streamedBytes": {
+                                  "type": "integer"
+                                },
+                                "diagnostic": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "exitCode",
+                                "timedOut",
+                                "streamedBytes",
+                                "diagnostic"
+                              ]
+                            },
+                            "ffprobe": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "details": {
+                                  "type": "string"
+                                },
+                                "diagnostic": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "details",
+                                "diagnostic"
+                              ]
+                            },
+                            "diagnostic": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "schemaVersion",
+                            "status",
+                            "readOnly"
+                          ],
+                          "description": "Completed report may instead be incomplete with diagnostic only."
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "checkId",
+                    "backendId",
+                    "recordingId",
+                    "mode",
+                    "state",
+                    "report"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing job, revision, source or idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or inspection rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "structure",
+                      "decode"
+                    ]
+                  }
+                },
+                "required": [
+                  "recordingId",
+                  "mode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/media-checks/{checkId}": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaCheckStatus",
+        "summary": "Read an actor-owned check report",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Report is null while running; completion does not imply error-free recording. Completed reports can be read from persistence.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "checkId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque check ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^chk_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current or completed check.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkId": {
+                      "type": "string",
+                      "pattern": "^chk_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "structure",
+                        "decode"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "running",
+                        "completed"
+                      ]
+                    },
+                    "report": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "schemaVersion": {
+                              "type": "integer",
+                              "const": 1
+                            },
+                            "recording": {
+                              "type": "string",
+                              "pattern": "^rec_[0-9a-f]{32}$"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "segments": {
+                              "type": "integer"
+                            },
+                            "bytes": {
+                              "type": "integer"
+                            },
+                            "packets": {
+                              "type": "integer"
+                            },
+                            "syncErrors": {
+                              "type": "integer"
+                            },
+                            "transportErrors": {
+                              "type": "integer"
+                            },
+                            "adaptationErrors": {
+                              "type": "integer"
+                            },
+                            "trailingBytes": {
+                              "type": "integer"
+                            },
+                            "continuityWarnings": {
+                              "type": "integer"
+                            },
+                            "discontinuities": {
+                              "type": "integer"
+                            },
+                            "indexPresent": {
+                              "type": "boolean"
+                            },
+                            "sidecarErrors": {
+                              "type": "integer"
+                            },
+                            "sidecarWarnings": {
+                              "type": "integer"
+                            },
+                            "analysis": {
+                              "type": "string",
+                              "enum": [
+                                "ts_structure_only",
+                                "ts_structure_and_ffmpeg_decode"
+                              ]
+                            },
+                            "readOnly": {
+                              "type": "boolean",
+                              "const": true
+                            },
+                            "segmentReports": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "bytes": {
+                                    "type": "integer"
+                                  },
+                                  "packets": {
+                                    "type": "integer"
+                                  },
+                                  "syncErrors": {
+                                    "type": "integer"
+                                  },
+                                  "transportErrors": {
+                                    "type": "integer"
+                                  },
+                                  "adaptationErrors": {
+                                    "type": "integer"
+                                  },
+                                  "trailingBytes": {
+                                    "type": "integer"
+                                  },
+                                  "continuityWarnings": {
+                                    "type": "integer"
+                                  },
+                                  "discontinuities": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "status",
+                                  "bytes",
+                                  "packets",
+                                  "syncErrors",
+                                  "transportErrors",
+                                  "adaptationErrors",
+                                  "trailingBytes",
+                                  "continuityWarnings",
+                                  "discontinuities"
+                                ]
+                              }
+                            },
+                            "sidecarReports": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "bytes": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "status",
+                                  "bytes"
+                                ]
+                              }
+                            },
+                            "decoder": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "exitCode": {
+                                  "type": "integer"
+                                },
+                                "timedOut": {
+                                  "type": "boolean"
+                                },
+                                "streamedBytes": {
+                                  "type": "integer"
+                                },
+                                "diagnostic": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "exitCode",
+                                "timedOut",
+                                "streamedBytes",
+                                "diagnostic"
+                              ]
+                            },
+                            "ffprobe": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "details": {
+                                  "type": "string"
+                                },
+                                "diagnostic": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "details",
+                                "diagnostic"
+                              ]
+                            },
+                            "diagnostic": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "schemaVersion",
+                            "status",
+                            "readOnly"
+                          ],
+                          "description": "Completed report may instead be incomplete with diagnostic only."
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "checkId",
+                    "backendId",
+                    "recordingId",
+                    "mode",
+                    "state",
+                    "report"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/capabilities/media-shrink": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaShrinkCapability",
+        "summary": "Read HEVC Shrink capability",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Planning availability is distinct from authorized staging availability.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; capability is not an authorization grant."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Planning and encoder capabilities.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "capability": {
+                      "type": "string",
+                      "const": "addons.media.shrink"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "planningAvailable": {
+                      "type": "boolean"
+                    },
+                    "encoders": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "software",
+                          "vaapi",
+                          "qsv",
+                          "nvenc"
+                        ]
+                      }
+                    },
+                    "encoderFallbackToSoftware": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "capability",
+                    "available",
+                    "planningAvailable",
+                    "encoders",
+                    "encoderFallbackToSoftware"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-plans": {
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "submitPublicMediaShrinkPlan",
+        "summary": "Inspect recording for HEVC planning",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Exactly recordingId; at most 128 body bytes. Read-only inspection, no encode or replacement.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped. Browser CSRF applies."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only source inspection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "readOnly": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "stageAvailable": {
+                      "type": "boolean"
+                    },
+                    "originalPreserved": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "sourceBytes": {
+                      "type": "integer"
+                    },
+                    "segments": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "readOnly",
+                    "stageAvailable",
+                    "originalPreserved",
+                    "sourceBytes",
+                    "segments"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing job, revision, source or idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or inspection rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  }
+                },
+                "required": [
+                  "recordingId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-stages": {
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "submitPublicMediaShrinkStage",
+        "summary": "Admit HEVC staging",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters; at most 320 body bytes. Wire order recordingId, encoder, maxHeight, nightMode, optional autoPublish (default false). Zero height preserves source resolution. 202 is durable admission or replay, not successful encoding. Do not repeat uncertain operations; use existing readback/SSE.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing addons.media.shrink grant on this backend; browser CSRF where applicable, existing Core admission and durable operation ownership."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Required stable operation key.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Durable staging admission/replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "originalPreserved": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "operationId",
+                    "backendId",
+                    "state",
+                    "replayed",
+                    "originalPreserved"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing job, revision, source or idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or inspection rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "encoder": {
+                    "type": "string",
+                    "enum": [
+                      "software",
+                      "vaapi",
+                      "qsv",
+                      "nvenc"
+                    ]
+                  },
+                  "maxHeight": {
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "const": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 480,
+                        "maximum": 2160
+                      }
+                    ]
+                  },
+                  "nightMode": {
+                    "type": "boolean"
+                  },
+                  "autoPublish": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "recordingId",
+                  "encoder",
+                  "maxHeight",
+                  "nightMode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-publications": {
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "submitPublicMediaShrinkPublish",
+        "summary": "Admit reviewed HEVC publication",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters; wire order reviewId then revision=1. Existing Core review and publication authority applies. 202 is not proof that the recording was published. No automatic retry after uncertain outcome.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing addons.media.shrink grant on this backend; browser CSRF where applicable, existing Core admission and durable operation ownership."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Required stable operation key.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Durable publication admission/replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    },
+                    "originalPreserved": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "operationId",
+                    "backendId",
+                    "state",
+                    "replayed",
+                    "originalPreserved"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing job, revision, source or idempotency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid selection or inspection rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reviewId": {
+                    "type": "string",
+                    "pattern": "^shk_[0-9a-f]{32}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "reviewId",
+                  "revision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-reviews/{reviewId}": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaShrinkReview",
+        "summary": "Read actor-owned staged review",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Size fields exist only for verified staged candidates. Published recording identity can be empty.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque review identity.",
+            "schema": {
+              "type": "string",
+              "pattern": "^shk_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review state and verified candidate availability.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "reviewId": {
+                      "type": "string",
+                      "pattern": "^shk_[0-9a-f]{32}$"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "readOnly": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "publishAvailable": {
+                      "type": "boolean"
+                    },
+                    "publishedRecordingId": {
+                      "type": "string"
+                    },
+                    "sourceBytes": {
+                      "type": "integer"
+                    },
+                    "candidateBytes": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "reviewId",
+                    "recordingId",
+                    "state",
+                    "revision",
+                    "readOnly",
+                    "publishAvailable",
+                    "publishedRecordingId"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-operations/{operationId}": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaShrinkOperation",
+        "summary": "Read actor-owned HEVC operation",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. resultReconciled is true only on verified success. Stage success carries reviewId; publish success carries publishedRecordingId. Failure code is optional.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque Operation identity.",
+            "schema": {
+              "type": "string",
+              "pattern": "^op_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "stage",
+                        "publish"
+                      ]
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "resultReconciled": {
+                      "type": "boolean"
+                    },
+                    "reviewId": {
+                      "type": "string",
+                      "pattern": "^shk_[0-9a-f]{32}$"
+                    },
+                    "publishedRecordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "failureCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "operationId",
+                    "backendId",
+                    "action",
+                    "state",
+                    "resultReconciled"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-shrink-recordings/{recordingId}": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaShrinkRecording",
+        "summary": "Recover HEVC state for a recording",
+        "description": "Source: MediaCheckApiRuntime.h / MediaShrinkPlanApiRuntime.h, production DaemonRuntimeInitialization.cpp and SecurityHttpGate.h. No query parameters. Existing actor/backend-scoped recording recovery; no new stage, plan or encoding is performed. Optional operation and review identities depend on state.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing media.recording.play grant on this backend; actor-owned resources are independently scoped."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque recording identity.",
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing recording shrink state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "processing",
+                        "ready",
+                        "publishing",
+                        "published"
+                      ]
+                    },
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "reviewId": {
+                      "type": "string",
+                      "pattern": "^shk_[0-9a-f]{32}$"
+                    },
+                    "autoPublish": {
+                      "type": "boolean"
+                    },
+                    "publishOperationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "publishedRecordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    }
+                  },
+                  "required": [
+                    "recordingId",
+                    "state"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, query, or required key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, backend scope or browser CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource absent or outside authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required backend, runtime, persistence or security service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
     "/api/v1/backends/{backendId}/capabilities/media-import": {
       "get": {
         "tags": [
