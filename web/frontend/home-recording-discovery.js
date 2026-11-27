@@ -754,7 +754,7 @@
 
   function canonicalFolders(payload) {
     return list(payload, 'folders').filter(function (entry) {
-      return Boolean(entry && text(entry.path || entry.folderPath || entry.name));
+      return Boolean(entry && text(entry.path || entry.folderPath || entry.folderId || entry.name));
     });
   }
 
@@ -842,7 +842,7 @@
     const available = (entries || []).filter(function (entry) {
       return Boolean(
         entry &&
-        text(entry.path || entry.folderPath || entry.name) &&
+        text(entry.path || entry.folderPath || entry.folderId || entry.name) &&
         folderEntryCount(entry) > 0
       );
     });
@@ -853,7 +853,7 @@
     }
     if (state.randomFolderPath) {
       const existing = available.find(function (entry) {
-        return text(entry.path || entry.folderPath || entry.name) === state.randomFolderPath;
+        return text(entry.path || entry.folderPath || entry.folderId || entry.name) === state.randomFolderPath;
       });
       if (existing) {
         state.randomFolderGeneration = generation;
@@ -866,7 +866,7 @@
       : 0;
     const selected = available[Math.floor(bounded * available.length)] || available[0];
     state.randomFolderGeneration = generation;
-    state.randomFolderPath = text(selected.path || selected.folderPath || selected.name);
+    state.randomFolderPath = text(selected.path || selected.folderPath || selected.folderId || selected.name);
     return selected;
   }
 
@@ -1372,13 +1372,13 @@
   }
 
   function openFolder(folder, backendId) {
-    const path = text(folder && (folder.path || folder.folderPath || folder.name));
+    const path = text(folder && (folder.path || folder.folderPath || folder.folderId || folder.name));
     if (!path) return Promise.resolve(false);
     releasePreview('Recording Discovery Ordner geöffnet');
     return ensureRecordings2().then(function (ready) {
       if (!ready || !selectShellModule('recordings2')) return false;
       if (folder && /^fld1_[0-9a-f]{32}$/.test(folder.folderId || ''))
-        global.VdrSuiteRecordings2.openFolder({folderId:folder.folderId, legacyPath:path});
+        global.VdrSuiteRecordings2.openFolder({folderId:folder.folderId, legacyPath:folder.path || folder.folderPath});
       else global.VdrSuiteRecordings2.openFolder(path);
       return true;
     });
@@ -1754,7 +1754,7 @@
     }
 
     entries.forEach(function (entry) {
-      const path = text(entry.path || entry.folderPath || entry.name);
+      const path = text(entry.path || entry.folderPath || entry.folderId || entry.name);
       const labelText = text(entry.name || entry.title) ||
         path.split('/').filter(Boolean).pop() ||
         path;
@@ -4161,7 +4161,7 @@
   }
 
   function folderSeriesCard(entry, backendId) {
-    const path = text(entry && (entry.path || entry.folderPath));
+    const path = text(entry && (entry.path || entry.folderPath || entry.name));
     const entries = folderSeriesEntries(path, folderEntryCount(entry), backendId, false, text(entry && entry.folderId));
     if (!entries || entries.length !== 1) return null;
     const series = entries[0];
@@ -4954,20 +4954,41 @@
   function fetchRootFolderProjection(client, backendId, generation, cache, onCategories) {
     const folders = [];
     const rootRecordings = [];
+    let publicMode = typeof client.fetchPublicRecordingFolder === 'function';
+    let categoriesPublished = false;
 
     function requestPage(offset) {
-      return Promise.resolve(client.fetchClientRecordingFolder({
+      const fetch = publicMode ? client.fetchPublicRecordingFolder : client.fetchClientRecordingFolder;
+      return Promise.resolve(fetch.call(client, {
         backendId: backendId,
-        query: {
-          path: '',
+        query: Object.assign(publicMode ? {} : {path: ''}, {
           limit: FOLDER_LIMIT,
           offset: offset
-        },
+        }),
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
         if (!current(generation, backendId)) return {folders: [], rootRecordings: []};
         if (cache) cache.accept(payload);
+        if (payload && payload.publicFolder === true) {
+          const projection = projectRootFolderPayload(payload, backendId);
+          folders.push(...projection.folders);
+          rootRecordings.push(...projection.rootRecordings);
+          if (!payload.hasMore) return {
+            folders: folders,
+            rootRecordings: uniqueCanonicalRecordings(rootRecordings, backendId)
+          };
+          const nextOffset = Number(payload.nextOffset);
+          if (!Number.isSafeInteger(nextOffset) || nextOffset <= offset)
+            throw new Error('public root folder pagination made no progress');
+          if (!categoriesPublished && folders.length && folders.length >= payload.folderCount &&
+              typeof onCategories === 'function') {
+            categoriesPublished = true;
+            onCategories(folders.slice());
+          }
+          return requestPage(nextOffset);
+        }
+        publicMode = false;
         const rawPage = list(payload, 'recordings');
         if (offset === 0) {
           const firstProjection = projectRootFolderPayload(payload, backendId);
@@ -5111,7 +5132,7 @@
 
   function cachedFolderCards(projection) {
     const cards = projection.folders.slice(0, 24).map(function (folder) {
-      const path = text(folder.path || folder.folderPath || folder.name);
+      const path = text(folder.path || folder.folderPath || folder.folderId || folder.name);
       const label = text(folder.name || folder.title) || path.split('/').filter(Boolean).pop() || path;
       const count = folderEntryCount(folder);
       return {id: 'folder:' + path, title: label, subtitle: count > 0 ? String(count) + ' Aufnahmen' : path};
@@ -5642,7 +5663,7 @@
   function scheduleRandomFolderInline(entries, backendId, generation, randomValue) {
     const selected = selectRandomFolder(entries, generation, randomValue);
     if (!selected) return false;
-    const selectedPath = text(selected.path || selected.folderPath || selected.name);
+    const selectedPath = text(selected.path || selected.folderPath || selected.folderId || selected.name);
 
     function openSelectedFolder() {
       if (!current(generation, backendId)) return false;
