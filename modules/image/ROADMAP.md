@@ -41,6 +41,12 @@ API und DTOs werden erst nach Prüfung der tatsächlichen Public-v1- und Agent-O
 
 IG5–IG8: Fotos stehen im Mittelpunkt, kein permanentes Metadatenfeld oder großes Seitenmenü, keine Dateinamen unter jeder Kachel, keine blauen Füllflächen. Ordner klar beschriften. Fotoauswahl beim Wechsel zwischen Ansichten und Rückkehr erhalten. Mouse/Touch/Keyboard/TV-Remote unterstützen. Keine Migration fremder Clients in dieser Version.
 
+## Verifizierte Zwischenstände (keine Geräteabnahme)
+
+- `d8dc8722cd34b040bedeac2d8ad0bc0099ec854b`: [Haupt-CI 45984094188](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45984094188) vollständig erfolgreich, einschließlich Provider-, API- und Frontend-Tests. Beide Ubuntu-Binärpaketjobs in [45984094264](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45984094264) meldeten tatsächlich `IMAGE_GALLERY_BINARY_PAYLOAD=PASS`; der gesamte Workflow wurde durch einen Folgecommit abgelöst und ist nicht als vollständig bestanden zu werten.
+- `4626c8f22f460ef4d8fb6e1e50fc80e2afdfbc90`: [Frontendjob 140467400411](https://github.com/hotzenplotz5/vdr-suite/actions/runs/45987656695/job/140467400411) meldete `IMAGE_GALLERY_MOUNT_LARGE_COLLECTION=PASS`. DOM-/Zeitgeber-Fixture, keine visuelle Browser- oder CEF-Abnahme.
+- Das Raster hält maximal 80 Kacheln pro Seite; Cover Flow hält höchstens sieben Elemente. Neue Tests für echte APT-Lebenszyklen mit installiertem Gallery-Paket, EXIF-Orientierung und 1000 Dateien im lokalen Provider sind ergänzt; ihre Ausführung und Ergebnisse müssen noch separat verifiziert werden.
+
 ## Akzeptanzmatrix (Plan, nicht Testnachweis)
 
 | Szenario | Erwartetes sichtbares Ergebnis |

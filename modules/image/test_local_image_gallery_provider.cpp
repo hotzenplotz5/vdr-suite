@@ -73,6 +73,22 @@ int main()
     assert(readLocalPhoto(source, (root / "Bild 2.jpg").string(), 1024).status == PhotoReadStatus::unavailable);
     assert(::mkfifo((root / "pipe.jpg").c_str(), 0600) == 0);
     assert(readLocalPhoto(source, "pipe.jpg", 1024).status == PhotoReadStatus::unavailable);
+    // Browse a synthetic large collection without decoding its originals.
+    // Check natural ordering across the whole directory, not just one page.
+    const auto big = root / "Large collection";
+    fs::create_directory(big);
+    for (int i = 1000; i >= 1; --i)
+        std::ofstream(big / ("Bild " + std::to_string(i) + ".jpg")) << "fixture";
+    std::ofstream(big / "notes.txt") << "not a photo";
+    const auto many = browseLocalDirectory(source,"Large collection");
+    assert(many.success && many.entries.size() == 1000);
+    for (std::size_t i = 0; i < many.entries.size(); ++i) {
+        const auto name = "Bild " + std::to_string(i+1) + ".jpg";
+        assert(many.entries[i].name == name);
+        assert(many.entries[i].relativePath == "Large collection/" + name);
+        assert(many.entries[i].cover == many.entries[i].relativePath);
+    }
+    std::cout << "IMAGE_GALLERY_LOCAL_LARGE_COLLECTION=PASS\n";
     std::cout << "IMAGE_GALLERY_LOCAL_BROWSE=PASS\n";
     std::cout << "IMAGE_GALLERY_LOCAL_READ=PASS\n";
 }

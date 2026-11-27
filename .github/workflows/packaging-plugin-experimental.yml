@@ -1043,6 +1043,72 @@ jobs:
           python3 tools/addons/check_installed_media_tools_payload.py
           echo "MT_I43_FOUR_PACKAGE_COINSTALL=PASS series=$SERIES version=$source_version"
 
+      - name: Retrieve the separate Image Gallery binary from the same run
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-image-gallery-${{ matrix.series }}-experimental
+          path: image-package
+      - name: Exercise Image Gallery install, daemon reinstall, remove and reinstall
+        shell: bash
+        env:
+          SERIES: ${{ matrix.series }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -Eeuo pipefail
+          test -f /.dockerenv
+          test "$(id -u)" -eq 0
+          shopt -s nullglob
+          image_debs=(image-package/vdr-suite-addon-image_*_amd64.deb)
+          daemon_debs=(packages/vdr-suite-daemon_*_amd64.deb)
+          test "${#image_debs[@]}" -eq 1
+          test "${#daemon_debs[@]}" -eq 1
+          image_deb="${image_debs[0]}"
+          daemon_deb="${daemon_debs[0]}"
+          version="$(dpkg-deb --field "$daemon_deb" Version)"
+          test "$(dpkg-deb --field "$image_deb" Version)" = "$version"
+          ui=/usr/share/vdr-suite/web/frontend/modules/image-gallery.js
+          metadata=/usr/share/vdr-suite/addons/image/addon.json
+          sources=/var/lib/vdr-suite/image-sources.tsv
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          test ! -e "$sources"
+          apt-get install -y --no-install-recommends "./$image_deb"
+          test "$(dpkg-query -W -f='${Status}' vdr-suite-addon-image)" = 'install ok installed'
+          test "$(dpkg-query -W -f='${Version}' vdr-suite-addon-image)" = "$version"
+          test "$(dpkg-query -S "$ui")" = "vdr-suite-addon-image: $ui"
+          test "$(dpkg-query -S "$metadata")" = "vdr-suite-addon-image: $metadata"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp modules/image/addon.json "$metadata"
+          test ! -e "$sources"
+          fixture="$(mktemp -d)"
+          mkdir -p /var/lib/vdr-suite "$fixture/pictures"
+          printf 'fixture image bytes\n' > "$fixture/pictures/Urlaub.jpg"
+          printf 'pictures\tPictures\t%s/pictures\n' "$fixture" > "$sources"
+          cp "$sources" "$fixture/expected-sources"
+          cp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          # Reinstall the exact daemon while the optional addon shares its
+          # data directories. The existing preinst must accept package ownership.
+          apt-get install -y --reinstall --no-install-recommends "./$daemon_deb"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp "$sources" "$fixture/expected-sources"
+          apt-get remove -y vdr-suite-addon-image
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          test "$(dpkg-query -W -f='${Status}' vdr-suite-daemon)" = 'install ok installed'
+          cmp "$sources" "$fixture/expected-sources"
+          cmp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          apt-get install -y --no-install-recommends "./$image_deb"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp "$sources" "$fixture/expected-sources"
+          apt-get purge -y vdr-suite-addon-image
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          cmp "$sources" "$fixture/expected-sources"
+          cmp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          dpkg --audit
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          echo "IMAGE_GALLERY_APT_LIFECYCLE=PASS series=$SERIES version=$version"
+
   p8-preunpack-collision-noble:
     name: P8 disposable dpkg refusal (${{ matrix.case }})
     needs: full-default-packages-noble

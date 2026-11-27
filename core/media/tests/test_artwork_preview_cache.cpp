@@ -51,6 +51,27 @@ int main() {
     ArtworkPreviewCache galleryRestarted(galleryRoot.string(),"/missing/ffmpeg");
     assert(galleryRestarted.gallery("image/png",png) == galleryPreview);
 
+    // A real landscape JPEG with EXIF Orientation=6 must produce an upright
+    // portrait preview, not just a dimension-limited landscape copy.
+    const auto landscape = fixture("mjpeg","1200x800");
+    const unsigned char orientation6[] = {
+        0xff,0xe1,0x00,0x22,0x45,0x78,0x69,0x66,0x00,0x00,
+        0x49,0x49,0x2a,0x00,0x08,0x00,0x00,0x00,0x01,0x00,
+        0x12,0x01,0x03,0x00,0x01,0x00,0x00,0x00,0x06,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00
+    };
+    auto rotated = landscape;
+    rotated.insert(2,reinterpret_cast<const char*>(orientation6),sizeof(orientation6));
+    const auto upright = gallery.gallery("image/jpeg",rotated);
+    assert(!upright.empty() && upright.size() <= 256 * 1024);
+    write(root / "upright.jpg",upright);
+    const auto uprightProbe = MediaProcessRunner{}.runAndCapture({
+        "/usr/bin/ffprobe","-v","error","-show_entries","stream=width,height",
+        "-of","csv=p=0",(root / "upright.jpg").string()}, "/", std::chrono::seconds(5),100);
+    assert(uprightProbe.success && uprightProbe.output == "597,896\n");
+    assert(galleryRestarted.gallery("image/jpeg",rotated) == upright);
+    std::cout << "IMAGE_GALLERY_EXIF_ORIENTATION=PASS\n";
+
     // Existing route-bound entries remain usable with the old key format.
     const fs::path legacyRoot = root / "legacy-cache";
     fs::create_directory(legacyRoot);
