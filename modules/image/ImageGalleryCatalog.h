@@ -20,6 +20,7 @@ struct Entry {
     std::string name;
     std::string relativePath;
     bool directory = false;
+    std::string cover = {};
 };
 
 // Provider supplies directory entries after its existing source-root checks.

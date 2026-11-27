@@ -802,3 +802,14 @@ test-addon-image-catalog:
 	"$(BUILD_DIR)/addons/test_image_gallery_catalog"
 
 test-ci-fast: test-addon-image-catalog
+
+.PHONY: test-addon-image-local-browse
+test-addon-image-local-browse:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image -I core/vdr/include \
+		modules/image/ImageGalleryCatalog.cpp modules/image/LocalImageGalleryProvider.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp modules/image/test_local_image_gallery_provider.cpp \
+		-o "$(BUILD_DIR)/addons/test_local_image_gallery_provider"
+	"$(BUILD_DIR)/addons/test_local_image_gallery_provider"
+
+test-ci-fast: test-addon-image-local-browse
