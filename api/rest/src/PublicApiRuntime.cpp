@@ -8321,7 +8321,14 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
             body += ",\"matchedPerson\":\"" + jsonEscape(item.matchedPerson) +
                 "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
                 "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +
-                "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"}";
+                "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"";
+            if (!request.epg && !item.personPortraitRecordingId.empty() &&
+                !item.personPortraitArtworkId.empty())
+                body += ",\"personPortrait\":{\"recordingId\":\"" +
+                    jsonEscape(item.personPortraitRecordingId) +
+                    "\",\"artworkId\":\"" + jsonEscape(item.personPortraitArtworkId) +
+                    "\"}";
+            body += "}";
         }
         body += "],\"personProjectionVersion\":1,\"page\":{\"offset\":" +
             std::to_string(request.offset) + ",\"limit\":" +

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -19,6 +20,8 @@ namespace PublicSearchProjection
 {
 using RecordingIdLookup = std::function<std::optional<std::string>(
     const std::string&, const std::string&)>;
+using PortraitArtworkIdLookup = std::function<std::string(
+    const VdrRecording&, const GlobalSearchPersonPortrait&)>;
 
 inline bool validRecordingId(const std::string& id)
 {
@@ -34,7 +37,8 @@ inline PublicSearchResult project(
     const PublicSearchRequest& request,
     const GlobalSearchResult& searched,
     const std::vector<VdrRecording>& currentRecordings,
-    const RecordingIdLookup& recordingIdLookup)
+    const RecordingIdLookup& recordingIdLookup,
+    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {})
 {
     PublicSearchResult result;
     const std::size_t pageCount =
@@ -116,6 +120,53 @@ inline PublicSearchResult project(
             item.matchReason = recording.matchReason;
             item.personKey = recording.personKey;
             result.items.push_back(std::move(item));
+        }
+    }
+
+    // Reuse the bulk portrait result from the Web's owner. The map caches
+    // each person's opaque image reference once per response. An absent
+    // or stale portrait never removes a valid recording hit.
+    if (!request.epg && portraitArtworkIdLookup)
+    {
+        std::map<std::string, std::pair<std::string, std::string>> resolved;
+        for (auto& item : result.items)
+        {
+            if (item.personKey.empty() || item.matchedPerson.empty()) continue;
+            auto entry = resolved.emplace(item.personKey,
+                std::pair<std::string, std::string>{});
+            if (entry.second)
+            {
+                const auto portrait = std::find_if(
+                    searched.portraits.begin(), searched.portraits.end(),
+                    [&item](const GlobalSearchPersonPortrait& p) {
+                        return p.personKey == item.personKey;
+                    });
+                if (portrait != searched.portraits.end())
+                {
+                    const auto live = std::find_if(
+                        currentRecordings.begin(), currentRecordings.end(),
+                        [&request, &portrait](const VdrRecording& recording) {
+                            return recording.backendId == request.backendId &&
+                                recording.backendNativeId == portrait->backendNativeId;
+                        });
+                    if (live != currentRecordings.end())
+                    {
+                        const auto art = portraitArtworkIdLookup(*live, *portrait);
+                        if (art.size() == 32U && std::all_of(art.begin(), art.end(),
+                            [](unsigned char ch) {
+                                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+                            }))
+                        {
+                            const auto id = recordingIdLookup(request.backendId,
+                                portrait->backendNativeId);
+                            if (id && validRecordingId(*id))
+                                entry.first->second = {*id, art};
+                        }
+                    }
+                }
+            }
+            item.personPortraitRecordingId = entry.first->second.first;
+            item.personPortraitArtworkId = entry.first->second.second;
         }
     }
 

@@ -1,6 +1,7 @@
 #include "GlobalSearchPersonPortraitRepository.h"
 
 #include "Database.h"
+#include "GlobalSearchRepository.h"
 
 #include <sqlite3.h>
 #include <string>
@@ -83,7 +84,9 @@ GlobalSearchPersonPortraitRepository::findForBackend(
         // just people with images. Advance even when a profile is absent.
         portrait.index = personIndex++;
         portrait.assignmentRevision = sqlite3_column_int(statement, 4);
-        if (!columnText(statement, 5).empty() &&
+        portrait.localPath = columnText(statement, 5);
+        portrait.personKey = GlobalSearchRepository::foldText(portrait.name) + "\n" + portrait.role;
+        if (!portrait.localPath.empty() &&
             !portrait.name.empty() && !portrait.backendNativeId.empty() &&
             portrait.assignmentRevision > 0)
             portraits.push_back(std::move(portrait));

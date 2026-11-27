@@ -73,3 +73,15 @@ The availability hint is not an artwork grant or proof that a byte resource
 is currently available. Use the existing Public-v1 artwork resources;
 no native recording path, native ID or private URL is returned. This adds no
 new index query and does not yet replace the combined browser search dialog.
+
+### Cached person portraits in Recording search
+
+A Recording search hit may carry `personPortrait: {recordingId, artworkId}`
+for its matched person. The reference uses the existing backend-scoped,
+bulk portrait lookup, complete cast ordinal, assignment revision and the
+same opaque image identity as Recording detail and its binary artwork GET.
+No additional index, provider request or per-person profile query is needed.
+The referenced recording can differ from the search hit; its current backend
+identity must resolve. Missing/stale portraits do not remove valid hits.
+EPG search never emits Recording portrait references. Existing independent
+`recordings.view` and `epg.view` authorization remains unchanged.

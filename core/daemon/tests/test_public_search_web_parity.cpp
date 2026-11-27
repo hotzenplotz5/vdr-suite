@@ -97,6 +97,43 @@ int main()
     }
     assert(page.items.front().title != snapshot.front().title);
 
+    // A single cached portrait from the same Web portrait owner is
+    // reused for all matching records, without extra profile queries.
+    GlobalSearchPersonPortrait portrait;
+    portrait.name = "Bruce Willis";
+    portrait.role = "actor";
+    portrait.personKey = "bruce willis\nactor";
+    portrait.backendNativeId = "b";
+    portrait.index = 3;
+    portrait.assignmentRevision = 7;
+    portrait.localPath = "/private/portrait.jpg";
+    web.portraits.push_back(portrait);
+    int portraitLookups = 0;
+    const auto portraitPage = PublicSearchProjection::project(
+        request, web, snapshot, lookup,
+        [&portraitLookups](const VdrRecording& owner,
+                          const GlobalSearchPersonPortrait& source) {
+            ++portraitLookups;
+            assert(owner.backendNativeId == "b");
+            assert(source.index == 3 && source.assignmentRevision == 7);
+            return std::string("0123456789abcdef0123456789abcdef");
+        });
+    assert(portraitPage.items.size() == 3U && portraitLookups == 1);
+    for (const auto& item : portraitPage.items)
+    {
+        assert(item.personPortraitRecordingId == SecondId);
+        assert(item.personPortraitArtworkId == "0123456789abcdef0123456789abcdef");
+    }
+    web.portraits.front().backendNativeId = "deleted";
+    const auto missingPortrait = PublicSearchProjection::project(
+        request, web, snapshot, lookup,
+        [](const VdrRecording&, const GlobalSearchPersonPortrait&) {
+            assert(false);
+            return std::string{};
+        });
+    assert(missingPortrait.items.size() == 3U);
+    assert(missingPortrait.items.front().personPortraitArtworkId.empty());
+
     // An indexed, already deleted recording is not leaked and must not
     // cause HTTP 503 for the still-current Hobbit results.
     web.recordingTotal = 4;

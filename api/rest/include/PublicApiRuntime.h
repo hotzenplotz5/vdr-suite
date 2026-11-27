@@ -517,6 +517,7 @@ struct PublicSearchItem {
     int durationSeconds = 0;
     std::int64_t sizeMb = 0;
     bool artworkAvailable = false;
+    std::string personPortraitRecordingId, personPortraitArtworkId;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;

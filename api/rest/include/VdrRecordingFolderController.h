@@ -129,6 +129,11 @@ public:
         const VdrRecording& recording,
         const ManualRecordingMetadataAssignment& manual,
         const VdrRecordingNativeMetadataRecord& native);
+    // Search uses the same selected manual-portrait identity as detail and
+    // the binary reader, with the persisted cast ordinal and revision.
+    static std::string publicManualPortraitArtworkId(
+        const VdrRecording& recording, int index, int revision,
+        const std::string& localPath);
     std::optional<ApiResponse> loadPublicMetadataArtwork(
         const VdrRecording& recording,
         const ManualRecordingMetadataAssignment& manual,

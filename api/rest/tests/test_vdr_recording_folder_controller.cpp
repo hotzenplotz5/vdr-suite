@@ -540,6 +540,24 @@ int main()
     withPortrait.metadata.people.front().image.path = "/tmp/replaced-portrait.jpg";
     assert(!controller.loadPublicMetadataArtwork(
         artworkRecording, {}, withPortrait, assets[1].artworkId));
+    auto manualPortrait = manualTrailer;
+    manualPortrait.found = true;
+    manualPortrait.relationshipLocked = true;
+    manualPortrait.revision = 7;
+    manualPortrait.posterReference.clear();
+    manualPortrait.people.resize(2);
+    manualPortrait.people[0].profilePath.clear();
+    manualPortrait.people[1].profilePath =
+        "/var/cache/vdr-suite/recording-metadata/posters/person.jpg";
+    const auto manualImages = controller.publicMetadataArtwork(
+        artworkRecording, manualPortrait, {});
+    assert(manualImages.size() == 1U && manualImages[0].index == 1);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 1, 7,
+        manualPortrait.people[1].profilePath) == manualImages[0].artworkId);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 0, 7,
+        manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 1, 8,
+        manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
     auto foreign = artworkRecording;
     foreign.backendId = "other";
     assert(controller.publicMetadataArtwork(foreign, {}, withPortrait).empty());

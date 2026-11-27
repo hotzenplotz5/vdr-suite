@@ -270,6 +270,8 @@ int main()
                 item.artworkAvailable = true;
             } else {
                 item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+                item.personPortraitRecordingId = item.recordingId;
+                item.personPortraitArtworkId = "0123456789abcdef0123456789abcdef";
                 item.startTime = "1791565200";
                 item.durationSeconds = 3600;
                 item.sizeMb = 2048;
@@ -291,6 +293,7 @@ int main()
     assert(searchRecording.body.find("\"durationSeconds\":3600") != std::string::npos);
     assert(searchRecording.body.find("\"sizeMb\":2048") != std::string::npos);
     assert(searchRecording.body.find("\"artworkAvailable\":true") != std::string::npos);
+    assert(searchRecording.body.find("\"personPortrait\":{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\",\"artworkId\":\"0123456789abcdef0123456789abcdef\"}") != std::string::npos);
     assert(searchRecording.headers.at("Cache-Control") == "no-store");
     ApiResponse searchEpg;
     assert(runtime.tryHandleGet(
@@ -301,6 +304,7 @@ int main()
     assert(searchEpg.body.find("\"durationSeconds\":7200") != std::string::npos);
     assert(searchEpg.body.find("\"artworkAvailable\":true") != std::string::npos);
     assert(searchEpg.body.find("\"sizeMb\"") == std::string::npos);
+    assert(searchEpg.body.find("\"personPortrait\"") == std::string::npos);
     for (const std::string& invalid : {
         "backendId=backend-a&query=%GG",
         "backendId=backend-a&query=a",

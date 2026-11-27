@@ -56,6 +56,9 @@ struct GlobalSearchPersonPortrait
     std::string backendNativeId;
     int index = -1;
     int assignmentRevision = 0;
+    // Internal cached evidence only, never serialized as a public path.
+    std::string personKey;
+    std::string localPath;
 };
 
 struct GlobalSearchResult
@@ -75,4 +78,5 @@ struct GlobalSearchResult
     std::vector<GlobalSearchRecording> recordings;
     std::vector<GlobalSearchEpgEvent> epg;
     std::vector<GlobalSearchPersonSummary> people;
+    std::vector<GlobalSearchPersonPortrait> portraits;
 };

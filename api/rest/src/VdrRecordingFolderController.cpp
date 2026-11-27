@@ -126,6 +126,20 @@ struct MetadataArtworkEntry
     std::string path;
 };
 
+std::string metadataArtworkId(
+    const VdrRecording& recording, const std::string& kind, int index,
+    int revision, const std::string& path, int width, int height)
+{
+    VdrRecordingArtworkRef reference;
+    reference.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    reference.kind = VdrRecordingArtworkKind::Still;
+    reference.reference = "metadata-image-v1:" + kind + ":" +
+        std::to_string(index) + ":" + std::to_string(revision) + ":" + path;
+    reference.width = std::max(0, width);
+    reference.height = std::max(0, height);
+    return VdrRecordingArtworkIdentity::assetId(recording, reference);
+}
+
 std::vector<MetadataArtworkEntry> metadataArtworkEntries(
     const VdrRecording& recording,
     const ManualRecordingMetadataAssignment& manual,
@@ -141,17 +155,11 @@ std::vector<MetadataArtworkEntry> metadataArtworkEntries(
         // Use the existing opaque asset identity algorithm with a disjoint
         // metadata source reference. Bind to the actual selected image, not
         // merely its mutable ordinal. Never expose the input or use it as URL.
-        VdrRecordingArtworkRef reference;
-        reference.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
-        reference.kind = VdrRecordingArtworkKind::Still;
-        reference.reference = "metadata-image-v1:" + kind + ":" +
-            std::to_string(index) + ":" + std::to_string(revision) + ":" + path;
-        reference.width = std::max(0, width);
-        reference.height = std::max(0, height);
-        const auto id = VdrRecordingArtworkIdentity::assetId(recording, reference);
+        const auto id = metadataArtworkId(recording, kind, index, revision,
+            path, width, height);
         if (!id.empty())
             entries.push_back({{id, kind, index, orientation,
-                reference.width, reference.height}, path});
+                std::max(0, width), std::max(0, height)}, path});
     };
     if (manual.found && manual.relationshipLocked &&
         manual.backendId == recording.backendId)
@@ -1075,6 +1083,17 @@ VdrRecordingFolderController::publicMetadataArtwork(
     for (const auto& entry : metadataArtworkEntries(recording, manual, native))
         result.push_back(entry.item);
     return result;
+}
+
+std::string VdrRecordingFolderController::publicManualPortraitArtworkId(
+    const VdrRecording& recording, int index, int revision,
+    const std::string& localPath)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty() ||
+        index < 0 || revision <= 0 || !localManualImage(localPath))
+        return {};
+    return metadataArtworkId(recording, "person", index, revision,
+        localPath, 0, 0);
 }
 
 std::optional<ApiResponse> VdrRecordingFolderController::loadPublicMetadataArtwork(

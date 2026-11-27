@@ -3280,7 +3280,7 @@ bool DaemonRuntime::initialize()
                 request.backendId, request.query,
                 now - 6 * 3600, now + 14 * 24 * 3600,
                 static_cast<int>(request.limit),
-                static_cast<int>(request.offset));
+                static_cast<int>(request.offset), !request.epg);
             if (!searched || searched->status != "ready")
             {
                 std::cerr << "Public-v1 search unavailable: shared search"
@@ -3299,6 +3299,12 @@ bool DaemonRuntime::initialize()
                 {
                     return publicRecordingIdentities_->resolveOrCreate(
                         backendId, nativeId);
+                },
+                [](const VdrRecording& recording,
+                   const GlobalSearchPersonPortrait& portrait) {
+                    return VdrRecordingFolderController::publicManualPortraitArtworkId(
+                        recording, portrait.index, portrait.assignmentRevision,
+                        portrait.localPath);
                 });
 
             const std::size_t original = request.epg
