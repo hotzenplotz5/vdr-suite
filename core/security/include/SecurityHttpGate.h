@@ -397,10 +397,11 @@ public:
         const bool isManualRecordingMetadataRoute =
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
         const bool isManualRecordingMetadataAction = isPost &&
-            isManualRecordingMetadataRoute;
+            isManualRecordingMetadataRoute && manualMetadataOperation != "manual";
         const bool isPublicManualMetadataRead = request.method == "GET" &&
             isManualRecordingMetadataRoute &&
-            (manualMetadataOperation == "genre" || manualMetadataOperation == "trailer") &&
+            (manualMetadataOperation == "genre" || manualMetadataOperation == "trailer" ||
+             manualMetadataOperation == "manual") &&
             path.compare(0, std::string("/api/v1/backends/").size(), "/api/v1/backends/") == 0;
         std::string recordingSeriesHierarchyBackendId;
         const bool isRecordingSeriesHierarchyAction =
@@ -1994,7 +1995,8 @@ public:
             // and private browser authorization are unchanged.
             const std::vector<std::string> permissions = path == "/api/v1/search"
                 ? std::vector<std::string>{"recordings.view", "epg.view"}
-                : std::vector<std::string>{"recordings.view"};
+                : std::vector<std::string>{isPublicManualMetadataRead && manualMetadataOperation == "manual"
+                    ? "metadata.recording.assign" : "recordings.view"};
             for (const auto& permission : permissions)
             {
                 AuthorizationRequest recordingReadRequest;
@@ -3766,7 +3768,7 @@ private:
         return operation == "search" || operation == "seasons" ||
             operation == "episodes" || operation == "assign" ||
             operation == "withdraw" || operation == "genre" ||
-            (publicApi && operation == "trailer");
+            (publicApi && (operation == "trailer" || operation == "manual"));
     }
 
     static int hexValue(char value)
