@@ -62,7 +62,7 @@ bool resolveSourcePath(const Source& source, const std::string& requested,
         source.root.find('\0') != std::string::npos) return false;
     std::error_code error;
     root = fs::canonical(source.root, error);
-    if (error) return false;
+    if (error || root == root.root_path()) return false;
     std::string resolved;
     if (!EpgArtworkPathPolicy::resolveAllowedPath(
             (root / requested).string(), {root.string()}, resolved)) return false;

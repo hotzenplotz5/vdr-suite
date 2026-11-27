@@ -565,7 +565,7 @@
     parent.appendChild(card);
     let current = null, busy = true, nextId = 0;
     const model = [];
-    function controls() { [toggle,add,save].forEach(x => x.disabled = busy || !current); }
+    function controls() { [toggle,add,save].forEach(x => x.disabled = busy || !current || current.installationState === 'absent'); }
     function row(source) {
       const item = node('div'); item.className='settings-media-import-source-row';
       const title = node('input'); title.value=source.title; title.placeholder=word('Name','Name');
@@ -584,7 +584,7 @@
     }
     function describe() {
       toggle.textContent=current.desiredEnabled ? word('Deaktivieren','Disable') : word('Aktivieren','Enable');
-      status.textContent=current.desiredEnabled ? word('Aktiviert · lokale Bilder','Enabled · local pictures') : word('Deaktiviert','Disabled');
+      status.textContent=current.installationState === 'absent' ? word('Addon nicht installiert','Addon not installed') : current.desiredEnabled ? word('Aktiviert · lokale Bilder','Enabled · local pictures') : word('Deaktiviert','Disabled');
     }
     add.addEventListener('click',() => {
       if (busy) return;

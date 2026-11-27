@@ -6203,7 +6203,21 @@ bool DaemonRuntime::initialize()
     // The ONLY writable activation path: authenticated browser administrator
     // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
     // No user-supplied RuntimeEvidence and no automatic installation/exec.
-    auto addonActivationMutation = [this](
+    // Descriptive local UI payload observation, not a new permission or Agent gate.
+    const imagePayloadAvailable = []() {
+        std::vector<std::filesystem::path> roots{
+            "web/frontend", "/usr/share/vdr-suite/web/frontend",
+            "/usr/local/share/vdr-suite/web/frontend"};
+        if (const char* root = std::getenv("VDR_SUITE_FRONTEND_ROOT"))
+            roots.emplace_back(root);
+        for (const auto& root : roots) {
+            std::error_code error;
+            if (std::filesystem::is_regular_file(root / "modules/image-gallery.js", error))
+                return true;
+        }
+        return false;
+    };
+    auto addonActivationMutation = [this, imagePayloadAvailable](
         const RequestSecurityContext& actor, const std::string& body,
         const std::string& moduleId)
         -> ApiResponse
@@ -6314,10 +6328,12 @@ bool DaemonRuntime::initialize()
         response.body = std::string("{\"moduleId\":\"") + moduleId + "\",\"backendId\":\"" +
             parsed.backendId + "\",\"desiredEnabled\":" +
             (result.intent.desiredEnabled ? "true" : "false") +
-            ",\"revision\":" + std::to_string(result.intent.revision) + "}";
+            ",\"revision\":" + std::to_string(result.intent.revision) +
+            (moduleId == "image" ? std::string(",\"installationState\":\"") +
+                (imagePayloadAvailable() ? "present" : "absent") + "\"" : "") + "}";
         return response;
     };
-    auto addonActivationLookup = [this](
+    auto addonActivationLookup = [this, imagePayloadAvailable](
         const RequestSecurityContext& actor, const std::string& requestPath,
         const std::string& moduleId)
         -> ApiResponse
@@ -6352,7 +6368,8 @@ bool DaemonRuntime::initialize()
         if (moduleId == "image") {
             response.body = std::string("{\"moduleId\":\"image\",\"backendId\":\"") + backendId +
                 "\",\"desiredEnabled\":" + (current.intent.desiredEnabled ? "true" : "false") +
-                ",\"revision\":" + std::to_string(current.intent.revision) + "}";
+                ",\"revision\":" + std::to_string(current.intent.revision) +
+                ",\"installationState\":\"" + (imagePayloadAvailable() ? "present" : "absent") + "\"}";
             return response;
         }
         // Explicit administrative installation plus independent Core approval
@@ -6482,13 +6499,13 @@ bool DaemonRuntime::initialize()
         [imageApi](const RequestSecurityContext&, const std::string& body) {
             return imageApi->save(body);
         },
-        [this, imageApi, imageBackend](const RequestSecurityContext&, const std::string& uri) {
+        [this, imageApi, imageBackend, imagePayloadAvailable](const RequestSecurityContext&, const std::string& uri) {
             if (!mediaImportActivationIntents_)
                 return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
             const auto intent = mediaImportActivationIntents_->readForAdmission("image", imageBackend);
             if (intent.status != vdrsuite::addons::IntentStatus::ok)
                 return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
-            return imageApi->get(uri, intent.intent.desiredEnabled);
+            return imageApi->get(uri, intent.intent.desiredEnabled && imagePayloadAvailable());
         });
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::move(browserHttpServer), recordingArtworkService_);

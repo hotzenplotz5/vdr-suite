@@ -20,6 +20,13 @@ check-addon-registry:
 stage-addon:
 	python3 tools/addons/addon_contract.py stage --module "$(MODULE)" --destdir "$(DESTDIR)" --prefix "$(PREFIX)"
 
+# Explicit optional image UI stage. The metadata contract validates the isolated
+# destination before any files are copied. No base installation dependency.
+.PHONY: stage-image-gallery-runtime
+stage-image-gallery-runtime:
+	$(MAKE) stage-addon MODULE=image DESTDIR="$(DESTDIR)" PREFIX="$(PREFIX)"
+	$(INSTALL) -D -m 0644 web/frontend/modules/image-gallery.js "$(DESTDIR)$(PREFIX)/share/vdr-suite/web/frontend/modules/image-gallery.js"
+
 # Build a standalone, explicitly nonfunctional Debian metadata scaffold package.
 # No install, dependency changes or daemon access; caller owns output directory.
 build-addon-deb:

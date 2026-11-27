@@ -182,7 +182,6 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/modules/timers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/timers.js
 	$(INSTALL) -m 0644 web/frontend/modules/searchtimers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/searchtimers.js
 	$(INSTALL) -m 0644 web/frontend/modules/media-import.js $(DESTDIR)$(DATADIR)/web/frontend/modules/media-import.js
-	$(INSTALL) -m 0644 web/frontend/modules/image-gallery.js $(DESTDIR)$(DATADIR)/web/frontend/modules/image-gallery.js
 	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
 	$(INSTALL) -m 0644 web/frontend/modules/global-search.js $(DESTDIR)$(DATADIR)/web/frontend/modules/global-search.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js

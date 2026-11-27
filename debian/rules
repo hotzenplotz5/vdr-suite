@@ -40,6 +40,9 @@ ifeq ($(PLUGIN_ONLY),)
 		--package-root "$(CURDIR)/debian/vdr-suite-addon-media-tools" \
 		--preinst "$(CURDIR)/debian/vdr-suite-addon-media-tools.preinst"
 	rm -rf -- "$(MEDIA_TOOLS_BASE)"
+	# Stage separately so the daemon's broad share manifest cannot own the gallery.
+	mkdir -p "$(CURDIR)/debian/vdr-suite-addon-image"
+	$(MAKE) stage-image-gallery-runtime DESTDIR="$(CURDIR)/debian/vdr-suite-addon-image" PREFIX=/usr
 endif
 
 # Preserve the exact sealed-stage ELF bytes; other Suite binaries retain

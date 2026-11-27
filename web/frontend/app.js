@@ -25,12 +25,18 @@ function resetImageGalleryVisibility() {
   if (imageGalleryTab) {imageGalleryTab.hidden=true;imageGalleryTab.disabled=true;}
 }
 function refreshImageGalleryVisibility(backendId) {
-  const api=window.VdrSuiteImageGallery;
-  if (!imageGalleryTab || !api || !browserSessionFrontendActive || !backendId) return;
+  const factory=window.VdrSuitePublicV1Client;
+  if (!imageGalleryTab || !factory || !browserSessionFrontendActive || !backendId) return;
   const epoch=++imageGalleryEpoch;
-  api.library(backendId).then(data=>{
+  const api=factory.createClient({baseUrl:window.location.origin,credentials:'same-origin'});
+  api.getImageGalleryLibrary({backendId,cache:'no-store'}).then(async data=>{
     if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId || !browserSessionFrontendActive) return;
-    imageGalleryBackend=data.enabled===true ? backendId : '';
+    if (data.enabled===true && !window.VdrSuiteImageGallery) {
+      try { await window.VdrSuiteDeferredFrontendRuntimes.loadImageGallery(); }
+      catch (_) { data.enabled=false; }
+    }
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId || !browserSessionFrontendActive) return;
+    imageGalleryBackend=data.enabled===true && window.VdrSuiteImageGallery ? backendId : '';
     imageGalleryTab.hidden=!imageGalleryBackend;
     imageGalleryTab.disabled=!imageGalleryBackend;
     if (!imageGalleryBackend && selectedModule==='image-gallery') selectModule('overview');

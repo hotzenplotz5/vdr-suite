@@ -10,6 +10,7 @@
 
 namespace vdrsuite::imagegallery {
 namespace {
+constexpr std::size_t SettingsBudget = 32000;
 bool validField(const std::string& value)
 {
     return !value.empty() && value.find_first_of("\t\r\n") == std::string::npos &&
@@ -90,6 +91,7 @@ SourceSettingsSnapshot ImageGallerySourceSettings::load() const
         if (n < 0 && errno == EINTR) continue;
         if (n < 0) return {};
         if (n == 0) break;
+        if (static_cast<std::size_t>(n) > SettingsBudget - content.size()) return {};
         content.append(buffer, static_cast<std::size_t>(n));
     }
     std::vector<Source> sources;

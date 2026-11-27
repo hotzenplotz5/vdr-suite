@@ -479,7 +479,10 @@ if (typeof window !== 'undefined') {
     loadEpgDetail: loadVdrSuiteEpgDetailRuntime,
     loadRecordings2: loadVdrSuiteRecordings2Runtime,
     loadGenres: loadVdrSuiteGenresRuntime,
-    loadSeriesArtworkSettings: loadVdrSuiteSeriesArtworkSettingsRuntime
+    loadSeriesArtworkSettings: loadVdrSuiteSeriesArtworkSettingsRuntime,
+    loadImageGallery: () => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-image-gallery-runtime', '/frontend/modules/image-gallery.js',
+      () => Boolean(window.VdrSuiteImageGallery))
   });
 
   if (document.readyState === 'loading') {
