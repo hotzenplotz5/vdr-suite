@@ -52,6 +52,22 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert(!other.accept(observe(folders,folderRoute,scopeA,response(scopeA),
     {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
   assert.equal(await other.finish(cards),false);
+  const folderId='fld1_'+'a'.repeat(32);
+  const publicPath='/api/v1/recordings';
+  const publicPage={folderContext:{folderId,cacheReady:true},page:{offset:0}};
+  const publicFolder=folders.beginFolder(folderId,'alpha',()=>true,()=>null);
+  assert(publicFolder.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert(await publicFolder.finish(cards));
+  const wrongFolder=folders.beginFolder('fld1_'+'b'.repeat(32),'alpha',()=>true,()=>null);
+  assert(!wrongFolder.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert.equal(await wrongFolder.finish(cards),false);
+  const publicRoot=folders.begin('folders','alpha','Aufnahmeordner',()=>true);
+  const rootPage={folderContext:{folderId:'',cacheReady:true},page:{offset:0}};
+  assert(publicRoot.accept(observe(folders,publicPath,scopeA,response(scopeA),rootPage,'folders')));
+  assert(await publicRoot.finish(cards));
+  const wrongRoot=folders.begin('folders','alpha','Aufnahmeordner',()=>true);
+  assert(!wrongRoot.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert.equal(await wrongRoot.finish(cards),false);
   folders.sessionBoundary(); assert.equal(removes,1);
   reopened.cancel();
   // Session boundary purges the test installation. Existing tests below
