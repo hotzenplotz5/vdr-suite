@@ -146,10 +146,17 @@ public:
             (path == "/api/v1/addons/rectools/activation" ||
              path == "/api/v1/addons/image/activation");
         const bool isAddonSourceMutation =
-            isPost && path == "/api/v1/addons/rectools/sources";
+            isPost && (path == "/api/v1/addons/rectools/sources" ||
+                       path == "/api/v1/addons/image/sources");
         const bool isAddonSourceRead =
             request.method == "GET" &&
-            path == "/api/v1/addons/rectools/sources";
+            (path == "/api/v1/addons/rectools/sources" ||
+             path == "/api/v1/addons/image/sources");
+        const bool isImageGalleryRead = request.method == "GET" &&
+            (path == "/api/v1/addons/image/library" ||
+             path == "/api/v1/addons/image/browse" ||
+             path == "/api/v1/addons/image/photo" ||
+             path == "/api/v1/addons/image/preview");
         const bool isAddonEncodingMutation =
             isPost && path == "/api/v1/addons/media-tools/encoding";
         const bool isAddonEncodingRead =
@@ -1904,7 +1911,7 @@ public:
             return gate;
         }
 
-        if (isPublicRecordingRead)
+        if (isPublicRecordingRead || isImageGalleryRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);

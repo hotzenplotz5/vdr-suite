@@ -22,6 +22,9 @@
 #include "AddonAdministrationService.h"
 #include "AddonActivationHttpPayload.h"
 #include "LocalMediaImportSourceAdmin.h"
+#include "../../../modules/image/ImageGalleryApi.h"
+#include <fstream>
+#include <filesystem>
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
@@ -6218,8 +6221,7 @@ bool DaemonRuntime::initialize()
             return problem(422, "invalid_activation_request");
         if (!mediaImportActivationIntents_ ||
             !backendAgentAccountabilityRepository_ ||
-            !backendAgentRepository_ ||
-            !backendAgentCommandRepository_ ||
+            (moduleId == "rectools" && (!backendAgentRepository_ || !backendAgentCommandRepository_)) ||
             !backendRegistryService_ || !backendAccessPolicy_)
             return problem(503, "activation_unavailable");
         // Only an authenticated administrator may save desired state.
@@ -6455,6 +6457,34 @@ bool DaemonRuntime::initialize()
         },
         [addonActivationLookup](const RequestSecurityContext& actor, const std::string& uri) {
             return addonActivationLookup(actor, uri, "image");
+        });
+    // The local picture provider is independent of VDR or Agent availability.
+    // Store configuration next to the daemon's existing state database.
+    const auto imageBackend = config_.suiteBridge().backendId;
+    std::vector<vdrsuite::imagegallery::Source> imageDefaults;
+    std::ifstream distro("/etc/os-release");
+    std::string distroLine;
+    while (std::getline(distro, distroLine)) {
+        if (distroLine == "ID=ubuntu" || distroLine == "ID=\"ubuntu\"") {
+            imageDefaults.push_back(vdrsuite::imagegallery::yavdrDefaultSource());
+            break;
+        }
+    }
+    auto imageApi = std::make_shared<vdrsuite::imagegallery::ImageGalleryApi>(
+        imageBackend, vdrsuite::imagegallery::ImageGallerySourceSettings(
+            std::filesystem::path(config_.databasePath()).parent_path() / "image-sources.tsv",
+            std::move(imageDefaults)));
+    browserHttpServer->setImageGalleryApi(
+        [imageApi](const RequestSecurityContext&, const std::string& body) {
+            return imageApi->save(body);
+        },
+        [this, imageApi, imageBackend](const RequestSecurityContext&, const std::string& uri) {
+            if (!mediaImportActivationIntents_)
+                return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
+            const auto intent = mediaImportActivationIntents_->readForAdmission("image", imageBackend);
+            if (intent.status != vdrsuite::addons::IntentStatus::ok)
+                return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
+            return imageApi->get(uri, intent.intent.desiredEnabled);
         });
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::move(browserHttpServer), recordingArtworkService_);

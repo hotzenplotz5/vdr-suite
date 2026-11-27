@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+class DaemonRuntime;
+
 namespace vdrsuite::addons {
 
 // A persisted administrator preference is NOT a runtime activation grant.
@@ -133,6 +135,7 @@ private:
     // Only the internal dry-run admission service may read desired state
     // without a global administrator context. No public route may use it.
     friend class AddonAdmissionReadService;
+    friend class ::DaemonRuntime;
     // Execution fence may read desired admin intent as one necessary condition;
     // it cannot turn this intent into executable authority by itself.
     friend class MediaImportOperationFence;

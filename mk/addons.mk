@@ -831,3 +831,15 @@ test-addon-image-gallery-frontend:
 
 test-ci-frontend: test-addon-image-gallery-frontend
 test-frontend-contracts: test-addon-image-gallery-frontend
+
+.PHONY: test-addon-image-api
+test-addon-image-api:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image -I core/vdr/include -I api/rest/include \
+		modules/image/ImageGalleryCatalog.cpp modules/image/ImageGallerySourceSettings.cpp \
+		modules/image/LocalImageGalleryProvider.cpp modules/image/ImageGalleryApi.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp modules/image/test_image_gallery_api.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_api"
+	"$(BUILD_DIR)/addons/test_image_gallery_api"
+
+test-ci-fast: test-addon-image-api

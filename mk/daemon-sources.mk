@@ -1,4 +1,8 @@
 DAEMON_SRC := \
+        modules/image/ImageGalleryCatalog.cpp \
+        modules/image/ImageGallerySourceSettings.cpp \
+        modules/image/LocalImageGalleryProvider.cpp \
+        modules/image/ImageGalleryApi.cpp \
         core/daemon/src/RuntimeConfig.cpp \
         core/operations/src/MutationOperation.cpp \
         core/operations/src/MutationOperationIdentity.cpp \
