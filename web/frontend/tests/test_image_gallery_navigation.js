@@ -34,3 +34,35 @@ nav.setEntries([],100);
 assert.equal(nav.state.selected,0);
 assert.equal(nav.open(),false);
 console.log('IMAGE_GALLERY_NAVIGATION=PASS');
+
+async function testPublicGalleryClient() {
+  const path = require('node:path');
+  const canonical = path.resolve(__dirname,'../../../clients/reference-js/public-v1-client.js');
+  assert.equal(fs.realpathSync(path.resolve(__dirname,'../api/public-v1-client.js')),canonical);
+  const api = require(canonical);
+  const requests = [];
+  const client = api.createClient({
+    baseUrl:'https://suite.example',credentials:'same-origin',
+    fetch(url,options) {
+      requests.push({url,options});
+      return Promise.resolve({ok:true,status:200,headers:{get(){return null;}},
+        text(){return Promise.resolve(JSON.stringify({entries:[],enabled:true,sources:[]}));}});
+    }
+  });
+  const prefix='https://suite.example/api/v1/addons/image/';
+  const options={backendId:'default',sourceId:'pictures',path:'Urlaub & Meer/Bäume #1.jpg'};
+  await client.getImageGalleryLibrary({backendId:'default',cache:'no-store'});
+  await client.getImageGalleryFolder(options);
+  const query='?backendId=default&sourceId=pictures&path='+encodeURIComponent(options.path);
+  assert.equal(requests[0].url,prefix+'library?backendId=default');
+  assert.equal(requests[0].options.credentials,'same-origin');
+  assert.equal(requests[0].options.cache,'no-store');
+  assert.equal(requests[1].url,prefix+'browse'+query);
+  assert.equal(client.imageGalleryPreviewUrl(options),prefix+'preview'+query);
+  assert.equal(client.imageGalleryPhotoUrl(options),prefix+'photo'+query);
+  assert.equal(requests.length,2,'constructing image URLs must not trigger extra requests');
+  assert.throws(()=>client.getImageGalleryLibrary({backendId:'../other'}));
+  assert.throws(()=>client.getImageGalleryFolder({backendId:'default',path:''}));
+  console.log('IMAGE_GALLERY_PUBLIC_CLIENT=PASS');
+}
+testPublicGalleryClient().catch(error=>{console.error(error);process.exitCode=1;});
