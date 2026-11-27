@@ -62,7 +62,7 @@ bool parseRoute(const std::string& target, Route& route)
         return route.operation == "search" || route.operation == "seasons" ||
             route.operation == "episodes" || route.operation == "assign" ||
             route.operation == "withdraw" || route.operation == "genre" ||
-            route.operation == "trailer";
+            route.operation == "trailer" || route.operation == "manual";
     return route.operation == "manual" ||
         route.operation == "trailer" ||
         route.operation == "genre" ||
@@ -496,7 +496,10 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
                 route.backendId, identity.first, identity.second);
             return true;
         }
-        response = metadata->getManualRecordingGenre(route.backendId, native, publicId);
+        if (route.operation == "manual")
+            response = metadata->getPublicManualRecordingMetadata(route.backendId, native, publicId);
+        else
+            response = metadata->getManualRecordingGenre(route.backendId, native, publicId);
         return true;
     }
 
