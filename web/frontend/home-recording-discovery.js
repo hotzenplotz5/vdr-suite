@@ -360,7 +360,7 @@
     }
 
     const path =
-      '/api/backends/' +
+      '/api/v1/backends/' +
       encodeURIComponent(id) +
       '/recordings/metadata/search';
 
@@ -416,7 +416,7 @@
     }
 
     const path =
-      '/api/backends/' +
+      '/api/v1/backends/' +
       encodeURIComponent(id) +
       '/recordings/metadata/seasons';
 
@@ -1355,20 +1355,9 @@
       });
     }
 
-    // Keep the existing synchronous preview release and native owner timing.
-    if (!publicRecording) return openResolved();
-    return Promise.resolve().then(function () {
-      return clientApi().fetchClientRecordingForPublicId({
-        backendId: scopedBackend, recordingId: id
-      });
-    }).then(function (detail) {
-      if (request !== publicDetailRequest || !current(generation, scopedBackend)) return false;
-      recording = detail.recording;
-      return openResolved();
-    }).catch(function (error) {
-      console.error('Aufnahme konnte nicht geöffnet werden', error);
-      return false;
-    });
+    // The Recordings2 detail owner already resolves the public recording
+    // and reads its Public-v1 metadata. Do not turn rec_ into a native key.
+    return openResolved();
   }
 
   function openFolder(folder, backendId) {
