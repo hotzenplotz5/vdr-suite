@@ -4,6 +4,7 @@
 #include "GlobalSearchApiRuntime.h"
 #include "GlobalSearchController.h"
 #include "GlobalSearchRepository.h"
+#include "GlobalSearchPersonPortraitRepository.h"
 #include "GlobalSearchService.h"
 
 #include <cassert>
@@ -27,6 +28,46 @@ void createSchemas(Database& database)
         "INSERT INTO vdr_recording_native_person VALUES('default','rk1',0,'actor','John Travolta','john travolta','john travolta','','');"
         "INSERT INTO epg_events VALUES('default','c1','e1','Pulp Fiction','','','1785100000','1785109000',9000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','c1','e1','{\"available\":true,\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"\"}]}',1780000000);"));
+}
+
+
+void verifyPortraitIndices()
+{
+    Database database;
+    assert(database.open(":memory:"));
+    assert(database.execute(
+        "CREATE TABLE vdr_recording_cache(backend_id TEXT,cache_key TEXT,backend_native_id TEXT);"
+        "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT,backend_id TEXT,resource_key TEXT,revision INTEGER);"
+        "CREATE TABLE suite_metadata_assignments(metadata_assignment_id TEXT,assignment_state TEXT,manual_assignment INTEGER,relationship_locked INTEGER);"
+        "CREATE TABLE suite_metadata_recording_person_relations(metadata_assignment_id TEXT,person_entity_id TEXT,role TEXT,ordinal INTEGER);"
+        "CREATE TABLE suite_metadata_person_values(metadata_entity_id TEXT,display_name TEXT,provider_id TEXT,external_namespace TEXT,external_id TEXT,name_folded TEXT);"
+        "CREATE TABLE suite_metadata_person_profiles(provider_id TEXT,external_namespace TEXT,external_id TEXT,local_path TEXT);"
+        "INSERT INTO vdr_recording_cache VALUES('default','key','native-1'),('other','key','native-other');"
+        "INSERT INTO suite_metadata_manual_assignment_values VALUES('a','default','key',7),('b','other','key',9);"
+        "INSERT INTO suite_metadata_assignments VALUES('a','selected',1,1),('b','selected',1,1);"
+        "INSERT INTO suite_metadata_recording_person_relations VALUES"
+        "('a','p0','actor',0),('a','p1','actor',1),('a','p2','actor',2),('a','p3','actor',3),('b','p3','actor',0);"
+        "INSERT INTO suite_metadata_person_values VALUES"
+        "('p0','No Profile','tmdb','person','0','no profile'),"
+        "('p1','First Portrait','tmdb','person','1','first portrait'),"
+        "('p2','Empty Profile','tmdb','person','2','empty profile'),"
+        "('p3','Second Portrait','tmdb','person','3','second portrait');"
+        "INSERT INTO suite_metadata_person_profiles VALUES"
+        "('tmdb','person','1','/cache/first.jpg'),('tmdb','person','2',''),('tmdb','person','3','/cache/second.jpg');"));
+    GlobalSearchPersonPortraitRepository repository(database);
+    const auto found = repository.findForBackend("default");
+    assert(found.size() == 2U);
+    assert(found[0].name == "First Portrait" && found[0].index == 1);
+    assert(found[1].name == "Second Portrait" && found[1].index == 3);
+    for (const auto& portrait : found)
+    {
+        assert(portrait.backendNativeId == "native-1");
+        assert(portrait.assignmentRevision == 7);
+    }
+    const auto other = repository.findForBackend("other");
+    assert(other.size() == 1U && other[0].index == 0);
+    assert(other[0].backendNativeId == "native-other");
+    assert(repository.findForBackend("missing").empty());
 }
 
 BackendNode backend(const std::string& id, bool enabled)
@@ -56,6 +97,7 @@ std::vector<GlobalSearchPersonPortrait> portraits(
 
 int main()
 {
+    verifyPortraitIndices();
     const char* databasePath = "/tmp/vdr-suite-global-search-controller-test.db";
     std::remove(databasePath);
     Database database;
