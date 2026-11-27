@@ -248,7 +248,12 @@
         overlay.setAttribute('aria-modal','true');
         fullImage = node('img');
         fullInfo = node('div','image-gallery-info');
-        fullImage.addEventListener('load', () => updateInfo());
+        fullImage.addEventListener('load', () => {
+          if (!fullImage || !fullInfo || !s.full) return;
+          const current = s.entries[s.selected];
+          fullInfo.textContent = current.name + (fullImage.naturalWidth ?
+            ' · ' + fullImage.naturalWidth + ' × ' + fullImage.naturalHeight : '');
+        });
         const controls = node('div','image-gallery-full-controls');
         slideButton = button(labels.play,toggleSlide);
         controls.append(

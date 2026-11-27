@@ -1,7 +1,7 @@
 # Image Gallery — Roadmap und IG0-Bestandsaufnahme
 
 Stand: 2026-11-27. Arbeitsbranch `work/image-gallery-addon`, Basis `266eb85691fee5140197be0b7c45d136e5a8dbe7`.
-**Status: IG0 begonnen; keine Laufzeitimplementierung oder Abnahme.** Kein Merge ohne Maintainer-Freigabe.
+**Status: lokale Laufzeit implementiert; vollständige CI, Paket- und Geräteabnahme noch ausstehend.** Kein Merge ohne Maintainer-Freigabe.
 
 ## Verifizierte Ausgangslage
 
@@ -27,17 +27,17 @@ API und DTOs werden erst nach Prüfung der tatsächlichen Public-v1- und Agent-O
 
 | Phase | Ziel / Abnahme | Status |
 | --- | --- | --- |
-| IG0 | Bestandsanalyse, Owner-/Datenflussvertrag, Akzeptanzmatrix, Wettbewerbsvergleich, genaue Wiederverwendungsentscheidung | begonnen |
-| IG1 | Bestehendes Addon registrieren, aktivieren/deaktivieren, Navigation, Einstellungen, DE/EN | offen |
-| IG2 | Bildquellen, Unterordner, Ordnercover, natürliche Sortierung, Unicode, Fehler pro Quelle | offen |
-| IG3 | Bedarfsgerechte Vorschauen, EXIF, begrenzter Cache, Original auf Bedarf, keine UI-Blockade | offen |
-| IG4 | Public-v1-Quellen, Ordner, Bild-/Preview-Bytes, Metadaten, erforderliche Settings; Produktionsroute und Vertragstests | offen |
-| IG5 | Responsives dunkles Raster, TV vier Spalten, Cyan-Fokus, kurze letzte Reihen, Lazy Loading, D-Pad | offen |
-| IG6 | Cover Flow mit mittigem Bild, zwei Nachbarn je Seite, nach innen gerichteter Perspektive, Spiegelung, flüssigen CSS-Übergängen; Ansicht speichern | offen |
-| IG7 | Vollbild im Originalseitenverhältnis, vor/zurück, Zoom, Drehung, optionale Infos, Rückkehr zur Auswahl | offen |
-| IG8 | Diashow ab Auswahl, aktueller Ordner, Intervall, Pause, Wiederholung, Vorladen, Ende | offen |
-| IG9 | Desktop, Touch, Tablet, CEF, Fernbedienung (Taste 1 sofern kompatibel), große Fotos/Sammlungen, langsame Backends, Speicher, Back-Navigation | offen |
-| IG10 | Paket, Upgrade/Deinstallation, yaVDR/MLD, Dokumentation, exakte CI-Nachweise und reale Browser-/CEF-Abnahme | offen |
+| IG0 | Bestandsanalyse, Owner-/Datenflussvertrag, Akzeptanzmatrix, Wettbewerbsvergleich, genaue Wiederverwendungsentscheidung | Owner und lokale Architektur geklärt; Remote später |
+| IG1 | Bestehendes Addon registrieren, aktivieren/deaktivieren, Navigation, Einstellungen, DE/EN | implementiert; Integrationstest offen |
+| IG2 | Bildquellen, Unterordner, Ordnercover, natürliche Sortierung, Unicode, Fehler pro Quelle | implementiert; große Ordner zu prüfen |
+| IG3 | Bedarfsgerechte Vorschauen, EXIF, begrenzter Cache, Original auf Bedarf, keine UI-Blockade | Previewprofil implementiert; EXIF/Lasttest offen |
+| IG4 | Public-v1-Quellen, Ordner, Bild-/Preview-Bytes, Metadaten, erforderliche Settings; Produktionsroute und Vertragstests | lokale Routen integriert; HTTP-End-to-end offen |
+| IG5 | Responsives dunkles Raster, TV vier Spalten, Cyan-Fokus, kurze letzte Reihen, Lazy Loading, D-Pad | implementiert; visuelle Abnahme offen |
+| IG6 | Cover Flow mit mittigem Bild, zwei Nachbarn je Seite, nach innen gerichteter Perspektive, Spiegelung, flüssigen CSS-Übergängen; Ansicht speichern | implementiert; visuelle Abnahme offen |
+| IG7 | Vollbild im Originalseitenverhältnis, vor/zurück, Zoom, Drehung, optionale Infos, Rückkehr zur Auswahl | implementiert; Geräteabnahme offen |
+| IG8 | Diashow ab Auswahl, aktueller Ordner, Intervall, Pause, Wiederholung, Vorladen, Ende | implementiert; Ablauf-/Geräteabnahme offen |
+| IG9 | Desktop, Touch, Tablet, CEF, Fernbedienung (Taste 1 sofern kompatibel), große Fotos/Sammlungen, langsame Backends, Speicher, Back-Navigation | begonnen; reale Geräte und Last offen |
+| IG10 | Paket, Upgrade/Deinstallation, yaVDR/MLD, Dokumentation, exakte CI-Nachweise und reale Browser-/CEF-Abnahme | separates Debian-Staging implementiert; Paketlauf offen |
 
 IG5–IG8: Fotos stehen im Mittelpunkt, kein permanentes Metadatenfeld oder großes Seitenmenü, keine Dateinamen unter jeder Kachel, keine blauen Füllflächen. Ordner klar beschriften. Fotoauswahl beim Wechsel zwischen Ansichten und Rückkehr erhalten. Mouse/Touch/Keyboard/TV-Remote unterstützen. Keine Migration fremder Clients in dieser Version.
 
@@ -64,4 +64,4 @@ IG5–IG8: Fotos stehen im Mittelpunkt, kein permanentes Metadatenfeld oder gro�
 - [SuiteOSD CI #258](https://github.com/hotzenplotz5/vdr-plugin-suiteosd/actions/runs/45957554750), Referenz-SHA oben: completed/success.
 - [Image Next CI #99](https://github.com/hotzenplotz5/vdr-plugin-image-nex/actions/runs/45956632175), Referenz-SHA oben: completed/success.
 
-Kein neuer Produktcode, keine neuen Tests, keine reale Installation oder CEF-/TV-Abnahme in diesem Dokumentationsstand.
+Die Baseline oben ist historisch. Die Branch-Implementierung enthält lokale Provider-, API-, Frontend- und Paketierungstests. Der vollständige aktuelle Branch-CI-Nachweis und reale Installation/CEF-/TV-Abnahme stehen noch aus. Remote-Agent-Transport ist absichtlich nicht Bestandteil der lokalen Abnahme.

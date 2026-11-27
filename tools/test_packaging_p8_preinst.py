@@ -227,6 +227,14 @@ esac
                 self.assertIn(str(bad), result.stderr)
                 self.assertEqual(bad.read_text(), "operator sentinel")
 
+    def test_image_gallery_coowner_allows_clean_daemon_upgrade(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.assertIn('vdr-suite-addon-image: $shared_child',
+                          render("vdr-suite-daemon", test_root=str(root)))
+            self.assertIn('vdr-suite-addon-image, vdr-suite-daemon, vdr-suite-addon-media-tools: $target',
+                          render("vdr-suite-daemon", test_root=str(root)))
+
     def test_shared_root_rejects_foreign_coowner(self):
         host, bindir, script = self.fixture()
         self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
