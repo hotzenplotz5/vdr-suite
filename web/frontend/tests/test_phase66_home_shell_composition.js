@@ -150,7 +150,9 @@ const brandButtons = productionNodes(indexSource, 'article', 'data-brand-module'
 assert(moduleTabs.length >= 8);
 assert.equal(moduleTabs.at(-1).dataset.module,'image-gallery');
 assert.equal(moduleTabs.at(-2).dataset.module,'searchtimers');
-assert(indexSource.indexOf('data-home-zone="additional-sections"') < indexSource.indexOf('data-home-zone="image-gallery"'));
+const additionalZone = indexSource.indexOf('<section class="media-home-only media-home-additional-sections" data-home-zone="additional-sections"');
+const galleryZone = indexSource.indexOf('<section class="media-home-only media-home-discovery" data-home-zone="image-gallery"');
+assert(additionalZone >= 0 && galleryZone > additionalZone, 'gallery rail follows the existing additional Home sections');
 assert(brandButtons.length >= 5);
 
 const shortcutStart = appSource.indexOf('function renderMediaToolsHomeShortcut()');
