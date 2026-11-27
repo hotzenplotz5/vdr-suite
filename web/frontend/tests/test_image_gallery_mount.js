@@ -150,7 +150,7 @@ async function run(){
     assert(start>=0 && end>start);return app.slice(start,end);
   };
   const appWindow=window;
-  let selected=null, sampleReads=0;
+  let selectedModuleSeen=null, sampleReads=0;
   const tab={hidden:false,disabled:false};
   const nav={children:[],querySelector(){return this.search;},insertBefore(child,before){
     this.children.splice(this.children.indexOf(child),1);
@@ -171,7 +171,7 @@ async function run(){
     selectedModule:'overview',selectedBackendId:'default',browserSessionFrontendActive:true,
     selectedBackend:{id:'default'},currentSnapshot:{},placeMediaImportTab(){},
     closeHomeHevcStream(){},renderMediaToolsHomeShortcut(){},shouldPublishHomeResume(){return false;},
-    renderSelectedModule(){selected=ctx.selectedModule;if(selected==='overview')ctx.renderImageGalleryHome();},
+    renderSelectedModule(){selectedModuleSeen=ctx.selectedModule;if(selectedModuleSeen==='overview')ctx.renderImageGalleryHome();},
     disposeImageGallery(){},mediaImportModule(){return null;}
   };
   vm.createContext(ctx);
@@ -182,7 +182,7 @@ async function run(){
   ctx.renderImageGalleryHome();await flush();
   ctx.renderImageGalleryHome();assert.equal(sampleReads,1);
   home.children[1].children[2].emit('click');
-  assert.equal(selected,'image-gallery');assert.equal(ctx.imageGalleryInitialPhoto,sample[1]);assert(home.hidden);
+  assert.equal(selectedModuleSeen,'image-gallery');assert.equal(ctx.imageGalleryInitialPhoto,sample[1]);assert(home.hidden);
   ctx.selectModule('overview');await flush();assert.equal(sampleReads,2);
   ctx.imageGalleryBackend='';ctx.renderImageGalleryHome();assert(home.hidden);
   console.log('IMAGE_GALLERY_HOME_RAIL=PASS');
