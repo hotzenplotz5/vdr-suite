@@ -352,6 +352,30 @@ enum class PublicRecordingCollectionStatus
     unavailable,
 };
 
+struct PublicRecordingCardPresentation
+{
+    // Compact presentation only; no native identity, provider ID or path.
+    std::string cardTitle;
+    std::string cardMediaType;
+    // Page-independent grouping evidence for the existing Series UI.
+    std::string seriesGroupKey;
+    std::string seriesFolderTitle;
+    std::vector<std::string> seriesAncestorFolderIds;
+    bool seriesNativeMetadataAvailable = false;
+    std::string episodeName;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    // Existing optional presentation override, independent of native numbering.
+    bool seriesHierarchyOverrideAvailable = false;
+    std::string seriesHierarchyGroupType;
+    int seriesHierarchySeasonNumber = 0;
+    std::string seriesHierarchyGroupLabel;
+    int seriesHierarchySortOrder = 0;
+    int seriesHierarchyEpisodeStart = 0;
+    int seriesHierarchyEpisodeEnd = 0;
+    int seriesHierarchyRevision = 0;
+};
+
 struct PublicRecordingCollectionItem
 {
     std::string recordingId;
@@ -368,6 +392,7 @@ struct PublicRecordingCollectionItem
     // Additive Home card facts, selected by the existing Web query owner.
     std::string releaseDate = {};
     std::string preferredArtworkId = {};
+    PublicRecordingCardPresentation card = {};
 };
 
 struct PublicRecordingFolderItem

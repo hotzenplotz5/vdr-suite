@@ -3533,6 +3533,15 @@ bool DaemonRuntime::initialize()
                     request.backendId, request.homeView == "movies",
                     request.movieReleaseYearFrom, request.movieReleaseYearTo,
                     static_cast<int>(request.limit), static_cast<int>(request.offset));
+                GenreRecordingPage cardPage;
+                if (request.homeView == "new")
+                {
+                    std::vector<std::string> nativeIds;
+                    for (const auto& row : page.items)
+                        nativeIds.push_back(row.recording.backendNativeId);
+                    GenreBrowserApiRuntime::instance().recordingCards(
+                        request.backendId, nativeIds, cardPage);
+                }
                 PublicRecordingCollectionProjection projection(*publicRecordingIdentities_);
                 for (const auto& row : page.items)
                 {
@@ -3552,6 +3561,42 @@ bool DaemonRuntime::initialize()
                     entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
                         row.recording, manual.posterReference, 0, 0,
                         manual.found && manual.relationshipLocked, manual.revision);
+                    const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
+                        [&](const auto& value) { return value.backendNativeId == row.recording.backendNativeId; });
+                    if (summary != cardPage.recordings.end())
+                    {
+                        PublicGenreRecordingItem card;
+                        const auto seed = GenreBrowserApiRuntime::projectRecordingCard(*summary, card);
+                        if (!seed.empty())
+                        {
+                            card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(request.backendId, seed);
+                            card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
+                                request.backendId, row.recording);
+                        }
+                        if (!(manual.found && manual.relationshipLocked) && !summary->cardArtworkPath.empty())
+                        {
+                            entry.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
+                                row.recording, summary->cardArtworkPath, summary->cardArtworkWidth,
+                                summary->cardArtworkHeight, summary->seriesArtworkIndex);
+                        }
+                        entry.card.cardTitle = std::move(card.cardTitle);
+                        entry.card.cardMediaType = std::move(card.cardMediaType);
+                        entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
+                        entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
+                        entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
+                        entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
+                        entry.card.episodeName = std::move(card.episodeName);
+                        entry.card.seasonNumber = std::move(card.seasonNumber);
+                        entry.card.episodeNumber = std::move(card.episodeNumber);
+                        entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
+                        entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
+                        entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
+                        entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
+                        entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
+                        entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
+                        entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
+                        entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
+                    }
                     entry.recordedAt = item.recordedAt;
                     entry.durationSeconds = item.durationSeconds;
                     entry.durationKnown = item.durationKnown;

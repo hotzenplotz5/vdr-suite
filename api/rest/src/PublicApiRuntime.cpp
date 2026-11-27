@@ -5059,6 +5059,44 @@ ApiResponse publicBackendCollectionResponse(
         correlationId);
 }
 
+template <typename Card>
+void appendPublicRecordingCard(std::string& body, const Card& item)
+{
+    if (!item.cardMediaType.empty())
+    {
+        body += ",\"cardMetadata\":{\"mediaType\":\"" + jsonEscape(item.cardMediaType) +
+            "\",\"title\":\"" + jsonEscape(item.cardTitle) +
+            "\",\"episodeName\":\"" + jsonEscape(item.episodeName) +
+            "\",\"seasonNumber\":" + std::to_string(item.seasonNumber) +
+            ",\"episodeNumber\":" + std::to_string(item.episodeNumber) + "}";
+    }
+    if (!item.seriesGroupKey.empty())
+    {
+        body += ",\"seriesGrouping\":{\"groupKey\":\"" + item.seriesGroupKey +
+            "\",\"folderTitle\":\"" + jsonEscape(item.seriesFolderTitle) +
+            "\",\"nativeMetadataAvailable\":" +
+            (item.seriesNativeMetadataAvailable ? "true" : "false") +
+            ",\"ancestorFolderIds\":[";
+        for (std::size_t i = 0; i < item.seriesAncestorFolderIds.size(); ++i)
+        {
+            if (i) body += ",";
+            body += "\"" + jsonEscape(item.seriesAncestorFolderIds[i]) + "\"";
+        }
+        body += "]}";
+    }
+    if (item.seriesHierarchyOverrideAvailable)
+    {
+        body += ",\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"" +
+            jsonEscape(item.seriesHierarchyGroupType) +
+            "\",\"seasonNumber\":" + std::to_string(item.seriesHierarchySeasonNumber) +
+            ",\"groupLabel\":\"" + jsonEscape(item.seriesHierarchyGroupLabel) +
+            "\",\"sortOrder\":" + std::to_string(item.seriesHierarchySortOrder) +
+            ",\"episodeStart\":" + std::to_string(item.seriesHierarchyEpisodeStart) +
+            ",\"episodeEnd\":" + std::to_string(item.seriesHierarchyEpisodeEnd) +
+            ",\"revision\":" + std::to_string(item.seriesHierarchyRevision) + "}";
+    }
+}
+
 ApiResponse publicRecordingBrowseResponse(
     const PublicRecordingCollectionResult& page,
     const PublicRecordingCollectionQuery& query,
@@ -5114,6 +5152,7 @@ ApiResponse publicRecordingBrowseResponse(
                 body += ",\"releaseDate\":\"" + jsonEscape(item.releaseDate) + "\"";
             if (!item.preferredArtworkId.empty())
                 body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
+            appendPublicRecordingCard(body, item.card);
         }
         body += "}";
     }
@@ -5199,39 +5238,7 @@ ApiResponse publicGenreCollectionResponse(
             body += "]";
             if (!item.preferredArtworkId.empty())
                 body += ",\"preferredArtworkId\":\"" + item.preferredArtworkId + "\"";
-            if (!item.cardMediaType.empty())
-            {
-                body += ",\"cardMetadata\":{\"mediaType\":\"" + jsonEscape(item.cardMediaType) +
-                    "\",\"title\":\"" + jsonEscape(item.cardTitle) +
-                    "\",\"episodeName\":\"" + jsonEscape(item.episodeName) +
-                    "\",\"seasonNumber\":" + std::to_string(item.seasonNumber) +
-                    ",\"episodeNumber\":" + std::to_string(item.episodeNumber) + "}";
-            }
-            if (!item.seriesGroupKey.empty())
-            {
-                body += ",\"seriesGrouping\":{\"groupKey\":\"" + item.seriesGroupKey +
-                    "\",\"folderTitle\":\"" + jsonEscape(item.seriesFolderTitle) +
-                    "\",\"nativeMetadataAvailable\":" +
-                    (item.seriesNativeMetadataAvailable ? "true" : "false") +
-                    ",\"ancestorFolderIds\":[";
-                for (std::size_t i = 0; i < item.seriesAncestorFolderIds.size(); ++i)
-                {
-                    if (i) body += ",";
-                    body += "\"" + jsonEscape(item.seriesAncestorFolderIds[i]) + "\"";
-                }
-                body += "]}";
-            }
-            if (item.seriesHierarchyOverrideAvailable)
-            {
-                body += ",\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"" +
-                    jsonEscape(item.seriesHierarchyGroupType) +
-                    "\",\"seasonNumber\":" + std::to_string(item.seriesHierarchySeasonNumber) +
-                    ",\"groupLabel\":\"" + jsonEscape(item.seriesHierarchyGroupLabel) +
-                    "\",\"sortOrder\":" + std::to_string(item.seriesHierarchySortOrder) +
-                    ",\"episodeStart\":" + std::to_string(item.seriesHierarchyEpisodeStart) +
-                    ",\"episodeEnd\":" + std::to_string(item.seriesHierarchyEpisodeEnd) +
-                    ",\"revision\":" + std::to_string(item.seriesHierarchyRevision) + "}";
-            }
+            appendPublicRecordingCard(body, item);
             body += "}";
         }
     }

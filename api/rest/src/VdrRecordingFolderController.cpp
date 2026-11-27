@@ -1103,6 +1103,15 @@ std::string VdrRecordingFolderController::publicSearchPreferredArtworkId(
     return cached ? VdrRecordingArtworkIdentity::assetId(recording, *cached) : std::string{};
 }
 
+std::string VdrRecordingFolderController::publicNativeCardArtworkId(
+    const VdrRecording& recording, const std::string& path,
+    int width, int height, int galleryIndex)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty() || path.empty()) return {};
+    return metadataArtworkId(recording, galleryIndex >= 0 ? "gallery" : "preferred",
+        std::max(0, galleryIndex), 0, path, width, height);
+}
+
 std::string VdrRecordingFolderController::publicManualPortraitArtworkId(
     const VdrRecording& recording, int index, int revision,
     const std::string& localPath)

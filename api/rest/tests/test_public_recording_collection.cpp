@@ -105,14 +105,24 @@ int main()
             if (request.backendId != "backend-a")
                 return page;
             if (!request.homeView.empty()) {
-                assert(request.homeView == "movies" && request.movieReleaseYearFrom == 2022 &&
-                    request.movieReleaseYearTo == 2026);
+                assert(request.homeView == "new" || (request.homeView == "movies" &&
+                    request.movieReleaseYearFrom == 2022 && request.movieReleaseYearTo == 2026));
                 page.status = PublicRecordingCollectionStatus::ok;
                 page.totalEntries = 2;
                 auto item = recording("rec_00000000000000000000000000000003");
                 item.subtitle = "2026";
                 item.releaseDate = "2026-05-03";
                 item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                if (request.homeView == "new")
+                {
+                    item.card.cardMediaType = "series";
+                    item.card.cardTitle = "Serie";
+                    item.card.episodeName = "Pilot";
+                    item.card.seasonNumber = 1;
+                    item.card.episodeNumber = 2;
+                    item.card.seriesGroupKey = "sg1_0123456789abcdef0123456789abcdef";
+                    item.card.seriesAncestorFolderIds = {"fld1_0123456789abcdef0123456789abcdef"};
+                }
                 if (request.offset == 0) page.recordings.push_back(item);
                 page.hasMore = request.offset == 0;
                 return page;
@@ -180,6 +190,17 @@ int main()
     assert(movies.body.find("\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"") != std::string::npos);
     assert(movies.body.find("backendNativeId") == std::string::npos);
     assert(movies.body.find("\"totalCount\":2") != std::string::npos);
+    ApiResponse newly;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=new&limit=1",
+        "actor:tv", "home-new", "", newly, "", "", {"backend-a"}));
+    assert(newly.statusCode == 200);
+    assert(newly.body.find("\"cardMetadata\":{\"mediaType\":\"series\"") != std::string::npos);
+    assert(newly.body.find("\"episodeName\":\"Pilot\"") != std::string::npos);
+    assert(newly.body.find("\"seriesGrouping\":{\"groupKey\":\"sg1_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+    assert(newly.body.find("fld1_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(newly.body.find("backendNativeId") == std::string::npos);
+    assert(newly.body.find("releaseDate") == std::string::npos);
     for (const std::string& query : {"view=movies", "view=new&movieReleaseYearFrom=2022",
                                     "view=movies&movieReleaseYearFrom=2026&movieReleaseYearTo=2022"}) {
         ApiResponse invalidHome;

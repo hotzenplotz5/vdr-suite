@@ -134,6 +134,10 @@ public:
     static std::string publicSearchPreferredArtworkId(
         const VdrRecording& recording, const std::string& localPath,
         int width, int height, bool manualSelected, int manualRevision);
+    // Same gallery/preferred identity as the detail and binary reader.
+    static std::string publicNativeCardArtworkId(
+        const VdrRecording& recording, const std::string& path,
+        int width, int height, int galleryIndex);
     static std::string publicManualPortraitArtworkId(
         const VdrRecording& recording, int index, int revision,
         const std::string& localPath);

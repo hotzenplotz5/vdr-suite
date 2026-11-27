@@ -96,6 +96,9 @@ struct GenreRecordingItem
     std::string episodeName;
     bool seriesArtworkAvailable = false;
     int seriesArtworkIndex = -1;
+    std::string cardArtworkPath;
+    int cardArtworkWidth = 0;
+    int cardArtworkHeight = 0;
     int seriesManualRevision = 0;
     // Presentation-only Series hierarchy override. Native season/episode
     // metadata remains untouched and continues to be the fallback owner.

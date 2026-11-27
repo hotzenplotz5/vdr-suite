@@ -365,8 +365,15 @@ void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPa
         "NOT EXISTS (SELECT 1 FROM suite_metadata_target_bindings b "
         "JOIN suite_metadata_assignments ma ON ma.metadata_target_id=b.metadata_target_id "
         "WHERE b.backend_id=n.backend_id AND b.target_type='recording' AND b.resource_key=n.recording_key "
-        "AND ma.assignment_state='selected' AND ma.manual_assignment=1 AND ma.relationship_locked=1) "
-        "FROM vdr_recording_native_metadata n WHERE n.backend_id=? "
+        "AND ma.assignment_state='selected' AND ma.manual_assignment=1 AND ma.relationship_locked=1), "
+        "COALESCE(p.path,n.preferred_artwork_path), "
+        "COALESCE(p.width,n.preferred_artwork_width), COALESCE(p.height,n.preferred_artwork_height) "
+        "FROM vdr_recording_native_metadata n LEFT JOIN vdr_recording_native_artwork p "
+        "ON p.backend_id=n.backend_id AND p.recording_key=n.recording_key AND p.ordinal=("
+        "SELECT a.ordinal FROM vdr_recording_native_artwork a "
+        "WHERE a.backend_id=n.backend_id AND a.recording_key=n.recording_key "
+        "AND a.orientation='portrait' AND a.path<>'' ORDER BY a.ordinal LIMIT 1) "
+        "WHERE n.backend_id=? "
         "AND n.content_state='found' "
         "AND n.backend_native_id IN (";
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
@@ -398,6 +405,9 @@ void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPa
                     ? -1 : sqlite3_column_int(summary, 8);
                 item.seriesArtworkAvailable = sqlite3_column_int(summary, 7) != 0 ||
                     item.seriesArtworkIndex >= 0;
+                item.cardArtworkPath = columnText(summary, 11);
+                item.cardArtworkWidth = sqlite3_column_int(summary, 12);
+                item.cardArtworkHeight = sqlite3_column_int(summary, 13);
             }
         }
     }
@@ -461,6 +471,9 @@ void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPa
                 item.seriesArtworkAvailable = normalizedPoster.find(
                     "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
                 item.seriesArtworkIndex = -1;
+                item.cardArtworkPath.clear();
+                item.cardArtworkWidth = 0;
+                item.cardArtworkHeight = 0;
                 item.seriesManualRevision = sqlite3_column_int(manual, 6);
             }
         }
