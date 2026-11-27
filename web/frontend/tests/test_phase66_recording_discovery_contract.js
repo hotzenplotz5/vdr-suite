@@ -43,7 +43,9 @@ assert(source.includes('fetchClientGenreRecordings({'));
 assert(source.includes("global.VdrSuiteGenres.openRecordingGenre(entry"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres'"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recordings'"));
-assert(genres.includes('client.fetchClientGenreRecordings(options)'));
+assert(genres.includes('client.fetchPublicGenreRecordings(options)'));
+assert(!genres.includes('client.fetchClientGenreRecordings('));
+assert(genreClientApi.includes("base.requestJson('/api/v1/genres/recordings'"));
 assert(genres.includes('openRecordingGenre: function (entry, options)'));
 
 // Series membership is projection-only: the canonical `series` endpoint remains the sole membership authority.
