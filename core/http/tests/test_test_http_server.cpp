@@ -258,7 +258,9 @@ int main()
         for (const auto& target : {
             "/api/metadata/genres?backend=default&scope=recordings",
             "/api/v1/genres?backendId=default&locale=de&limit=30&offset=0",
-            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=30"}) {
+            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=30",
+            "/api/v1/recordings?backendId=default&view=folders&limit=100&offset=0",
+            "/api/v1/recordings?backendId=default&view=folders&folderId=fld1_0123456789abcdef0123456789abcdef&limit=12&offset=0"}) {
             request.path = target;
             response = HttpServerResponse{};
             response.body = "{}";
