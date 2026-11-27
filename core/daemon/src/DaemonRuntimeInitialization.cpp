@@ -1945,6 +1945,16 @@ bool DaemonRuntime::initialize()
     deviceLiveEventHub_ = std::make_shared<DeviceLiveEventHub>();
     liveTransport_ = std::make_unique<SseLiveTransport>();
     liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
+    liveTransport_->setRecordingPublicIdLookup(
+        [this](const std::string& backendId, const std::string& nativeId)
+            -> std::optional<std::string>
+        {
+            // Read existing bindings only. Change notifications must not
+            // create identities for deleted or not-yet-admitted recordings.
+            return publicRecordingIdentities_
+                ? publicRecordingIdentities_->find(backendId, nativeId)
+                : std::nullopt;
+        });
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
     if (mediaImportOperationFence_) {
