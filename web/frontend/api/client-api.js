@@ -270,7 +270,8 @@
     const homeCache = window.VdrSuiteHomeCache;
     const snapshot = path.match(/^\/api\/backends\/([A-Za-z0-9_.-]+)\/snapshot$/);
     const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
-      (path !== '/api/metadata/genres' || query.scope === 'recordings')
+      (path !== '/api/metadata/genres' || query.scope === 'recordings') &&
+      (path !== '/api/v1/recordings' || query.view === 'movies')
         ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
         : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {

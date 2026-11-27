@@ -233,7 +233,7 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
             RestQueryParameters::parse(raw).get("view") != "movies") return;
         // Reuse the authenticated Public-v1 scope; this decorates the response
         // only, without changing route admission or the returned projection.
-        backend = canonicalHomeCacheBackend(request.path.substr(at + 1), true);
+        backend = canonicalHomeCacheBackend(raw, true);
         if (backend.empty() || backend != authorizedBackend) return;
         recording = true;
     } else if (request.method == "GET" && at != std::string::npos &&

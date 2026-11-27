@@ -473,6 +473,9 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(timers.length, 0);
   // Same film rail and DOM owner, now composed with the actual public JSON
   // client. Compare ordered public cards against the native baseline.
+  // The earlier speculative-page test used only a partial cache double.
+  // Full raw HTTP provenance is exercised in test_home_cache_runtime.js.
+  window.VdrSuiteHomeCache = null;
   const publicRequests = [];
   const publicRows = allRecordings.map((recording, index) => ({
     kind: 'recording', recordingId: 'rec_' + String(index + 1).padStart(32, '0'),
@@ -482,12 +485,15 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
     preferredArtworkId: 'a'.repeat(32)
   }));
   const wrapper = fs.readFileSync(path.join(frontendRoot, 'api/client-api.js'), 'utf8');
+  let publicFailure = 0;
   vm.runInNewContext(wrapper, {window, URLSearchParams, fetch(url) {
     const parsed = new URL(url, 'https://test.invalid');
     publicRequests.push(parsed);
     assert.strictEqual(parsed.pathname, '/api/v1/recordings');
     assert.strictEqual(parsed.searchParams.get('view'), 'movies');
     assert.strictEqual(parsed.searchParams.get('backendId'), 'default');
+    if (publicFailure) return Promise.resolve({ok:false, status:publicFailure,
+      text:()=>Promise.resolve('{"code":"permission_denied"}')});
     const offset = Number(parsed.searchParams.get('offset'));
     const limit = Number(parsed.searchParams.get('limit'));
     const items = publicRows.slice(offset, offset + limit);
@@ -518,6 +524,14 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(publicRequests[1].searchParams.get('offset'), '12');
   assert.deepStrictEqual(findElements(movieSection, el => Boolean(el.dataset && el.dataset.recordingId))
     .map(card => card.dataset.recordingId), publicRows.map(row => row.recordingId));
+  // Authorization errors never invoke the legacy route.
+  publicFailure = 403;
+  const beforeDenied = publicRequests.length;
+  await assert.rejects(window.VdrSuiteClientApi.fetchPublicHomeMovies({
+    query:{backend:'default',offset:0,limit:12,
+      movieReleaseYearFrom:currentYear-4,movieReleaseYearTo:currentYear}
+  }), err => err.status === 403);
+  assert.strictEqual(publicRequests.length, beforeDenied + 1);
   console.log('phase66 recent movies rail contract ok');
 }()).catch(function (error) {
   console.error(error);
