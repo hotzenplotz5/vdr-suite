@@ -170,6 +170,7 @@ function createHarness(seriesItems, publicMode) {
   const host = new FakeElement('div');
   const calls = [];
   const pendingPages = new Map();
+  const folderCalls = [];
 
   function pagePayload(request) {
     const serverLimit = Math.min(Number(request.limit || 0) || 48, 100);
@@ -210,6 +211,20 @@ function createHarness(seriesItems, publicMode) {
   };
 
   if (publicMode) {
+    client.fetchClientRecordingFolder = function () { throw new Error('Unexpected private root folder read'); };
+    client.fetchPublicRecordingFolder = function (options) {
+      const offset=options.query.offset;
+      folderCalls.push(offset);
+      assert(!Object.hasOwn(options.query,'path'));
+      assert(!Object.hasOwn(options.query,'folderId'));
+      const folders=offset===0?[{folderId:'fld1_'+'a'.repeat(32),name:'Filme',recordingCount:2}]:[];
+      const recordings=Array.from({length:offset===0?99:1}, (_,i)=>({
+        recordingId:'rec_'+(offset+i+1000).toString(16).padStart(32,'0'),
+        backendId:'default',title:'Root recording '+(offset+i)}));
+      return Promise.resolve({publicFolder:true,folderCount:1,recordingCount:100,
+        offset,returnedCards:folders.length+recordings.length,
+        nextOffset:offset+folders.length+recordings.length,hasMore:offset===0,folders,recordings});
+    };
     const legacyRead = client.fetchClientGenreRecordings;
     client.fetchClientGenreRecordings = function () { throw new Error('Unexpected private Series read'); };
     client.fetchPublicGenreRecordings = function (request) {
@@ -253,6 +268,7 @@ function createHarness(seriesItems, publicMode) {
     api: context.window.VdrSuiteHomeRecordingDiscovery,
     host,
     calls,
+    folderCalls,
     releasePage(offset) {
       const release = pendingPages.get(offset);
       if (!release) return false;
@@ -339,6 +355,13 @@ async function flushMicrotasks(turns) {
   assert(publicHarness.releasePage(100));
   assert.strictEqual(await publicRefresh, true);
   assert.strictEqual(findSeriesCards(findRail(publicHarness.host, 'series')).length, 14);
+  assert.deepStrictEqual(publicHarness.folderCalls,[0,100]);
+  const rootFolders=findRail(publicHarness.host,'folders');
+  assert(rootFolders);
+  assert(findElement(rootFolders,element=>element.dataset && element.dataset.folderPath==='fld1_'+'a'.repeat(32)));
+  const rootGroup=findElement(rootFolders,element=>element.dataset && element.dataset.rootRecordingGroup==='true');
+  assert(rootGroup);
+  assert(findElement(rootGroup,element=>String(element.textContent).includes('100 Aufnahmen')));
   console.log('phase66 series projection renders progressively while pagination continues, including Public v1');
 }()).catch((error) => {
   console.error(error);
