@@ -118,7 +118,8 @@ const context = vm.createContext({
 });
 
 for (const path of [
-  'web/frontend/recordings2-folder-refresh.js',
+  'web/frontend/recordings2-folder-page.js',
+    'web/frontend/recordings2-folder-refresh.js',
   'web/frontend/recordings2.js'
 ]) {
   vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});

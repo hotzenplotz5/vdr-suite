@@ -380,7 +380,25 @@ void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPa
         summarySql += index == 0 ? "?" : ",?";
     summarySql += ");";
     sqlite3_stmt* summary = nullptr;
-    if (sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr) == SQLITE_OK)
+    int prepared = sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr);
+    if (prepared != SQLITE_OK)
+    {
+        // Older cache schemas have native series evidence but no image dimensions.
+        // Preserve the existing summary and legacy artwork index; do not mint
+        // a public artwork identity without its complete persisted evidence.
+        sqlite3_finalize(summary);
+        summary = nullptr;
+        const std::string artworkColumns =
+            "COALESCE(p.path,n.preferred_artwork_path), "
+            "COALESCE(p.width,n.preferred_artwork_width), COALESCE(p.height,n.preferred_artwork_height)";
+        const auto position = summarySql.find(artworkColumns);
+        if (position != std::string::npos)
+        {
+            summarySql.replace(position, artworkColumns.size(), "'', 0, 0");
+            prepared = sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr);
+        }
+    }
+    if (prepared == SQLITE_OK)
     {
         bindText(summary, 1, page.backendId);
         for (std::size_t index = 0; index < page.recordings.size(); ++index)

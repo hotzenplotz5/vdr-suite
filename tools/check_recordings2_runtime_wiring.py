@@ -9,6 +9,7 @@ runtime_paths = {
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
     'move_editor': ROOT / 'web/frontend/recordings2-move-editor.js',
     'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
+    'folder_page': ROOT / 'web/frontend/recordings2-folder-page.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'folder_dom_cache': ROOT / 'web/frontend/recordings2-folder-dom-cache.js',
     'browser_cards': ROOT / 'web/frontend/recordings2-browser-cards.js',
@@ -90,6 +91,11 @@ required_tokens = {
         'sameRecordingIdentity',
         'forgetRecording',
         'updatePresentedFolderState',
+        'applyFolderData',
+        'selectRecording',
+    ),
+    'folder_page': (
+        'global.VdrSuiteRecordings2FolderPage',
         'recordingFolder !== true',
         'applyFolderData',
         'selectRecording',
@@ -313,6 +319,7 @@ for forbidden in (
 
 for owner in (
     'folder_artwork',
+    'folder_page',
     'actions',
     'move_editor',
     'browser_view',

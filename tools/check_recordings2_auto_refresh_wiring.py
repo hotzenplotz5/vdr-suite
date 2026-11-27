@@ -13,6 +13,7 @@ def require(condition, message):
 
 owner = source('web/frontend/recordings2.js')
 refresh = source('web/frontend/recordings2-folder-refresh.js')
+page = source('web/frontend/recordings2-folder-page.js')
 make = source('mk/recordings2.mk')
 server = source('core/http/src/TestHttpServerPaths.inc')
 
@@ -23,9 +24,7 @@ for token in (
     'if (delay !== undefined) pending = true;',
     'if (!pending || busy || state().loading || state().loadingMore ||',
     'timer = global.setTimeout(function () { timer = null; refresh(); }, 0);',
-    'options.fetchClientRecordingFolder({',
-    "cache: 'no-store'",
-    "credentials: 'same-origin'",
+    'global.VdrSuiteRecordings2FolderPage.create(options',
     'requestSequence',
     "source.addEventListener('update'",
     'client.createClientLiveUpdateSource()',
@@ -40,22 +39,27 @@ for token in (
     require(token in refresh, f'missing recording refresh contract: {token}')
 for forbidden in ('INTERVAL_MS', 'setInterval(', 'fetch(', 'XMLHttpRequest', 'EventSource', 'WebSocket',
                   'localStorage', 'sessionStorage', "method: 'POST'", 'NCUT EXEC'):
-    require(forbidden not in refresh, f'refresh module violates read-only Client API boundary: {forbidden}')
+    require(forbidden not in refresh and forbidden not in page, f'refresh/page module violates read-only Client API boundary: {forbidden}')
+for token in ('options.fetchClientRecordingFolder({', 'options.fetchPublicRecordingFolder({',
+              "cache: 'no-store'", "credentials: 'same-origin'", 'requestSequence',
+              'signature(data)', 'updatePresentedFolderState()', 'fetchClientRecordingForPublicId'):
+    require(token in page, f'missing recording folder page contract: {token}')
 for token in (
     'global.VdrSuiteRecordings2FolderRefresh',
     'fetchClientRecordingFolder: function (options)',
-    'folderRefresh.signature(data)',
+    'applyFolderData, forgetRecording} = folderRefresh;',
     'stopFolderRefresh();',
     'scheduleFolderRefresh(0);',
     'resolveSingleRecordingLeaves',
-    'updatePresentedFolderState',
+    'folderRefresh.selectRecording(recording)',
 ):
     require(token in owner, f'missing recording owner refresh wiring: {token}')
 
 bundle = make.index('\tcat \\')
 helper = make.index('\t\tweb/frontend/recordings2-folder-refresh.js \\', bundle)
 view = make.index('\t\tweb/frontend/recordings2-browser-view.js \\', bundle)
-require(helper < view, 'refresh dependency must load before the browser view bundle')
+page_helper = make.index('\t\tweb/frontend/recordings2-folder-page.js \\', bundle)
+require(page_helper < helper < view, 'page and refresh dependencies must load before the browser view bundle')
 require('global.VdrSuiteRecordings2FolderRefresh = Object.freeze' in make,
         'install staging must verify the bundled refresh runtime')
 require('node --check web/frontend/recordings2-folder-refresh.js' in make,
@@ -72,6 +76,10 @@ for path in (
     'web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js',
 ):
     test = source(path)
+    require("'web/frontend/recordings2-folder-page.js'" in test and
+            test.index("'web/frontend/recordings2-folder-page.js'") <
+            test.index("'web/frontend/recordings2-folder-refresh.js'"),
+            f'production folder page dependency order is wrong in {path}')
     require("'web/frontend/recordings2-folder-refresh.js'" in test,
             f'production refresh dependency is missing from {path}')
     require(test.index("'web/frontend/recordings2-folder-refresh.js'") <
