@@ -6204,7 +6204,7 @@ bool DaemonRuntime::initialize()
     // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
     // No user-supplied RuntimeEvidence and no automatic installation/exec.
     // Descriptive local UI payload observation, not a new permission or Agent gate.
-    const imagePayloadAvailable = []() {
+    const auto imagePayloadAvailable = []() {
         std::vector<std::filesystem::path> roots{
             "web/frontend", "/usr/share/vdr-suite/web/frontend",
             "/usr/local/share/vdr-suite/web/frontend"};
