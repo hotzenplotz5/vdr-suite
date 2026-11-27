@@ -154,8 +154,28 @@ async function run() {
   replies.push(response(200,genreEvents));
   assert.deepEqual(await client.getEpgGenreEvents({query:{backendId:'home-vdr',contentClass:'movie',genreId:'adventure',offset:30}}),genreEvents);
   assert.equal(calls.at(-1).url,base+'/api/v1/genres/epg/events?backendId=home-vdr&contentClass=movie&genreId=adventure&offset=30');
+  const streamBody = {getReader(){return {};},cancel(){return Promise.resolve();}};
+  const streamResponse = {ok:true,status:200,body:streamBody,
+    headers:{get(){return 'text/event-stream';}},text(){throw Error('SSE must not be buffered');}};
+  const signal = {testSignal:true};
+  replies.push(streamResponse);
+  assert.strictEqual(await client.openDeviceEvents({query:{backendId:'home-vdr',domain:'recordings'},signal}),streamResponse);
+  assert.equal(calls.at(-1).url,base+'/api/v1/events?backendId=home-vdr&domain=recordings');
+  assert.equal(calls.at(-1).options.headers.Accept,'text/event-stream');
+  assert.strictEqual(calls.at(-1).options.signal,signal);
+  replies.push(streamResponse);
+  assert.strictEqual(await client.openOperationEvents({operationId:'op_example',signal}),streamResponse);
+  assert.equal(calls.at(-1).url,base+'/api/v1/operations/op_example/events');
+  replies.push(response(403,{code:'permission_denied'}));
+  await assert.rejects(client.openDeviceEvents({query:{backendId:'home-vdr',domain:'timers'}}),
+    error => api.isClientError(error) && error.status===403);
+  replies.push(response(200,{}));
+  await assert.rejects(client.openDeviceEvents({query:{backendId:'home-vdr',domain:'continueWatching'}}),
+    /Incremental event stream unavailable/);
   const beforeInvalid=calls.length;
   for(const invalid of [
+    () => client.openDeviceEvents({query:{backendId:'home-vdr',domain:'all'}}),
+    () => client.openOperationEvents({operationId:'../other'}),
     () => client.getEpgEvent({query:{...eventQuery,eventId:'../bad'}}),
     () => client.getEpgEvent({query:{...eventQuery,legacy:true}}),
     () => client.getEpgGenres({query:{backendId:'home-vdr',limit:31}}),

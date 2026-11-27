@@ -146,6 +146,17 @@ EPG_ARTWORK_AUDITED = {
     "/api/v1/epg/preferred-artwork": {
         "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
 }
+SSE_AUDITED = {
+    "/api/v1/events": {
+        "get": ('pathWithoutQuery(request.path) == "/api/v1/events"',
+                "if (isPublicDeviceEventRead)", "deviceEventHub_->subscribe("),
+    },
+    "/api/v1/operations/{operationId}/events": {
+        "get": ('const std::string eventSuffix = "/events";',
+                "if (isPublicOperationRead || isPublicOperationEventRead)",
+                "deviceEventHub_->subscribeOperation("),
+    },
+}
 EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
 DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED = {
     "/api/v1/devices/{deviceId}/playback-account": {
@@ -419,7 +430,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -456,7 +467,7 @@ def validate(
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
-        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
+        **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
         **RECORDING_METADATA_AUDITED
     }.items():
         data = paths.get(path)
@@ -476,6 +487,12 @@ def validate(
                           else "isPublicDevicePlaybackAccountRead")
                 if needed not in security_source:
                     errors.append(f"{where}: administrator Browser security gate missing")
+            elif path in SSE_AUDITED:
+                route_marker, gate_marker, owner_marker = marker
+                if (route_marker not in epg_artwork_http_source or
+                    owner_marker not in epg_artwork_http_source or
+                    gate_marker not in security_source):
+                    errors.append(f"{where}: existing SSE route/owner/security anchor missing")
             elif path in EPG_ARTWORK_AUDITED:
                 if marker not in epg_artwork_http_source:
                     errors.append(
@@ -636,7 +653,7 @@ def main() -> int:
             print(f"- {message}")
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED,
+             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
              **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0

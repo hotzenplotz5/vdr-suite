@@ -1832,6 +1832,170 @@
         "x-vdr-suite-auth-profile": "actor"
       }
     },
+    "/api/v1/events": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "subscribePublicDeviceEvents",
+        "summary": "Open a scoped Device invalidation event stream",
+        "description": "Existing Device SSE transport. hello, update and resync frames are invalidation hints only; reread the relevant authorized canonical resources. The stream has a two-minute maximum lifetime, bounded subscribers and queue, and closes on revocation through existing Device mutation routes. See device-live-events.md. No token in the URL.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "timers",
+                "recordings",
+                "continueWatching"
+              ]
+            }
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential only. timers.view, recordings.view or media.recording.play respectively on the exact backend; no Browser session."
+        },
+        "responses": {
+          "200": {
+            "description": "Incremental SSE stream; caller consumes frames as they arrive, not a buffered JSON response.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Accel-Buffering": {
+                "schema": {
+                  "type": "string",
+                  "const": "no"
+                }
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or duplicate backendId or domain"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not a verified Device or scoped domain grant denied"
+          },
+          "503": {
+            "description": "Accountability or stream unavailable, or capacity exhausted"
+          }
+        },
+        "security": [
+          {
+            "deviceCredential": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "device"
+      }
+    },
+    "/api/v1/operations/{operationId}/events": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "subscribePublicOperationEvents",
+        "summary": "Open an actor-owned Operation invalidation stream",
+        "description": "Uses the existing actor-owned Operation GET before subscription. Newly issued op_ IDs only for stream subscription; hello, operation and resync are hints. Re-read the Operation GET for authoritative status. No Operation payload is sent on the stream.",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 160,
+              "pattern": "^op_[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Same authenticated owning actor as GET /api/v1/operations/{operationId}"
+        },
+        "responses": {
+          "200": {
+            "description": "Incremental SSE stream; caller consumes frames as they arrive, not a buffered JSON response.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Accel-Buffering": {
+                "schema": {
+                  "type": "string",
+                  "const": "no"
+                }
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Operation identity"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operation read denied"
+          },
+          "404": {
+            "description": "Operation not found or not owned"
+          },
+          "503": {
+            "description": "Operation or stream unavailable, or capacity exhausted"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
     "/api/v1/epg/window": {
       "get": {
         "tags": [

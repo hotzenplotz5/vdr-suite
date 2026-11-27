@@ -67,3 +67,14 @@ Public runtime errors are `application/problem+json`; earlier security-gate deni
 
 - [API entry point](README.md)
 - [Documentation index](../docs/index.md)
+
+### Operation invalidation stream
+
+`GET /api/v1/operations/{operationId}/events` admits the same owning actor
+as the existing Operation GET and uses the existing SSE hub for `op_` IDs.
+`hello` establishes the daemon epoch, `operation` carries the ID and a
+subscription sequence, and `resync` requests a fresh canonical read. None
+of these hints is a successful native mutation or an authoritative status.
+The reference client `openOperationEvents({operationId, signal})` returns
+an incremental Fetch Response; the caller owns frame parsing, reconnect,
+GET readback and cancellation. No legacy fallback or polling is introduced.

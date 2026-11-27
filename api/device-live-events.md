@@ -34,3 +34,10 @@ On a gap, restart, overload or reconnect the Device coordinator resynchronizes t
 ## Acceptance status
 
 Automated JS transport and view integration regressions, plus the C++ hub and HTTP security/runtime build checks, are separate gates. The candidate is **not** considered production-ready until exact backend final-head CI, exact VIDAA tests, a test installation and actual Hisense runtime observation have passed. Nothing in this document asserts TV acceptance, installed yaVDR provenance or automatic timer update verification on real hardware.
+
+The shared reference client exposes `openDeviceEvents({query:{backendId,
+ domain}, signal})`. It returns the original Fetch Response with its readable
+body; no JSON buffering, automatic polling or automatic replay occurs. The
+caller consumes SSE frames using the documented protocol, performs canonical
+resync on gaps/reconnect, and aborts on teardown. OpenAPI documents this
+existing transport, not hardware acceptance.

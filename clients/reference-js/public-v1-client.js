@@ -960,6 +960,33 @@
       });
     }
 
+    // Return the actual incremental stream, never buffer an SSE response.
+    // Callers own parsing, resync and cancellation of the existing protocol.
+    function requestEventStream(path, options) {
+      const input = options && typeof options === 'object' ? options : {};
+      const headers = Object.assign({Accept: 'text/event-stream'},
+        defaultHeaders, copyHeaders(input.headers));
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'GET', headers: headers,
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        cache: 'no-store', signal: input.signal
+      }).then(function (response) {
+        if (!response.ok) {
+          return parseJsonBody(response).then(function (payload) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          });
+        }
+        const type = headerValue(response, 'Content-Type');
+        if (!type || type.split(';')[0].trim().toLowerCase() !== 'text/event-stream' ||
+            !response.body || typeof response.body.getReader !== 'function') {
+          if (response.body && typeof response.body.cancel === 'function')
+            Promise.resolve(response.body.cancel()).catch(function () {});
+          throw new Error('Incremental event stream unavailable');
+        }
+        return response;
+      });
+    }
+
     function requestArtworkImage(path, options) {
       const input = options && typeof options === 'object' ? options : {};
       const headers = Object.assign(
@@ -2767,6 +2794,24 @@
       },
       submitMediaImportBatch(options) {
         return requestMediaImportBatch(options);
+      },
+      openDeviceEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const query = input.query;
+        if (!query || typeof query !== 'object' || Array.isArray(query) ||
+            Object.keys(query).some(key => !['backendId','domain'].includes(key)) ||
+            !['timers','recordings','continueWatching'].includes(query.domain))
+          throw new Error('Device event stream requires one backend and one domain');
+        return requestEventStream('/api/v1/events?backendId=' +
+          f3CanonicalId(query.backendId, 'event backendId', 128) +
+          '&domain=' + query.domain, input);
+      },
+      openOperationEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.operationId !== 'string' ||
+            !/^op_[A-Za-z0-9_-]{1,157}$/.test(input.operationId))
+          throw new Error('Operation stream requires a public op_ identity');
+        return requestEventStream(operationItemPath(input) + '/events', input);
       },
       getOperation(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
