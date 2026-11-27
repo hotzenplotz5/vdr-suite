@@ -813,3 +813,14 @@ test-addon-image-local-browse:
 	"$(BUILD_DIR)/addons/test_local_image_gallery_provider"
 
 test-ci-fast: test-addon-image-local-browse
+
+.PHONY: test-addon-image-source-settings
+test-addon-image-source-settings:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image \
+		modules/image/ImageGalleryCatalog.cpp modules/image/ImageGallerySourceSettings.cpp \
+		modules/image/test_image_gallery_source_settings.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_source_settings"
+	"$(BUILD_DIR)/addons/test_image_gallery_source_settings"
+
+test-ci-fast: test-addon-image-source-settings
