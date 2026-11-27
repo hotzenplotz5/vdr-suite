@@ -155,7 +155,7 @@ class PackagingProfileTests(unittest.TestCase):
 
     def test_image_gallery_stages_separately(self):
         control = (ROOT / "debian/control").read_text(encoding="utf-8")
-        self.assertIn("Package: vdr-suite-addon-image", control)
+        self.assertIn("Package: vdr-suite-addon-image\nArchitecture: any", control)
         rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
         self.assertIn('stage-image-gallery-runtime DESTDIR="$(CURDIR)/debian/vdr-suite-addon-image"', rules)
         install = (ROOT / "mk/install.mk").read_text(encoding="utf-8")

@@ -93,7 +93,9 @@ def render(package, repo=ROOT, test_root=""):
                   for size in range(1, len(suite_packages) + 1)
                   for group in permutations(suite_packages, size)
                   if not (exclude_daemon_only and group == ("vdr-suite-daemon",)))
-        return "|".join('"' + owner + ':         "#!/bin/sh",
+        return "|".join('"' + owner + ': $' + variable + '"' for owner in owners)
+    out = [
+        "#!/bin/sh",
         "# GENERATED from tools/packaging_p8_preinst.py and debian/*.install.",
         "# Do not edit manually; checks run before dpkg unpacks package files.",
         "set -eu",

@@ -47,7 +47,7 @@ Description: Inactive VDR-Suite Media Tools workers
  Package installation does not activate rights, jobs, or services.
 
 Package: vdr-suite-addon-image
-Architecture: all
+Architecture: any
 Build-Profiles: <!plugin-only>
 Depends: vdr-suite-daemon (>= ${source:Version}), ${misc:Depends}
 Recommends: ffmpeg
