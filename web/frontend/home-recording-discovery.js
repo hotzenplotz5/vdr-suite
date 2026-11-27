@@ -156,7 +156,16 @@
     return text(recording && recording.path);
   }
 
+  function isPublicHomeRecording(recording) {
+    return /^rec_[0-9a-f]{32}$/.test(recordingId(recording)) &&
+      typeof recording.recordedAt === 'string' &&
+      !recordingBackendNativeId(recording) && !recordingPath(recording);
+  }
+
   function recordingTitle(recording) {
+    if (isPublicHomeRecording(recording))
+      return text(recording.cardMetadata && recording.cardMetadata.title) ||
+        text(recording.title) || 'Aufnahme';
     return text(
       presentation(recording).title ||
       provider(recording).seriesTitle ||
@@ -166,6 +175,9 @@
   }
 
   function recordingSubtitle(recording) {
+    if (isPublicHomeRecording(recording))
+      return text(recording.cardMetadata && recording.cardMetadata.episodeName) ||
+        text(recording.subtitle);
     return text(
       presentation(recording).subtitle ||
       provider(recording).episodeTitle
@@ -173,6 +185,13 @@
   }
 
   function recordingPosterUrl(recording) {
+    if (isPublicHomeRecording(recording)) {
+      const artworkId = text(recording.preferredArtworkId);
+      const backendId = recordingBackendId(recording);
+      return /^[0-9a-f]{32}$/.test(artworkId) && backendId
+        ? '/api/v1/recordings/' + recordingId(recording) + '/artwork/' + artworkId +
+          '?backendId=' + encodeURIComponent(backendId) : '';
+    }
     const meta = metadata(recording);
     const artwork = meta.artwork && typeof meta.artwork === 'object' ? meta.artwork : {};
     return text(presentation(recording).posterUrl || artwork.preferredUrl);
@@ -659,11 +678,12 @@
     const richTitle = text(rich.title);
     const recordingPath = text(recording && recording.path);
     const baseTitle = recordingTitle(recording);
-    const fallbackTitle = baseTitle.indexOf('/') >= 0
+    const publicRecording = isPublicHomeRecording(recording);
+    const fallbackTitle = !publicRecording && baseTitle.indexOf('/') >= 0
       ? episodeLeafTitle(recording)
       : baseTitle;
     const richTitleIsPath = Boolean(
-      richTitle &&
+      !publicRecording && richTitle &&
       (richTitle === recordingPath || richTitle.indexOf('/') >= 0)
     );
     const projectedTitle = richTitle && !richTitleIsPath
@@ -1286,14 +1306,33 @@
     if (typeof global.setTimeout === 'function') global.setTimeout(refreshForHome, 0);
   }
 
+  let publicDetailRequest = 0;
+
   function openRecording(recording, backendId, options) {
     const id = recordingId(recording);
     if (!id) return Promise.resolve(false);
     const scopedBackend = recordingBackendId(recording, backendId);
     if (!scopedBackend) return Promise.resolve(false);
     const config = options && typeof options === 'object' ? options : {};
-    releasePreview('Recording Discovery Aufnahme geöffnet');
-    return ensureRecordings2().then(function (ready) {
+    const request = ++publicDetailRequest;
+    const generation = state.generation;
+    const publicRecording = isPublicHomeRecording(recording);
+    const resolved = publicRecording
+      ? Promise.resolve().then(function () {
+          return clientApi().fetchClientRecordingForPublicId({
+            backendId: scopedBackend, recordingId: id
+          });
+        }).then(function (detail) { return detail.recording; })
+      : Promise.resolve(recording);
+    return resolved.then(function (detail) {
+      if (publicRecording &&
+          (request !== publicDetailRequest || !current(generation, scopedBackend))) return false;
+      recording = detail;
+      releasePreview('Recording Discovery Aufnahme geöffnet');
+      return ensureRecordings2();
+    }).then(function (ready) {
+      if (publicRecording &&
+          (request !== publicDetailRequest || !current(generation, scopedBackend))) return false;
       if (!ready || !selectShellModule('recordings2')) return false;
       global.VdrSuiteRecordings2.openRecording(recording, {
         backendId: scopedBackend,
@@ -1301,6 +1340,9 @@
         onClose: typeof config.onClose === 'function' ? config.onClose : returnHome
       });
       return true;
+    }).catch(function (error) {
+      console.error('Aufnahme konnte nicht geöffnet werden', error);
+      return false;
     });
   }
 
@@ -4828,7 +4870,11 @@
   }
 
   function fetchBoundedRandomGenreRecordings(client, backendId, genreId, generation) {
-    return Promise.resolve(client.fetchClientGenreRecordings({
+    // The production Genre browser already uses this same public membership
+    // adapter. Retain the legacy-only client interface for older compositions.
+    const read = typeof client.fetchPublicGenreRecordings === 'function'
+      ? client.fetchPublicGenreRecordings : client.fetchClientGenreRecordings;
+    return Promise.resolve(read.call(client, {
       backendId: backendId,
       genreId: genreId,
       limit: RANDOM_GENRE_LIMIT,
@@ -5138,8 +5184,42 @@
         );
         positionRandomGenreRail();
 
+        // Public cards have no native IDs. Enrich through the same public
+        // detail projection as the Genre browser; never invent a native path.
+        const publicItems = recordings.filter(isPublicHomeRecording);
+        if (publicItems.length && typeof client.requestJson === 'function') {
+          const helpers = global.VdrSuiteFrontendHelpers;
+          if (helpers && typeof helpers.publicRecordingMetadataView === 'function') {
+            let cursor = 0;
+            function worker() {
+              if (!current(generation, backendId)) return Promise.resolve();
+              const item = publicItems[cursor++];
+              if (!item) return Promise.resolve();
+              const id = recordingId(item);
+              return Promise.resolve().then(function () {
+                return client.requestJson('/api/v1/recordings/' + id, {
+                  query: {backendId: backendId}, cache: 'no-store',
+                  credentials: 'same-origin'
+                });
+              }).then(function (detail) {
+                if (!current(generation, backendId) || !detail ||
+                    detail.recordingId !== id || detail.backendId !== backendId) return;
+                item.nativeCardMetadata = helpers.publicRecordingMetadataView(detail);
+              }).catch(function () {
+                // Optional enrichment must not remove a valid list member.
+              }).then(worker);
+            }
+            Promise.all(Array.from({length: Math.min(SERIES_METADATA_CONCURRENCY,
+              publicItems.length)}, worker)).then(function () {
+                if (!current(generation, backendId)) return;
+                renderRecordingRail('random-genre', label, recordings, backendId);
+                positionRandomGenreRail();
+              });
+          }
+        }
         const pendingRecordings = recordings.filter(function (recording) {
-          return !recording.nativeCardMetadata || recording.nativeCardMetadata.available !== true;
+          return !isPublicHomeRecording(recording) &&
+            (!recording.nativeCardMetadata || recording.nativeCardMetadata.available !== true);
         });
         if (pendingRecordings.length && client && typeof client.requestJson === 'function') {
           fetchSeriesRecordingMetadata(

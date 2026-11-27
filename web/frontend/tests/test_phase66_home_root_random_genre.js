@@ -159,6 +159,7 @@ function createHarness() {
 
   return {
     api: context.window.VdrSuiteHomeRecordingDiscovery,
+    window: context.window,
     host,
     scheduled,
     genreCalls,
@@ -435,6 +436,55 @@ function createHarness() {
   api.renderRecordingRail('random-genre', 'Komödie', [ace], 'default');
   assert.notStrictEqual(genreCard('ace-ventura'), aceCard,
     'backend changes must invalidate any previous image DOM reuse');
+
+  // Public membership uses the existing adapter, renders canonical titles
+  // and scoped artwork, and opens the established private detail owner only
+  // after resolving the opaque identity.
+  const publicHarness = createHarness();
+  const publicApi = publicHarness.api._test;
+  const id = 'rec_' + 'a'.repeat(32);
+  const artworkId = 'b'.repeat(32);
+  const publicItem = {recordingId: id, backendId: 'default',
+    recordedAt: '2026-11-26T20:00:00Z', title: 'Native display',
+    cardMetadata: {title: 'Film / Original', episodeName: 'Episode'},
+    preferredArtworkId: artworkId};
+  const publicCalls = [];
+  const nativeDetail = {recordingId: 'native-item', backendId: 'default',
+    backendNativeId: 'native-item', title: 'Film / Original'};
+  const detailCalls = [];
+  const opened = [];
+  const publicClient = {
+    fetchPublicGenreRecordings(request) {
+      publicCalls.push(request);
+      return Promise.resolve({recordings: [publicItem], total: 1, hasMore: false});
+    },
+    fetchClientGenreRecordings() { throw new Error('unexpected legacy membership'); },
+    fetchClientRecordingForPublicId(request) {
+      detailCalls.push(request);
+      return Promise.resolve({recording: nativeDetail});
+    }
+  };
+  publicHarness.window.VdrSuiteClientApi = publicClient;
+  publicHarness.window.VdrSuiteRecordings2.openRecording = (recording) => opened.push(recording);
+  assert.strictEqual(await publicApi.loadRandomGenre(publicClient, 'default', 0,
+    {id: 'drama', label: 'Drama', count: 1}), true);
+  publicHarness.scheduled.pop()();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.strictEqual(publicCalls.length, 1);
+  assert.strictEqual(publicCalls[0].limit, 12);
+  assert.strictEqual(publicCalls[0].backendId, 'default');
+  const publicSection = publicHarness.host.querySelector('[data-home-discovery-rail="random-genre"]');
+  assert.strictEqual(textNodes(publicSection, 'Film / Original').length, 1);
+  assert.strictEqual(textNodes(publicSection, 'Episode').length, 1);
+  assert.strictEqual(publicApi.recordingPosterUrl(publicItem),
+    '/api/v1/recordings/' + id + '/artwork/' + artworkId + '?backendId=default');
+  const publicCard = findElement(publicSection, el => el.dataset && el.dataset.recordingId === id);
+  assert(publicCard);
+  publicCard.listeners.click[0]();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.strictEqual(detailCalls.length, 1);
+  assert.strictEqual(detailCalls[0].recordingId, id);
+  assert.strictEqual(opened[0], nativeDetail);
 
   assert(source.includes('const RANDOM_GENRE_LIMIT = 12'));
   assert(source.includes('fetchBoundedRandomGenreRecordings'));
