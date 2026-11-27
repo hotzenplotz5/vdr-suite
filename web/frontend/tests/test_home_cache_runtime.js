@@ -169,19 +169,8 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert(mixedRoutes.accept(observe(genreRuntime,'/api/metadata/genres')));
   assert(!mixedRoutes.accept(observe(genreRuntime,'/api/v1/genres')));
   assert.equal(await mixedRoutes.finish(genreCards),false);
-  const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
-  failSecond=true;
-  const beforeDenied=requests.length;
-  await assert.rejects(window.VdrSuiteClientApi.fetchPublicRecordingGenres({
-    backendId:'alpha',onPage:page=>denied.accept(page)}),err=>err.status===403);
-  assert.equal(requests.length,beforeDenied+2,'no fallback after authorization failure');
-  denied.cancel();
-  failSecond=false; missingProof=true;
-  const incomplete=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
-  const online=await window.VdrSuiteClientApi.fetchPublicRecordingGenres({
-    backendId:'alpha',onPage:page=>incomplete.accept(page)});
-  assert.equal(online.genres.length,31,'missing optional cache proof does not block online data');
-  assert.equal(await incomplete.finish(genreCards),false);
+  // Independent cache write before the later denial tests deliberately
+  // invalidate and purge the shared installation session epoch.
   const movieRuntime=create();
   const movieTicket=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
   const movieRoute='/api/v1/recordings';
@@ -198,5 +187,18 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert(movieMixed.accept(observe(movieRuntime,movieRoute)));
   assert(!movieMixed.accept(observe(movieRuntime,pathA)));
   assert.equal(await movieMixed.finish(movieCards),false);
+  const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  failSecond=true;
+  const beforeDenied=requests.length;
+  await assert.rejects(window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>denied.accept(page)}),err=>err.status===403);
+  assert.equal(requests.length,beforeDenied+2,'no fallback after authorization failure');
+  denied.cancel();
+  failSecond=false; missingProof=true;
+  const incomplete=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  const online=await window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>incomplete.accept(page)});
+  assert.equal(online.genres.length,31,'missing optional cache proof does not block online data');
+  assert.equal(await incomplete.finish(genreCards),false);
   console.log('PWA.4/PWA.13 scoped Home preview and early headers contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});
