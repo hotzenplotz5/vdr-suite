@@ -64,3 +64,9 @@ provisioning must neither expose a playable URL nor leak a live tuner lease.
 
 Until steps 1–4 are evidenced, **do not merge for release or provide
 an installation-as-success claim**.
+
+The shared JavaScript reference client exposes `createLivePlaybackSession`,
+`getLivePlaybackSession` and `stopLivePlaybackSession` over these exact
+routes. Callers provide their measured capabilities and keep ownership of
+player lifecycle, STOP-before-CREATE switching and credential transport.
+No alternate playback implementation or real-TV acceptance is implied.

@@ -19,6 +19,8 @@ const requests = [];
 let revision = 3;
 let positionSeconds = 90;
 let activeSession = false;
+let activeLiveSession = false;
+const liveCapabilities = {...capabilities,protocols:['progressive'],containers:['fmp4']};
 const result = (status, body) => ({
   ok: status >= 200 && status < 300,
   status, text: async () => JSON.stringify(body)
@@ -104,6 +106,45 @@ const client = createClient({
         items: [{recordingId, positionSeconds, durationSeconds: 3600,
           resumeSupport: 'profile_dependent'}]});
     }
+    if (path.endsWith('/recently-watched') && init.method === 'GET') {
+      assert.strictEqual(requestUrl.searchParams.get('backendId'),'default');
+      return result(200,{backendId:'default',limit:100,items:[{recordingId,positionSeconds}]});
+    }
+    if (path.endsWith('/trickplay') && init.method === 'GET') {
+      assert.strictEqual(activeSession,true);
+      assert.strictEqual(requestUrl.searchParams.get('seconds'),'153');
+      assert.strictEqual(init.headers.Accept,'image/jpeg');
+      return {...result(200,{}),headers:{get(name){return name === 'Content-Type' ?
+        'image/jpeg' : name === 'X-Trickplay-Sample-Seconds' ? '150' : null;}},
+        arrayBuffer:async()=>Uint8Array.from([255,216,255]).buffer};
+    }
+    if (path.endsWith('/subtitles') && init.method === 'POST') {
+      assert.strictEqual(activeSession,true);
+      const body=JSON.parse(init.body);
+      assert.deepStrictEqual(body,{operation:'select-subtitle-track',backendId:'default',
+        sessionId,subtitleTrackId:body.subtitleTrackId,streamBasePositionSeconds:90});
+      if (body.subtitleTrackId==='off')
+        return {...result(200,{subtitleTrackId:'off'}),headers:{get(){return 'application/json';}}};
+      assert.strictEqual(body.subtitleTrackId,'subtitle-1');
+      return {ok:true,status:200,headers:{get(){return 'text/vtt; charset=utf-8';}},
+        text:async()=> 'WEBVTT\n\n'};
+    }
+    if (path === '/api/v1/live-playback-sessions' && init.method === 'POST') {
+      assert.strictEqual(activeLiveSession,false);
+      assert.deepStrictEqual(JSON.parse(init.body),{resourceKind:'live-channel',
+        backendId:'default',channelId:'S19.2E-1-1019-10301',capabilities:liveCapabilities});
+      activeLiveSession=true;
+      return result(201,{mediaSession:{id:sessionId,state:'ready'}});
+    }
+    if (path === '/api/v1/live-playback-sessions/' + sessionId && init.method === 'GET') {
+      assert.strictEqual(activeLiveSession,true);
+      return result(200,{mediaSession:{id:sessionId,state:'ready'}});
+    }
+    if (path === '/api/v1/live-playback-sessions/' + sessionId + '/stop' && init.method === 'POST') {
+      assert.deepStrictEqual(JSON.parse(init.body),{operation:'stop',resourceKind:'live-channel',backendId:'default',sessionId});
+      activeLiveSession=false;
+      return result(200,{stopped:true});
+    }
     if (path.endsWith('/stop') && init.method === 'POST') {
       assert.strictEqual(path,
         '/api/v1/recording-playback-sessions/' + sessionId + '/stop');
@@ -155,9 +196,23 @@ const client = createClient({
   assert.strictEqual(rail.items[0].recordingId, recordingId);
   assert.strictEqual(rail.items[0].positionSeconds, 150);
 
+  const history = await client.getRecentlyWatched({backendId:'default'});
+  assert.strictEqual(history.items[0].recordingId,recordingId);
+  const thumb = await client.getRecordingTrickplay({sessionId,seconds:153});
+  assert.strictEqual(thumb.sampleSeconds,150);
+  assert.strictEqual(thumb.bytes.byteLength,3);
+  const sub = {sessionId,backendId:'default',streamBasePositionSeconds:90};
+  assert.strictEqual((await client.selectRecordingSubtitle({...sub,subtitleTrackId:'subtitle-1'})).text,'WEBVTT\n\n');
+  assert.strictEqual((await client.selectRecordingSubtitle({...sub,subtitleTrackId:'off'})).data.subtitleTrackId,'off');
   await client.stopRecordingPlaybackSession({sessionId, backendId:'default'});
   assert.strictEqual(activeSession, false);
-  assert.strictEqual(requests.length, 9);
+  const live = await client.createLivePlaybackSession({backendId:'default',
+    channelId:'S19.2E-1-1019-10301',capabilities:liveCapabilities});
+  assert.strictEqual(live.mediaSession.id,sessionId);
+  assert.strictEqual((await client.getLivePlaybackSession({sessionId})).mediaSession.state,'ready');
+  await client.stopLivePlaybackSession({sessionId,backendId:'default'});
+  assert.strictEqual(activeLiveSession,false);
+  assert.strictEqual(requests.length, 16);
   assert.strictEqual(requests.filter(r =>
     r.method === 'POST' && new URL(r.url).pathname ===
       '/api/v1/recording-playback-sessions').length, 1,

@@ -2122,6 +2122,100 @@
       }));
     }
 
+    function playbackBackend(input) {
+      return f3CanonicalId(input.backendId, 'Playback backendId', 128);
+    }
+
+    function playbackPost(path, body, input, accept) {
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: accept || 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(function (response) {
+        if (!response.ok) {
+          return parseJsonBody(response).then(function (data) {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          });
+        }
+        return response;
+      });
+    }
+
+    function liveSessionCreate(input) {
+      const backendId = playbackBackend(input);
+      if (typeof input.channelId !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(input.channelId) ||
+          !input.capabilities || typeof input.capabilities !== 'object' ||
+          Array.isArray(input.capabilities))
+        throw new Error('Live playback requires exact channel and explicit capabilities');
+      if (input.replacesSessionId !== undefined)
+        throw new Error('Device live session switching uses STOP then CREATE');
+      return playbackPost('/api/v1/live-playback-sessions', {
+        resourceKind:'live-channel', backendId, channelId:input.channelId,
+        capabilities:input.capabilities
+      }, input).then(parseJsonBody);
+    }
+
+    function liveSessionStop(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      return playbackPost('/api/v1/live-playback-sessions/' + sessionId + '/stop', {
+        operation:'stop', resourceKind:'live-channel', backendId:playbackBackend(input), sessionId
+      }, input).then(parseJsonBody);
+    }
+
+    function recordingTrickplay(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      if (!Number.isInteger(input.seconds) || input.seconds < 0 || input.seconds > 43199)
+        throw new Error('Trickplay seconds must be an integer from 0 to 43199');
+      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/trickplay?seconds=' + input.seconds;
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method:'GET', headers:Object.assign({Accept:'image/jpeg'},defaultHeaders,copyHeaders(input.headers)),
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        cache:'no-store',signal:input.signal
+      }).then(function (response) {
+        if (!response.ok)
+          return parseJsonBody(response).then(data => {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          });
+        const contentType = headerValue(response,'Content-Type');
+        const sample = headerValue(response,'X-Trickplay-Sample-Seconds');
+        if (contentType !== 'image/jpeg' || sample === null || !/^\d+$/.test(sample))
+          throw new Error('Invalid trickplay image response');
+        return response.arrayBuffer().then(bytes => ({
+          contentType, sampleSeconds:Number(sample), bytes
+        }));
+      });
+    }
+
+    function selectRecordingSubtitle(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      const backendId = playbackBackend(input);
+      if (typeof input.subtitleTrackId !== 'string' ||
+          !/^(off|subtitle-[1-9][0-9]*)$/.test(input.subtitleTrackId) ||
+          !Number.isInteger(input.streamBasePositionSeconds) ||
+          input.streamBasePositionSeconds < 0 || input.streamBasePositionSeconds > 2147483647)
+        throw new Error('Subtitle selection requires a canonical track and stream base');
+      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/subtitles';
+      return playbackPost(path, {
+        operation:'select-subtitle-track',backendId,sessionId,
+        subtitleTrackId:input.subtitleTrackId,
+        streamBasePositionSeconds:input.streamBasePositionSeconds
+      }, input, 'text/vtt, application/json').then(function(response) {
+        const contentType = headerValue(response,'Content-Type');
+        if (input.subtitleTrackId === 'off' && contentType &&
+            contentType.split(';')[0].trim() === 'application/json')
+          return parseJsonBody(response).then(data => ({contentType,data}));
+        if (input.subtitleTrackId !== 'off' && contentType &&
+            contentType.split(';')[0].trim() === 'text/vtt')
+          return response.text().then(text => {
+            if (!text.startsWith('WEBVTT')) throw new Error('Invalid WebVTT response');
+            return {contentType,text};
+          });
+        throw new Error('Unexpected subtitle Content-Type');
+      });
+    }
+
     function recordingProgressIdentity(input) {
       if (!input || typeof input !== 'object' ||
           typeof input.backendId !== 'string' ||
@@ -2133,12 +2227,12 @@
       return {backendId: input.backendId, recordingId: input.recordingId};
     }
 
-    function listDeviceContinueWatching(input) {
+    function listDevicePlaybackHistory(input, resource) {
       if (!input || typeof input.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
           input.backendId === '.' || input.backendId === '..')
         throw new Error('Continue Watching requires exact backendId');
-      return request('/api/v1/recording-playback-sessions/continue-watching?backendId=' +
+      return request('/api/v1/recording-playback-sessions/' + resource + '?backendId=' +
         encodeURIComponent(input.backendId), input);
     }
 
@@ -2490,7 +2584,25 @@
         return deviceSessionStop(options);
       },
       getContinueWatching(options) {
-        return listDeviceContinueWatching(options);
+        return listDevicePlaybackHistory(options, 'continue-watching');
+      },
+      getRecentlyWatched(options) {
+        return listDevicePlaybackHistory(options, 'recently-watched');
+      },
+      createLivePlaybackSession(options) {
+        return liveSessionCreate(options);
+      },
+      getLivePlaybackSession(options) {
+        return request('/api/v1/live-playback-sessions/' + recordingPlaybackSessionId(options), options);
+      },
+      stopLivePlaybackSession(options) {
+        return liveSessionStop(options);
+      },
+      getRecordingTrickplay(options) {
+        return recordingTrickplay(options);
+      },
+      selectRecordingSubtitle(options) {
+        return selectRecordingSubtitle(options);
       },
       getRecordingProgress(options) {
         return readRecordingProgress(options);
