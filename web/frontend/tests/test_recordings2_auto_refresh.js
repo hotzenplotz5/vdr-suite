@@ -229,21 +229,30 @@ async function run() {
   assert.strictEqual(requests.length, 1);
   assert.strictEqual(requests[0].options.cache, 'no-store');
   await h.respond(0, root);
-  assert.strictEqual(h.timers.size, 1);
+  assert.strictEqual(h.timers.size, 0);
   const initialRenders = renders.length;
+  let sequence = 0;
+  async function hint() {
+    h.sources.at(-1).emit(++sequence, h.owner().getState().backendId, ['recordings']);
+    await h.advance(0);
+  }
+  // A healthy idle view does not poll, even over many former intervals.
+  await h.advance(90000);
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(h.timers.size, 0);
 
   // An unchanged folder is not rebuilt or made to flash a loading screen.
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests.length, 2);
   await h.respond(1, root);
   assert.strictEqual(renders.length, initialRenders);
 
-  // A native cut arriving in the canonical cache appears without manual refresh.
-  await h.advance(30000);
+  // A committed native cut SSE hint appears without manual refresh.
+  await hint();
   await h.respond(2, updated);
   assert.strictEqual(h.owner().getState().data.folders[0].path, '%Brisant');
   assert.strictEqual(renders.at(-1), 'folder');
-  assert.strictEqual(h.timers.size, 1);
+  assert.strictEqual(h.timers.size, 0);
 
   // An already-active owner checks immediately on reactivation.
   api.activate();
@@ -256,7 +265,7 @@ async function run() {
   await h.respond(4, h.page('%Brisant', [edited, original], [], 3));
   h.owner().loadMore();
   await h.respond(5, h.page('%Brisant', [{id: '1003', title: 'Extra'}], [], 3));
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests[6].options.query.limit, 3);
   await h.respond(6, h.page('%Brisant', [edited, original, {id: '1003'}], [], 3));
   assert.strictEqual(h.owner().getState().serverRecordings.length, 3);
@@ -274,7 +283,7 @@ async function run() {
   await h.respond(7, h.page('%Brisant', [edited], [], 1));
 
   // A request from an old folder must never overwrite a newer navigation.
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests.length, 9);
   h.owner().openFolder('Brisant');
   assert.strictEqual(requests.length, 10);
@@ -282,8 +291,9 @@ async function run() {
   await h.respond(8, h.page('%Brisant', [edited]));
   assert.strictEqual(h.owner().getState().path, 'Brisant');
 
-  // Hidden tabs do not poll; visibility restoration checks the current folder.
+  // Hidden tabs retain hints; visibility restoration checks the current folder.
   h.document.hidden = true;
+  await hint();
   await h.advance(30000);
   assert.strictEqual(requests.length, 10);
   h.document.hidden = false;
@@ -291,19 +301,21 @@ async function run() {
   await h.advance(0);
   await h.respond(10, h.page('Brisant', [original]));
 
-  // Failed background requests keep the usable view and are retried.
-  await h.advance(30000);
+  // Failed background requests keep the usable view; the next committed hint retries.
+  await hint();
   const beforeFailure = renders.length;
   requests[11].pending.reject(new Error('temporary outage'));
   await flush();
   assert.strictEqual(renders.length, beforeFailure);
   assert.strictEqual(h.owner().getState().error, null);
-  await h.advance(30000);
+  await h.advance(90000);
+  assert.strictEqual(requests.length, 12, 'failed read must not start a retry poll');
+  await hint();
   h.failNextLeaves();
   await h.respond(12, h.page('Brisant', [original, edited]));
   assert.strictEqual(h.owner().getState().serverSignature, '');
   assert.strictEqual(renders.at(-1), 'folder');
-  await h.advance(30000);
+  await hint();
   await h.respond(13, h.page('Brisant', [original, edited]));
   assert.notStrictEqual(h.owner().getState().serverSignature, '');
 

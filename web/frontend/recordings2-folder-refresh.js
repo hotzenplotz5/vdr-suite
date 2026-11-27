@@ -1,7 +1,6 @@
 // Canonical recording-folder reads, projection and background refresh lifecycle.
 (function (global) {
   'use strict';
-  const INTERVAL_MS = 30000;
 
   function create(options) {
     const state = options.getState;
@@ -168,11 +167,16 @@
       cancelTimer();
       if (!state().active) return;
       subscribe();
-      if (state().selectedRecording) return;
+      // Only a committed SSE hint or an explicit lifecycle read (opening
+      // an existing view, closing detail, visibility restoration) schedules
+      // work. An idle folder never creates a periodic request.
+      if (delay !== undefined) pending = true;
+      if (!pending || busy || state().loading || state().loadingMore ||
+          state().selectedRecording || (global.document && global.document.hidden)) return;
       timer = global.setTimeout(function () {
         timer = null;
         refresh();
-      }, delay === undefined ? (pending ? 0 : INTERVAL_MS) : delay);
+      }, 0);
     }
 
     function refresh() {
@@ -180,7 +184,7 @@
       if (!currentState.active) return;
       if (busy || currentState.loading || currentState.loadingMore ||
           currentState.selectedRecording || (global.document && global.document.hidden)) {
-        schedule(INTERVAL_MS);
+        pending = true;
         return;
       }
       if (!currentState.data || currentState.error) {
@@ -216,7 +220,7 @@
           });
         })
         .catch(function (error) {
-          // Keep the usable folder and retry failed leaf enrichment on the next poll.
+          // Keep the usable folder; retry on the next SSE hint or explicit read.
           if (current() && applied) {
             state().serverSignature = '';
             options.render();
