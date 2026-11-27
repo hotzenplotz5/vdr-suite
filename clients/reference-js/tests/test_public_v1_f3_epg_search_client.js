@@ -172,6 +172,20 @@ async function run() {
   replies.push(response(200,{}));
   await assert.rejects(client.openDeviceEvents({query:{backendId:'home-vdr',domain:'continueWatching'}}),
     /Incremental event stream unavailable/);
+  const savedId='st_'+'a'.repeat(32);
+  replies.push(response(200,{items:[]}));
+  await client.previewSavedSearchTimer({backendId:'home-vdr',searchTimerId:savedId,limit:5});
+  assert.equal(calls.at(-1).url,base+'/api/v1/search-timers/'+savedId+'/preview?backend=home-vdr&limit=5');
+  const eventTag='"epg1:sha256:'+'a'.repeat(64)+'"';
+  replies.push({...response(202,{operationId:'op_example'}),
+    headers:{get(name){return name.toLowerCase()==='location'?'/api/v1/operations/op_example':null;}}});
+  const intent=await client.submitEpgTimerIntent({payload:eventQuery,ifMatch:eventTag,idempotencyKey:'epg-once'});
+  assert.equal(intent.status,202);
+  assert.equal(intent.location,'/api/v1/operations/op_example');
+  assert.equal(calls.at(-1).options.headers['If-Match'],eventTag);
+  assert.equal(calls.at(-1).options.headers['Idempotency-Key'],'epg-once');
+  assert.equal(calls.at(-1).options.method,'POST');
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body),eventQuery);
   const beforeInvalid=calls.length;
   for(const invalid of [
     () => client.openDeviceEvents({query:{backendId:'home-vdr',domain:'all'}}),
@@ -205,7 +219,7 @@ async function run() {
   assert.equal(calls.length,beforeInvalid+1);
   assert.equal(replies.length,0);
   for(const call of calls) {
-    assert.equal(call.options.method,'GET');
+    assert.equal(call.options.method,call.url.endsWith('/epg/timer-intents')?'POST':'GET');
     assert.equal(call.options.headers.Authorization,credential);
     assert.equal(call.url.includes('/api/vdr/'),false);
     assert.equal(call.url.includes('/api/epg/search'),false);

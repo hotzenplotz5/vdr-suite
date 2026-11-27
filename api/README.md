@@ -30,7 +30,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file now specifies **79 documented HTTP method/resource contracts** across **62 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The current integration candidate specifies **100 documented HTTP method/resource contracts** across **82 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 F2 introduced five source-grounded authentication transport schemes for the original 75 operations; F6 has added four more Recording-editing operations using those same schemes. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.
 
@@ -143,3 +143,15 @@ and `/api/vdr/recordings/cut` routes do not automatically
 become public-v1 contracts. See
 [F6 integration and authorization](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
 and [ADR-0059](../docs/adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md).
+
+### Current F2–F8 integration candidate: reference transport coverage
+
+The shared JS reference client includes the EPG event/genre reads, both existing
+SSE streams, Device Live-TV start/read/stop, Recently Watched, trickplay and
+subtitle delivery, saved SearchTimer preview, EPG TimerIntent admission and
+Recording action/metadata operations already described by the public contract.
+Recording action validation returns its exact ETag, while EPG admission returns
+HTTP status and Operation Location; neither is a native-success assertion.
+No new runtime grant or private-route fallback was added. The OpenAPI remains
+partial until the remaining public route inventory (including Add-on and media
+transport contracts) has been source-audited; real VDR acceptance remains F8.

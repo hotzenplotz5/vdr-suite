@@ -923,6 +923,72 @@
     }
 
 
+    // Common transport for documented Public-v1 POST resources. The server
+    // remains the DTO/permission authority; callers own CSRF and preconditions.
+    function requestPublicJsonPost(path, input, body, extraHeaders) {
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders, copyHeaders(input.headers));
+      const controlled = Object.assign({'Content-Type':'application/json'}, extraHeaders || {});
+      Object.keys(headers).forEach(name => {
+        if (Object.keys(controlled).some(key => key.toLowerCase() === name.toLowerCase()))
+          delete headers[name];
+      });
+      Object.assign(headers, controlled);
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST',headers,cache:'no-store',
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal:input.signal,body:JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path,response.status,data,response);
+        return {status:response.status,etag:headerValue(response,'ETag'),
+          location:headerValue(response,'Location'),data};
+      }));
+    }
+
+    function submitEpgTimer(input) {
+      const p = input.payload;
+      // Same identity grammar as EPG event GET; no legacy event ID guessing.
+      f3EpgEventQuery(p);
+      if (typeof input.ifMatch !== 'string' || !/^"epg1:sha256:[0-9a-f]{64}"$/.test(input.ifMatch) ||
+          typeof input.idempotencyKey !== 'string' || !/^[!-~]{1,160}$/.test(input.idempotencyKey))
+        throw new Error('EPG TimerIntent requires event ETag and caller-owned Idempotency-Key');
+      return requestPublicJsonPost('/api/v1/epg/timer-intents',input,p,
+        {'If-Match':input.ifMatch,'Idempotency-Key':input.idempotencyKey});
+    }
+
+    function recordingAction(input, execute) {
+      const p = input.payload;
+      recordingProgressIdentity(p);
+      if (!['RENAME','MOVE','DELETE'].includes(p.action))
+        throw new Error('Invalid public Recording action');
+      const headers = {};
+      if (input.ifMatch !== undefined) headers['If-Match'] = input.ifMatch;
+      return requestPublicJsonPost('/api/v1/recordings/actions/' +
+        (execute ? 'execute' : 'validate'),input,p,headers);
+    }
+
+    function recordingMetadataPath(input, operation) {
+      return mediaImportPath(input,'recordings/metadata/' + operation);
+    }
+
+    function readRecordingMetadata(input, operation) {
+      const identity = recordingProgressIdentity(input);
+      return request(recordingMetadataPath(input,operation) +
+        '?recordingId=' + identity.recordingId,input);
+    }
+
+    function postRecordingMetadata(input, operation, recordingScoped) {
+      const body = input.payload;
+      if (!body || typeof body !== 'object' || Array.isArray(body))
+        throw new Error('Metadata payload must be an object');
+      if (recordingScoped && (typeof body.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(body.recordingId)))
+        throw new Error('Metadata mutation requires canonical rec_ ID');
+      return requestPublicJsonPost(recordingMetadataPath(input,operation),input,body)
+        .then(result => result.data);
+    }
+
     function requestRecordingEditMutation(options, suffix) {
       const o = options && typeof options === 'object' ? options : {};
       const path = f6RecordingEditPath(o, suffix);
@@ -2622,6 +2688,36 @@
         );
       },
 
+      validateRecordingAction(options) {
+        return recordingAction(options,false);
+      },
+      executeRecordingAction(options) {
+        return recordingAction(options,true);
+      },
+      searchRecordingMetadata(options) {
+        return postRecordingMetadata(options,'search',false);
+      },
+      getRecordingMetadataSeasons(options) {
+        return postRecordingMetadata(options,'seasons',false);
+      },
+      getRecordingMetadataEpisodes(options) {
+        return postRecordingMetadata(options,'episodes',false);
+      },
+      assignRecordingMetadata(options) {
+        return postRecordingMetadata(options,'assign',true);
+      },
+      withdrawRecordingMetadata(options) {
+        return postRecordingMetadata(options,'withdraw',true);
+      },
+      getRecordingMetadataTrailer(options) {
+        return readRecordingMetadata(options,'trailer');
+      },
+      getRecordingMetadataGenre(options) {
+        return readRecordingMetadata(options,'genre');
+      },
+      setRecordingMetadataGenre(options) {
+        return postRecordingMetadata(options,'genre',true);
+      },
       getRecordingDetail(options) {
         const o = options && typeof options === 'object' ? options : {};
         return request(f4RecordingDetailPath(o), o);
@@ -2713,6 +2809,16 @@
           normalizedOptions
         );
       },
+      previewSavedSearchTimer(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const detail = searchTimerDetailPath(input);
+        const queryStart = detail.indexOf('?');
+        const limit = input.limit;
+        if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 30))
+          throw new Error('SearchTimer preview limit must be 1..30');
+        return request(detail.slice(0,queryStart) + '/preview' +
+          detail.slice(queryStart) + (limit === undefined ? '' : '&limit=' + limit),input);
+      },
       previewSearchTimerDraft(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(
@@ -2798,6 +2904,9 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      submitEpgTimerIntent(options) {
+        return submitEpgTimer(options);
       },
       submitManualTimerIntent(options) {
         return submitManualTimerIntent(options);

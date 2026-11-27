@@ -91,6 +91,35 @@ async function run() {
   const noArtwork=await client.getRecordingArtwork({backendId:'home',recordingId:REC});
   assert.deepEqual(noArtwork.items,[]);
 
+  const action={backendId:'home',recordingId:REC,action:'RENAME',newName:'Test',dryRun:false};
+  const actionTag='"recording-action-test"';
+  replies.push({...reply(200,{valid:true}),headers:{get(name){return name.toLowerCase()==='etag'?actionTag:null;}}});
+  const validation=await client.validateRecordingAction({payload:action});
+  assert.equal(validation.etag,actionTag);
+  assert.equal(calls.at(-1).url,'https://suite.example/api/v1/recordings/actions/validate');
+  replies.push(reply(200,{executed:true}));
+  const execute=await client.executeRecordingAction({payload:action,ifMatch:validation.etag});
+  assert.equal(execute.data.executed,true);
+  assert.equal(calls.at(-1).options.headers['If-Match'],actionTag);
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body),action);
+  for(const [method,operation,payload] of [
+    ['searchRecordingMetadata','search',{query:'Hobbit',kind:'movie'}],
+    ['getRecordingMetadataSeasons','seasons',{seriesExternalId:'1'}],
+    ['getRecordingMetadataEpisodes','episodes',{seriesExternalId:'1',seasonNumber:1}],
+    ['assignRecordingMetadata','assign',{recordingId:REC,providerId:'tmdb',externalNamespace:'tmdb',externalId:'1',mediaType:'movie',title:'Hobbit',expectedRevision:0}],
+    ['withdrawRecordingMetadata','withdraw',{recordingId:REC,expectedRevision:1}],
+    ['setRecordingMetadataGenre','genre',{recordingId:REC,genreId:''}]
+  ]) {
+    replies.push(reply(200,{ok:true}));
+    assert.equal((await client[method]({backendId:'home',payload})).ok,true);
+    assert.equal(calls.at(-1).url,'https://suite.example/api/v1/backends/home/recordings/metadata/'+operation);
+    assert.deepEqual(JSON.parse(calls.at(-1).options.body),payload);
+  }
+  for(const [method,operation] of [['getRecordingMetadataTrailer','trailer'],['getRecordingMetadataGenre','genre']]) {
+    replies.push(reply(200,{available:false}));
+    await client[method]({backendId:'home',recordingId:REC});
+    assert.equal(calls.at(-1).url,'https://suite.example/api/v1/backends/home/recordings/metadata/'+operation+'?recordingId='+REC);
+  }
   const invalid=[
     ()=>client.getRecordingDetail({backendId:'home',recordingId:'../file'}),
     ()=>client.getRecordingDetail({backendId:'../home',recordingId:REC}),
