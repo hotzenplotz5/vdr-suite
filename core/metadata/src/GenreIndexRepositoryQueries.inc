@@ -266,7 +266,7 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
         "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?" +
         effectiveRecordingGenrePredicate +
-        "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title LIMIT ? OFFSET ?;";
+        "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title,c.cache_key LIMIT ? OFFSET ?;";
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) return page;
     bindText(statement, 1, page.backendId);
@@ -493,6 +493,7 @@ void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPa
                 item.cardArtworkWidth = 0;
                 item.cardArtworkHeight = 0;
                 item.seriesManualRevision = sqlite3_column_int(manual, 6);
+                item.manualCardPosterReference = poster;
             }
         }
     }

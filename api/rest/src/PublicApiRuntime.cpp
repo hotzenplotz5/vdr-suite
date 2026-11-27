@@ -5272,6 +5272,16 @@ ApiResponse publicGenreCollectionResponse(
             if (!item.preferredArtworkId.empty())
                 body += ",\"preferredArtworkId\":\"" + item.preferredArtworkId + "\"";
             appendPublicRecordingCard(body, item);
+            if (!item.seriesCoverGroupKeys.empty())
+            {
+                body += ",\"seriesCoverGroupKeys\":[";
+                for (std::size_t i = 0; i < item.seriesCoverGroupKeys.size(); ++i)
+                {
+                    if (i) body += ",";
+                    body += "\"" + jsonEscape(item.seriesCoverGroupKeys[i]) + "\"";
+                }
+                body += "]";
+            }
             body += "}";
         }
     }

@@ -100,6 +100,7 @@ struct GenreRecordingItem
     int cardArtworkWidth = 0;
     int cardArtworkHeight = 0;
     int seriesManualRevision = 0;
+    std::string manualCardPosterReference = {};
     // Presentation-only Series hierarchy override. Native season/episode
     // metadata remains untouched and continues to be the fallback owner.
     bool seriesHierarchyOverrideAvailable = false;

@@ -116,62 +116,74 @@ std::optional<VdrRecordingArtworkRef> publicManualRecordingPoster(
     return poster;
 }
 
-// Compact card projection reused by the public Home and folder reads.
-// Identity/artwork are resolved from already selected cache evidence.
+// All public recording cards share the cached genre/native presentation
+// and the artwork identity accepted by the existing bytes endpoint.
+void projectPublicGenreRecordingCard(const std::string& backendId,
+    const VdrRecording& recording, const GenreRecordingItem& summary,
+    bool manualSelected, const std::string& manualPoster, int manualRevision,
+    PublicGenreRecordingItem& card)
+{
+    const auto seed = GenreBrowserApiRuntime::projectRecordingCard(summary, card);
+    if (!seed.empty())
+    {
+        card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(backendId, seed);
+        card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
+            backendId, recording);
+        const auto addCoverKey = [&](const std::string& legacy) {
+            const auto key = PublicSeriesGroupKey::fromLegacy(backendId, legacy);
+            if (!key.empty() && std::find(card.seriesCoverGroupKeys.begin(),
+                card.seriesCoverGroupKeys.end(), key) == card.seriesCoverGroupKeys.end())
+                card.seriesCoverGroupKeys.push_back(key);
+        };
+        const auto& providerId = recording.metadata.provider.seriesId;
+        if (!providerId.empty()) addCoverKey("provider:" + providerId);
+        addCoverKey(seed);
+        if (!summary.seriesProvider.empty() && summary.seriesProviderId != 0)
+            addCoverKey("native:" + summary.seriesProvider + ":" + std::to_string(summary.seriesProviderId));
+    }
+    card.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+        recording, manualPoster, 0, 0, manualSelected, manualRevision);
+    if (!manualSelected && !summary.cardArtworkPath.empty())
+        card.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
+            recording, summary.cardArtworkPath, summary.cardArtworkWidth,
+            summary.cardArtworkHeight, summary.seriesArtworkIndex);
+}
+
 void projectPublicRecordingCard(const std::string& backendId,
     const VdrRecording& recording, const ManualRecordingMetadataAssignment& manual,
     const GenreRecordingPage& cardPage, PublicRecordingCollectionItem& entry)
 {
-            entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
-                recording, manual.posterReference, 0, 0,
-                manual.found && manual.relationshipLocked, manual.revision);
-            const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
-                [&](const auto& value) { return value.backendNativeId == recording.backendNativeId; });
-            if (summary != cardPage.recordings.end())
-            {
-                PublicGenreRecordingItem card;
-                const auto seed = GenreBrowserApiRuntime::projectRecordingCard(*summary, card);
-                if (!seed.empty())
-                {
-                    card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(backendId, seed);
-                    card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
-                        backendId, recording);
-                    const auto addCoverKey = [&](const std::string& legacy) {
-                        const auto key = PublicSeriesGroupKey::fromLegacy(backendId, legacy);
-                        if (!key.empty() && std::find(entry.seriesCoverGroupKeys.begin(),
-                            entry.seriesCoverGroupKeys.end(), key) == entry.seriesCoverGroupKeys.end())
-                            entry.seriesCoverGroupKeys.push_back(key);
-                    };
-                    const auto& providerId = recording.metadata.provider.seriesId;
-                    if (!providerId.empty()) addCoverKey("provider:" + providerId);
-                    addCoverKey(seed);
-                    if (!summary->seriesProvider.empty() && summary->seriesProviderId != 0)
-                        addCoverKey("native:" + summary->seriesProvider + ":" + std::to_string(summary->seriesProviderId));
-                }
-                if (!(manual.found && manual.relationshipLocked) && !summary->cardArtworkPath.empty())
-                {
-                    entry.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
-                        recording, summary->cardArtworkPath, summary->cardArtworkWidth,
-                        summary->cardArtworkHeight, summary->seriesArtworkIndex);
-                }
-                entry.card.cardTitle = std::move(card.cardTitle);
-                entry.card.cardMediaType = std::move(card.cardMediaType);
-                entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
-                entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
-                entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
-                entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
-                entry.card.episodeName = std::move(card.episodeName);
-                entry.card.seasonNumber = std::move(card.seasonNumber);
-                entry.card.episodeNumber = std::move(card.episodeNumber);
-                entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
-                entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
-                entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
-                entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
-                entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
-                entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
-                entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
-                entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
-            }
+    const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
+        [&](const auto& value) { return value.backendNativeId == recording.backendNativeId; });
+    if (summary == cardPage.recordings.end())
+    {
+        entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+            recording, manual.posterReference, 0, 0,
+            manual.found && manual.relationshipLocked, manual.revision);
+        return;
+    }
+    PublicGenreRecordingItem card;
+    projectPublicGenreRecordingCard(backendId, recording, *summary,
+        manual.found && manual.relationshipLocked, manual.posterReference, manual.revision, card);
+    entry.preferredArtworkId = std::move(card.preferredArtworkId);
+    entry.seriesCoverGroupKeys = std::move(card.seriesCoverGroupKeys);
+    entry.card.cardTitle = std::move(card.cardTitle);
+    entry.card.cardMediaType = std::move(card.cardMediaType);
+    entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
+    entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
+    entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
+    entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
+    entry.card.episodeName = std::move(card.episodeName);
+    entry.card.seasonNumber = std::move(card.seasonNumber);
+    entry.card.episodeNumber = std::move(card.episodeNumber);
+    entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
+    entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
+    entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
+    entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
+    entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
+    entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
+    entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
+    entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
 }
 
 bool searchCasReplayMatches(
@@ -3967,7 +3979,7 @@ bool DaemonRuntime::initialize()
                         found.backendId != request.backendId ||
                         found.backendNativeId != item.backendNativeId ||
                         found.title.empty() ||
-                        found.durationSeconds < 0)
+                        (found.durationSeconds < 0 && found.recordingDurationKnown))
                         return PublicGenreCollectionResult{};
                     const auto publicId =
                         publicRecordingIdentities_->resolveOrCreate(
@@ -3982,41 +3994,15 @@ bool DaemonRuntime::initialize()
                     view.title = display.title;
                     view.edited = display.edited;
                     view.recordedAt = found.startTime;
-                    view.durationSeconds = found.durationSeconds;
-                    view.durationKnown = found.recordingDurationKnown;
-                    const auto seriesSeed =
-                        GenreBrowserApiRuntime::projectRecordingCard(item, view);
-                    if (!seriesSeed.empty())
-                    {
-                        view.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(
-                            request.backendId, seriesSeed);
-                        if (view.seriesGroupKey.empty())
-                            return PublicGenreCollectionResult{};
-                        view.seriesAncestorFolderIds =
-                            VdrRecordingCacheRepository::publicFolderAncestors(
-                                request.backendId, found);
-                    }
-                    // The image owner uses this same selected manual binding.
-                    // Reuse the already resolved recording; no image/list HTTP
-                    // request, provider fetch or image bytes in the page.
-                    const auto selected = metadataRepository_
-                        ? metadataRepository_->getManualRecordingMetadataReadOnly(
-                            request.backendId, found.backendNativeId)
-                        : ManualRecordingMetadataAssignment{};
-                    if (selected.found && selected.relationshipLocked &&
-                        selected.backendId == request.backendId)
-                    {
-                        const auto poster = publicManualRecordingPoster(selected);
-                        if (poster)
-                            view.preferredArtworkId =
-                                VdrRecordingArtworkIdentity::assetId(found, *poster);
-                    }
-                    else if (const auto* artwork =
-                        VdrRecordingArtworkIdentity::preferredArtwork(found))
-                    {
-                        view.preferredArtworkId =
-                            VdrRecordingArtworkIdentity::assetId(found, *artwork);
-                    }
+                    view.durationSeconds = std::max(0, found.durationSeconds);
+                    view.durationKnown = found.recordingDurationKnown && found.durationSeconds > 0;
+                    // The selected assignment and native poster are already
+                    // present in the same page-scoped Genre summary.
+                    projectPublicGenreRecordingCard(request.backendId, found, item,
+                        item.seriesManualRevision > 0, item.manualCardPosterReference,
+                        item.seriesManualRevision, view);
+                    if (!view.seriesGroupKey.empty() && view.seriesAncestorFolderIds.empty() &&
+                        found.backendNativeId.empty()) return PublicGenreCollectionResult{};
                     result.recordings.push_back(std::move(view));
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);

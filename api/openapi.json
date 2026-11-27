@@ -24049,6 +24049,7 @@
             "pattern": "^[0-9a-f]{32}$",
             "description": "Optional existing Artwork identity for the authenticated Recording image endpoint."
           },
+          "seriesCoverGroupKeys": {"type": "array", "items": {"type": "string", "pattern": "^sg1_[0-9a-f]{32}$"}, "description": "Aliases for previously persisted Series cover overrides."},
           "cardMetadata": {
             "$ref": "#/components/schemas/PublicRecordingCardMetadata"
           },

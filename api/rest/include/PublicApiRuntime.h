@@ -643,6 +643,7 @@ struct PublicGenreRecordingItem
     std::string cardTitle;
     std::string cardMediaType;
     std::string preferredArtworkId;
+    std::vector<std::string> seriesCoverGroupKeys = {};
     // Page-independent grouping evidence for the existing Series UI.
     std::string seriesGroupKey;
     std::string seriesFolderTitle;
