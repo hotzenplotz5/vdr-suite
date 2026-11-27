@@ -38,6 +38,18 @@ class OpenApiDriftTests(unittest.TestCase):
     def test_current_audited_contract_and_handlers(self):
         self.assertEqual([], self.errors_for())
 
+    def test_media_import_contract_and_idempotency(self):
+        path = "/api/v1/backends/{backendId}/media-imports"
+        changed = copy.deepcopy(self.document)
+        changed["paths"][path]["post"]["parameters"] = [
+            p for p in changed["paths"][path]["post"]["parameters"]
+            if p["name"] != "Idempotency-Key"
+        ]
+        self.assert_rejected(changed, reason="Idempotency-Key requirement drifted")
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
     def test_missing_path(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends"]

@@ -30,7 +30,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The current integration candidate specifies **100 documented HTTP method/resource contracts** across **82 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The current integration candidate specifies **105 documented HTTP method/resource contracts** across **86 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 F2 introduced five source-grounded authentication transport schemes for the original 75 operations; F6 has added four more Recording-editing operations using those same schemes. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.
 
@@ -91,6 +91,15 @@ The [Credential/Session administration guide](account-security-administration.md
 ## Machine-readable Device Recording playback subset
 
 The [Device Recording playback contract](device-recording-playback.md) is now represented in this OpenAPI file by exactly **five** additional Device-owned routes: Session create/status/stop, track inventory and subtitle selection. The model includes nullable index-backed duration, scoped media cookie handling, Device-only `media.recording.play` ownership and either text/vtt or JSON subtitle-off success. It describes source-merged **post-Phase-69 R2**, not original Phase-69.F acceptance and not proof of installed Hisense/yaVDR picture/sound acceptance. The `/api/v1/media/sessions/...` media-byte gateway, decoder-specific playback outcomes and persistent resume-position APIs are **not** modeled here.
+
+## Media Tools — Media Import
+
+The five existing Media Import operations now describe capability discovery,
+opaque source catalog pagination, source inspection, recent operation recovery,
+and single/batch admission. The established `addons.media.import` grant,
+CSRF, durable Operation readback and SSE lifecycle remain unchanged. A 202
+admission is not a successful VDR import. Check, Shrink, add-on administration
+and media transport coverage remain to be audited; this is not F8 acceptance.
 
 ## What is implemented but not yet in this OpenAPI subset?
 

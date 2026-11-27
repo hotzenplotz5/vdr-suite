@@ -25,6 +25,19 @@ DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
 # This explicit inventory must be reviewed when already-audited routes move.
 AUDITED = {
+    "/api/v1/backends/{backendId}/capabilities/media-import": {
+        "get": "if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))",
+    },
+    "/api/v1/backends/{backendId}/media-import-sources": {
+        "get": "if (publicMediaImportSourcesPath(path, sourceBackendId))",
+    },
+    "/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview": {
+        "get": "if (publicMediaImportPreviewPath(path, previewBackendId, previewSourceId))",
+    },
+    "/api/v1/backends/{backendId}/media-imports": {
+        "get": "if (publicMediaImportCollectionPath(path, mediaImportBackend))",
+        "post": "if (publicMediaImportCollectionPath(path, mediaImportBackend))",
+    },
     "/api/v1": {"get": 'if (path == "/api/v1")'},
     "/api/v1/capabilities": {"get": 'if (path == "/api/v1/capabilities")'},
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
@@ -300,6 +313,7 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/backends/{backendId}/media-imports"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),

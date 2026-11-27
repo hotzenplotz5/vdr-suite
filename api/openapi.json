@@ -82,9 +82,1004 @@
     {
       "name": "Device Live playback",
       "description": "Verified Device MediaSession, revocable live tuning/streaming and owner-only status/stop"
+    },
+    {
+      "name": "Media Tools",
+      "description": "Existing backend-scoped media import and processing contracts"
     }
   ],
   "paths": {
+    "/api/v1/backends/{backendId}/capabilities/media-import": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaImportCapability",
+        "summary": "Read Media Import capability",
+        "description": "Source: PublicApiRuntime.cpp and SecurityHttpGate.h. No query parameters. Availability is advisory, not a mutation grant.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; capability lookup determines availability."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity from authenticated discovery.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current availability.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "capability": {
+                      "type": "string",
+                      "const": "addons.media.import"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "self"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "capability",
+                    "available",
+                    "links"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, body or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Backend not in authorized scope or resource not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required lookup, admission or permission resolution unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-import-sources": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "listPublicMediaImportSources",
+        "summary": "List opaque import sources",
+        "description": "Source: PublicApiRuntime.cpp and SecurityHttpGate.h. At most 32 entries per page, ordered by opaque source ID. Follow links.next exactly; the snapshot is actor/backend bound. On stale_scan restart the listing. meta.partial reports scanner completeness, independently of pagination; meta.stale may identify a previously loaded catalog. Labels and relative folders are advisory, not filesystem selection.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; existing Core lookup independently checks operation-specific authorization."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity from authenticated discovery.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from links.next.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 121
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source catalog page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string",
+                            "minLength": 16,
+                            "maxLength": 64,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "folder": {
+                            "type": "string"
+                          },
+                          "recordingStatus": {
+                            "type": "string",
+                            "enum": [
+                              "recording_present",
+                              "unverified"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "sourceId"
+                        ]
+                      },
+                      "maxItems": 32
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "partial": {
+                          "type": "boolean"
+                        },
+                        "stale": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "partial"
+                      ]
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        },
+                        "next": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "self"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "meta",
+                    "links"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, body or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing authorization or CSRF rejected the request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Backend not in authorized scope or resource not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Snapshot changed or operation conflicts; inspect the returned problem code.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required lookup, admission or permission resolution unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaImportPreview",
+        "summary": "Inspect one opaque import source",
+        "description": "Source: PublicApiRuntime.cpp and SecurityHttpGate.h. No query, refresh=1, or cached=1; refresh and cached are mutually exclusive. Pending is not completed inspection. Both responses are no-store.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; existing Core lookup independently checks operation-specific authorization."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity from authenticated discovery.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque source identity from the source catalog.",
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "description": "Request refreshed inspection.",
+            "schema": {
+              "type": "integer",
+              "const": 1
+            }
+          },
+          {
+            "name": "cached",
+            "in": "query",
+            "required": false,
+            "description": "Request cached inspection only.",
+            "schema": {
+              "type": "integer",
+              "const": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed inspection; status and failureCode describe the result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "sourceId": {
+                      "type": "string",
+                      "minLength": 16,
+                      "maxLength": 64,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "const": "ready"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "targetFolder": {
+                      "type": "string"
+                    },
+                    "videoCodec": {
+                      "type": "string"
+                    },
+                    "sourceBytes": {
+                      "type": "integer"
+                    },
+                    "availableBytes": {
+                      "type": "integer"
+                    },
+                    "requiredBytes": {
+                      "type": "integer"
+                    },
+                    "videoReencodeRequired": {
+                      "type": "boolean"
+                    },
+                    "failureCode": {
+                      "type": "string"
+                    },
+                    "nfoOutline": {
+                      "type": "string"
+                    },
+                    "nfoPlot": {
+                      "type": "string"
+                    },
+                    "nfoYear": {
+                      "type": "string"
+                    },
+                    "nfoGenre": {
+                      "type": "string"
+                    },
+                    "durationSeconds": {
+                      "type": "integer"
+                    },
+                    "posterDataUri": {
+                      "type": "string"
+                    },
+                    "fanartDataUri": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "sourceId",
+                    "state",
+                    "status",
+                    "title",
+                    "targetFolder",
+                    "videoCodec",
+                    "sourceBytes",
+                    "availableBytes",
+                    "requiredBytes",
+                    "videoReencodeRequired",
+                    "failureCode",
+                    "nfoOutline",
+                    "nfoPlot",
+                    "nfoYear",
+                    "nfoGenre",
+                    "durationSeconds",
+                    "posterDataUri",
+                    "fanartDataUri"
+                  ]
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Inspection pending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "sourceId": {
+                      "type": "string",
+                      "minLength": 16,
+                      "maxLength": 64,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "const": "pending"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "sourceId",
+                    "state"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, body or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing authorization or CSRF rejected the request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Backend not in authorized scope or resource not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required lookup, admission or permission resolution unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
+    "/api/v1/backends/{backendId}/media-imports": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "listPublicMediaImportOperations",
+        "summary": "Recover recent actor-owned import operations",
+        "description": "Source: PublicApiRuntime.cpp and SecurityHttpGate.h. No query parameters. Durable recent operation list, not a new job dispatcher. An absent title or batch identity is valid.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Authenticated actor with visible backend scope; existing Core lookup independently checks operation-specific authorization."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity from authenticated discovery.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent operations for this actor and backend.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "operationId": {
+                            "type": "string"
+                          },
+                          "backendId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "sourceId": {
+                            "type": "string",
+                            "minLength": 16,
+                            "maxLength": 64,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "videoDecision": {
+                            "type": "string"
+                          },
+                          "requestedAt": {
+                            "type": "integer"
+                          },
+                          "batchId": {
+                            "type": "string"
+                          },
+                          "batchIndex": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "operationId",
+                          "backendId",
+                          "sourceId",
+                          "state",
+                          "videoDecision",
+                          "requestedAt"
+                        ]
+                      }
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "self"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "links"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, body or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing authorization or CSRF rejected the request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Backend not in authorized scope or resource not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required lookup, admission or permission resolution unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      },
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "submitPublicMediaImport",
+        "summary": "Admit single or confirmed batch import",
+        "description": "Source: PublicApiRuntime.cpp and SecurityHttpGate.h. No query parameters. Existing parser requires the documented JSON field order. A single body is at most 4608 bytes; batch at most 460800 bytes. No automatic retry after an uncertain result. HTTP 202 confirms durable admission/replay, not a VDR recording or success. Use Operation readback and the existing event lifecycle.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing addons.media.import backend-scoped grant, canonical Core admission, browser CSRF when applicable; no new grant."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "description": "Backend identity from authenticated discovery.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Required valid public idempotency key; batch requires canonical mb1_ key.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted or replayed operation; batch includes all accepted operation identities.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/DurableOperation"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "batchId": {
+                          "type": "string"
+                        },
+                        "batchOperations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "sourceId": {
+                                "type": "string",
+                                "minLength": 16,
+                                "maxLength": 64,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "operationId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "sourceId",
+                              "operationId",
+                              "state"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Public Operation resource for the admitted operation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, body or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing authorization or CSRF rejected the request.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Backend not in authorized scope or resource not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Snapshot changed or operation conflicts; inspect the returned problem code.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type must be application/json.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid import selection.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required lookup, admission or permission resolution unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "minLength": 16,
+                        "maxLength": 64,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      },
+                      "videoDecision": {
+                        "type": "string",
+                        "enum": [
+                          "local",
+                          "desktop",
+                          "skip",
+                          "release",
+                          "duplicate",
+                          "delete_duplicate"
+                        ]
+                      },
+                      "metadata": {
+                        "type": "string",
+                        "minLength": 12,
+                        "maxLength": 4096,
+                        "description": "Existing immutable META6 selection (v1| with 6 separators or v2| with 9). Not an arbitrary path."
+                      }
+                    },
+                    "required": [
+                      "sourceId"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Wire order is sourceId, optional videoDecision, optional metadata. Metadata is allowed without a decision or with local only."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "batch": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sourceId": {
+                              "type": "string",
+                              "minLength": 16,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9_-]+$"
+                            },
+                            "metadata": {
+                              "type": "string",
+                              "minLength": 12,
+                              "maxLength": 4096,
+                              "description": "Existing immutable META6 selection (v1| with 6 separators or v2| with 9). Not an arbitrary path."
+                            }
+                          },
+                          "required": [
+                            "sourceId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 2,
+                        "maxItems": 100
+                      }
+                    },
+                    "required": [
+                      "batch"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Each item has sourceId first, then optional metadata. Direct imports only; batch key must be canonical mb1_ plus 32 characters."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backends/{backendId}/recordings/metadata/search": {
       "post": {
         "tags": [
