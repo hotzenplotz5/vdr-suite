@@ -260,6 +260,9 @@ RECORDING_METADATA_AUDITED = {
 RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/trailer"] = {
     "get": 'const auto identity = trailerLookup(route.backendId, native);',
 }
+RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/manual"] = {
+    "get": "metadata->getPublicManualRecordingMetadata(route.backendId, native, publicId)",
+}
 RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/genre"] = {
     "get": 'metadata->getManualRecordingGenre(route.backendId, native, publicId)',
     "post": 'route.operation == "genre"',
@@ -617,7 +620,9 @@ def validate(
                     "Get(" if method == "get" else "Post(")
                 if method == "get" and (
                     "isPublicManualMetadataRead" not in security_source or
-                    '(manualMetadataOperation == "genre" || manualMetadataOperation == "trailer")' not in security_source or
+                    '(manualMetadataOperation == "genre" || manualMetadataOperation == "trailer" ||' not in security_source or
+                    'manualMetadataOperation == "manual")' not in security_source or
+                    '? "metadata.recording.assign" : "recordings.view"' not in security_source or
                     'std::vector<std::string>{manualMetadataBackendId}' not in security_source or
                     'std::vector<std::string>{"recordings.view"}' not in security_source or
                     'recordingReadRequest.permission = permission' not in security_source or
