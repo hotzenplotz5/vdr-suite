@@ -117,6 +117,7 @@ constexpr const char* PublicRecordingCollectionSort = "recordingId";
 constexpr const char* PublicRecordingCollectionOrder = "asc";
 constexpr const char* PublicRecordingCursorPrefix = "rc1_";
 constexpr const char* PublicRecordingCursorPayloadVersion = "recordings/1|";
+constexpr const char* PublicSearchCombinedPath = "/api/v1/search";
 constexpr const char* PublicSearchRecordingPath = "/api/v1/search/recordings";
 constexpr const char* PublicSearchEpgPath = "/api/v1/search/epg";
 constexpr const char* PublicGenreCollectionPath = "/api/v1/genres";
@@ -8239,7 +8240,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         return true;
     }
 
-    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath || path == PublicSearchCombinedPath)
     {
         if (actorRef.empty())
         {
@@ -8260,83 +8261,104 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         request.backendId = query.backendId;
         request.query = query.query;
         request.epg = path == PublicSearchEpgPath;
+        request.combined = path == PublicSearchCombinedPath;
         request.limit = query.limit;
         request.offset = query.offset;
         const auto result = lookupSearch(request);
-        if (result.status != PublicSearchStatus::ok ||
-            result.items.size() > request.limit ||
-            result.totalCount < request.offset ||
-            result.items.size() > result.totalCount - request.offset ||
-            result.hasMore !=
-                (request.offset + result.items.size() < result.totalCount))
+        if (result.status != PublicSearchStatus::ok)
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
-        std::string body = "{\"items\":[";
-        for (std::size_t i = 0U; i < result.items.size(); ++i)
+        const auto serializePage = [&](const std::vector<PublicSearchItem>& items,
+            bool epg, std::size_t total, bool hasMore) -> std::optional<std::string>
         {
-            const auto& item = result.items[i];
-            const bool valid = item.backendId == request.backendId &&
-                !item.title.empty() &&
-                (request.epg ?
-                    (!item.channelId.empty() && !item.eventId.empty() &&
-                     !item.startTime.empty() && !item.endTime.empty() &&
-                     item.recordingId.empty()) :
-                    (item.channelId.empty() &&
-                     item.recordingId.size() == 36U &&
-                     item.recordingId.rfind("rec_", 0U) == 0U &&
-                     std::all_of(item.recordingId.begin() + 4,
-                         item.recordingId.end(), [](char ch) {
-                             return (ch >= '0' && ch <= '9') ||
-                                    (ch >= 'a' && ch <= 'f');
-                         })));
-            if (!valid)
+            if (items.size() > request.limit ||
+                total < request.offset ||
+                items.size() > total - request.offset ||
+                hasMore !=
+                    (request.offset + items.size() < total))
             {
-                response = serviceUnavailableProblem(path, requestId, correlationId);
-                return true;
+                return std::nullopt;
             }
-            if (i != 0U) body += ",";
-            body += "{\"kind\":\"";
-            body += request.epg ? "epg" : "recording";
-            body += "\",\"backendId\":\"" + jsonEscape(item.backendId) +
-                "\",\"title\":\"" + jsonEscape(item.title) + "\"";
-            if (request.epg)
-                body += ",\"channelId\":\"" + jsonEscape(item.channelId) +
-                    "\",\"eventId\":\"" + jsonEscape(item.eventId) +
-                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
-                    "\",\"endTime\":\"" + jsonEscape(item.endTime) +
-                    "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
-            else
-                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
-                    "\",\"edited\":" + (item.edited ? "true" : "false") +
-                    ",\"subtitle\":\"" + jsonEscape(item.subtitle) +
-                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
-                    "\",\"sizeMb\":" + std::to_string(item.sizeMb);
-            body += ",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
-                ",\"artworkAvailable\":" + (item.artworkAvailable ? "true" : "false");
-            if (request.epg)
-                body += ",\"channelName\":\"" + jsonEscape(item.channelName) +
-                    "\",\"description\":\"" + jsonEscape(item.description) + "\"";
-            body += ",\"matchedPerson\":\"" + jsonEscape(item.matchedPerson) +
-                "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
-                "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +
-                "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"";
-            if (!request.epg && !item.preferredArtworkId.empty())
-                body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
-            if (!request.epg && !item.personPortraitRecordingId.empty() &&
-                !item.personPortraitArtworkId.empty())
-                body += ",\"personPortrait\":{\"recordingId\":\"" +
-                    jsonEscape(item.personPortraitRecordingId) +
-                    "\",\"artworkId\":\"" + jsonEscape(item.personPortraitArtworkId) +
-                    "\"}";
-            body += "}";
+            std::string body = "{\"items\":[";
+            for (std::size_t i = 0U; i < items.size(); ++i)
+            {
+                const auto& item = items[i];
+                const bool valid = item.backendId == request.backendId &&
+                    !item.title.empty() &&
+                    (epg ?
+                        (!item.channelId.empty() && !item.eventId.empty() &&
+                         !item.startTime.empty() && !item.endTime.empty() &&
+                         item.recordingId.empty()) :
+                        (item.channelId.empty() &&
+                         item.recordingId.size() == 36U &&
+                         item.recordingId.rfind("rec_", 0U) == 0U &&
+                         std::all_of(item.recordingId.begin() + 4,
+                             item.recordingId.end(), [](char ch) {
+                                 return (ch >= '0' && ch <= '9') ||
+                                        (ch >= 'a' && ch <= 'f');
+                             })));
+                if (!valid)
+                {
+                    return std::nullopt;
+                }
+                if (i != 0U) body += ",";
+                body += "{\"kind\":\"";
+                body += epg ? "epg" : "recording";
+                body += "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                    "\",\"title\":\"" + jsonEscape(item.title) + "\"";
+                if (epg)
+                    body += ",\"channelId\":\"" + jsonEscape(item.channelId) +
+                        "\",\"eventId\":\"" + jsonEscape(item.eventId) +
+                        "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                        "\",\"endTime\":\"" + jsonEscape(item.endTime) +
+                        "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+                else
+                    body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
+                        "\",\"edited\":" + (item.edited ? "true" : "false") +
+                        ",\"subtitle\":\"" + jsonEscape(item.subtitle) +
+                        "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                        "\",\"sizeMb\":" + std::to_string(item.sizeMb);
+                body += ",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+                    ",\"artworkAvailable\":" + (item.artworkAvailable ? "true" : "false");
+                if (epg)
+                    body += ",\"channelName\":\"" + jsonEscape(item.channelName) +
+                        "\",\"description\":\"" + jsonEscape(item.description) + "\"";
+                body += ",\"matchedPerson\":\"" + jsonEscape(item.matchedPerson) +
+                    "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
+                    "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +
+                    "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"";
+                if (!epg && !item.preferredArtworkId.empty())
+                    body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
+                if ((!epg || request.combined) && !item.personPortraitRecordingId.empty() &&
+                    !item.personPortraitArtworkId.empty())
+                    body += ",\"personPortrait\":{\"recordingId\":\"" +
+                        jsonEscape(item.personPortraitRecordingId) +
+                        "\",\"artworkId\":\"" + jsonEscape(item.personPortraitArtworkId) +
+                        "\"}";
+                body += "}";
+            }
+            body += "],\"personProjectionVersion\":1,\"page\":{\"offset\":" +
+                std::to_string(request.offset) + ",\"limit\":" +
+                std::to_string(request.limit) + ",\"totalCount\":" +
+                std::to_string(total) + ",\"hasMore\":" +
+                std::string(hasMore ? "true" : "false") + "}}";
+            return body;
+        };
+        const auto first = serializePage(result.items, request.epg,
+            result.totalCount, result.hasMore);
+        const auto epg = request.combined
+            ? serializePage(result.epgItems, true, result.epgTotalCount, result.epgHasMore)
+            : std::optional<std::string>{};
+        if (!first || (request.combined && !epg))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
         }
-        body += "],\"personProjectionVersion\":1,\"page\":{\"offset\":" +
-            std::to_string(request.offset) + ",\"limit\":" +
-            std::to_string(request.limit) + ",\"totalCount\":" +
-            std::to_string(result.totalCount) + ",\"hasMore\":" +
-            std::string(result.hasMore ? "true" : "false") + "}}";
+        const std::string body = request.combined
+            ? "{\"recordings\":" + *first + ",\"epg\":" + *epg + "}"
+            : *first;
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;
@@ -10298,7 +10320,7 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
-    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath || path == PublicSearchCombinedPath)
     {
         if (tryHandleBrowseReadGet(
                 requestTarget, actorRef, requestId, correlationId,
@@ -13932,6 +13954,7 @@ bool PublicApiRuntime::tryHandlePost(
          path == PublicEpgGenreEventsPath ||
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
+         path == PublicSearchCombinedPath ||
         path == PublicEpgNowNextPath ||
         path == PublicEpgEventDetailPath ||
         path == PublicEpgWindowPath ||
@@ -14245,6 +14268,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicRecordingCollectionPath ||
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
+         path == PublicSearchCombinedPath ||
         path == PublicEpgNowNextPath ||
         path == PublicEpgEventDetailPath ||
         path == PublicEpgTimerIntentPath ||

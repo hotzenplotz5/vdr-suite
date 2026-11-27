@@ -253,8 +253,10 @@ int main()
 
     runtime.resetRecordingCollectionLookup();
     runtime.resetSearchLookup();
-    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+    int combinedLookups = 0;
+    runtime.registerSearchLookup([&combinedLookups](const PublicSearchRequest& request) {
         PublicSearchResult result;
+        if (request.combined) ++combinedLookups;
         result.status = PublicSearchStatus::ok;
         result.totalCount = 1U;
         if (request.offset == 0U) {
@@ -279,6 +281,20 @@ int main()
                 item.artworkAvailable = true;
             }
             result.items.push_back(item);
+            if (request.combined)
+            {
+                PublicSearchItem event;
+                event.backendId = request.backendId;
+                event.channelId = "S19.2E-1-100";
+                event.eventId = "123";
+                event.title = "EPG-only person";
+                event.startTime = "1791565200";
+                event.endTime = "1791572400";
+                event.personPortraitRecordingId = item.recordingId;
+                event.personPortraitArtworkId = item.personPortraitArtworkId;
+                result.epgItems.push_back(event);
+                result.epgTotalCount = 1U;
+            }
         }
         return result;
     });
@@ -308,6 +324,21 @@ int main()
     assert(searchEpg.body.find("\"sizeMb\"") == std::string::npos);
     assert(searchEpg.body.find("\"personPortrait\"") == std::string::npos);
     assert(searchEpg.body.find("\"preferredArtworkId\"") == std::string::npos);
+    ApiResponse combinedSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search?backendId=backend-a&query=Hobbit&limit=24",
+        "actor:tv", "combined-search", "", combinedSearch, "", "", {"backend-a"}));
+    assert(combinedSearch.statusCode == 200 && combinedLookups == 1);
+    assert(combinedSearch.body.find("\"recordings\":{\"items\":[") != std::string::npos);
+    assert(combinedSearch.body.find("\"epg\":{\"items\":[") != std::string::npos);
+    assert(combinedSearch.body.find("\"title\":\"EPG-only person\"") != std::string::npos);
+    assert(combinedSearch.body.find("\"personPortrait\"", combinedSearch.body.find("\"epg\":")) != std::string::npos);
+    assert(combinedSearch.body.find("backendNativeId") == std::string::npos);
+    ApiResponse wrongCombinedScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search?backendId=backend-a&query=Hobbit",
+        "actor:tv", "combined-scope", "", wrongCombinedScope, "", "", {"backend-b"}));
+    assert(wrongCombinedScope.statusCode == 400 && combinedLookups == 1);
     for (const std::string& invalid : {
         "backendId=backend-a&query=%GG",
         "backendId=backend-a&query=a",

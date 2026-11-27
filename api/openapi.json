@@ -18206,6 +18206,384 @@
         "x-vdr-suite-auth-profile": "device"
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "UnifiedSearch"
+        ],
+        "operationId": "searchPublicCombined",
+        "summary": "Search recordings and EPG in a single shared search",
+        "description": "Requires the existing recordings.view and epg.view grants on the same backendId. Uses one shared Web search and returns independent bounded pages; the combined EPG page can carry existing recording portrait references. Split endpoints and grants are unchanged. No native paths.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "description": "Percent-encoded input using the existing Web matcher, including Unicode text folding.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 240
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording and EPG search pages from one shared search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recordings",
+                    "epg"
+                  ],
+                  "properties": {
+                    "recordings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page"
+                      ],
+                      "properties": {
+                        "personProjectionVersion": {
+                          "type": "integer",
+                          "const": 1
+                        },
+                        "items": {
+                          "type": "array",
+                          "maxItems": 30,
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "subtitle": {
+                                "type": "string"
+                              },
+                              "matchedPerson": {
+                                "type": "string"
+                              },
+                              "matchedRole": {
+                                "type": "string"
+                              },
+                              "matchReason": {
+                                "type": "string"
+                              },
+                              "personKey": {
+                                "type": "string"
+                              },
+                              "edited": {
+                                "type": "boolean"
+                              },
+                              "startTime": {
+                                "type": "string"
+                              },
+                              "sizeMb": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "durationSeconds": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "artworkAvailable": {
+                                "type": "boolean",
+                                "description": "Advisory availability in the shared search index. Fetch artwork only through existing public artwork resources."
+                              },
+                              "preferredArtworkId": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{32}$",
+                                "description": "Opaque preferred artwork identity for this recording; use the existing Recording artwork GET."
+                              },
+                              "personPortrait": {
+                                "type": "object",
+                                "description": "Optional opaque cached portrait reference for the matched person. Available only in Recording search; use the existing individual Recording artwork GET with the same backendId.",
+                                "properties": {
+                                  "recordingId": {
+                                    "type": "string",
+                                    "pattern": "^rec_[0-9a-f]{32}$"
+                                  },
+                                  "artworkId": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{32}$"
+                                  }
+                                },
+                                "required": [
+                                  "recordingId",
+                                  "artworkId"
+                                ]
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "recording"
+                              },
+                              "backendId": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "recordingId": {
+                                "type": "string",
+                                "pattern": "^rec_[0-9a-f]{32}$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "backendId",
+                              "title",
+                              "recordingId"
+                            ]
+                          }
+                        },
+                        "page": {
+                          "type": "object",
+                          "required": [
+                            "offset",
+                            "limit",
+                            "totalCount",
+                            "hasMore"
+                          ],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer",
+                              "maximum": 30
+                            },
+                            "totalCount": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "hasMore": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "epg": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page"
+                      ],
+                      "properties": {
+                        "personProjectionVersion": {
+                          "type": "integer",
+                          "const": 1
+                        },
+                        "items": {
+                          "type": "array",
+                          "maxItems": 30,
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "matchedPerson": {
+                                "type": "string"
+                              },
+                              "matchedRole": {
+                                "type": "string"
+                              },
+                              "matchReason": {
+                                "type": "string"
+                              },
+                              "personKey": {
+                                "type": "string"
+                              },
+                              "channelName": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "durationSeconds": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "artworkAvailable": {
+                                "type": "boolean",
+                                "description": "Advisory availability in the shared search index. Fetch artwork only through existing public artwork resources."
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "epg"
+                              },
+                              "backendId": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "channelId": {
+                                "type": "string"
+                              },
+                              "eventId": {
+                                "type": "string"
+                              },
+                              "startTime": {
+                                "type": "string"
+                              },
+                              "endTime": {
+                                "type": "string"
+                              },
+                              "subtitle": {
+                                "type": "string"
+                              },
+                              "personPortrait": {
+                                "type": "object",
+                                "description": "Optional cached Recording portrait reference for an EPG-only matched person, in the combined search where both existing grants are held.",
+                                "properties": {
+                                  "recordingId": {
+                                    "type": "string",
+                                    "pattern": "^rec_[0-9a-f]{32}$"
+                                  },
+                                  "artworkId": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{32}$"
+                                  }
+                                },
+                                "required": [
+                                  "recordingId",
+                                  "artworkId"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "backendId",
+                              "title",
+                              "channelId",
+                              "eventId",
+                              "startTime",
+                              "endTime",
+                              "subtitle"
+                            ]
+                          }
+                        },
+                        "page": {
+                          "type": "object",
+                          "required": [
+                            "offset",
+                            "limit",
+                            "totalCount",
+                            "hasMore"
+                          ],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer",
+                              "maximum": 30
+                            },
+                            "totalCount": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "hasMore": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend grant denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index, backend or identity unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Requires authenticated Actor/Device credential and recordings.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actor"
+      }
+    },
     "/api/v1/search/recordings": {
       "get": {
         "tags": [

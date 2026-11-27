@@ -3288,10 +3288,46 @@ bool DaemonRuntime::initialize()
                 return unavailable;
             }
 
-            const std::vector<VdrRecording> snapshot = request.epg
-                ? std::vector<VdrRecording>{}
-                : vdrSnapshotReadService_->getRecordingsForBackend(
-                    request.backendId);
+            std::vector<VdrRecording> snapshot;
+            if (!request.epg)
+            {
+                // Fast startup deliberately omits recordings from the VDR
+                // snapshot. Resolve the bounded search page and matched
+                // portrait owners from the same warmed cache as Web/detail.
+                if (vdrRecordingCacheRepository_ &&
+                    vdrRecordingCacheRepository_->statusForBackend(
+                        request.backendId).state == "ready")
+                {
+                    std::set<std::string> owners, personKeys;
+                    for (const auto& hit : searched->recordings)
+                    {
+                        if (hit.backendId != request.backendId) continue;
+                        owners.insert(hit.backendNativeId);
+                        if (!hit.personKey.empty()) personKeys.insert(hit.personKey);
+                    }
+                    if (request.combined)
+                        for (const auto& hit : searched->epg)
+                            if (hit.backendId == request.backendId &&
+                                !hit.personKey.empty())
+                                personKeys.insert(hit.personKey);
+                    for (const auto& portrait : searched->portraits)
+                        if (personKeys.erase(portrait.personKey) != 0U)
+                            owners.insert(portrait.backendNativeId);
+                    for (const auto& owner : owners)
+                    {
+                        VdrRecording recording;
+                        if (!owner.empty() &&
+                            vdrRecordingCacheRepository_->findByBackendNativeId(
+                                request.backendId, owner, recording) &&
+                            recording.backendId == request.backendId &&
+                            recording.backendNativeId == owner)
+                            snapshot.push_back(std::move(recording));
+                    }
+                }
+                else
+                    snapshot = vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
+            }
             PublicSearchResult response = PublicSearchProjection::project(
                 request, *searched, snapshot,
                 [this](const std::string& backendId,

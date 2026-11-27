@@ -2794,6 +2794,10 @@
         const input = options && typeof options === 'object' ? options : {};
         return request('/api/v1/genres/epg/events' + f3EpgGenreQuery(input.query, true), input);
       },
+      searchCombined(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search' + f3SearchQuery(input.query), input);
+      },
       searchEpg(options) {
         const input = options && typeof options === 'object' ? options : {};
         return request('/api/v1/search/epg' + f3SearchQuery(input.query), input);

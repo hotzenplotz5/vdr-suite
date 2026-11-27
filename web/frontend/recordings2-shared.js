@@ -327,11 +327,13 @@
     return button;
   }
 
-  function createPoster(recording, className) {
+  function createPoster(recording, className, variant) {
     const poster = document.createElement('div');
     poster.className = className || 'recordings2-poster';
     poster.dataset.variant = String(recordingPlaceholderVariant(recording));
-    const url = recordingPosterUrl(recording);
+    const original = recordingPosterUrl(recording);
+    const url = variant === 'home' && isPublicRecording(recording) && original
+      ? original + '&variant=home' : original;
     if (!url) {
       poster.textContent = '▶';
       return poster;

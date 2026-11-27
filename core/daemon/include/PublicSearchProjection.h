@@ -35,7 +35,7 @@ inline bool validRecordingId(const std::string& id)
             });
 }
 
-inline PublicSearchResult project(
+inline PublicSearchResult projectPage(
     const PublicSearchRequest& request,
     const GlobalSearchResult& searched,
     const std::vector<VdrRecording>& currentRecordings,
@@ -138,7 +138,7 @@ inline PublicSearchResult project(
     // Reuse the bulk portrait result from the Web's owner. The map caches
     // each person's opaque image reference once per response. An absent
     // or stale portrait never removes a valid recording hit.
-    if (!request.epg && portraitArtworkIdLookup)
+    if ((!request.epg || request.combined) && portraitArtworkIdLookup)
     {
         std::map<std::string, std::pair<std::string, std::string>> resolved;
         for (auto& item : result.items)
@@ -194,6 +194,28 @@ inline PublicSearchResult project(
     result.totalCount = std::max(shown, reconciledTotal);
     result.hasMore = shown < result.totalCount;
     result.status = PublicSearchStatus::ok;
+    return result;
+}
+inline PublicSearchResult project(
+    const PublicSearchRequest& request,
+    const GlobalSearchResult& searched,
+    const std::vector<VdrRecording>& currentRecordings,
+    const RecordingIdLookup& recordingIdLookup,
+    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {},
+    const PreferredArtworkIdLookup& preferredArtworkIdLookup = {})
+{
+    auto result = projectPage(request, searched, currentRecordings,
+        recordingIdLookup, portraitArtworkIdLookup, preferredArtworkIdLookup);
+    if (!request.combined || result.status != PublicSearchStatus::ok)
+        return result;
+    auto epgRequest = request;
+    epgRequest.epg = true;
+    auto epg = projectPage(epgRequest, searched, currentRecordings,
+        recordingIdLookup, portraitArtworkIdLookup, preferredArtworkIdLookup);
+    if (epg.status != PublicSearchStatus::ok) return {};
+    result.epgItems = std::move(epg.items);
+    result.epgTotalCount = epg.totalCount;
+    result.epgHasMore = epg.hasMore;
     return result;
 }
 } // namespace PublicSearchProjection

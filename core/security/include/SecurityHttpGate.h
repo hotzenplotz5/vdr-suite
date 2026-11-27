@@ -1060,7 +1060,8 @@ public:
              isPublicManualMetadataRead ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
-             path == "/api/v1/search/recordings");
+             path == "/api/v1/search/recordings" ||
+             path == "/api/v1/search");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
@@ -1337,6 +1338,7 @@ public:
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
+             path == "/api/v1/search" ||
              path == "/api/v1/native-timers" ||
              path == "/api/v1/native-timers/conflicts/live" ||
              path == "/api/v1/native-timers/live/list" ||
@@ -1987,36 +1989,45 @@ public:
                     "A single valid backendId is required.", "");
             }
 
-            AuthorizationRequest recordingReadRequest;
-            recordingReadRequest.permission = "recordings.view";
-            recordingReadRequest.backendId = scopes.front();
-            recordingReadRequest.action = "recordings.view";
-            const AuthorizationDecision decision =
-                authorizationService_.authorize(
-                    gate.context, recordingReadRequest);
-            if (!appendDecisionEvent(gate.context, decision, ""))
+            // The combined projection reads both already-authorized domains.
+            // Reuse their existing grants and audit path; the split endpoints
+            // and private browser authorization are unchanged.
+            const std::vector<std::string> permissions = path == "/api/v1/search"
+                ? std::vector<std::string>{"recordings.view", "epg.view"}
+                : std::vector<std::string>{"recordings.view"};
+            for (const auto& permission : permissions)
             {
-                gate.rejection = errorResponse(
-                    503, "accountability_unavailable",
-                    "Security accountability persistence is unavailable",
-                    gate.context);
-                return gate;
-            }
-            if (!decision.allowed)
-            {
-                const int statusCode =
-                    decision.reasonCode == "invalid_backend_scope"
-                        ? 400
-                        : (authenticationFailure(decision) ? 401 : 403);
-                gate.rejection = errorResponse(
-                    statusCode, decision.reasonCode,
-                    messageForReason(decision.reasonCode),
-                    gate.context, authenticationFailure(decision),
-                    gate.publicApiV1);
-                return gate;
-            }
+                AuthorizationRequest recordingReadRequest;
+                recordingReadRequest.permission = permission;
+                recordingReadRequest.backendId = scopes.front();
+                recordingReadRequest.action = permission;
+                const AuthorizationDecision decision =
+                    authorizationService_.authorize(
+                        gate.context, recordingReadRequest);
+                if (!appendDecisionEvent(gate.context, decision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (!decision.allowed)
+                {
+                    const int statusCode =
+                        decision.reasonCode == "invalid_backend_scope"
+                            ? 400
+                            : (authenticationFailure(decision) ? 401 : 403);
+                    gate.rejection = errorResponse(
+                        statusCode, decision.reasonCode,
+                        messageForReason(decision.reasonCode),
+                        gate.context, authenticationFailure(decision),
+                        gate.publicApiV1);
+                    return gate;
+                }
 
-            gate.authorizationDecision = decision;
+                gate.authorizationDecision = decision;
+            }
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;

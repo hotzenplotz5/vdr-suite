@@ -276,5 +276,26 @@ int main()
         assert(!blocked.allowed);
         assert(blocked.rejection.statusCode == 403);
     }
+    // Combined search reads exactly the two already-authorized resources.
+    {
+        const std::string path = "/api/v1/search?backendId=backend-a&query=Hobbit";
+        SecurityHttpGateBrowserTestFixture both;
+        assert(both.grantRepository.ensureGrant(both.actorId, "recordings.view", "backend-a"));
+        assert(both.grantRepository.ensureGrant(both.actorId, "epg.view", "backend-a"));
+        const auto allowed = both.gate.evaluate(browserGet(both, path));
+        assert(allowed.allowed && allowed.authorizedBackendIds ==
+            std::vector<std::string>{"backend-a"});
+        for (const auto& one : {"recordings.view", "epg.view"})
+        {
+            SecurityHttpGateBrowserTestFixture single;
+            assert(single.grantRepository.ensureGrant(single.actorId, one, "backend-a"));
+            const auto denied = single.gate.evaluate(browserGet(single, path));
+            assert(!denied.allowed && denied.rejection.statusCode == 403);
+        }
+        SecurityHttpGateBrowserTestFixture different;
+        assert(different.grantRepository.ensureGrant(different.actorId, "recordings.view", "backend-a"));
+        assert(different.grantRepository.ensureGrant(different.actorId, "epg.view", "backend-b"));
+        assert(!different.gate.evaluate(browserGet(different, path)).allowed);
+    }
     return 0;
 }

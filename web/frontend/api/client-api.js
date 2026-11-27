@@ -820,8 +820,100 @@
     return requestJson('/api/vdr/events/live', options);
   }
 
+  function globalSearchArtworkUrl(backendId, recordingId, artworkId) {
+    return /^[A-Za-z0-9._-]+$/.test(String(backendId || '')) &&
+      /^rec_[0-9a-f]{32}$/.test(String(recordingId || '')) &&
+      /^[0-9a-f]{32}$/.test(String(artworkId || ''))
+      ? '/api/v1/recordings/' + recordingId + '/artwork/' + artworkId +
+        '?backendId=' + encodeURIComponent(backendId) : '';
+  }
+
+  // Adapt the existing Public-v1 page contracts to the search dialog's
+  // existing card owners. Group only by the server's canonical personKey;
+  // do not introduce another text matcher or re-rank results.
+  function globalSearchBrowserView(payload, backendId, query) {
+    const recordingPage = payload && payload.recordings;
+    const epgPage = payload && payload.epg;
+    if (!recordingPage || !epgPage ||
+        !Array.isArray(recordingPage.items) || !Array.isArray(epgPage.items) ||
+        !recordingPage.page || !epgPage.page)
+      throw new Error('Ungültige Public-v1-Suchantwort');
+    const people = new Map();
+    function person(item, recording) {
+      if (!item.personKey || !item.matchedPerson) return;
+      const key = item.personKey;
+      const entry = people.get(key) || {name:'',role:'',recordingCount:0,epgCount:0,
+        image:{available:false,url:''}};
+      entry.name = item.matchedPerson;
+      entry.role = item.matchedRole || '';
+      if (recording) entry.recordingCount += 1;
+      else entry.epgCount += 1;
+      const ref = item.personPortrait;
+      const url = ref && globalSearchArtworkUrl(backendId, ref.recordingId, ref.artworkId);
+      if (url && !entry.image.available) entry.image = {available:true,url};
+      people.set(key, entry);
+    }
+    const recordings = recordingPage.items.map(item => {
+      if (item.kind !== 'recording' || item.backendId !== backendId ||
+          !/^rec_[0-9a-f]{32}$/.test(String(item.recordingId || '')))
+        throw new Error('Ungültige Aufnahmeidentität in der Suchantwort');
+      person(item, true);
+      return Object.assign({}, item, {
+        recordedAt: String(item.startTime || ''),
+        metadata: {subtitle: item.subtitle || ''}
+      });
+    });
+    const epg = epgPage.items.map(item => {
+      if (item.kind !== 'epg' || item.backendId !== backendId ||
+          !item.channelId || !item.eventId)
+        throw new Error('Ungültige EPG-Identität in der Suchantwort');
+      person(item, false);
+      const url = item.artworkAvailable ? '/api/v1/epg/artwork?backendId=' +
+        encodeURIComponent(backendId) + '&channelId=' +
+        encodeURIComponent(item.channelId) + '&eventId=' +
+        encodeURIComponent(item.eventId) + '&variant=home' : '';
+      return Object.assign({}, item, {id:item.eventId, artwork:{available:!!url,url}});
+    });
+    return {
+      backendId, query, status:'ready', recordings, epg,
+      recordingTotal:recordingPage.page.totalCount,
+      epgTotal:epgPage.page.totalCount,
+      recordingHasMore:recordingPage.page.hasMore,
+      epgHasMore:epgPage.page.hasMore,
+      hasMore:recordingPage.page.hasMore || epgPage.page.hasMore,
+      people:Array.from(people.keys()).sort().map(key => people.get(key))
+    };
+  }
+
   function fetchClientGlobalSearch(options) {
-    return requestJson('/api/search', backendQueryOptions(options));
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const legacy = () => requestJson('/api/search', backendQueryOptions(options));
+    const backendId = input.backendId || query.backend || 'default';
+    const searchText = query.query || query.text || '';
+    const limit = query.limit === undefined ? 20 : Number(query.limit);
+    const offset = query.offset === undefined ? 0 : Number(query.offset);
+    // Keep the established Browser route for its existing wider query
+    // options; the dialog uses the common 24-hit/default-window contract.
+    if (typeof searchText !== 'string' || searchText.trim().length < 2 ||
+        searchText.length > 240 || !Number.isInteger(limit) || limit < 1 ||
+        limit > 30 || !Number.isInteger(offset) || offset < 0 || offset > 1000000 ||
+        Object.keys(query).some(key => !['backend','query','text','limit','offset','_'].includes(key)))
+      return legacy();
+    return requestJson('/api/v1/search', {
+      query:{backendId,query:searchText,limit,offset},
+      cache:input.cache || 'no-store', credentials:input.credentials || 'same-origin',
+      signal:input.signal
+    }).then(payload => globalSearchBrowserView(payload, backendId, searchText))
+      .catch(error => {
+        // Independently authenticated Browser compatibility for older daemons
+        // or pre-existing browser-only access. Never retry authentication loss,
+        // transport failures or invalid Public-v1 data through another route.
+        if (error && (error.status === 404 || error.status === 405 ||
+            (error.status === 403 && ['permission_denied','backend_scope_denied'].includes(error.code))))
+          return legacy();
+        throw error;
+      });
   }
 
   function fetchClientEpgSearch(options) {

@@ -200,14 +200,27 @@
       if (!owner || typeof owner.openRecording !== 'function') {
         throw new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
       }
-      owner.openRecording(recording, {
-        backendId: selectedBackendId(),
+      const backendId = recording.backendId || selectedBackendId();
+      const open = value => owner.openRecording(value, {
+        backendId: backendId,
         backLabel: '← Zurück zur Suche',
         homeLabel: '⌂ Home',
         focusNavigation: true,
         onClose: openDialog,
         onHome: returnHome
       });
+      // Same exact identity bridge as the Genre module. It retains all
+      // existing detail/playback/actions while the list contains only rec_ IDs.
+      if (/^rec_[0-9a-f]{32}$/.test(String(recording.recordingId || '')) &&
+          !recording.backendNativeId) {
+        const api = global.VdrSuiteClientApi;
+        if (!api || typeof api.fetchClientRecordingForPublicId !== 'function')
+          throw new Error('Aufnahmeidentität konnte nicht aufgelöst werden.');
+        return api.fetchClientRecordingForPublicId({
+          backendId, recordingId:recording.recordingId
+        }).then(detail => open(detail.recording));
+      }
+      return open(recording);
     }).catch(showNavigationError);
   }
 
@@ -240,7 +253,8 @@
   function publicPersonImageUrl(value) {
     const url = text(value);
     return url.startsWith('/api/vdr/recordings/metadata/image?') ||
-      url.startsWith('/api/recordings/metadata/image?');
+      url.startsWith('/api/recordings/metadata/image?') ||
+      /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}\?backendId=[A-Za-z0-9._-]+$/.test(url);
   }
 
   function personPlaceholder() {
@@ -308,7 +322,11 @@
       const wrap = node('article', 'global-search-recording-wrap');
       const cardOwner = global.VdrSuiteRecordings2BrowserView;
       if (cardOwner && typeof cardOwner.createRecordingCard === 'function') {
-        wrap.appendChild(cardOwner.createRecordingCard(recording, openRecording));
+        const shared = global.VdrSuiteRecordings2Shared;
+        const createPoster = recording.recordingId && !recording.backendNativeId &&
+          shared && typeof shared.createPoster === 'function'
+          ? value => shared.createPoster(value, undefined, 'home') : undefined;
+        wrap.appendChild(cardOwner.createRecordingCard(recording, openRecording, createPoster));
       } else {
         wrap.appendChild(button(recording.title || 'Ohne Titel', 'recordings2-recording', function () { openRecording(recording); }));
       }

@@ -508,6 +508,7 @@ struct PublicSearchRequest {
     std::string backendId, query;
     bool epg = false;
     std::size_t limit = 30U, offset = 0U;
+    bool combined = false;
 };
 struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;
@@ -525,6 +526,10 @@ struct PublicSearchResult {
     std::vector<PublicSearchItem> items;
     std::size_t totalCount = 0U;
     bool hasMore = false;
+    // Only populated for the combined search, with both existing read grants.
+    std::vector<PublicSearchItem> epgItems;
+    std::size_t epgTotalCount = 0U;
+    bool epgHasMore = false;
 };
 
 enum class PublicEpgGenreStatus { ok, unavailable, invalid };

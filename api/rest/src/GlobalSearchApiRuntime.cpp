@@ -177,10 +177,10 @@ std::optional<GlobalSearchResult> GlobalSearchApiRuntime::searchPublic(
     if (!service_ || limit < 1 || limit > 30 ||
         offset < 0 || offset > 1000000) return std::nullopt;
     auto result = service_->search(backendId, query, from, until, limit, offset);
-    // Only the Recording search caller requests the existing bulk portrait
-    // read. EPG-only authorization never receives recording image references.
+    // Recording and combined search callers use the existing bulk portrait
+    // owner. EPG-only authorization never requests recording image references.
     if (includeRecordingPortraits && result.status == "ready" &&
-        !result.recordings.empty())
+        !result.people.empty())
     {
         if (personPortraitLookup_) result.portraits = personPortraitLookup_(backendId);
         else if (portraitRepository_) result.portraits = portraitRepository_->findForBackend(backendId);

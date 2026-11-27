@@ -195,6 +195,33 @@ int main()
     assert(epgPage.items.front().durationSeconds == 1800);
     assert(epgPage.items.front().artworkAvailable);
 
+    // A person may match only the EPG page while the Web portrait owner
+    // already knows an image from another currently resolved recording.
+    portrait.name = "Ewan McGregor";
+    portrait.personKey = "ewan mcgregor\nactor";
+    portrait.backendNativeId = "b";
+    epg.portraits.push_back(portrait);
+    const auto portraitId = [](const VdrRecording& owner,
+        const GlobalSearchPersonPortrait& source) {
+        assert(owner.backendNativeId == "b");
+        assert(source.personKey == "ewan mcgregor\nactor");
+        return std::string("0123456789abcdef0123456789abcdef");
+    };
+    const auto epgOnly = PublicSearchProjection::project(
+        request, epg, snapshot, lookup, portraitId);
+    assert(epgOnly.items.front().personPortraitArtworkId.empty());
+    request.epg = false;
+    request.combined = true;
+    const auto combined = PublicSearchProjection::project(
+        request, epg, snapshot, lookup, portraitId);
+    assert(combined.status == PublicSearchStatus::ok);
+    assert(combined.items.empty() && combined.totalCount == 0U);
+    assert(combined.epgItems.size() == 2U && combined.epgTotalCount == 2U);
+    assert(combined.epgItems.front().personPortraitRecordingId == SecondId);
+    assert(combined.epgItems.front().personPortraitArtworkId ==
+        "0123456789abcdef0123456789abcdef");
+    request.combined = false;
+
     // Never allow an item from another backend through the public adapter.
     web.status = "ready";
     web.recordings.clear();

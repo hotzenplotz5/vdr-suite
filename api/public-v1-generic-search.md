@@ -96,3 +96,17 @@ manual revision, so the same existing opaque asset identity is generated without
 additional per-result metadata lookups. Selected manual metadata has precedence;
 missing/stale images do not remove a hit, and no private paths are returned.
 `artworkAvailable` remains an advisory hint from the shared index.
+
+### Combined search
+
+`GET /api/v1/search?backendId=default&query=hobbit&limit=24&offset=0`
+returns `{recordings: <Recording search page>, epg: <EPG search page>}`.
+It calls the existing shared search once and preserves the independent page
+sizes, totals and ranking. Both existing read grants (`recordings.view` and
+`epg.view`) must cover the same backend; no new permission vocabulary and no
+change to either split endpoint. The combined EPG page may also contain a
+cached Recording portrait reference for an EPG-only person, because the same
+caller already has Recording read access. The split EPG page still cannot.
+Public Recording IDs and the existing opaque artwork IDs are used throughout.
+The old authenticated browser route remains available for existing legacy
+browser compatibility; it is not a fallback inside the public runtime.

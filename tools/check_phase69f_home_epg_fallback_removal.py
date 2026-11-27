@@ -92,7 +92,8 @@ if recording_resource in resources:
     security = read("core/security/include/SecurityHttpGate.h")
     require(
         "CREATE TABLE IF NOT EXISTS public_recording_identity" in identity
-        and 'recordingReadRequest.permission = "recordings.view"' in security,
+        and 'std::vector<std::string>{"recordings.view"}' in security
+        and 'recordingReadRequest.permission = permission' in security,
         "Recording candidate lacks its durable identity or permission boundary",
     )
 
