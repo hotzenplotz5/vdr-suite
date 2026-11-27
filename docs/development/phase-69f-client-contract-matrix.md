@@ -1,6 +1,6 @@
 # Phase 69.F — Client Contract Matrix and Stable Integration Boundary
 
-**2026-11-27 browser inventory reconciliation:** 78 classified operations (68 base, six Genre, four Live Remote). The Home movie read uses the existing `view=movies` Public-v1 contract; its explicit older-daemon compatibility branch is read-only and never retries on authorization/provider failure.
+**2026-11-27 browser inventory reconciliation:** 79 classified operations (69 base, six Genre, four Live Remote). Home movie and newly-recorded reads use the existing `view=movies` and `view=new` Public-v1 contracts. Their explicit older-daemon compatibility branches are read-only and never retry on authorization/provider failure. The latter uses compact cached card metadata and event-driven page reconciliation, preserving the previous card DOM and public-ID cache provenance.
 
 **2026-11-26 browser inventory reconciliation:** 77 classified operations (67 base, six Genre, four Live Remote). Public recording action, metadata trailer and Genre membership wrappers are source candidates; the legacy opaque-to-private recording detail bridge remains explicitly private. This does not expand the historical accepted reference-client contracts or establish hardware acceptance.
 

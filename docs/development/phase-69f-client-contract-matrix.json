@@ -225,9 +225,10 @@
       "exports": [
         "fetchPublicRecordingAction",
         "fetchClientRecordingTrailer",
-        "fetchPublicHomeMovies"
+        "fetchPublicHomeMovies",
+        "fetchPublicHomeNew"
       ],
-      "note": "Scoped Public-v1 recording action validate/execute, backend-scoped metadata trailer and Home movie offset read wrappers. Source candidates, not new accepted compatibility promises."
+      "note": "Scoped Public-v1 recording action validate/execute, backend-scoped metadata trailer and Home movie and newly-recorded offset read wrappers. Source candidates, not new accepted compatibility promises."
     },
     {
       "domain": "search-timers",

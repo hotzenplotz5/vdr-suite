@@ -210,6 +210,7 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert.equal(await wrongNew.finish(movieCards),false);
   window.VdrSuiteHomeCache=genreRuntime;
   vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:genreFetch});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
   const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
   failSecond=true;
   const beforeDenied=requests.length;

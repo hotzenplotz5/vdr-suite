@@ -5113,13 +5113,13 @@
     const revision = recordingRefreshRevision;
     return fetchNewlyPage(client, backendId, cache).then(function (payload) {
       if (!current(generation, backendId) ||
-          (payload.publicView === 'new' && revision !== recordingRefreshRevision)) {
+          (payload && payload.publicView === 'new' && revision !== recordingRefreshRevision)) {
         if (cache) cache.cancel(); return false;
       }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
-      newlyPublicBackend = payload.publicView === 'new' ? backendId : '';
+      newlyPublicBackend = payload && payload.publicView === 'new' ? backendId : '';
       if (cache) cache.finish(cachedRecordingCards(recordings));
-      if (payload.publicView === 'new') {
+      if (payload && payload.publicView === 'new') {
         const rendered = renderRecordingRail('newly-recorded', 'Neu aufgenommen', recordings, backendId);
         if (recordings.length) updatePublicNewlyCovers(client, backendId, generation);
         return rendered;
@@ -5879,9 +5879,9 @@
       if (!current(generation, backendId) ||
           revision !== recordingRefreshRevision) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
-      newlyPublicBackend = payload.publicView === 'new' ? backendId : '';
+      newlyPublicBackend = payload && payload.publicView === 'new' ? backendId : '';
       if (cache) cache.finish(cachedRecordingCards(recordings));
-      if (payload.publicView === 'new') {
+      if (payload && payload.publicView === 'new') {
         const rendered = renderRecordingRail('newly-recorded', 'Neu aufgenommen', recordings, backendId);
         if (recordings.length) updatePublicNewlyCovers(client, backendId, generation);
         return rendered;

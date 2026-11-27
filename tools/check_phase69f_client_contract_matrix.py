@@ -36,7 +36,7 @@ base_client = read("web/frontend/api/client-api.js")
 genre_client = read("web/frontend/api/genre-client-api.js")
 remote_client = read("web/frontend/api/live-remote-client-api.js")
 
-base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction|fetchPublicHomeMovies)[A-Za-z0-9_]*)\s*\(", base_client))
+base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction|fetchPublicHomeMovies|fetchPublicHomeNew)[A-Za-z0-9_]*)\s*\(", base_client))
 genre_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicRecordingGenres|fetchPublicGenreRecordings)[A-Za-z0-9_]*)\s*\(", genre_client))
 remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", remote_client))
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 68, f"expected 68 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 69, f"expected 69 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 6, f"expected 6 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 78, f"expected 78 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 79, f"expected 79 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -118,12 +118,15 @@ for source_name, source in (
         ):
             require(source.count(route) == 1, "reviewed search route drifted: " + route)
             source = source.replace(route, "'approved-global-search-route'")
-        # Home movie read uses the reviewed recording offset view. The
-        # second literal scopes cache observation, not another HTTP dispatch.
-        movie_route = "'/api/v1/recordings'"
-        require(source.count(movie_route) == 2,
-                "Home movie read/cache evidence route drifted")
-        source = source.replace(movie_route, "'approved-home-movie-view'")
+        # Reviewed Home offset reads: exactly one dispatch for each view;
+        # the third literal is the cache proof restriction, not a dispatch.
+        home_route = "'/api/v1/recordings'"
+        require(source.count(home_route) == 3,
+                "Home movie/new read/cache evidence route drifted")
+        for view in ("movies", "new"):
+            require(source.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
+                    "Home recording view must be exact: " + view)
+        source = source.replace(home_route, "'approved-home-recording-view'")
     if source_name == "genre":
         # Reviewed recording facet and membership; EPG remains legacy.
         route = "'/api/v1/genres'"
