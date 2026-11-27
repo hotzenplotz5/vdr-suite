@@ -10,6 +10,8 @@ const source = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery
 
 assert(source.includes("const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder'"));
 assert(source.includes('fetchClientGenreRecordings({'));
+assert(source.includes('publicId ? paging.client.fetchPublicRecordingFolder : paging.client.fetchClientRecordingFolder'));
+assert(source.includes('query: publicId ? {folderId: publicId'));
 assert(source.includes('fetchClientRecordingFolder({'));
 assert(source.includes("const INLINE_METADATA_CONCURRENCY = 4"));
 assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
