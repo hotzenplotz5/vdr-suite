@@ -180,6 +180,50 @@ async function run() {
   await captureFailure(() => api.mutatePublicSearchTimer({backend, searchTimerId: '0'}));
   assert.strictEqual(requests.length, previousCount);
 
+  // The editor catalog reuses the real Public-v1 client, follows every
+  // page in VDR order and retains the private read only for its existing
+  // permission/compatibility boundary. Ordinary browser consumers are unchanged.
+  const publicPath = path.resolve(__dirname, '../../../clients/reference-js/public-v1-client.js');
+  vm.runInContext(fs.readFileSync(publicPath, 'utf8'), context, {filename: publicPath});
+  const originalFetch = context.fetch;
+  const editorOptions = {editorCatalog:true, query:{backend:'living-room'}, cache:'no-store'};
+  const channel = (id, number) => ({backendId:'living-room',channelId:id,
+    channelNumber:number,name:id,groupName:'TV',enabled:true,radio:false});
+  let calls = [];
+  let replies = [];
+  context.fetch = (url, options) => {
+    calls.push(String(url));
+    assert.strictEqual(options.method,'GET');
+    assert.ok(replies.length, 'unexpected catalog request');
+    return Promise.resolve(replies.shift());
+  };
+  try {
+    replies = [
+      response(200,{items:[channel('a',1)],page:{hasMore:true,nextCursor:'ch2_next'},meta:{partial:false}}),
+      response(200,{items:[channel('b',2)],page:{hasMore:false,nextCursor:null},meta:{partial:false}})
+    ];
+    const catalog = await api.fetchClientChannels(editorOptions);
+    assert.strictEqual(JSON.stringify(catalog.channels.map(x=>x.channelId)), '["a","b"]');
+    assert.strictEqual(calls.length,2);
+    const first = new URL(calls[0],'https://vdr-suite.test');
+    assert.strictEqual(first.pathname,'/api/v1/channels');
+    assert.strictEqual(first.searchParams.get('backendId'),'living-room');
+    assert.strictEqual(first.searchParams.get('sort'),'backendId,channelNumber,channelId');
+    assert.strictEqual(new URL(calls[1],'https://vdr-suite.test').searchParams.get('cursor'),'ch2_next');
+    calls = [];
+    replies = [response(403,{code:'permission_denied'}),response(200,{channels:[channel('legacy',3)]})];
+    assert.strictEqual((await api.fetchClientChannels(editorOptions)).channels[0].channelId,'legacy');
+    assert.strictEqual(new URL(calls[1],'https://vdr-suite.test').pathname,'/api/vdr/channels');
+    calls = [];
+    replies = [response(503,{code:'backend_unavailable'})];
+    await assert.rejects(api.fetchClientChannels(editorOptions), e=>e.status===503);
+    assert.strictEqual(calls.length,1);
+    calls = [];
+    replies = [response(200,{channels:[]})];
+    await api.fetchClientChannels({query:{backend:'living-room'}});
+    assert.strictEqual(new URL(calls[0],'https://vdr-suite.test').pathname,'/api/vdr/channels');
+  } finally { context.fetch = originalFetch; }
+
   console.log('test_phase69f_searchtimer_fallback_removal passed');
 }
 

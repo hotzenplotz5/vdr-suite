@@ -613,8 +613,62 @@
     return requestJson('/api/vdr/timers/actions/delete', jsonPostOptions(options));
   }
 
+  // Timer editors consume only the public Channel identity, number, name,
+  // group, radio and enabled fields. Other browser surfaces still require
+  // their richer legacy projection. Keep the existing authenticated browser
+  // read for users whose editor access does not include channels.view.
+  async function fetchEditorChannelCatalog(input) {
+    const backendId = input.query && input.query.backend;
+    const factory = window.VdrSuitePublicV1Client;
+    if (!backendId || !factory || typeof factory.createClient !== 'function')
+      return requestJson('/api/vdr/channels', input);
+    const client = publicNativeTimerClient();
+    const items = [];
+    const seen = new Set();
+    const cursors = new Set();
+    let cursor;
+    try {
+      do {
+        const page = await client.getChannels({
+          query: {backendIds: [backendId], limit: 100, cursor,
+            sort: 'backendId,channelNumber,channelId', order: 'asc'},
+          cache: input.cache, credentials: input.credentials || 'same-origin',
+          signal: input.signal
+        });
+        if (!page || !Array.isArray(page.items) || !page.page ||
+            !page.meta || page.meta.partial !== false)
+          return requestJson('/api/vdr/channels', input);
+        for (const channel of page.items) {
+          if (!channel || channel.backendId !== backendId ||
+              typeof channel.channelId !== 'string' || !channel.channelId)
+            return requestJson('/api/vdr/channels', input);
+          if (!seen.has(channel.channelId)) {
+            seen.add(channel.channelId);
+            items.push(channel);
+          }
+        }
+        if (!page.page.hasMore) break;
+        cursor = page.page.nextCursor;
+        if (typeof cursor !== 'string' || !cursor || cursors.has(cursor))
+          return requestJson('/api/vdr/channels', input);
+        cursors.add(cursor);
+      } while (cursor);
+    } catch (error) {
+      // Browser-only compatibility: a current editor user can have Timer
+      // rights without the separate public Channel grant. Do not alter grants
+      // or retry an unknown mutation (this is a read-only catalog).
+      if (error && error.status === 403 &&
+          (error.code === 'permission_denied' || error.code === 'backend_scope_denied'))
+        return requestJson('/api/vdr/channels', input);
+      throw error;
+    }
+    return {channels: items};
+  }
+
   function fetchClientChannels(options) {
-    return requestJson('/api/vdr/channels', options);
+    const input = normalizeOptions(options);
+    if (input.editorCatalog === true) return fetchEditorChannelCatalog(input);
+    return requestJson('/api/vdr/channels', input);
   }
 
   function fetchClientTeletextService(options) {

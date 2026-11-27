@@ -756,6 +756,7 @@
     }
 
     channelCache[backendId] = clientApi.fetchClientChannels({
+      editorCatalog: true,
       query: {backend: backendId, _: String(Date.now())},
       cache: 'no-store',
       credentials: 'same-origin'

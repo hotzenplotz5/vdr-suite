@@ -596,6 +596,7 @@
       return Promise.reject(new Error('Kanalliste ist nicht verfügbar.'));
     }
     channelCache[backendId] = api.fetchClientChannels({
+      editorCatalog: true,
       query: {backend: backendId, _: String(Date.now())},
       cache: 'no-store',
       credentials: 'same-origin'
