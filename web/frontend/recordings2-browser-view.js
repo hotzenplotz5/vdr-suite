@@ -62,23 +62,16 @@
       breadcrumbs.className = 'recordings2-breadcrumbs';
       breadcrumbs.setAttribute('aria-label', 'Aufnahmeordner');
       breadcrumbs.appendChild(shared.createButton('Aufnahmen', function () { options.openFolder(''); }));
-      if (typeof currentState.folderId === 'string') {
-        (currentState.breadcrumbs || []).forEach(function (crumb) {
-          breadcrumbs.appendChild(shared.node('span', 'recordings2-separator', '›'));
-          breadcrumbs.appendChild(shared.createButton(crumb.name,
-            function () { options.openFolder({folderId:crumb.folderId}); }));
-        });
-        return breadcrumbs;
-      }
-      const parts = shared.normalizePath(currentState.path).split('/').filter(Boolean);
       let current = '';
-      parts.forEach(function (part) {
-        current = current ? current + '/' + part : part;
-        const target = current;
-        const separator = shared.node('span', 'recordings2-separator', '›');
-        breadcrumbs.appendChild(separator);
-        breadcrumbs.appendChild(shared.createButton(
-          shared.decodeDisplayText(part), function () { options.openFolder(target); }));
+      const crumbs = typeof currentState.folderId === 'string'
+        ? (currentState.breadcrumbs || []).map(crumb=>({name:crumb.name,target:{folderId:crumb.folderId}}))
+        : shared.normalizePath(currentState.path).split('/').filter(Boolean).map(function (part) {
+          current = current ? current + '/' + part : part;
+          return {name:shared.decodeDisplayText(part),target:current};
+        });
+      crumbs.forEach(function (crumb) {
+        breadcrumbs.appendChild(shared.node('span', 'recordings2-separator', '›'));
+        breadcrumbs.appendChild(shared.createButton(crumb.name, function () { options.openFolder(crumb.target); }));
       });
       return breadcrumbs;
     }

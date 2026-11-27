@@ -83,7 +83,7 @@
     shared: shared,
     folderArtwork: folderArtwork,
     normalizeRecordings: normalizeRecordings,
-    applyFolderData: applyFolderData,
+    normalizeRecording: normalizeRecording,
     render: render,
     loadFolder: loadFolder,
     onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); },
@@ -100,43 +100,7 @@
     }
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves, stop: stopFolderRefresh,
-    schedule: scheduleFolderRefresh, updatePresentedFolderState, forgetRecording} = folderRefresh;
-  function applyFolderData(data, append) {
-    if (!data || data.recordingFolder !== true) {
-      throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
-    }
-    const publicPage = data.publicFolder === true;
-    const previousFolders = append && state.data
-      ? shared.folderList(state.data).slice()
-      : shared.folderList(data).slice();
-    if (append && publicPage) {
-      if (!state.data || state.data.publicFolder !== true ||
-          data.folderId !== state.folderId || data.offset !== state.data.nextOffset)
-        throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
-      const folderIds = new Set(previousFolders.map(folder => folder.folderId));
-      const recordingIds = new Set(state.serverRecordings.map(recording => recording.recordingId));
-      if (shared.folderList(data).some(folder=>folderIds.has(folder.folderId)) ||
-          shared.recordingList(data).some(recording=>recordingIds.has(recording.recordingId)))
-        throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
-      previousFolders.push(...shared.folderList(data));
-    }
-    const incomingRecordings = normalizeRecordings(shared.recordingList(data));
-    state.data = append
-      ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
-      : Object.assign({}, data, {folders: previousFolders});
-    state.folderId = publicPage ? data.folderId : null;
-    state.parentFolderId = publicPage ? data.parentFolderId : '';
-    state.breadcrumbs = publicPage ? data.breadcrumbs : [];
-    state.path = publicPage ? '' : shared.normalizePath(shared.first(data, ['path'], state.path));
-    state.parentPath = publicPage ? '' : shared.normalizePath(shared.first(data, ['parentPath'], ''));
-    state.serverRecordingCount = shared.number(data.recordingCount, incomingRecordings.length);
-    state.serverRecordings = append
-      ? state.serverRecordings.concat(incomingRecordings)
-      : incomingRecordings;
-    state.serverSignature = append ? '' : folderRefresh.signature(data);
-    if (!append) state.promotedRecordings = [];
-    updatePresentedFolderState();
-  }
+    schedule: scheduleFolderRefresh, applyFolderData, forgetRecording} = folderRefresh;
   function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; state.detailHome = null; state.detailHomeLabel = ''; }
   function folderTarget() {
     return state.folderId !== null ? {folderId:state.folderId, legacyPath:state.legacyFolderPath} : state.path || '';
@@ -204,45 +168,7 @@
         scheduleFolderRefresh();
       });
   }
-  function selectRecording(recording) {
-    const sequence = ++state.requestSequence;
-    clearExternalDetailReturn();
-    const id = recording && recording.folderCard === true && recording.recordingId;
-    if (/^rec_[0-9a-f]{32}$/.test(id || '')) {
-      // Only this explicit selection needs the still-private detail bridge.
-      // The list remains public and no per-card detail requests are made.
-      const api = shared.clientApi();
-      if (!api || typeof api.fetchClientRecordingForPublicId !== 'function') {
-        state.error = new Error('Aufnahmedetails sind nicht verfügbar.');
-        render();
-        return;
-      }
-      const backendId = state.backendId;
-      state.loadingMore = false;
-      state.loading = true;
-      api.fetchClientRecordingForPublicId({backendId, recordingId:id})
-        .then(function (detail) {
-          if (!state.active || sequence !== state.requestSequence || state.backendId !== backendId) return;
-          state.loading = false;
-          if (!detail || !detail.recording || detail.recording.backendId !== backendId ||
-              detail.recording.publicRecordingId !== id)
-            throw new Error('Die Aufnahme konnte nicht eindeutig aufgelöst werden.');
-          state.selectedRecording = normalizeRecording(Object.assign({}, detail.recording,
-            recording.__vdrSuiteOpenHevcShrink ? {__vdrSuiteOpenHevcShrink:true} : {}));
-          render();
-          scheduleFolderRefresh();
-        }).catch(function (error) {
-          if (!state.active || sequence !== state.requestSequence) return;
-          state.loading = false;
-          state.error = error;
-          render();
-        });
-      return;
-    }
-    state.selectedRecording = normalizeRecording(recording);
-    render();
-    scheduleFolderRefresh();
-  }
+  function selectRecording(recording) { clearExternalDetailReturn(); folderRefresh.selectRecording(recording); }
   function leaveExternalDetail(callback) { if (view && typeof view.destroy === 'function') view.destroy(); state.requestSequence += 1; state.selectedRecording = null; clearExternalDetailReturn(); if (typeof callback !== 'function') return false; stopFolderRefresh(); state.active = false; callback(); return true; }
   function closeDetail(changed) { const detailReturn = state.detailReturn; if (leaveExternalDetail(typeof detailReturn === 'function' ? function () { detailReturn(changed === true); } : null)) return; render(); scheduleFolderRefresh(0); }
   function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; leaveExternalDetail(function () { if (typeof global.selectModule === 'function') global.selectModule('overview'); if (typeof global.scrollTo === 'function') global.scrollTo({top: 0, left: 0, behavior: 'auto'}); }); }

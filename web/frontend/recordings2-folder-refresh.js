@@ -84,6 +84,84 @@
       });
     }
 
+    function applyFolderData(data, append) {
+      const state = options.getState();
+      if (!data || data.recordingFolder !== true) {
+        throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
+      }
+      const publicPage = data.publicFolder === true;
+      const previousFolders = append && state.data
+        ? options.shared.folderList(state.data).slice()
+        : options.shared.folderList(data).slice();
+      if (append && publicPage) {
+        if (!state.data || state.data.publicFolder !== true ||
+            data.folderId !== state.folderId || data.offset !== state.data.nextOffset)
+          throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
+        const folderIds = new Set(previousFolders.map(folder => folder.folderId));
+        const recordingIds = new Set(state.serverRecordings.map(recording => recording.recordingId));
+        if (options.shared.folderList(data).some(folder=>folderIds.has(folder.folderId)) ||
+            options.shared.recordingList(data).some(recording=>recordingIds.has(recording.recordingId)))
+          throw new Error('Der Aufnahmeordner hat sich geändert. Bitte neu laden.');
+        previousFolders.push(...options.shared.folderList(data));
+      }
+      const incomingRecordings = options.normalizeRecordings(options.shared.recordingList(data));
+      state.data = append
+        ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
+        : Object.assign({}, data, {folders: previousFolders});
+      state.folderId = publicPage ? data.folderId : null;
+      state.parentFolderId = publicPage ? data.parentFolderId : '';
+      state.breadcrumbs = publicPage ? data.breadcrumbs : [];
+      state.path = publicPage ? '' : options.shared.normalizePath(options.shared.first(data, ['path'], state.path));
+      state.parentPath = publicPage ? '' : options.shared.normalizePath(options.shared.first(data, ['parentPath'], ''));
+      state.serverRecordingCount = options.shared.number(data.recordingCount, incomingRecordings.length);
+      state.serverRecordings = append
+        ? state.serverRecordings.concat(incomingRecordings)
+        : incomingRecordings;
+      state.serverSignature = append ? '' : signature(data);
+      if (!append) state.promotedRecordings = [];
+      updatePresentedFolderState();
+    }
+
+    function selectRecording(recording) {
+      const state = options.getState();
+      const sequence = ++state.requestSequence;
+      const id = recording && recording.folderCard === true && recording.recordingId;
+      if (/^rec_[0-9a-f]{32}$/.test(id || '')) {
+        // Only this explicit selection needs the still-private detail bridge.
+        // The list remains public and no per-card detail requests are made.
+        const api = options.shared.clientApi();
+        if (!api || typeof api.fetchClientRecordingForPublicId !== 'function') {
+          state.error = new Error('Aufnahmedetails sind nicht verfügbar.');
+          options.render();
+          return;
+        }
+        const backendId = state.backendId;
+        state.loadingMore = false;
+        state.loading = true;
+        api.fetchClientRecordingForPublicId({backendId, recordingId:id})
+          .then(function (detail) {
+            if (!state.active || sequence !== state.requestSequence || state.backendId !== backendId) return;
+            state.loading = false;
+            if (!detail || !detail.recording || detail.recording.backendId !== backendId ||
+                detail.recording.publicRecordingId !== id)
+              throw new Error('Die Aufnahme konnte nicht eindeutig aufgelöst werden.');
+            state.selectedRecording = options.normalizeRecording(Object.assign({}, detail.recording,
+              recording.__vdrSuiteOpenHevcShrink ? {__vdrSuiteOpenHevcShrink:true} : {}));
+            options.render();
+            schedule();
+          }).catch(function (error) {
+            if (!state.active || sequence !== state.requestSequence) return;
+            state.loading = false;
+            state.error = error;
+            options.render();
+          });
+        return;
+      }
+      state.selectedRecording = options.normalizeRecording(recording);
+      options.render();
+      schedule();
+    }
+
     function signature(data) {
       return JSON.stringify([
         data.path, data.folderId, data.breadcrumbs, data.folderCount, data.cardCount,
@@ -232,7 +310,7 @@
             throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
           }
           if (signature(data) === state().serverSignature) return null;
-          options.applyFolderData(data, false);
+          applyFolderData(data, false);
           applied = true;
           return resolveLeaves(data, current).then(function () {
             if (current()) options.render();
@@ -254,7 +332,7 @@
         });
     }
 
-    return Object.freeze({requestFolder, signature, updatePresentedFolderState,
+    return Object.freeze({requestFolder, signature, applyFolderData, selectRecording, updatePresentedFolderState,
       sameRecordingIdentity, forgetRecording, resolveLeaves, stop, schedule, refresh});
   }
 

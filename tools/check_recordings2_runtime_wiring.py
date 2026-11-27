@@ -90,6 +90,9 @@ required_tokens = {
         'sameRecordingIdentity',
         'forgetRecording',
         'updatePresentedFolderState',
+        'recordingFolder !== true',
+        'applyFolderData',
+        'selectRecording',
     ),
     'browser_cards': (
         'global.VdrSuiteRecordings2Cards',
@@ -201,7 +204,7 @@ required_tokens = {
     'runtime': (
         'global.VdrSuiteRecordings2 = moduleApi;',
         'fetchClientRecordingFolder',
-        'recordingFolder !== true',
+        'applyFolderData',
         'serverRecordings',
         'promotedRecordings',
         'resolveSingleRecordingLeaves',
