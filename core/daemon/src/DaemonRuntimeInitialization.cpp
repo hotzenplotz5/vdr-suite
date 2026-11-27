@@ -3468,8 +3468,9 @@ bool DaemonRuntime::initialize()
                     }
                     PublicRecordingCollectionProjection projector(
                         *publicRecordingIdentities_);
+                    // Preserve the shared folder cache's order across pages.
                     const auto visible = projector.project(
-                        request.backendId, direct.recordings);
+                        request.backendId, direct.recordings, true);
                     if (!visible.valid)
                     {
                         std::cerr << "Public-v1 Recording browse unavailable: "

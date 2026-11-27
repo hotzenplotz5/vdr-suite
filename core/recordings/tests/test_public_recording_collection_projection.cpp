@@ -41,6 +41,21 @@ int main()
     assert(result.items[0].durationKnown);
     assert(result.items[0].description == "Beschreibung aus Metadaten");
     assert(result.items[0].sizeMb == 2048);
+    // Folder paging has already selected and ordered rows in the shared
+    // cache. Projection must not reorder each page by recording date.
+    VdrRecording newer = first;
+    newer.backendNativeId = "/private/source/newer.rec";
+    newer.path = "/srv/vdr/video/Filme/Zweiter/2026-11-01.rec";
+    newer.title = "Zweiter";
+    newer.startTime = "2026-11-01T20:15:00Z";
+    const auto chronological = projection.project("backend-a", {first, newer});
+    const auto folder = projection.project("backend-a", {first, newer}, true);
+    assert(chronological.valid && folder.valid);
+    assert(chronological.items.size() == 2U && folder.items.size() == 2U);
+    assert(chronological.items[0].title == "Zweiter");
+    assert(folder.items[0].title == "Film");
+    assert(folder.items[0].recordingId == result.items[0].recordingId);
+    assert(folder.items[1].recordingId == chronological.items[0].recordingId);
     // Keep the payload bounded and preserve UTF-8 codepoint boundaries.
     first.metadata.provider.overview = std::string(2047, 'a') + "\xc3\xa4" + "end";
     const auto longResult = projection.project("backend-a", {first});

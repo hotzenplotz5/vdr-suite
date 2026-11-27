@@ -36,7 +36,8 @@ public:
 
     PublicRecordingReadResult project(
         const std::string& authorizedBackendId,
-        const std::vector<VdrRecording>& recordings);
+        const std::vector<VdrRecording>& recordings,
+        bool preserveSourceOrder = false);
 
 private:
     PublicRecordingIdentityRepository& identities_;

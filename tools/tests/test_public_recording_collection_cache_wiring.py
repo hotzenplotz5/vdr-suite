@@ -19,6 +19,7 @@ class RecordingCacheWiringTest(unittest.TestCase):
         self.assertIn("projection.project(request.backendId, cached)", flat)
         self.assertNotIn("getRecordingsForBackend(", flat)
         self.assertIn("folderPageForBackendByPublicId(", section)
+        self.assertIn("request.backendId, direct.recordings, true)", section)
 
     def test_startup_snapshot_stays_lightweight(self):
         source = (ROOT / "core/vdr/include/VdrSnapshotBuilder.h").read_text()
