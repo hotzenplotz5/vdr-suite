@@ -35,7 +35,10 @@ assert(source.includes('limit: NEW_LIMIT'));
 assert(clientApi.includes("requestJson('/api/vdr/recordings/query', options)"));
 
 // Folder discovery consumes the existing recording hierarchy and canonical folder owner.
-assert(source.includes('fetchClientRecordingFolder({'));
+assert(source.includes('publicMode ? client.fetchPublicRecordingFolder : client.fetchClientRecordingFolder'));
+assert(source.includes('payload.publicFolder === true'));
+assert(source.includes('return requestPage(nextOffset)'));
+assert(clientApi.includes("view: 'folders'"));
 assert(source.includes("path: ''"));
 assert(source.includes('limit: FOLDER_LIMIT'));
 assert(source.includes("global.VdrSuiteRecordings2.openFolder(path)"));
@@ -116,7 +119,8 @@ assert(source.includes('mountFolderSeries: mountFolderSeries'));
 assert(source.includes('!allowPartial && members.length !== expected'));
 assert(source.includes('appendOriginalFolderButton(surface)'));
 assert(source.includes('Alle Aufnahmen im Ordner'));
-assert(bootstrap.includes('discovery.mountFolderSeries(expansion, nextPath, backendId'));
+assert(bootstrap.includes('discovery.mountFolderSeries(expansion, seriesPath, backendId'));
+assert(bootstrap.includes('folderId:text(currentEntry() && currentEntry().folderId)'));
 assert(source.includes('prioritizeInlineRailArtwork(view.episodeRail)'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
