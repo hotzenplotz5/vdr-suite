@@ -106,6 +106,15 @@ for route in (
     require(browser_client.count(route) == 1,
             "reviewed Browser recording route missing or duplicated: " + route)
     browser_client = browser_client.replace(route, "'reviewed-recording-route'")
+# Reviewed combined-search successor; discovery itself remains unchanged.
+for route in (
+    "'/api/v1/search'",
+    "'/api/v1/recordings/' + recordingId + '/artwork/' + artworkId",
+    "'/api/v1/epg/artwork?backendId='",
+):
+    require(browser_client.count(route) == 1,
+            "reviewed Browser search route missing or duplicated: " + route)
+    browser_client = browser_client.replace(route, "'reviewed-global-search-route'")
 require("/api/v1" not in browser_client,
         "non-equivalent bundled browser was silently migrated to public-v1")
 

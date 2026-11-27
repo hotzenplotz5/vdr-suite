@@ -166,7 +166,7 @@
     {
       "domain": "global-search",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "scoped-public-v1",
       "exports": [
         "fetchClientGlobalSearch"
       ],
