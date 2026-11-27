@@ -28,6 +28,7 @@ class Element {
     this.value = '';
     this.disabled = false;
     this.type = '';
+    this.checked = false;
     this.isConnected = true;
   }
   appendChild(item) {
@@ -72,6 +73,7 @@ async function run() {
   const calls = [];
   let revision = 1;
   let rejectStale = false;
+  let grantItems = [{permission:'channels.view', backendId:'default'}];
   let confirmations = 0;
   let restores = 0;
   const pendingId = 'dpr_' + 'a'.repeat(32);
@@ -126,7 +128,7 @@ async function run() {
         data: {
           deviceId: options.deviceId,
           actorId: 'actor_a',
-          items: [],
+          items: options.deviceId === 'device_a' ? grantItems.slice() : [],
           supportedPermissions: [
             'channels.view', 'searchtimers.create', 'timers.create',
             'timers.modify', 'timers.delete',
@@ -156,11 +158,14 @@ async function run() {
     },
     setDeviceGrant(options) {
       calls.push({kind: 'mutation', options});
-      if (rejectStale) return Promise.reject({status: 412});
+      if (rejectStale || options.ifMatch !== '"grant-r' + revision + '"')
+        return Promise.reject({status: 412});
+      grantItems = grantItems.filter(x => x.permission !== options.permission || x.backendId !== options.backendId);
+      if (options.active) grantItems.push({permission:options.permission, backendId:options.backendId});
       revision++;
       return Promise.resolve({
         etag: '"grant-r' + revision + '"',
-        data: {deviceId: options.deviceId, items: []}
+        data: {deviceId: options.deviceId, items: grantItems.slice()}
       });
     }
   };
@@ -210,44 +215,66 @@ async function run() {
       /Unsafe Device Grant mutation/);
   }
   assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 0);
-  const selects = descendants(page).filter(el => el.tagName === 'SELECT');
-  assert.strictEqual(selects.length, 2);
-  const grantable = selects[0].options.map(el => el.value);
+  const checkboxes = () => descendants(page).filter(el => el.type === 'checkbox');
+  const check = permission => checkboxes().find(el => el.value === permission);
+  const change = (permission, active) => {
+    const input = check(permission);
+    input.checked = active;
+    input.listeners.change();
+  };
+  const save = () => named(page, 'button', 'Berechtigungen speichern');
+  assert(check('channels.view').checked, 'Existing grant is checked once');
+  assert.strictEqual(checkboxes().filter(x => x.value === 'channels.view').length, 1);
   for (const permission of [
     'timers.modify', 'timers.delete', 'searchtimers.modify',
     'searchtimers.execute', 'searchtimers.delete'
-  ]) {
-    assert(grantable.includes(permission),
-      'Server-supported Device grant missing from UI: ' + permission);
-  }
-  assert(!grantable.includes('role.admin'));
-  selects[0].value = 'searchtimers.create';
-  selects[1].value = 'default';
-  const grant = named(page, 'button', 'Zugriff hinzufügen');
-  approveConfirmed = true;
-  grant.click();
+  ]) assert(check(permission), 'Missing supported grant: ' + permission);
+  assert(!check('role.admin'));
+  assert(save().disabled);
+  named(page, 'button', 'Alle auswählen').click();
+  assert(checkboxes().every(x => x.checked));
+  named(page, 'button', 'Alle abwählen').click();
+  assert(checkboxes().every(x => !x.checked));
+  change('channels.view', true);
+  change('searchtimers.create', true);
+  change('timers.create', true);
+  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 0);
+  save().click();
   await settle();
   const changed = calls.filter(x => x.kind === 'mutation');
-  assert.strictEqual(changed.length, 1);
+  assert.strictEqual(changed.length, 2);
   assert.strictEqual(changed[0].options.permission, 'searchtimers.create');
+  assert.strictEqual(changed[1].options.permission, 'timers.create');
   assert.strictEqual(changed[0].options.backendId, 'default');
   assert.strictEqual(changed[0].options.ifMatch, '"grant-r1"');
-  assert.strictEqual(changed[0].options.headers['X-CSRF-Token'],
-    'test-browser-csrf');
+  assert.strictEqual(changed[1].options.ifMatch, '"grant-r2"');
+  assert.strictEqual(changed[0].options.headers['X-CSRF-Token'], 'test-browser-csrf');
   assert.strictEqual(changed[0].options.credentials, 'same-origin');
-  assert.strictEqual(confirmations, 1);
-  assert.strictEqual(restores, 1);
-
+  assert.strictEqual(confirmations, 0);
+  assert.strictEqual(restores, 2);
+  assert(check('channels.view').checked && check('searchtimers.create').checked &&
+    check('timers.create').checked);
+  assert(save().disabled);
+  // Scope changes keep the draft without granting rights to another backend.
+  change('channels.view', false);
+  const backend = descendants(page).find(el => el.tagName === 'SELECT');
+  backend.value = 'second';
+  backend.listeners.change();
+  assert(!check('channels.view').checked);
+  change('channels.view', true);
+  backend.value = 'default';
+  const currentBackend = descendants(page).find(el => el.tagName === 'SELECT');
+  currentBackend.value = 'default';
+  currentBackend.listeners.change();
+  assert(!check('channels.view').checked);
   rejectStale = true;
-  const after = descendants(page).filter(el => el.tagName === 'SELECT');
-  after[0].value = 'timers.create';
-  after[1].value = 'default';
-  named(page, 'button', 'Zugriff hinzufügen').click();
+  save().click();
   await settle();
-  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 2,
-    '412 must not be retried automatically');
-  assert(calls.filter(x => x.kind === 'grants').length >= 3,
-    '412 requires a fresh ETag read');
+  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 3,
+    '412 stops the batch without retry or dispatching remaining changes');
+  assert(calls.filter(x => x.kind === 'grants').length >= 3);
+  assert(check('channels.view').checked, 'Failed changes are read back');
+  assert(save().disabled);
   // A revoke is never implicit: fresh lifecycle GET, explicit confirmation,
   // separate CSRF-fenced POST with the lifecycle (not grant) ETag.
   const retire = named(page, 'button', 'Gerät entfernen');
@@ -268,7 +295,7 @@ async function run() {
   assert(!named(page, 'button', 'Hisense Wohnzimmer'),
     'Revoked devices are hidden from the default active list');
   assert(named(page, 'button', 'Widerrufene anzeigen (2)'));
-  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 2,
+  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 3,
     'Retiring one Device must not mutate any grant');
   named(page, 'button', 'Widerrufene anzeigen (2)').click();
   assert(named(page, 'button', 'Hisense Wohnzimmer'));
@@ -276,7 +303,7 @@ async function run() {
   assert(oldTv);
   oldTv.click();
   await settle();
-  assert(!named(page, 'button', 'Zugriff hinzufügen'),
+  assert(!named(page, 'button', 'Berechtigungen speichern'),
     'Revoked devices have no mutation controls');
 
   // Real view composition: pending pairing must not be listed as a Device.
@@ -356,7 +383,7 @@ async function run() {
   assert.strictEqual(timers.length, 1, 'never create concurrent refresh intervals');
   assert.strictEqual(calls.filter(c => c.kind === 'pending-decision').length, 2,
     'background refresh must never approve/reject');
-  assert.strictEqual(calls.filter(c => c.kind === 'mutation').length, 2,
+  assert.strictEqual(calls.filter(c => c.kind === 'mutation').length, 3,
     'background refresh must not mutate grants');
 
   // Hidden page: no network traffic, no background refresh requests.

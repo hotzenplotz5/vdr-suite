@@ -3862,11 +3862,54 @@ function appendSettingsBuildIdentityCard(parent) {
   }).catch(unavailable);
 }
 
+let settingsCategory = 'general';
 function renderSettingsView(data) {
   detailDataElement.replaceChildren();
 
-  const panel = document.createElement('section');
-  panel.className = 'settings-panel';
+  const root = document.createElement('section');
+  root.className = 'settings-panel settings-workspace';
+  const navigation = document.createElement('nav');
+  navigation.className = 'settings-navigation';
+  navigation.setAttribute('aria-label', frontendTranslate('settings.title', 'Einstellungen'));
+  const body = document.createElement('div');
+  body.className = 'settings-content';
+  const categories = [
+    ['general', frontendTranslate('settings.categoryGeneral', 'Allgemein')],
+    ['backend', frontendTranslate('settings.categoryBackend', 'VDR & Backend')],
+    ['accounts', frontendTranslate('settings.categoryAccounts', 'Benutzer')],
+    ['devices', frontendTranslate('settings.categoryDevices', 'Geräte')],
+    ['playback', frontendTranslate('settings.categoryPlayback', 'Wiedergabe')],
+    ['metadata', frontendTranslate('settings.categoryMetadata', 'Metadaten')],
+    ['addons', frontendTranslate('settings.categoryAddons', 'Add-ons')],
+    ['system', frontendTranslate('settings.categorySystem', 'System')]
+  ];
+  const sections = new Map(), buttons = new Map();
+  function selectCategory(id) {
+    if (!sections.has(id)) return;
+    settingsCategory = id;
+    sections.forEach((section, key) => {
+      section.hidden = key !== id;
+      buttons.get(key).setAttribute('aria-current', key === id ? 'true' : 'false');
+    });
+  }
+  categories.forEach(([id, title]) => {
+    const section = document.createElement('section');
+    section.className = 'settings-category';
+    section.dataset.settingsCategory = id;
+    section.appendChild(addText(document.createElement('h2'), title));
+    sections.set(id, section);
+    body.appendChild(section);
+    const button = addText(document.createElement('button'), title);
+    button.type = 'button';
+    button.addEventListener('click', () => selectCategory(id));
+    buttons.set(id, button);
+    navigation.appendChild(button);
+  });
+  root.appendChild(navigation);
+  root.appendChild(body);
+  // Keep owners mounted across category switches: no repeated requests or
+  // lost unsaved input caused by rebuilding a Settings section.
+  function inCategory(id, mount) { return mount(sections.get(id)); }
 
   const intro = document.createElement('article');
   intro.className = 'module-placeholder settings-card';
@@ -3881,26 +3924,26 @@ function renderSettingsView(data) {
       'Zentrale Oberfläche für Frontend-Einstellungen, Backend-Auswahl und technische Backend-Informationen.'
     )
   ));
-  panel.appendChild(intro);
+  sections.get('general').appendChild(intro);
 
-  appendSettingsLanguageCard(panel);
+  inCategory('general', panel => { appendSettingsLanguageCard(panel); });
 
-  appendSettingsBuildIdentityCard(panel);
+  inCategory('system', panel => { appendSettingsBuildIdentityCard(panel); });
 
   // Paired TVs/Apps are distinct from Human browser sessions. Show first.
   const deviceAdminSettings = window.VdrSuiteDeviceAdminSettings;
   if (deviceAdminSettings && typeof deviceAdminSettings.render === 'function') {
-    deviceAdminSettings.render(panel);
+    inCategory('devices', panel => { deviceAdminSettings.render(panel); });
   }
 
   const addonsSettings = window.VdrSuiteAddonSettings;
   if (addonsSettings && typeof addonsSettings.render === 'function') {
-    addonsSettings.render(panel, selectedBackendId);
+    inCategory('addons', panel => { addonsSettings.render(panel, selectedBackendId); });
   }
 
   const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
   if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
-    accountAdminSettings.render(panel);
+    inCategory('accounts', panel => { accountAdminSettings.render(panel); });
   }
 
   const remoteCard = document.createElement('article');
@@ -3946,7 +3989,7 @@ function renderSettingsView(data) {
 
   remoteCard.appendChild(remoteHelpButton);
   remoteCard.appendChild(remoteHelpStatus);
-  panel.appendChild(remoteCard);
+  sections.get('playback').appendChild(remoteCard);
 
   const backend = selectedBackend || {};
   const selector = backend.frontendSelector || backend;
@@ -3968,7 +4011,7 @@ function renderSettingsView(data) {
   appendSettingsLine(backendCard, frontendTranslate('settings.timers', 'Timer'), settingsBoolean(Boolean(selector.canWriteTimers)));
   appendSettingsLine(backendCard, frontendTranslate('settings.searchTimers', 'Suchtimer'), settingsBoolean(Boolean(selector.canWriteSearchTimers)));
 
-  panel.appendChild(backendCard);
+  sections.get('backend').appendChild(backendCard);
 
   const runtimeCard = document.createElement('article');
   runtimeCard.className = 'module-placeholder settings-card';
@@ -4009,8 +4052,9 @@ function renderSettingsView(data) {
     data ? firstValue(data, ['liveStatus', 'status'], '-') : '…'
   ).id = 'settings-snapshot-live-status';
 
-  panel.appendChild(runtimeCard);
-  detailDataElement.appendChild(panel);
+  sections.get('system').appendChild(runtimeCard);
+  selectCategory(sections.has(settingsCategory) ? settingsCategory : 'general');
+  detailDataElement.appendChild(root);
 }
 
 
