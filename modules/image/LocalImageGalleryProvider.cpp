@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
+#include <cstdint>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <utility>
@@ -45,6 +46,51 @@ int descend(int fd, const fs::path& path)
     return fd;
 }
 
+struct FileCloser {
+    int fd;
+    ~FileCloser() { if (fd >= 0) ::close(fd); }
+    FileCloser(const FileCloser&) = delete;
+    FileCloser& operator=(const FileCloser&) = delete;
+    explicit FileCloser(int value) : fd(value) {}
+};
+
+bool resolveSourcePath(const Source& source, const std::string& requested,
+                       fs::path& root, fs::path& relative)
+{
+    if (!relativeDirectoryPath(requested) ||
+        !fs::path(source.root).is_absolute() ||
+        source.root.find('\0') != std::string::npos) return false;
+    std::error_code error;
+    root = fs::canonical(source.root, error);
+    if (error) return false;
+    std::string resolved;
+    if (!EpgArtworkPathPolicy::resolveAllowedPath(
+            (root / requested).string(), {root.string()}, resolved)) return false;
+    relative = fs::path(resolved).lexically_relative(root);
+    return !relative.empty();
+}
+
+int openRoot(const fs::path& root)
+{
+    return descend(::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC),
+                   root.relative_path());
+}
+
+// Identify the transport media type by bytes, never a client-supplied MIME
+// value. This is a signature check, not a full decoder or EXIF inspection.
+std::string photoContentType(const std::string& bytes)
+{
+    if (bytes.size() >= 3 && bytes.compare(0, 3, "\xff\xd8\xff", 3) == 0)
+        return "image/jpeg";
+    if (bytes.size() >= 8 && bytes.compare(0, 8, "\x89PNG\r\n\x1a\n", 8) == 0)
+        return "image/png";
+    if (bytes.size() >= 12 && bytes.compare(0, 4, "RIFF") == 0 &&
+        bytes.compare(8, 4, "WEBP") == 0) return "image/webp";
+    if (bytes.size() >= 14 && bytes.compare(0, 2, "BM") == 0)
+        return "image/bmp";
+    return {};
+}
+
 struct DirectoryCloser {
     void operator()(DIR* value) const { if (value) ::closedir(value); }
 };
@@ -64,20 +110,10 @@ bool regularInside(const fs::path& candidate, const std::string& root)
 BrowseResult browseLocalDirectory(const Source& source,
                                   const std::string& relativeDirectory)
 {
-    if (!relativeDirectoryPath(relativeDirectory) ||
-        !fs::path(source.root).is_absolute() ||
-        source.root.find('\0') != std::string::npos) return {};
+    fs::path root, relative;
+    if (!resolveSourcePath(source, relativeDirectory, root, relative)) return {};
     std::error_code error;
-    const auto root = fs::canonical(source.root, error);
-    if (error) return {};
-    std::string resolved;
-    if (!EpgArtworkPathPolicy::resolveAllowedPath(
-            (root / relativeDirectory).string(), {root.string()}, resolved)) return {};
-    const auto relative = fs::path(resolved).lexically_relative(root);
-    if (relative.empty()) return {};
-    const int rootFd = descend(::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC),
-                               root.relative_path());
-    const int fd = descend(rootFd, relative);
+    const int fd = descend(openRoot(root), relative);
     if (fd < 0) return {};
     DIR* raw = ::fdopendir(fd);
     if (!raw) {
@@ -119,6 +155,41 @@ BrowseResult browseLocalDirectory(const Source& source,
         entries.push_back(std::move(entry));
     }
     return {true, galleryEntries(std::move(entries))};
+}
+
+PhotoReadResult readLocalPhoto(const Source& source,
+                               const std::string& relativePath,
+                               std::size_t byteBudget)
+{
+    if (relativePath.empty() || !isPhotoFilename(relativePath))
+        return {PhotoReadStatus::unsupported, {}, {}};
+    fs::path root, relative;
+    if (!resolveSourcePath(source, relativePath, root, relative) ||
+        relative == "." || relative.filename().empty()) return {};
+    FileCloser directory(descend(openRoot(root), relative.parent_path()));
+    if (directory.fd < 0) return {};
+    FileCloser file(::openat(directory.fd, relative.filename().c_str(),
+        O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
+    struct stat before {};
+    if (file.fd < 0 || ::fstat(file.fd, &before) != 0 ||
+        !S_ISREG(before.st_mode) || before.st_size <= 0) return {};
+    if (static_cast<std::uintmax_t>(before.st_size) > byteBudget)
+        return {PhotoReadStatus::exceedsBudget, {}, {}};
+    std::string bytes(static_cast<std::size_t>(before.st_size), '\0');
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const auto count = ::read(file.fd, bytes.data() + offset, bytes.size() - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) return {};
+        offset += static_cast<std::size_t>(count);
+    }
+    struct stat after {};
+    if (::fstat(file.fd, &after) != 0 || before.st_size != after.st_size ||
+        before.st_mtim.tv_sec != after.st_mtim.tv_sec ||
+        before.st_mtim.tv_nsec != after.st_mtim.tv_nsec) return {};
+    auto type = photoContentType(bytes);
+    if (type.empty()) return {PhotoReadStatus::unsupported, {}, {}};
+    return {PhotoReadStatus::ready, std::move(type), std::move(bytes)};
 }
 
 } // namespace vdrsuite::imagegallery

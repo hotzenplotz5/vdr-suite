@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 
 namespace fs = std::filesystem;
 using namespace vdrsuite::imagegallery;
@@ -59,5 +60,19 @@ int main()
     assert(!browseLocalDirectory(source, "../outside").success);
     assert(!browseLocalDirectory(source, "/").success);
     assert(!browseLocalDirectory(source, "missing").success);
+    const std::string png("\x89PNG\r\n\x1a\n", 8);
+    std::ofstream(root / "Urlaub 2" / "Bäume.PNG", std::ios::binary) << png;
+    const auto photo = readLocalPhoto(source, "Alias/Bäume.PNG", 1024);
+    assert(photo.status == PhotoReadStatus::ready);
+    assert(photo.contentType == "image/png" && photo.bytes == png);
+    assert(readLocalPhoto(source, "Alias/Bäume.PNG", 7).status == PhotoReadStatus::exceedsBudget);
+    assert(readLocalPhoto(source, "Bild 2.jpg", 1024).status == PhotoReadStatus::unsupported);
+    assert(readLocalPhoto(source, "Escape.jpg", 1024).status == PhotoReadStatus::unavailable);
+    assert(readLocalPhoto(source, "Escape/private.jpg", 1024).status == PhotoReadStatus::unavailable);
+    assert(readLocalPhoto(source, "../outside/private.jpg", 1024).status == PhotoReadStatus::unavailable);
+    assert(readLocalPhoto(source, (root / "Bild 2.jpg").string(), 1024).status == PhotoReadStatus::unavailable);
+    assert(::mkfifo((root / "pipe.jpg").c_str(), 0600) == 0);
+    assert(readLocalPhoto(source, "pipe.jpg", 1024).status == PhotoReadStatus::unavailable);
     std::cout << "IMAGE_GALLERY_LOCAL_BROWSE=PASS\n";
+    std::cout << "IMAGE_GALLERY_LOCAL_READ=PASS\n";
 }
