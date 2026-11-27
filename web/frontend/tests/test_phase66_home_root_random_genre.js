@@ -449,8 +449,6 @@ function createHarness() {
     cardMetadata: {title: 'Film / Original', episodeName: 'Episode'},
     preferredArtworkId: artworkId};
   const publicCalls = [];
-  const nativeDetail = {recordingId: 'native-item', backendId: 'default',
-    backendNativeId: 'native-item', title: 'Film / Original'};
   const detailCalls = [];
   const opened = [];
   const publicClient = {
@@ -461,7 +459,7 @@ function createHarness() {
     fetchClientGenreRecordings() { throw new Error('unexpected legacy membership'); },
     fetchClientRecordingForPublicId(request) {
       detailCalls.push(request);
-      return Promise.resolve({recording: nativeDetail});
+      throw new Error('Home must not resolve public recording IDs through a private detail adapter');
     }
   };
   publicHarness.window.VdrSuiteClientApi = publicClient;
@@ -482,9 +480,11 @@ function createHarness() {
   assert(publicCard);
   publicCard.listeners.click[0]();
   await new Promise(resolve => setImmediate(resolve));
-  assert.strictEqual(detailCalls.length, 1);
-  assert.strictEqual(detailCalls[0].recordingId, id);
-  assert.strictEqual(opened[0], nativeDetail);
+  assert.strictEqual(detailCalls.length, 0);
+  assert.strictEqual(opened.length, 1);
+  assert.strictEqual(opened[0].recordingId, id);
+  assert.strictEqual(opened[0].backendId, 'default');
+  assert.strictEqual(opened[0].backendNativeId, undefined);
 
   assert(source.includes('const RANDOM_GENRE_LIMIT = 12'));
   assert(source.includes('fetchBoundedRandomGenreRecordings'));
