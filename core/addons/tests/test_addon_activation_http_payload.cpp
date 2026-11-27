@@ -14,6 +14,13 @@ int main() {
     assert(parseActivationHttpBackendQuery(
         "/api/v1/addons/rectools/activation?backendId=backend:a", backend));
     assert(backend=="backend:a");
+    assert(parseActivationHttpBackendQuery(
+        "/api/v1/addons/image/activation?backendId=default", backend, "image"));
+    assert(backend=="default");
+    assert(!parseActivationHttpBackendQuery(
+        "/api/v1/addons/image/activation?backendId=default", backend));
+    assert(!parseActivationHttpBackendQuery(
+        "/api/v1/addons/image/activation?backendId=default&backendId=other", backend, "image"));
     assert(!parseActivationHttpBackendQuery(
         "/api/v1/addons/rectools/activation?backendId=../etc", backend));
     assert(!parseActivationHttpBackendQuery(

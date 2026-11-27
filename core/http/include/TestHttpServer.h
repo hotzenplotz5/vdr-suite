@@ -47,6 +47,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <utility>
 
 class DeviceLiveEventHub;
 
@@ -80,6 +81,18 @@ public:
         AddonSourceMutation addonSourceMutation = {},
         AddonSourceLookup addonSourceLookup = {});
     ~TestHttpServer() override;
+    void setImageGalleryActivation(AddonActivationMutation mutation,
+                                   AddonActivationLookup lookup)
+    {
+        imageActivationMutation_ = std::move(mutation);
+        imageActivationLookup_ = std::move(lookup);
+    }
+
+    void setImageGalleryApi(AddonSourceMutation mutation, AddonSourceLookup lookup)
+    {
+        imageSourcesMutation_ = std::move(mutation);
+        imageGalleryLookup_ = std::move(lookup);
+    }
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
@@ -113,6 +126,10 @@ private:
     AddonActivationLookup addonActivationLookup_;
     AddonSourceMutation addonSourceMutation_;
     AddonSourceLookup addonSourceLookup_;
+    AddonActivationMutation imageActivationMutation_;
+    AddonActivationLookup imageActivationLookup_;
+    AddonSourceMutation imageSourcesMutation_;
+    AddonSourceLookup imageGalleryLookup_;
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;

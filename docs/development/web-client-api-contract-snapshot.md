@@ -98,7 +98,7 @@ Backend selection:
 
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
-- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request. PWA.13.4 dispatches this read before Home resume; the authenticated backend selection enables independent module reads before the response. A late snapshot updates only its owned metrics/settings fields.
+- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request. PWA.13.4 dispatches this read before Home resume; the authenticated backend selection enables independent module reads before the response. A late snapshot updates only its owned metrics/settings fields. The existing backend-scoped snapshot summary may additionally contain `diskFreeMb` (VDR video disk free MiB), sourced from that backend's existing RESTfulAPI status snapshot (`diskusage.free_mb`); omission means unavailable, not zero. Home displays this alongside recording, channel and timer counts, plus a browser-local date/clock. No new backend request or polling cadence.
 
 EPG:
 

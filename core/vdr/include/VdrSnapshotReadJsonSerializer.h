@@ -52,7 +52,8 @@ public:
         std::size_t eventCount,
         std::size_t timerCount,
         std::size_t recordingCount,
-        const std::string& backendId = "default") const;
+        const std::string& backendId = "default",
+        std::int64_t diskFreeMb = -1) const;
 
     std::string serializeSnapshots(
         const std::vector<VdrSnapshot>& snapshots) const;

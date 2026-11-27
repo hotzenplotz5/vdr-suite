@@ -613,6 +613,23 @@ jobs:
           mkdir -p media-tools-artifacts-resolute
           cp -- "$mt_deb" media-tools-artifacts-resolute/
           echo 'MT_I41_RESOLUTE_FOURTH_BINARY_BUILD=PASS'
+          image_debs=("$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-addon-image_*_amd64.deb)
+          test "${#image_debs[@]}" -eq 1
+          image_deb="${image_debs[0]}"
+          test "$(dpkg-deb --field "$image_deb" Package)" = vdr-suite-addon-image
+          test "$(dpkg-deb --field "$image_deb" Version)" = "$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          dpkg-deb --field "$image_deb" Depends | grep -Fw vdr-suite-daemon
+          image_extract="$(mktemp -d)"
+          dpkg-deb --extract "$image_deb" "$image_extract"
+          cmp web/frontend/modules/image-gallery.js "$image_extract/usr/share/vdr-suite/web/frontend/modules/image-gallery.js"
+          cmp modules/image/addon.json "$image_extract/usr/share/vdr-suite/addons/image/addon.json"
+          daemon_extract="$(mktemp -d)"
+          dpkg-deb --extract "$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-daemon_*_amd64.deb "$daemon_extract"
+          test ! -e "$daemon_extract/usr/share/vdr-suite/web/frontend/modules/image-gallery.js"
+          mkdir -p image-gallery-artifacts-resolute
+          cp -- "$image_deb" image-gallery-artifacts-resolute/
+          rm -rf -- "$image_extract" "$daemon_extract"
+          echo 'IMAGE_GALLERY_BINARY_PAYLOAD=PASS'
       - name: Record advisory Lintian baseline for all three Resolute packages
         shell: bash
         env:
@@ -680,6 +697,14 @@ jobs:
           name: vdr-suite-media-tools-resolute-experimental
           path: media-tools-artifacts-resolute/
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload separate Resolute Image Gallery binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-image-gallery-resolute-experimental
+          path: image-gallery-artifacts-resolute/
+          if-no-files-found: error
           retention-days: 7
 
   full-default-packages-noble:
@@ -794,6 +819,23 @@ jobs:
           dpkg-deb --extract "$mt_deb" "$mt_extract"
           python3 tools/addons/debian_media_tools.py --verify-package-root --package-root "$mt_extract"
           echo "MT_I41_FOURTH_BINARY_BUILD=PASS"
+          image_debs=(../vdr-suite-addon-image_*_amd64.deb)
+          test "${#image_debs[@]}" -eq 1
+          image_deb="${image_debs[0]}"
+          test "$(dpkg-deb --field "$image_deb" Package)" = vdr-suite-addon-image
+          test "$(dpkg-deb --field "$image_deb" Version)" = "$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          dpkg-deb --field "$image_deb" Depends | grep -Fw vdr-suite-daemon
+          image_extract="$(mktemp -d)"
+          dpkg-deb --extract "$image_deb" "$image_extract"
+          cmp web/frontend/modules/image-gallery.js "$image_extract/usr/share/vdr-suite/web/frontend/modules/image-gallery.js"
+          cmp modules/image/addon.json "$image_extract/usr/share/vdr-suite/addons/image/addon.json"
+          daemon_extract="$(mktemp -d)"
+          dpkg-deb --extract ../vdr-suite-daemon_*_amd64.deb "$daemon_extract"
+          test ! -e "$daemon_extract/usr/share/vdr-suite/web/frontend/modules/image-gallery.js"
+          mkdir -p image-gallery-artifacts-noble
+          cp -- "$image_deb" image-gallery-artifacts-noble/
+          rm -rf -- "$image_extract" "$daemon_extract"
+          echo 'IMAGE_GALLERY_BINARY_PAYLOAD=PASS'
           echo "P8_PACKAGE_PREINST_CONTROL=PASS"
           echo "FULL_DEFAULT_PACKAGING=PASS"
       - name: Stage unsigned binaries for a disposable installation test
@@ -822,6 +864,13 @@ jobs:
         with:
           name: vdr-suite-media-tools-noble-experimental
           path: media-tools-artifacts-noble/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload separate Noble Image Gallery binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-image-gallery-noble-experimental
+          path: image-gallery-artifacts-noble/
           if-no-files-found: error
           retention-days: 7
       - name: Collect build log on failure
@@ -993,6 +1042,72 @@ jobs:
           test ! -f /var/lib/vdr-suite/vdr-suite.db
           python3 tools/addons/check_installed_media_tools_payload.py
           echo "MT_I43_FOUR_PACKAGE_COINSTALL=PASS series=$SERIES version=$source_version"
+
+      - name: Retrieve the separate Image Gallery binary from the same run
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-image-gallery-${{ matrix.series }}-experimental
+          path: image-package
+      - name: Exercise Image Gallery install, daemon reinstall, remove and reinstall
+        shell: bash
+        env:
+          SERIES: ${{ matrix.series }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -Eeuo pipefail
+          test -f /.dockerenv
+          test "$(id -u)" -eq 0
+          shopt -s nullglob
+          image_debs=(image-package/vdr-suite-addon-image_*_amd64.deb)
+          daemon_debs=(packages/vdr-suite-daemon_*_amd64.deb)
+          test "${#image_debs[@]}" -eq 1
+          test "${#daemon_debs[@]}" -eq 1
+          image_deb="${image_debs[0]}"
+          daemon_deb="${daemon_debs[0]}"
+          version="$(dpkg-deb --field "$daemon_deb" Version)"
+          test "$(dpkg-deb --field "$image_deb" Version)" = "$version"
+          ui=/usr/share/vdr-suite/web/frontend/modules/image-gallery.js
+          metadata=/usr/share/vdr-suite/addons/image/addon.json
+          sources=/var/lib/vdr-suite/image-sources.tsv
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          test ! -e "$sources"
+          apt-get install -y --no-install-recommends "./$image_deb"
+          test "$(dpkg-query -W -f='${Status}' vdr-suite-addon-image)" = 'install ok installed'
+          test "$(dpkg-query -W -f='${Version}' vdr-suite-addon-image)" = "$version"
+          test "$(dpkg-query -S "$ui")" = "vdr-suite-addon-image: $ui"
+          test "$(dpkg-query -S "$metadata")" = "vdr-suite-addon-image: $metadata"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp modules/image/addon.json "$metadata"
+          test ! -e "$sources"
+          fixture="$(mktemp -d)"
+          mkdir -p /var/lib/vdr-suite "$fixture/pictures"
+          printf 'fixture image bytes\n' > "$fixture/pictures/Urlaub.jpg"
+          printf 'pictures\tPictures\t%s/pictures\n' "$fixture" > "$sources"
+          cp "$sources" "$fixture/expected-sources"
+          cp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          # Reinstall the exact daemon while the optional addon shares its
+          # data directories. The existing preinst must accept package ownership.
+          apt-get install -y --reinstall --no-install-recommends "./$daemon_deb"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp "$sources" "$fixture/expected-sources"
+          apt-get remove -y vdr-suite-addon-image
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          test "$(dpkg-query -W -f='${Status}' vdr-suite-daemon)" = 'install ok installed'
+          cmp "$sources" "$fixture/expected-sources"
+          cmp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          apt-get install -y --no-install-recommends "./$image_deb"
+          cmp web/frontend/modules/image-gallery.js "$ui"
+          cmp "$sources" "$fixture/expected-sources"
+          apt-get purge -y vdr-suite-addon-image
+          test ! -e "$ui"
+          test ! -e "$metadata"
+          cmp "$sources" "$fixture/expected-sources"
+          cmp "$fixture/pictures/Urlaub.jpg" "$fixture/expected-image"
+          dpkg --audit
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          echo "IMAGE_GALLERY_APT_LIFECYCLE=PASS series=$SERIES version=$version"
 
   p8-preunpack-collision-noble:
     name: P8 disposable dpkg refusal (${{ matrix.case }})

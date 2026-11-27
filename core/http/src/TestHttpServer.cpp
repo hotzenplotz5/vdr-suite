@@ -2303,6 +2303,24 @@ HttpServerResponse TestHttpServer::handleRequest(
                       "{\"error\":\"addon_activation_unavailable\"}", {}};
         }
         else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/image/activation")
+        {
+            apiResponse = imageActivationLookup_
+                ? imageActivationLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) == "/api/v1/addons/image/sources" ||
+                 pathWithoutQuery(request.path) == "/api/v1/addons/image/library" ||
+                 pathWithoutQuery(request.path) == "/api/v1/addons/image/browse" ||
+                 pathWithoutQuery(request.path) == "/api/v1/addons/image/photo" ||
+                 pathWithoutQuery(request.path) == "/api/v1/addons/image/preview")
+        {
+            apiResponse = imageGalleryLookup_
+                ? imageGalleryLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json", "{\"error\":\"image_gallery_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
                 "/api/v1/addons/rectools/sources")
         {
             apiResponse = addonSourceLookup_
@@ -2358,6 +2376,20 @@ HttpServerResponse TestHttpServer::handleRequest(
                 ? addonActivationMutation_(gate.context, request.body)
                 : ApiResponse{503, "application/json",
                       "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/image/activation")
+        {
+            apiResponse = imageActivationMutation_
+                ? imageActivationMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) == "/api/v1/addons/image/sources")
+        {
+            apiResponse = imageSourcesMutation_
+                ? imageSourcesMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json", "{\"error\":\"image_gallery_unavailable\"}", {}};
         }
         else if (pathWithoutQuery(request.path) ==
                 "/api/v1/addons/rectools/sources")

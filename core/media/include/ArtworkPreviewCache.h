@@ -22,9 +22,13 @@ public:
     // without an HTTP identity. No access to original bytes is granted here.
     bool prewarmHome(const std::string& contentType, const std::string& source) const;
 
+    // Gallery JPEG, bounded to 896px on both axes. Empty means unavailable,
+    // never a request to deliver an oversized original as a thumbnail.
+    std::string gallery(const std::string& contentType, const std::string& source) const;
+
 private:
     std::string renderHome(const std::string& identity, const std::string& contentType,
-                           const std::string& source, bool background) const;
+                           const std::string& source, bool background, bool gallery = false) const;
     std::string directory_;
     std::string executable_;
     mutable std::mutex mutex_;

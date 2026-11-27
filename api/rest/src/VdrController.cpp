@@ -162,7 +162,9 @@ ApiResponse VdrController::getSnapshotSummary()
             snapshotReadService_.getChannels().size(),
             snapshotReadService_.getEvents().size(),
             snapshotReadService_.getTimers().size(),
-            snapshotReadService_.getRecordings().size());
+            snapshotReadService_.getRecordings().size(),
+            "default",
+            snapshotReadService_.getStatus().diskFreeMb);
 
     return response;
 }
@@ -181,7 +183,8 @@ ApiResponse VdrController::getSnapshotSummaryForBackend(
             snapshotReadService_.getEventsForBackend(backendId).size(),
             snapshotReadService_.getTimersForBackend(backendId).size(),
             snapshotReadService_.getRecordingsForBackend(backendId).size(),
-            backendId);
+            backendId,
+            snapshotReadService_.getStatusForBackend(backendId).diskFreeMb);
 
     return response;
 }

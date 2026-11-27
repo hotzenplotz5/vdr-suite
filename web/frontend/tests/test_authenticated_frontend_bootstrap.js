@@ -48,6 +48,7 @@ let restoreCalls = 0;
 let backendFetches = 0;
 let detailLoads = 0;
 let closeHomeHevcStreamCalls = 0;
+let resetImageGalleryCalls = 0;
 let lastFetchOptions = null;
 
 const session = {
@@ -87,6 +88,9 @@ const context = {
   // Media Import's own view/session lifecycle is exercised by its composition test.
   resetMediaImportVisibility(clearSession) {
     assert.strictEqual(clearSession, true);
+  },
+  resetImageGalleryVisibility() {
+    resetImageGalleryCalls += 1;
   },
   closeHomeHevcStream() {
     closeHomeHevcStreamCalls += 1;
@@ -144,6 +148,7 @@ async function flush() {
     'anonymous bootstrap must not enter Home/backend details');
   assert.strictEqual(closeHomeHevcStreamCalls, 1,
     'anonymous bootstrap must close the Home HEVC preview');
+  assert.strictEqual(resetImageGalleryCalls, 1, 'anonymous bootstrap must clear the gallery');
   assert.strictEqual(detailMetaElement.textContent,
     'Bitte anmelden, um VDR-Suite zu verwenden.');
   assert.strictEqual(detailDataElement.children.length, 1);
@@ -167,6 +172,7 @@ async function flush() {
   sessionListener({authenticated: false, expiresAt: '', reason: 'logout'});
   assert.strictEqual(closeHomeHevcStreamCalls, 2,
     'logout must close any Home HEVC preview');
+  assert.strictEqual(resetImageGalleryCalls, 2, 'logout must clear private picture state');
   assert.strictEqual(backendsElement.children.length, 0,
     'logout must remove visible backend choices');
   assert.strictEqual(additionalSections.children.length, 0,

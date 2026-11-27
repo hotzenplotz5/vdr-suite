@@ -110,7 +110,7 @@ class PackagingProfileTests(unittest.TestCase):
 
     def test_control_declares_profile_and_abi_dependency(self):
         data = (ROOT / "debian/control").read_text(encoding="utf-8")
-        self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 3)
+        self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 4)
         self.assertIn("libsqlite3-dev <!plugin-only>", data)
         for name in ("libcurl4-openssl-dev", "libssl-dev", "libcrypt-dev"):
             with self.subTest(dependency=name):
@@ -151,6 +151,35 @@ class PackagingProfileTests(unittest.TestCase):
                 self.assertNotIn("debian_media_tools.py", done.stdout)
                 self.assertNotIn("addon-media-import", done.stdout)
                 self.assertNotIn("stage-install-runtime", done.stdout)
+                self.assertNotIn("stage-image-gallery-runtime", done.stdout)
+
+    def test_image_gallery_stages_separately(self):
+        control = (ROOT / "debian/control").read_text(encoding="utf-8")
+        self.assertIn("Package: vdr-suite-addon-image\nArchitecture: any", control)
+        rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
+        self.assertIn('stage-image-gallery-runtime DESTDIR="$(CURDIR)/debian/vdr-suite-addon-image"', rules)
+        install = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
+        self.assertNotIn("modules/image-gallery.js", install)
+        index = (ROOT / "web/frontend/index.html").read_text(encoding="utf-8")
+        self.assertNotIn('src="../frontend/modules/image-gallery.js"', index)
+
+    @unittest.skipUnless(shutil.which("make") and shutil.which("install"), "stage tools unavailable")
+    def test_image_gallery_runtime_stage_contains_exact_files(self):
+        with TemporaryDirectory(prefix="image-gallery-stage-") as temp:
+            root = Path(temp)
+            subprocess.run(["make", "stage-image-gallery-runtime",
+                            "DESTDIR=" + str(root), "PREFIX=/usr"],
+                           cwd=ROOT, check=True, capture_output=True, text=True)
+            files = {str(p.relative_to(root)): p for p in root.rglob("*") if p.is_file()}
+            expected = {
+                "usr/share/vdr-suite/addons/image/" + name: ROOT / "modules/image" / name
+                for name in ("addon.json", "README.md", "AGENTS.md")
+            }
+            expected["usr/share/vdr-suite/web/frontend/modules/image-gallery.js"] = (
+                ROOT / "web/frontend/modules/image-gallery.js")
+            self.assertEqual(set(files), set(expected))
+            for rel, source in expected.items():
+                self.assertEqual(files[rel].read_bytes(), source.read_bytes(), rel)
 
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
     def test_build_artifacts_ignored_but_metadata_tracked(self):

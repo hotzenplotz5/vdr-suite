@@ -35,12 +35,16 @@ inline bool parseActivationHttpMutation(
 }
 // Exact read query, no duplicate params, path decoding or wildcard backend.
 inline bool parseActivationHttpBackendQuery(
-    const std::string& path, std::string& backendId)
+    const std::string& path, std::string& backendId,
+    const std::string& moduleId = "rectools")
 {
     static const std::regex canonical(
         R"ACT(^/api/v1/addons/rectools/activation\?backendId=([a-zA-Z0-9_.:-]{1,128})$)ACT");
+    static const std::regex image(
+        R"ACT(^/api/v1/addons/image/activation\?backendId=([a-zA-Z0-9_.:-]{1,128})$)ACT");
+    if (moduleId != "rectools" && moduleId != "image") return false;
     std::smatch match;
-    if (!std::regex_match(path, match, canonical)) return false;
+    if (!std::regex_match(path, match, moduleId == "image" ? image : canonical)) return false;
     backendId = match[1].str();
     return backendId != "." && backendId != "..";
 }

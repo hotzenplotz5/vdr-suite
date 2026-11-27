@@ -20,6 +20,13 @@ check-addon-registry:
 stage-addon:
 	python3 tools/addons/addon_contract.py stage --module "$(MODULE)" --destdir "$(DESTDIR)" --prefix "$(PREFIX)"
 
+# Explicit optional image UI stage. The metadata contract validates the isolated
+# destination before any files are copied. No base installation dependency.
+.PHONY: stage-image-gallery-runtime
+stage-image-gallery-runtime:
+	$(MAKE) stage-addon MODULE=image DESTDIR="$(DESTDIR)" PREFIX="$(PREFIX)"
+	$(INSTALL) -D -m 0644 web/frontend/modules/image-gallery.js "$(DESTDIR)$(PREFIX)/share/vdr-suite/web/frontend/modules/image-gallery.js"
+
 # Build a standalone, explicitly nonfunctional Debian metadata scaffold package.
 # No install, dependency changes or daemon access; caller owns output directory.
 build-addon-deb:
@@ -791,3 +798,56 @@ test-media-tools-encoding-settings:
 
 test-ci-frontend: test-media-tools-encoding-settings
 test-frontend-contracts: test-media-tools-encoding-settings
+
+# Isolated image-gallery domain regression; no live sources or services.
+.PHONY: test-addon-image-catalog
+test-addon-image-catalog:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image \
+		modules/image/ImageGalleryCatalog.cpp modules/image/test_image_gallery_catalog.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_catalog"
+	"$(BUILD_DIR)/addons/test_image_gallery_catalog"
+
+test-ci-fast: test-addon-image-catalog
+
+.PHONY: test-addon-image-local-browse
+test-addon-image-local-browse:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image -I core/vdr/include \
+		modules/image/ImageGalleryCatalog.cpp modules/image/LocalImageGalleryProvider.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp modules/image/test_local_image_gallery_provider.cpp \
+		-o "$(BUILD_DIR)/addons/test_local_image_gallery_provider"
+	"$(BUILD_DIR)/addons/test_local_image_gallery_provider"
+
+test-ci-fast: test-addon-image-local-browse
+
+.PHONY: test-addon-image-source-settings
+test-addon-image-source-settings:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image \
+		modules/image/ImageGalleryCatalog.cpp modules/image/ImageGallerySourceSettings.cpp \
+		modules/image/test_image_gallery_source_settings.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_source_settings"
+	"$(BUILD_DIR)/addons/test_image_gallery_source_settings"
+
+test-ci-fast: test-addon-image-source-settings
+
+.PHONY: test-addon-image-gallery-frontend
+test-addon-image-gallery-frontend:
+	node web/frontend/tests/test_image_gallery_navigation.js
+	node web/frontend/tests/test_image_gallery_mount.js
+
+test-ci-frontend: test-addon-image-gallery-frontend
+test-frontend-contracts: test-addon-image-gallery-frontend
+
+.PHONY: test-addon-image-api
+test-addon-image-api:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image -I core/vdr/include -I api/rest/include \
+		modules/image/ImageGalleryCatalog.cpp modules/image/ImageGallerySourceSettings.cpp \
+		modules/image/LocalImageGalleryProvider.cpp modules/image/ImageGalleryApi.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp modules/image/test_image_gallery_api.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_api"
+	"$(BUILD_DIR)/addons/test_image_gallery_api"
+
+test-ci-fast: test-addon-image-api

@@ -22,14 +22,15 @@
     return result;
   }
 
-  function request(backendId, mutation, revision, enabled) {
+  function request(backendId, mutation, revision, enabled, moduleId) {
     const session = global.VdrSuiteBrowserSession;
     const restore = session && typeof session.restore === 'function'
       ? Promise.resolve(session.restore()) : Promise.resolve();
     return restore.then(function () {
       const csrf = session && typeof session.csrfHeaders === 'function'
         ? session.csrfHeaders() : {};
-      const url = mutation ? path : path + '?backendId=' + encodeURIComponent(backendId);
+      const endpoint = moduleId === 'image' ? '/api/v1/addons/image/activation' : path;
+      const url = mutation ? endpoint : endpoint + '?backendId=' + encodeURIComponent(backendId);
       const options = {
         credentials: 'same-origin', cache: 'no-store',
         headers: Object.assign({'Accept': 'application/json'}, mutation
@@ -502,6 +503,123 @@
     return card;
   }
 
+  function imageSourceRequest(backendId, sources) {
+    const session = global.VdrSuiteBrowserSession;
+    const mutation = Array.isArray(sources);
+    const endpoint = '/api/v1/addons/image/sources';
+    return Promise.resolve(session && typeof session.restore === 'function' ? session.restore() : null)
+      .then(function () {
+        const options = {credentials:'same-origin',cache:'no-store',method:mutation?'POST':'GET',
+          headers:{Accept:'application/json'}};
+        if (mutation) {
+          options.headers = Object.assign(options.headers,{'Content-Type':'application/json'},
+            session && typeof session.csrfHeaders === 'function' ? session.csrfHeaders() : {},
+            mutationCorrelationHeader());
+          options.body = JSON.stringify({backendId:backendId,entries:encodeURIComponent(
+            sources.map(x => [x.id,x.title,x.root].join('\t')).join('\n'))});
+        }
+        return global.fetch(mutation ? endpoint : endpoint+'?backendId='+encodeURIComponent(backendId),options);
+      }).then(async function (result) {
+        if (!result.ok) { const error = new Error('HTTP '+result.status); error.httpStatus=result.status; throw error; }
+        const body = JSON.parse(await result.text());
+        if (body.backendId !== backendId || !Array.isArray(body.sources)) throw new Error('Invalid source response');
+        return body.sources;
+      });
+  }
+
+  function renderImageGallery(parent, backendId) {
+    const en = global.document.documentElement.lang === 'en';
+    const word = (de,english) => en ? english : de;
+    const card = node('article');
+    card.className = 'module-placeholder settings-card settings-addons-card';
+    card.hidden = true;
+    const status = node('p',word('Wird geladen …','Loading …'));
+    status.setAttribute('role','status');
+    const toggle = node('button',word('Aktivieren','Enable'));
+    const rows = node('div');
+    rows.className = 'settings-media-import-source-list';
+    const add = node('button',word('Bildquelle hinzufügen','Add picture source'));
+    const save = node('button',word('Bildquellen speichern','Save picture sources'));
+    [toggle,add,save].forEach(x => x.type = 'button');
+    card.appendChild(node('h3','Image Gallery'));
+    card.appendChild(status);
+    card.appendChild(toggle);
+    card.appendChild(node('h4',word('Bildquellen','Picture sources')));
+    card.appendChild(rows);
+    card.appendChild(add);
+    card.appendChild(save);
+    card.appendChild(node('h4',word('Diashow auf diesem Gerät','Slideshow on this device')));
+    const intervalLabel=node('label',word('Intervall (Sekunden)','Interval (seconds)'));
+    const interval=node('input');interval.type='number';interval.min='1';interval.max='60';
+    intervalLabel.appendChild(interval);card.appendChild(intervalLabel);
+    const repeatLabel=node('label',word('Wiederholen','Repeat'));
+    const repeat=node('input');repeat.type='checkbox';repeatLabel.appendChild(repeat);card.appendChild(repeatLabel);
+    let preferences={};
+    try { preferences=JSON.parse(global.localStorage.getItem('vdr-suite.image-gallery.slideshow')||'{}')||{}; } catch (_) {}
+    interval.value=String(Math.max(1,Math.min(60,Number(preferences.intervalMs)/1000||5)));
+    repeat.checked=preferences.repeat===true;
+    const savePlayback=()=>{try {global.localStorage.setItem('vdr-suite.image-gallery.slideshow',JSON.stringify({
+      intervalMs:Math.max(1,Math.min(60,Number(interval.value)||5))*1000,repeat:repeat.checked
+    }));} catch (_) {}};
+    interval.addEventListener('change',savePlayback);repeat.addEventListener('change',savePlayback);
+    parent.appendChild(card);
+    let current = null, busy = true, nextId = 0;
+    const model = [];
+    function controls() { [toggle,add,save].forEach(x => x.disabled = busy || !current || current.installationState === 'absent'); }
+    function row(source) {
+      const item = node('div'); item.className='settings-media-import-source-row';
+      const title = node('input'); title.value=source.title; title.placeholder=word('Name','Name');
+      title.setAttribute('aria-label',word('Name der Bildquelle','Picture source name'));
+      const root = node('input'); root.value=source.root; root.placeholder='/srv/picture';
+      root.setAttribute('aria-label',word('Bildverzeichnis','Picture directory'));
+      const remove = node('button',word('Entfernen','Remove')); remove.type='button';
+      const data = {id:source.id,title,root,item};
+      remove.addEventListener('click',() => { if (!busy) {model.splice(model.indexOf(data),1);item.remove();} });
+      item.appendChild(title);item.appendChild(root);item.appendChild(remove);
+      model.push(data);rows.appendChild(item);
+    }
+    function notify() {
+      if (typeof global.dispatchEvent === 'function' && typeof global.CustomEvent === 'function')
+        global.dispatchEvent(new global.CustomEvent('vdr-suite:image-gallery-activation-changed',{detail:{backendId}}));
+    }
+    function describe() {
+      toggle.textContent=current.desiredEnabled ? word('Deaktivieren','Disable') : word('Aktivieren','Enable');
+      status.textContent=current.installationState === 'absent' ? word('Addon nicht installiert','Addon not installed') : current.desiredEnabled ? word('Aktiviert · lokale Bilder','Enabled · local pictures') : word('Deaktiviert','Disabled');
+    }
+    add.addEventListener('click',() => {
+      if (busy) return;
+      let id;
+      do {id='picture-'+Date.now().toString(36)+'-'+(++nextId).toString(36);} while(model.some(x=>x.id===id));
+      row({id,title:'',root:''});
+    });
+    save.addEventListener('click',() => {
+      if (busy || !current) return;
+      const entries=model.map(x=>({id:x.id,title:x.title.value.trim(),root:x.root.value.trim()}));
+      busy=true;controls();
+      imageSourceRequest(backendId,entries).then(() => {
+        status.textContent=word('Bildquellen gespeichert','Picture sources saved');notify();
+      }).catch(error=>{status.textContent=word('Speichern fehlgeschlagen: ','Save failed: ')+error.message;})
+        .finally(()=>{busy=false;controls();});
+    });
+    toggle.addEventListener('click',() => {
+      if (busy || !current) return;
+      busy=true;controls();
+      request(backendId,true,current.revision,!current.desiredEnabled,'image').then(result=>{
+        current=result;describe();notify();
+      }).catch(error=>{status.textContent=word('Änderung fehlgeschlagen: ','Change failed: ')+error.message;})
+        .finally(()=>{busy=false;controls();});
+    });
+    controls();
+    Promise.all([request(backendId,false,undefined,undefined,'image'),imageSourceRequest(backendId)])
+      .then(([activation,sources])=>{
+        current=activation;sources.forEach(row);card.hidden=false;describe();
+      }).catch(error=>{
+        if ([401,403,404].includes(error.httpStatus)) return;
+        card.hidden=false;status.textContent=word('Bildquellen nicht verfügbar: ','Picture sources unavailable: ')+error.message;
+      }).finally(()=>{busy=false;controls();});
+    return card;
+  }
+
   // Read-only observation for the shared Home/nav owner. The server keeps
   // this admin-scoped; callers without the grant must handle its denial.
   function readActivationState(backendId) {
@@ -509,6 +627,7 @@
   }
   global.VdrSuiteAddonSettings = Object.freeze({
     render: render,
+    renderImageGallery: renderImageGallery,
     readActivationState: readActivationState
   });
 })(window);

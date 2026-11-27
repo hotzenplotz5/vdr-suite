@@ -597,6 +597,40 @@ int main()
     assert(server.handleRequest(localRequest).statusCode==401);
     ::unsetenv("VDR_SUITE_LOCAL_OSD_ACCOUNT_ID");
 
+    // Exercise real HTTP dispatch and byte-preserving response mapping with
+    // an isolated callback. Provider/filesystem behavior has its own test.
+    unsigned pictureReads = 0;
+    const std::string jpeg("\xff\xd8\xff\0\x01",5);
+    server.setImageGalleryApi({},[&](const RequestSecurityContext& actor,const std::string& path) {
+        assert(actor.authenticated());
+        ++pictureReads;
+        if (path.find("/photo?") != std::string::npos ||
+            path.find("/preview?") != std::string::npos)
+            return ApiResponse{200,"image/jpeg",jpeg,{{"Cache-Control","no-store"}}};
+        return ApiResponse{200,"application/json",R"({"entries":[]})",{}};
+    });
+    for (const std::string endpoint : {"library","browse","preview","photo"}) {
+        HttpServerRequest picture;
+        picture.method = "GET";
+        picture.path = "/api/v1/addons/image/" + endpoint + "?backendId=default";
+        if (endpoint == "library") picture.path += "&sample=1";
+        else picture.path += "&sourceId=pictures&path=Urlaub.jpg";
+        const auto before = pictureReads;
+        assert(server.handleRequest(picture).statusCode == 401);
+        assert(pictureReads == before);
+        authorize(picture);
+        const auto allowed = server.handleRequest(picture);
+        assert(allowed.statusCode == 200 && pictureReads == before + 1);
+        if (endpoint == "preview" || endpoint == "photo") {
+            assert(allowed.headers.at("Content-Type") == "image/jpeg");
+            assert(allowed.headers.at("Cache-Control") == "no-store");
+            assert(allowed.body == jpeg);
+        }
+        picture.path += "&backendId=default";
+        assert(server.handleRequest(picture).statusCode == 400);
+        assert(pictureReads == before + 1);
+    }
+
     // Verify the productive browser route and existing admission gate.
     HttpServerRequest unauthenticatedLive;
     unauthenticatedLive.method = "GET";

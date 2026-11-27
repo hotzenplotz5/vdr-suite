@@ -81,14 +81,16 @@ Dimensions dimensions(const std::string& s, const std::string& type) {
     }
     return {};
 }
-std::string cacheKey(const std::string& identity, const std::string& type, const std::string& source) {
+std::string cacheKey(const std::string& identity, const std::string& type, const std::string& source,
+                     bool gallery = false) {
     EVP_MD_CTX* context = EVP_MD_CTX_new();
     if (!context) return {};
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned length = 0;
     const char separator = 0;
+    const std::string profile = gallery ? "gallery-896-jpeg-v1" : "home-400x600-jpeg-v1";
     const bool ok = EVP_DigestInit_ex(context, EVP_sha256(), nullptr) == 1 &&
-        EVP_DigestUpdate(context, "home-400x600-jpeg-v1", sizeof("home-400x600-jpeg-v1") - 1) == 1 &&
+        EVP_DigestUpdate(context, profile.data(), profile.size()) == 1 &&
         EVP_DigestUpdate(context, identity.data(), identity.size()) == 1 &&
         EVP_DigestUpdate(context, &separator, 1) == 1 &&
         EVP_DigestUpdate(context, type.data(), type.size()) == 1 &&
@@ -107,7 +109,7 @@ std::string cacheKey(const std::string& identity, const std::string& type, const
 bool regular(const struct stat& st) {
     return S_ISREG(st.st_mode) && st.st_uid == ::geteuid() && st.st_nlink == 1;
 }
-std::string readCache(int directory, const std::string& key) {
+std::string readCache(int directory, const std::string& key, bool gallery = false) {
     Fd fd(::openat(directory, key.c_str(), O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC));
     struct stat st{};
     if (fd.value < 0 || ::fstat(fd.value, &st) != 0 || !regular(st) ||
@@ -121,7 +123,7 @@ std::string readCache(int directory, const std::string& key) {
         offset += static_cast<std::size_t>(n);
     }
     const auto size = dimensions(data, "image/jpeg");
-    return size.width && size.height && size.width <= 400 && size.height <= 600 ? data : std::string{};
+    return size.width && size.height && size.width <= (gallery ? 896U : 400U) && size.height <= (gallery ? 896U : 600U) ? data : std::string{};
 }
 bool writeAll(int fd, const std::string& data) {
     std::size_t offset = 0;
@@ -181,20 +183,32 @@ bool ArtworkPreviewCache::prewarmHome(const std::string& type, const std::string
     return !renderHome({}, type, source, true).empty();
 }
 
+std::string ArtworkPreviewCache::gallery(const std::string& type, const std::string& source) const {
+    return renderHome({}, type, source, false, true);
+}
+
 std::string ArtworkPreviewCache::renderHome(const std::string& identity, const std::string& type,
-                                           const std::string& source, bool background) const {
-    if (source.empty() || source.size() > MaxInput) return {};
-    const Dimensions size = dimensions(source, type);
+                                           const std::string& source, bool background, bool gallery) const {
+    if (source.empty() || source.size() > (gallery ? 64U * 1024U * 1024U : MaxInput)) return {};
+    Dimensions size = dimensions(source, type);
+    if (gallery && type == "image/bmp" && source.size() >= 54 && source.compare(0,2,"BM") == 0) {
+        const auto le32 = [&](std::size_t i) { return le24(source,i) | (byte(source,i+3) << 24); };
+        const auto width = le32(18), rawHeight = le32(22);
+        const auto height = (rawHeight & 0x80000000U) ? 0U - rawHeight : rawHeight;
+        if (le32(14) >= 40 && width < 0x80000000U) size = {width,height};
+    }
     if (!size.width || !size.height || size.width > 16384 || size.height > 16384 ||
-        static_cast<std::uint64_t>(size.width) * size.height > 40000000 ||
-        (size.width <= 400 && size.height <= 600 && source.size() <= MaxOutput)) return {};
+        static_cast<std::uint64_t>(size.width) * size.height > (gallery ? 64000000U : 40000000U) ||
+        (!gallery && size.width <= 400 && size.height <= 600 && source.size() <= MaxOutput)) return {};
+    if (gallery && type == "image/jpeg" && size.width <= 896 && size.height <= 896 && source.size() <= MaxOutput)
+        return source;
     // A small but uncompressed/noisy PNG can exceed 1 MiB. Preserve small
     // efficient originals; recompress only oversized Home bytes, without upscaling.
     // The transform is a pure function of format and exact original bytes.
     // Only this private derivative is shared; the HTTP boundary must still
     // resolve/authorize the original and derive its own scoped validator.
     // Empty identity is reserved for this internal content-addressed key.
-    const std::string key = cacheKey({}, type, source);
+    const std::string key = cacheKey({}, type, source, gallery);
     if (key.empty()) return {};
     if (directory_.empty() || directory_.front() != '/') return {};
     if (::mkdir(directory_.c_str(), 0700) != 0 && errno != EEXIST) return {};
@@ -206,7 +220,7 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
     // Published preview files are immutable and appear atomically via renameat().
     // Serve an already-valid cache hit without contending with an unrelated
     // in-flight conversion.
-    std::string cached = readCache(directory.value, key);
+    std::string cached = readCache(directory.value, key, gallery);
     if (!cached.empty()) return cached;
     // Keep previous versions' route-bound cache entries usable after upgrade.
     if (!identity.empty()) {
@@ -217,13 +231,16 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
         }
     }
 
-    std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
-    if (!lock.owns_lock()) return {}; // No request queue or parallel decoder storm.
+    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
+    // Gallery owns a separate cache instance. Serialize its bounded requests;
+    // the recording Home path retains its existing non-blocking policy.
+    if (gallery) lock.lock();
+    else if (!lock.try_lock()) return {};
     if (::flock(directory.value, LOCK_EX | LOCK_NB) != 0) return {};
 
     // Another process may have published this identity between the optimistic
     // read above and acquisition of the directory conversion lock.
-    cached = readCache(directory.value, key);
+    cached = readCache(directory.value, key, gallery);
     if (!cached.empty()) return cached;
 
     const auto now = std::chrono::steady_clock::now();
@@ -244,20 +261,25 @@ std::string ArtworkPreviewCache::renderHome(const std::string& identity, const s
     const double scale = std::min(1.0, std::min(400.0 / size.width, 600.0 / size.height));
     const unsigned width = std::max(1u, static_cast<unsigned>(size.width * scale));
     const unsigned height = std::max(1u, static_cast<unsigned>(size.height * scale));
-    const std::string format = type == "image/jpeg" ? "jpeg_pipe" : type == "image/png" ? "png_pipe" : "webp_pipe";
+    const std::string format = type == "image/jpeg" ? "jpeg_pipe" : type == "image/png" ? "png_pipe" :
+        type == "image/bmp" ? "bmp_pipe" : "webp_pipe";
+    const std::string filter = gallery
+        ? "scale=w=\'min(iw,896)\':h=\'min(ih,896)\':force_original_aspect_ratio=decrease,setsar=1"
+        : "scale=" + std::to_string(width) + ":" + std::to_string(height) + ",setsar=1";
     const auto result = MediaProcessRunner{}.runAndCapture({
         executable_, "-nostdin", "-v", "error", "-max_alloc", "134217728",
         "-threads", "1", "-filter_threads", "1", "-protocol_whitelist", "file,pipe",
         "-f", format, "-i",
         "/proc/" + std::to_string(::getpid()) + "/fd/" + std::to_string(input.value),
         "-map", "0:v:0", "-frames:v", "1", "-an", "-sn", "-dn", "-map_metadata", "-1",
-        "-vf", "scale=" + std::to_string(width) + ":" + std::to_string(height) + ",setsar=1",
+        "-vf", filter,
         "-threads", "1", "-c:v", "mjpeg", "-q:v", "6", "-pix_fmt", "yuvj420p",
         "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(3), MaxOutput,
         {768 * 1024 * 1024, 2, background ? 10 : 0});
     const auto outputSize = dimensions(result.output, "image/jpeg");
-    if (!result.success || outputSize.width != width || outputSize.height != height ||
-        result.output.size() >= source.size()) return fail();
+    if (!result.success || (gallery
+        ? (!outputSize.width || !outputSize.height || outputSize.width > 896 || outputSize.height > 896)
+        : (outputSize.width != width || outputSize.height != height || result.output.size() >= source.size()))) return fail();
     if (!makeRoom(directory.value, result.output.size())) return fail();
     ::unlinkat(directory.value, ".output", 0);
     Fd output(::openat(directory.value, ".output", O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
