@@ -142,6 +142,24 @@ int main()
         assert(!reader.gate.evaluate(request).allowed);
     }
 
+    {
+        SecurityHttpGateBrowserTestFixture reader;
+        auto request = requestFor(reader, "living-room", "manual", false);
+        request.method = "GET";
+        request.path.insert(4, "/v1");
+        request.path += "?recordingId=rec_0123456789abcdef0123456789abcdef";
+        request.body.clear();
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "recordings.view", "living-room"));
+        assert(!reader.gate.evaluate(request).allowed);
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "metadata.recording.assign", "living-room"));
+        const auto allowed = reader.gate.evaluate(request);
+        assert(allowed.allowed);
+        assert(allowed.authorizationDecision.permission == "metadata.recording.assign");
+        assert(allowed.authorizedBackendIds == std::vector<std::string>{"living-room"});
+        request.path.replace(request.path.find("living-room"), std::string("living-room").size(), "bedroom");
+        assert(!reader.gate.evaluate(request).allowed);
+    }
+
     // The public variants use the exact same scoped permission and CSRF.
     for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {
