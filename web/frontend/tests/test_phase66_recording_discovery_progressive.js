@@ -255,6 +255,9 @@ function createHarness(seriesItems, publicMode) {
   context.window.document = document;
   context.window.setTimeout = function () { return 1; };
   context.window.VdrSuiteHomeLivePreview = {cancel() {}};
+  const opened=[];
+  context.window.selectModule=()=>true;
+  context.window.VdrSuiteRecordings2={openFolder(){},openRecording(recording,options){opened.push({recording,options});}};
   context.window.VdrSuitePlatform = {
     getSelectedBackendId() { return 'default'; },
     getSelectedModule() { return 'overview'; },
@@ -269,6 +272,7 @@ function createHarness(seriesItems, publicMode) {
     host,
     calls,
     folderCalls,
+    opened,
     releasePage(offset) {
       const release = pendingPages.get(offset);
       if (!release) return false;
@@ -362,6 +366,14 @@ async function flushMicrotasks(turns) {
   const rootGroup=findElement(rootFolders,element=>element.dataset && element.dataset.rootRecordingGroup==='true');
   assert(rootGroup);
   assert(findElement(rootGroup,element=>String(element.textContent).includes('100 Aufnahmen')));
+  rootGroup.listeners.click[0]();
+  const rootRecording=findElement(rootFolders,element=>element.dataset && /^rec_/.test(element.dataset.recordingId||''));
+  assert(rootRecording);
+  rootRecording.listeners.click[0]();
+  await flushMicrotasks(20);
+  assert.strictEqual(publicHarness.opened.length,1);
+  assert.strictEqual(publicHarness.opened[0].recording.recordingId,rootRecording.dataset.recordingId);
+  assert.strictEqual(publicHarness.opened[0].recording.backendNativeId,undefined);
   console.log('phase66 series projection renders progressively while pagination continues, including Public v1');
 }()).catch((error) => {
   console.error(error);
