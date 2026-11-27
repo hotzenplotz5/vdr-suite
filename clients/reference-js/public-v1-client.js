@@ -302,7 +302,7 @@
   }
 
   function f3EpgGenreQuery(query, events) {
-    const allowed = ['backendId','locale','limit','offset'];
+    const allowed = ['backendId','locale','limit','offset','fromTime','untilTime'];
     if (events) allowed.push('contentClass','genreId');
     if (!query || typeof query !== 'object' || Array.isArray(query) ||
         Object.keys(query).some(key => !allowed.includes(key)))
@@ -320,6 +320,13 @@
     if (query.locale !== undefined) {
       if (!['de','en'].includes(query.locale)) throw new Error('Invalid EPG locale');
       fields.push('locale=' + query.locale);
+    }
+    if (query.fromTime !== undefined || query.untilTime !== undefined) {
+      const from = f3UnixSeconds(query.fromTime, 'EPG genre fromTime');
+      const until = f3UnixSeconds(query.untilTime, 'EPG genre untilTime');
+      if (Number(until) <= Number(from) || Number(until) - Number(from) > 604800)
+        throw new Error('Invalid EPG genre window');
+      fields.push('fromTime=' + from, 'untilTime=' + until);
     }
     for (const [key, min, max] of [['limit',1,30],['offset',0,1000000]]) {
       if (query[key] === undefined) continue;

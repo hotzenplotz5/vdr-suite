@@ -269,7 +269,7 @@
         "fetchClientGenreEpg",
         "fetchPublicGenreRecordings"
       ],
-      "note": "Recording overview and candidate membership wrappers use Public v1; legacy membership and EPG wrappers remain until caller parity is established."
+      "note": "Recording overview/membership and EPG overview use Public v1; EPG result-card projection and legacy membership remain until caller parity is established. EPG overview retains the explicit older-daemon and independently authorized browser compatibility read."
     },
     {
       "domain": "live-remote-extension",

@@ -7,6 +7,35 @@ const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 
+async function testPublicEpgOverview() {
+  const calls = [];
+  const from = 1792060000, until = from + 172800;
+  const items = [
+    {genreId:'movie',contentClass:'movie',label:'Film',labelDe:'Film',labelEn:'Movie',count:3},
+    {genreId:'adventure',contentClass:'movie',label:'Film › Abenteuer',labelDe:'Film › Abenteuer',labelEn:'Movie › Adventure',count:2},
+    {genreId:'series',contentClass:'series',label:'Serie',labelDe:'Serie',labelEn:'Series',count:4}
+  ];
+  const window = {VdrSuiteClientApi:{requestJson(route, options) {
+    calls.push({route, options});
+    return Promise.resolve({items,fromTime:from,untilTime:until,totalItems:7,assignmentCount:9,
+      page:{limit:30,offset:0,totalCount:3,hasMore:false},meta:{partial:false}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot,'api','genre-client-api.js'),'utf8'),{window,console});
+  const result = await window.VdrSuiteClientApi.fetchClientGenres({backendId:'default',scope:'epg',locale:'de',from,until});
+  assert.strictEqual(calls.length,1);
+  assert.strictEqual(calls[0].route,'/api/v1/genres/epg');
+  assert.strictEqual(calls[0].options.query.fromTime,from);
+  assert.strictEqual(calls[0].options.query.untilTime,until);
+  assert.strictEqual(result.totalItems,7);
+  assert.strictEqual(result.assignmentCount,9);
+  assert.strictEqual(result.categories.length,2);
+  assert.strictEqual(result.categories[0].children[0].id,'adventure');
+  assert.strictEqual(result.categories[0].children[0].label,'Abenteuer');
+  assert.strictEqual(result.categories[0].children[0].labelEn,'Adventure');
+  assert.strictEqual(result.from,from);
+  assert.strictEqual(result.until,until);
+}
+
 async function testPublicMembershipPage() {
   const requests = [];
   const id = 'rec_' + '1'.repeat(32);
@@ -211,6 +240,7 @@ function publicDetail(member, title, absent) {
 
 (async function main() {
   await testPublicMembershipPage();
+  await testPublicEpgOverview();
   const mount = new FakeElement('main');
   const elementsById = Object.create(null);
   const head = new FakeElement('head');

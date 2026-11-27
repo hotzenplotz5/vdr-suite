@@ -1389,6 +1389,7 @@ struct PublicEpgGenreQuery {
     std::string backendId, contentClass, genreId, locale = "de";
     std::size_t limit = 30U, offset = 0U;
     bool events = false;
+    std::int64_t fromTime = 0, untilTime = 0;
 };
 bool parsePublicEpgGenreQuery(
     const std::string& target, bool events, PublicEpgGenreQuery& query)
@@ -1398,6 +1399,7 @@ bool parsePublicEpgGenreQuery(
     if (raw.empty() || raw.size() > 600U) return false;
     bool backend = false, contentClass = false, genre = false;
     bool locale = false, limit = false, offset = false;
+    bool from = false, until = false;
     const auto valid = [](const std::string& value) {
         return !value.empty() && value.size() <= 128U &&
             std::all_of(value.begin(), value.end(), [](unsigned char c) {
@@ -1448,12 +1450,25 @@ bool parsePublicEpgGenreQuery(
                 query.offset > 1000000U) return false;
             offset = true;
         }
+        else if (key == "fromTime" || key == "untilTime")
+        {
+            bool& seen = key == "fromTime" ? from : until;
+            if (seen || value.size() < 10U || value.size() > 12U ||
+                value.front() == '0' ||
+                !std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+                    return ch >= '0' && ch <= '9';
+                })) return false;
+            seen = true;
+            (key == "fromTime" ? query.fromTime : query.untilTime) = std::stoll(value);
+        }
         else return false;
         if (end == std::string::npos) break;
         pos = end + 1U;
     }
     return backend && (!events || contentClass) &&
-        (query.genreId.empty() || query.contentClass == "movie");
+        (query.genreId.empty() || query.contentClass == "movie") &&
+        from == until && (!from || (query.untilTime > query.fromTime &&
+            query.untilTime - query.fromTime <= 7 * 24 * 60 * 60));
 }
 
 struct PublicNativeTimersQuery
@@ -5232,7 +5247,12 @@ ApiResponse publicEpgGenreResponse(
                 "\",\"count\":" + std::to_string(item.count) + "}";
         }
     }
-    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+    body += "],\"fromTime\":" + std::to_string(page.fromTime) +
+        ",\"untilTime\":" + std::to_string(page.untilTime);
+    if (!query.events)
+        body += ",\"totalItems\":" + std::to_string(page.totalItems) +
+            ",\"assignmentCount\":" + std::to_string(page.assignmentCount);
+    body += ",\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalCount) +
         ",\"hasMore\":" +
@@ -8627,6 +8647,8 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         request.limit = query.limit;
         request.offset = query.offset;
         request.events = events;
+        request.fromTime = query.fromTime;
+        request.untilTime = query.untilTime;
         const auto result = lookupEpgGenre(request);
         if (result.status != PublicEpgGenreStatus::ok)
         {

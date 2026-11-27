@@ -22,6 +22,11 @@
     const normalized = normalizeOptions(options);
     if (!normalized.scope || normalized.scope === 'recordings')
       return fetchPublicRecordingGenres(normalized);
+    if (normalized.scope === 'epg') return fetchPublicEpgGenreOverview(normalized);
+    return fetchLegacyGenreOverview(normalized);
+  }
+
+  function fetchLegacyGenreOverview(normalized) {
     return base.requestJson('/api/metadata/genres', withQuery(normalized, {
       backend: normalized.backendId,
       scope: normalized.scope,
@@ -29,6 +34,81 @@
       from: normalized.from,
       until: normalized.until
     }));
+  }
+
+  // Reconstruct the existing hierarchy from the public canonical taxonomy.
+  // Distinct items and overlapping assignments are different server totals.
+  async function fetchPublicEpgGenreOverview(input) {
+    const locale = input.locale || 'de', limit = 30;
+    const categories = [], parents = new Map(), seen = new Set();
+    let from = input.from, until = input.until, offset = 0, totals;
+    const nonnegative = n => Number.isSafeInteger(n) && n >= 0;
+    do {
+      let payload;
+      try {
+        payload = await base.requestJson('/api/v1/genres/epg', {
+          query: {backendId:input.backendId, locale, limit, offset,
+            fromTime:from, untilTime:until},
+          credentials:input.credentials || 'same-origin',
+          cache:input.cache || 'no-store', signal:input.signal
+        });
+      } catch (error) {
+        // The older TV-only query rejects window parameters; legacy is
+        // independently authenticated. No fallback on provider/transport errors.
+        if (!offset && error && (error.status === 404 || error.status === 501 ||
+            (error.status === 400 && error.code === 'invalid_request' && from && until) ||
+            (error.status === 403 && (error.code === 'permission_denied' ||
+              error.code === 'backend_scope_denied'))))
+          return fetchLegacyGenreOverview(input);
+        throw error;
+      }
+      const page = payload && payload.page;
+      if (!offset && page && payload.fromTime === undefined)
+        return fetchLegacyGenreOverview(input);
+      if (!page || !Array.isArray(payload.items) || !payload.meta ||
+          payload.meta.partial !== false || page.limit !== limit || page.offset !== offset ||
+          !nonnegative(page.totalCount) || !nonnegative(payload.totalItems) ||
+          !nonnegative(payload.assignmentCount) || !nonnegative(payload.fromTime) ||
+          !nonnegative(payload.untilTime) || payload.untilTime <= payload.fromTime ||
+          (from !== undefined && payload.fromTime !== from) ||
+          (until !== undefined && payload.untilTime !== until) ||
+          payload.items.length > limit || offset + payload.items.length > page.totalCount ||
+          page.hasMore !== (offset + payload.items.length < page.totalCount) ||
+          (page.hasMore && !payload.items.length))
+        throw new Error('Unvollständige EPG-Genre-Übersicht.');
+      from = payload.fromTime; until = payload.untilTime;
+      if (!totals) totals = [page.totalCount, payload.totalItems, payload.assignmentCount];
+      else if (totals[0] !== page.totalCount || totals[1] !== payload.totalItems ||
+          totals[2] !== payload.assignmentCount)
+        throw new Error('EPG-Genre-Übersicht wurde während des Ladens geändert.');
+      for (const item of payload.items) {
+        if (!item || !item.genreId || !item.contentClass ||
+            !nonnegative(item.count) || typeof item.label !== 'string')
+          throw new Error('Uneinheitliche EPG-Genre-Übersicht.');
+        const key = item.contentClass + ':' + item.genreId;
+        if (seen.has(key)) throw new Error('Uneinheitliche EPG-Genre-Übersicht.');
+        seen.add(key);
+        const entry = Object.assign({}, item, {id:item.genreId, children:[]});
+        if (item.genreId === item.contentClass) {
+          categories.push(entry);
+          parents.set(item.contentClass, entry);
+        } else {
+          const parent = parents.get(item.contentClass);
+          if (!parent) throw new Error('Unvollständige EPG-Genre-Hierarchie.');
+          for (const field of ['label','labelDe','labelEn']) {
+            const prefix = parent[field] + ' › ';
+            if (typeof entry[field] === 'string' && entry[field].startsWith(prefix))
+              entry[field] = entry[field].slice(prefix.length);
+          }
+          parent.children.push(entry);
+        }
+      }
+      offset += payload.items.length;
+      if (!page.hasMore) break;
+    } while (true);
+    return {backendId:input.backendId, scope:'epg', locale, taxonomy:'epg-browse-v1',
+      from, until, totalItems:totals[1], assignmentCount:totals[2],
+      categories, genres:categories};
   }
 
   // Preserve the existing Web overview shape and canonical display order.

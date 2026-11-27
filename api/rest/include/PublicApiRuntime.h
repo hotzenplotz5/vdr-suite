@@ -581,6 +581,7 @@ struct PublicEpgGenreRequest {
     std::string backendId, contentClass, genreId, locale = "de";
     std::size_t limit = 30U, offset = 0U;
     bool events = false;
+    std::int64_t fromTime = 0, untilTime = 0;
 };
 struct PublicEpgGenreItem {
     std::string genreId, contentClass, label, labelDe, labelEn;
@@ -595,6 +596,8 @@ struct PublicEpgGenreResult {
     std::vector<PublicEpgGenreItem> genres;
     std::vector<PublicEpgGenreEvent> events;
     std::size_t totalCount = 0U;
+    std::int64_t fromTime = 0, untilTime = 0;
+    std::size_t totalItems = 0U, assignmentCount = 0U;
 };
 
 enum class PublicGenreCollectionStatus

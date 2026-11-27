@@ -169,6 +169,10 @@ int main()
         PublicEpgGenreResult result;
         if (request.backendId != "home") return result;
         result.status = PublicEpgGenreStatus::ok;
+        result.fromTime = request.fromTime ? request.fromTime : 1792060000;
+        result.untilTime = request.untilTime ? request.untilTime : 1792232800;
+        result.totalItems = 7U;
+        result.assignmentCount = 10U;
         if (request.events)
         {
             result.totalCount = 2U;
@@ -213,9 +217,13 @@ int main()
     assert(epgCaps.body.find("public-api.epg-genres-read") != std::string::npos);
     ApiResponse epgGenres;
     assert(api.tryHandleGet(
-        "/api/v1/genres/epg?backendId=home&limit=30&offset=0",
+        "/api/v1/genres/epg?backendId=home&limit=30&offset=0&fromTime=1792060000&untilTime=1792232800",
         "actor:tv","epg-genres","",epgGenres,"","",{"home"}));
     assert(epgGenres.statusCode == 200);
+    assert(epgGenres.body.find("\"fromTime\":1792060000") != std::string::npos);
+    assert(epgGenres.body.find("\"untilTime\":1792232800") != std::string::npos);
+    assert(epgGenres.body.find("\"totalItems\":7") != std::string::npos);
+    assert(epgGenres.body.find("\"assignmentCount\":10") != std::string::npos);
     assert(epgGenres.body.find("Film") != std::string::npos);
     assert(epgGenres.body.find("Abenteuer") != std::string::npos);
     assert(epgGenres.body.find("backendNativeId") == std::string::npos);
@@ -234,6 +242,8 @@ int main()
         "/api/v1/genres/epg/events?backendId=home&genreId=adventure",
         "/api/v1/genres/epg/events?backendId=home&contentClass=series&genreId=adventure",
         "/api/v1/genres/epg?backendId=home&limit=31",
+        "/api/v1/genres/epg?backendId=home&fromTime=1792060000",
+        "/api/v1/genres/epg?backendId=home&fromTime=1792060000&untilTime=1792060000",
         "/api/v1/genres/epg?backendId=other"})
     {
         ApiResponse bad;

@@ -4039,8 +4039,11 @@ bool DaemonRuntime::initialize()
                 return result;
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const std::int64_t from = now;
-            const std::int64_t until = now + 48 * 60 * 60;
+            const std::int64_t from = request.fromTime > 0 ? request.fromTime : now;
+            const std::int64_t until = request.untilTime > from ?
+                request.untilTime : from + 48 * 60 * 60;
+            result.fromTime = from;
+            result.untilTime = until;
             auto& genres = GenreBrowserApiRuntime::instance();
             if (request.events)
             {
@@ -4076,6 +4079,10 @@ bool DaemonRuntime::initialize()
                 if (!genres.epgOverview(
                     request.backendId, request.locale, from, until, overview))
                     return result;
+                if (overview.distinctItemCount < 0 || overview.assignmentCount < 0)
+                    return result;
+                result.totalItems = static_cast<std::size_t>(overview.distinctItemCount);
+                result.assignmentCount = static_cast<std::size_t>(overview.assignmentCount);
                 std::vector<PublicEpgGenreItem> flat;
                 for (const auto& category : overview.categories)
                 {
