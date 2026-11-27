@@ -24,6 +24,21 @@ DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 # Each anchor is an actual branch in the corresponding C++ GET/POST dispatcher.
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
 # This explicit inventory must be reviewed when already-audited routes move.
+ADDON_ADMIN_AUDITED = {
+    "/api/v1/addons/rectools/activation": {
+        "get": ("addonActivationLookup_", "isAddonActivationRead"),
+        "post": ("addonActivationMutation_", "isAddonActivationMutation"),
+    },
+    "/api/v1/addons/rectools/sources": {
+        "get": ("addonSourceLookup_", "isAddonSourceRead"),
+        "post": ("addonSourceMutation_", "isAddonSourceMutation"),
+    },
+    "/api/v1/addons/media-tools/encoding": {
+        "get": ("local_encoding_admin::read(", "isAddonEncodingRead"),
+        "post": ("local_encoding_admin::save(", "isAddonEncodingMutation"),
+    },
+}
+
 MEDIA_TRANSPORT_AUDITED = {
     "/api/v1/media/sessions/{sessionId}/hls/{artifact}": {"get": "HlsMarker"},
     "/api/v1/media/sessions/{sessionId}/live/stream.mp4": {"get": "LiveSuffix"},
@@ -486,7 +501,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED) | set(ADDON_ADMIN_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -524,7 +539,7 @@ def validate(
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
         **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
-        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED
+        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -564,6 +579,16 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in ADDON_ADMIN_AUDITED:
+                owner_marker, gate_marker = marker
+                if (path not in epg_artwork_http_source or
+                    owner_marker not in epg_artwork_http_source or
+                    gate_marker not in security_source):
+                    errors.append(f"{where}: existing Add-on administration route/owner/security anchor missing")
+                expected_security = ([{"browserSession": [], "browserCsrf": []}]
+                                     if method == "post" else [{"browserSession": []}])
+                if data.get(method, {}).get("security") != expected_security:
+                    errors.append(f"{where}: existing administrator Browser authentication drifted")
             elif path in MEDIA_TRANSPORT_AUDITED:
                 gateway = (ROOT / "core/http/src/MediaGatewayHttpServer.cpp").read_text(encoding="utf-8")
                 if (marker not in gateway or
@@ -732,7 +757,7 @@ def main() -> int:
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
              **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
-             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED}
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

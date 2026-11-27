@@ -64,6 +64,12 @@ class OpenApiDriftTests(unittest.TestCase):
         changed["paths"][path]["get"]["security"] = [{"deviceCredential": []}]
         self.assert_rejected(changed, reason="session-bound media authentication drifted")
 
+    def test_addon_admin_existing_browser_csrf_boundary(self):
+        changed = copy.deepcopy(self.document)
+        path = "/api/v1/addons/rectools/activation"
+        changed["paths"][path]["post"]["security"] = [{"browserSession": []}]
+        self.assert_rejected(changed, reason="existing administrator Browser authentication drifted")
+
     def test_missing_path(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends"]

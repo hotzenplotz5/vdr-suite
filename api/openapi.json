@@ -93,6 +93,1350 @@
     }
   ],
   "paths": {
+    "/api/v1/addons/rectools/activation": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaToolsActivation",
+        "summary": "Read Media Tools activation intent",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact backendId query. Desired enablement, installation evidence, provider verification and Agent readiness are distinct; none alone grants import.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moduleId": {
+                      "type": "string",
+                      "const": "rectools"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "desiredEnabled": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "activatedByInstall": {
+                      "type": "boolean"
+                    },
+                    "providerVerified": {
+                      "type": "boolean"
+                    },
+                    "installationState": {
+                      "type": "string"
+                    },
+                    "agentReady": {
+                      "type": "boolean"
+                    },
+                    "activationBoundToProvider": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "moduleId",
+                    "backendId",
+                    "desiredEnabled",
+                    "revision",
+                    "activatedByInstall",
+                    "providerVerified",
+                    "installationState",
+                    "agentReady",
+                    "activationBoundToProvider"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminRead"
+      },
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "setPublicMediaToolsActivation",
+        "summary": "Save Media Tools activation intent",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact wire order backendId, desiredEnabled, expectedRevision. The desired state is not execution authority; effective capability is evaluated separately. An existing revision conflict returns 409.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute. Browser CSRF required."
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moduleId": {
+                      "type": "string",
+                      "const": "rectools"
+                    },
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "desiredEnabled": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "moduleId",
+                    "backendId",
+                    "desiredEnabled",
+                    "revision"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  },
+                  "desiredEnabled": {
+                    "type": "boolean"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "backendId",
+                  "desiredEnabled",
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/rectools/sources": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaToolsSourceSettings",
+        "summary": "Read local import source settings",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact backendId query; first-run read does not create a configuration. The local backend and root authority are server-owned.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "videoRoot": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{16}$"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "name"
+                        ]
+                      }
+                    },
+                    "initialSetup": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "videoRoot",
+                    "revision",
+                    "sources",
+                    "initialSetup"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminRead"
+      },
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "setPublicMediaToolsSourceSettings",
+        "summary": "Save local import source settings",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact compact JSON field order backendId, revision, entries, optional videoRoot; entries are percent-encoded tab-separated path/name rows (one per line, 1–17 entries). Optional percent-encoded videoRoot is accepted only for initial setup without authoritative VDR root. Existing revision and local backend checks remain; no arbitrary filesystem path is accepted by import admission.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute. Browser CSRF required."
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "videoRoot": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{16}$"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "name"
+                        ]
+                      }
+                    },
+                    "initialSetup": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "videoRoot",
+                    "revision",
+                    "sources",
+                    "initialSetup"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{16}$"
+                  },
+                  "entries": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30000
+                  },
+                  "videoRoot": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1536
+                  }
+                },
+                "required": [
+                  "backendId",
+                  "revision",
+                  "entries"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/media-tools/encoding": {
+      "get": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "getPublicMediaToolsEncoding",
+        "summary": "Read local encoding settings",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact backendId query; settings apply to the next job.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact backend identity.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{16}$"
+                    },
+                    "importCrf": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 51
+                    },
+                    "importPreset": {
+                      "type": "string",
+                      "enum": [
+                        "ultrafast",
+                        "superfast",
+                        "veryfast",
+                        "faster",
+                        "fast",
+                        "medium",
+                        "slow",
+                        "slower",
+                        "veryslow"
+                      ]
+                    },
+                    "shrinkCrf": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 51
+                    },
+                    "shrinkPreset": {
+                      "type": "string",
+                      "enum": [
+                        "ultrafast",
+                        "superfast",
+                        "veryfast",
+                        "faster",
+                        "fast",
+                        "medium",
+                        "slow",
+                        "slower",
+                        "veryslow"
+                      ]
+                    },
+                    "applies": {
+                      "type": "string",
+                      "const": "next_job"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "revision",
+                    "importCrf",
+                    "importPreset",
+                    "shrinkCrf",
+                    "shrinkPreset",
+                    "applies"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminRead"
+      },
+      "post": {
+        "tags": [
+          "Media Tools"
+        ],
+        "operationId": "setPublicMediaToolsEncoding",
+        "summary": "Save local encoding settings",
+        "description": "Source: TestHttpServer.cpp, SecurityHttpGate.h and existing Add-on administration runtime. Exact compact JSON field order backendId, revision, importCrf, importPreset, shrinkCrf, shrinkPreset. At most 512 bytes. Existing revision and local backend checks remain. Applies to next job, not a running encode.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Human administrator Browser Session with global role.admin@*; no Device or Managed Basic substitute. Browser CSRF required."
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backendId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.:-]+$"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{16}$"
+                    },
+                    "importCrf": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 51
+                    },
+                    "importPreset": {
+                      "type": "string",
+                      "enum": [
+                        "ultrafast",
+                        "superfast",
+                        "veryfast",
+                        "faster",
+                        "fast",
+                        "medium",
+                        "slow",
+                        "slower",
+                        "veryslow"
+                      ]
+                    },
+                    "shrinkCrf": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 51
+                    },
+                    "shrinkPreset": {
+                      "type": "string",
+                      "enum": [
+                        "ultrafast",
+                        "superfast",
+                        "veryfast",
+                        "faster",
+                        "fast",
+                        "medium",
+                        "slow",
+                        "slower",
+                        "veryslow"
+                      ]
+                    },
+                    "applies": {
+                      "type": "string",
+                      "const": "next_job"
+                    }
+                  },
+                  "required": [
+                    "backendId",
+                    "revision",
+                    "importCrf",
+                    "importPreset",
+                    "shrinkCrf",
+                    "shrinkPreset",
+                    "applies"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator Browser Session, global role.admin or CSRF rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existing revision, local backend or provider conflict; inspect returned error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or exact request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Existing configuration, runtime or persistence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserAdminWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{16}$"
+                  },
+                  "importCrf": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 51
+                  },
+                  "importPreset": {
+                    "type": "string",
+                    "enum": [
+                      "ultrafast",
+                      "superfast",
+                      "veryfast",
+                      "faster",
+                      "fast",
+                      "medium",
+                      "slow",
+                      "slower",
+                      "veryslow"
+                    ]
+                  },
+                  "shrinkCrf": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 51
+                  },
+                  "shrinkPreset": {
+                    "type": "string",
+                    "enum": [
+                      "ultrafast",
+                      "superfast",
+                      "veryfast",
+                      "faster",
+                      "fast",
+                      "medium",
+                      "slow",
+                      "slower",
+                      "veryslow"
+                    ]
+                  }
+                },
+                "required": [
+                  "backendId",
+                  "revision",
+                  "importCrf",
+                  "importPreset",
+                  "shrinkCrf",
+                  "shrinkPreset"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/media/sessions/{sessionId}/hls/{artifact}": {
       "get": {
         "tags": [

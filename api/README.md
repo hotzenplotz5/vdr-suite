@@ -30,7 +30,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The current integration candidate specifies **119 documented HTTP method/resource contracts** across **100 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The current integration candidate specifies **125 documented HTTP method/resource contracts** across **103 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 F2 introduced five source-grounded authentication transport schemes for the original 75 operations; F6 has added four more Recording-editing operations using those same schemes. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.
 
@@ -103,8 +103,10 @@ capabilities, check start/status, read-only shrink planning, stage/publication
 admission, and recording/review/operation readback. Existing playback and
 shrink grants remain unchanged. Their runtime errors may use application/json
 with an error field, independently of the security gate's Problem Details.
-Add-on administration remains to be audited;
-this is not F8 acceptance.
+The existing six administrator-only activation, source and encoding read/write
+contracts are also specified, with their current revision and local-backend
+semantics. No new authorization or execution path is introduced.
+This is not F8 acceptance.
 
 ## What is implemented but not yet in this OpenAPI subset?
 
