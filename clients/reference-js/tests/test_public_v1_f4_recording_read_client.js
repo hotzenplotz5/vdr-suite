@@ -120,6 +120,9 @@ async function run() {
     await client[method]({backendId:'home',recordingId:REC});
     assert.equal(calls.at(-1).url,'https://suite.example/api/v1/backends/home/recordings/metadata/'+operation+'?recordingId='+REC);
   }
+  replies.push(reply(200,{items:[],page:{limit:100,offset:0,hasMore:false}}));
+  await client.getGenreRecordings({query:{backendId:'home',genreId:'fantasy',limit:100,offset:0}});
+  assert.equal(calls.at(-1).url,'https://suite.example/api/v1/genres/recordings?backendId=home&genreId=fantasy&limit=100&offset=0');
   const invalid=[
     ()=>client.getRecordingDetail({backendId:'home',recordingId:'../file'}),
     ()=>client.getRecordingDetail({backendId:'../home',recordingId:REC}),
@@ -131,7 +134,7 @@ async function run() {
     ()=>client.getRecordingGenres({query:{backendId:'home',locale:'es'}}),
     ()=>client.getGenreRecordings({query:{backendId:'home'}}),
     ()=>client.getGenreRecordings({query:{backendId:'home',genreId:'../../x'}}),
-    ()=>client.getGenreRecordings({query:{backendId:'home',genreId:'fantasy',limit:31}})
+    ()=>client.getGenreRecordings({query:{backendId:'home',genreId:'fantasy',limit:101}})
   ];
   const before=calls.length;
   for(const bad of invalid)assert.throws(bad);
