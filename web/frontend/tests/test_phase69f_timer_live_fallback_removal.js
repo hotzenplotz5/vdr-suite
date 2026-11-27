@@ -27,6 +27,23 @@ const context = {
   fetch(url, options) {
     const target = String(url);
     requests.push({url: target, options});
+    if (target.startsWith('https://suite.example/api/v1/channels?')) {
+      const query = new URL(target).searchParams;
+      const backendId = query.get('backendId');
+      if (backendId === 'offline')
+        return Promise.resolve(response(503, {code:'backend_unavailable'}));
+      if (backendId === 'old')
+        return Promise.resolve(response(404, {code:'not_found'}));
+      const second = query.has('cursor');
+      return Promise.resolve(response(200, {
+        items: [{backendId, channelId: second ? 'C-2' : 'C-1',
+          channelNumber: second ? 12 : 2, name: second ? 'ZDF HD' : 'Das Erste HD'}],
+        page: {limit:100, hasMore:!second, nextCursor:second ? null : 'ch2_next'},
+        meta:{partial:false, sources:[{backendId,state:'ok'}]}
+      }));
+    }
+    if (target === '/api/vdr/channels?backend=old')
+      return Promise.resolve(response(200, {channels:[{id:'C-1',number:2,name:'Das Erste HD'}]}));
     if (target.startsWith('https://suite.example/api/v1/operations/')) {
       const etag = '"operation-revision-1"';
       return Promise.resolve(response(options.headers['If-None-Match'] === etag ? 304 : 200,
@@ -299,7 +316,35 @@ async function run() {
   assert.strictEqual(liveFailure.status,503);
   assert.strictEqual(requests.length,14);
   assert.strictEqual(requests.filter(r=>r.url==='/api/vdr/timers/live').length,1);
-  console.log('test_phase69f_timer_live_fallback_removal F5 closeout passed');
+  // Compact catalog is shared by timer editors, sorter and EPG sender lookup.
+  const beforeCatalog = requests.length;
+  const catalog = await api.fetchClientChannels({
+    query:{backend:'living-room'}, compactCatalog:true, cache:'no-store'
+  });
+  assert.strictEqual(requests.length, beforeCatalog + 2);
+  for (const req of requests.slice(beforeCatalog)) {
+    const url = new URL(req.url);
+    assert.strictEqual(url.pathname, '/api/v1/channels');
+    assert.strictEqual(url.searchParams.get('backendId'), 'living-room');
+    assert.strictEqual(url.searchParams.get('sort'), 'backendId,channelNumber,channelId');
+    assert.strictEqual(req.options.method, 'GET');
+    assert.strictEqual(req.options.credentials, 'same-origin');
+  }
+  assert.strictEqual(new URL(requests[beforeCatalog+1].url).searchParams.get('cursor'), 'ch2_next');
+  assert.strictEqual(catalog.channels.map(c=>c.name).join(','), 'Das Erste HD,ZDF HD');
+  assert.strictEqual(catalog.channels.map(c=>c.channelNumber).join(','), '2,12');
+  const beforeOld = requests.length;
+  const old = await api.fetchClientChannels({query:{backend:'old'}, compactCatalog:true});
+  assert.strictEqual(old.channels[0].name, 'Das Erste HD');
+  assert.strictEqual(requests.length, beforeOld + 2);
+  assert.strictEqual(requests[beforeOld+1].url, '/api/vdr/channels?backend=old');
+  const beforeOffline = requests.length;
+  const offline = await captureFailure(()=>api.fetchClientChannels({
+    query:{backend:'offline'}, compactCatalog:true
+  }));
+  assert.strictEqual(offline.status, 503);
+  assert.strictEqual(requests.length, beforeOffline + 1, 'provider failure must not retry privately');
+  console.log('test_phase69f_timer_live_fallback_removal F5 closeout and compact catalog passed');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

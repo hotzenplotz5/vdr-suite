@@ -106,7 +106,7 @@
         "fetchClientChannels",
         "fetchClientChannelMoveAction"
       ],
-      "note": "The public Channel collection is explicit-source/federated and is not a drop-in replacement for the browser channel route; move mutation has no public-v1 equivalent."
+      "note": "Timer editors, channel sorter list and EPG detail sender-name resolution use the compact public Channel collection with numeric order and cursor traversal. The full browser channel projection and move mutation remain pre-v1; the catalog retains its independently authorized browser compatibility read."
     },
     {
       "domain": "broadcast-companion",

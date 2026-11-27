@@ -1054,7 +1054,7 @@ function appendEpgDetailChannelMeta(parent, event, channel) {
   // Resolve it from the existing backend-scoped channel catalogue once.
   const api = frontendPlatformClientApi();
   if (api && typeof api.fetchClientChannels === 'function') {
-    api.fetchClientChannels({query: {backend: backendId}, cache: 'no-store'})
+    api.fetchClientChannels({query: {backend: backendId}, compactCatalog: true, cache: 'no-store'})
       .then(data => paint(epgDetailChannelName(event, channel, data)))
       .catch(() => {});
   }
@@ -5277,6 +5277,7 @@ function loadChannelSorter() {
       backend: backendId,
       _: String(Date.now())
     },
+    compactCatalog: true,
     cache: 'no-store',
     credentials: 'same-origin'
   })

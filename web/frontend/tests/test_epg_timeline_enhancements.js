@@ -206,8 +206,8 @@ vm.runInContext(`
   function selectedEpgBackendId() { return 'default'; }
   function frontendPlatformClientApi() {
     return {fetchClientChannels(options) {
-      catalogRequests.push(options.query.backend);
-      return Promise.resolve({channels:[{id:'C-1', name:'Das Erste HD'}]});
+      catalogRequests.push([options.query.backend, options.compactCatalog]);
+      return Promise.resolve({channels:[{backendId:options.query.backend, channelId:'C-1', channelNumber:1, name:'Das Erste HD'}]});
     }};
   }
   function createChannelLogoElement(title, channelId) {
@@ -379,7 +379,8 @@ const detailMeta = vm.runInContext(`
 `,context);
 const channelBrand = detailMeta.querySelector('.epg-detail-channel-brand');
 assert.strictEqual(channelBrand.children[0].textContent,'Sendername nicht verfügbar');
-assert.deepStrictEqual(Array.from(vm.runInContext('catalogRequests',context)),['mld']);
+assert.strictEqual(JSON.stringify(vm.runInContext('catalogRequests',context)), '[ ["mld",true] ]'.replace(/ /g,''));
+assert.ok(/function loadChannelSorter\(\)[\s\S]*?compactCatalog: true/.test(appSource));
 
 const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
 const detail = vm.runInContext(

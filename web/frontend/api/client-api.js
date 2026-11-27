@@ -614,11 +614,11 @@
     return requestJson('/api/vdr/timers/actions/delete', jsonPostOptions(options));
   }
 
-  // Timer editors consume only the public Channel identity, number, name,
-  // group, radio and enabled fields. Other browser surfaces still require
-  // their richer legacy projection. Keep the existing authenticated browser
-  // read for users whose editor access does not include channels.view.
-  async function fetchEditorChannelCatalog(input) {
+  // Timer editors, the channel sorter and EPG detail name resolution consume
+  // only the compact public Channel projection. The full channel browser
+  // still needs its richer legacy representation. Retain the independently
+  // authorized browser read for users without the separate Channel grant.
+  async function fetchCompactChannelCatalog(input) {
     const backendId = input.query && input.query.backend;
     const factory = window.VdrSuitePublicV1Client;
     if (!backendId || !factory || typeof factory.createClient !== 'function')
@@ -658,6 +658,8 @@
       // Browser-only compatibility: a current editor user can have Timer
       // rights without the separate public Channel grant. Do not alter grants
       // or retry an unknown mutation (this is a read-only catalog).
+      if (error && !cursor && (error.status === 404 || error.status === 501))
+        return requestJson('/api/vdr/channels', input);
       if (error && error.status === 403 &&
           (error.code === 'permission_denied' || error.code === 'backend_scope_denied'))
         return requestJson('/api/vdr/channels', input);
@@ -668,7 +670,8 @@
 
   function fetchClientChannels(options) {
     const input = normalizeOptions(options);
-    if (input.editorCatalog === true) return fetchEditorChannelCatalog(input);
+    if (input.editorCatalog === true || input.compactCatalog === true)
+      return fetchCompactChannelCatalog(input);
     return requestJson('/api/vdr/channels', input);
   }
 
