@@ -18,7 +18,8 @@ int main()
     const std::string photo("\xff\xd8\xff",3);
     std::ofstream(root / "photos" / "Bild 2.jpg",std::ios::binary) << photo;
     const ImageGalleryApi api("default",ImageGallerySourceSettings(
-        root / "sources.tsv",{{"pictures","Pictures",(root / "photos").string()}}));
+        root / "sources.tsv",{{"pictures","Pictures",(root / "photos").string()}}),
+        [](const std::string&,const std::string& bytes){return bytes;});
     auto get = [&](const std::string& endpoint, bool enabled = true) {
         return api.get("/api/v1/addons/image/" + endpoint,enabled);
     };
@@ -29,6 +30,7 @@ int main()
     assert(get("browse?backendId=default&sourceId=pictures&path=",false).statusCode == 404);
     const auto original = get("photo?backendId=default&sourceId=pictures&path=Bild%202.jpg");
     assert(original.statusCode == 200 && original.body == photo && original.contentType == "image/jpeg");
+    assert(get("preview?backendId=default&sourceId=pictures&path=Bild%202.jpg").body == photo);
     assert(get("photo?backendId=default&sourceId=pictures&path=../sources.tsv").statusCode != 200);
     assert(get("library?backendId=other").statusCode == 404);
     assert(get("library?backendId=default&backendId=default").statusCode == 400);

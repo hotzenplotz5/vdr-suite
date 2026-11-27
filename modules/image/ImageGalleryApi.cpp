@@ -120,8 +120,8 @@ bool parseSources(const std::string& body, std::string& backend,
 }
 } // namespace
 
-ImageGalleryApi::ImageGalleryApi(std::string localBackend, ImageGallerySourceSettings settings)
-    : localBackend_(std::move(localBackend)), settings_(std::move(settings)) {}
+ImageGalleryApi::ImageGalleryApi(std::string localBackend, ImageGallerySourceSettings settings, Preview preview)
+    : localBackend_(std::move(localBackend)), settings_(std::move(settings)), preview_(std::move(preview)) {}
 
 ApiResponse ImageGalleryApi::get(const std::string& target, bool enabled) const
 {
@@ -152,11 +152,16 @@ ApiResponse ImageGalleryApi::get(const std::string& target, bool enabled) const
         if (!result.success) return problem(404,"directory_unavailable");
         return response(200,"{\"entries\":" + entriesJson(result.entries) + '}');
     }
-    if (path == "/api/v1/addons/image/photo") {
+    if (path == "/api/v1/addons/image/photo" || path == "/api/v1/addons/image/preview") {
         auto photo = readLocalPhoto(*source,args.at("path"),OriginalBudget);
         if (photo.status == PhotoReadStatus::exceedsBudget) return problem(413,"photo_too_large");
         if (photo.status == PhotoReadStatus::unsupported) return problem(415,"unsupported_photo");
         if (photo.status != PhotoReadStatus::ready) return problem(404,"photo_unavailable");
+        if (path == "/api/v1/addons/image/preview") {
+            auto jpeg = preview_ ? preview_(photo.contentType,photo.bytes) : std::string{};
+            if (jpeg.empty()) return problem(503,"preview_unavailable");
+            return response(200,std::move(jpeg),"image/jpeg");
+        }
         return response(200,std::move(photo.bytes),std::move(photo.contentType));
     }
     return problem(404,"unknown_gallery_resource");

@@ -38,6 +38,19 @@ int main() {
     ArtworkPreviewCache restarted(cacheRoot.string(), "/missing/ffmpeg");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
 
+    // Gallery shares the implementation, not the Home cache key or dimensions.
+    const fs::path galleryRoot = root / "gallery-cache";
+    ArtworkPreviewCache gallery(galleryRoot.string());
+    const auto galleryPreview = gallery.gallery("image/png",png);
+    assert(!galleryPreview.empty() && galleryPreview != preview);
+    write(root / "gallery.jpg",galleryPreview);
+    const auto galleryProbe = MediaProcessRunner{}.runAndCapture({
+        "/usr/bin/ffprobe","-v","error","-show_entries","stream=width,height",
+        "-of","csv=p=0",(root / "gallery.jpg").string()}, "/", std::chrono::seconds(5),100);
+    assert(galleryProbe.success && galleryProbe.output == "597,896\n");
+    ArtworkPreviewCache galleryRestarted(galleryRoot.string(),"/missing/ffmpeg");
+    assert(galleryRestarted.gallery("image/png",png) == galleryPreview);
+
     // Existing route-bound entries remain usable with the old key format.
     const fs::path legacyRoot = root / "legacy-cache";
     fs::create_directory(legacyRoot);

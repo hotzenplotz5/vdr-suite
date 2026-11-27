@@ -6470,10 +6470,14 @@ bool DaemonRuntime::initialize()
             break;
         }
     }
+    auto imagePreviews = std::make_shared<ArtworkPreviewCache>("/var/cache/vdr-suite/image-previews");
     auto imageApi = std::make_shared<vdrsuite::imagegallery::ImageGalleryApi>(
         imageBackend, vdrsuite::imagegallery::ImageGallerySourceSettings(
             std::filesystem::path(config_.databasePath()).parent_path() / "image-sources.tsv",
-            std::move(imageDefaults)));
+            std::move(imageDefaults)),
+        [imagePreviews](const std::string& type, const std::string& bytes) {
+            return imagePreviews->gallery(type, bytes);
+        });
     browserHttpServer->setImageGalleryApi(
         [imageApi](const RequestSecurityContext&, const std::string& body) {
             return imageApi->save(body);
