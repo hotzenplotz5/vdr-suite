@@ -8310,7 +8310,11 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
             else
                 body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
                     "\",\"edited\":" + (item.edited ? "true" : "false") +
-                    ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+                    ",\"subtitle\":\"" + jsonEscape(item.subtitle) +
+                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                    "\",\"sizeMb\":" + std::to_string(item.sizeMb);
+            body += ",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+                ",\"artworkAvailable\":" + (item.artworkAvailable ? "true" : "false");
             if (request.epg)
                 body += ",\"channelName\":\"" + jsonEscape(item.channelName) +
                     "\",\"description\":\"" + jsonEscape(item.description) + "\"";

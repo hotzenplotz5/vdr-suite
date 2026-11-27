@@ -18296,6 +18296,24 @@
                           "personKey": {
                             "type": "string"
                           },
+                          "edited": {
+                            "type": "boolean"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "sizeMb": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "durationSeconds": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "artworkAvailable": {
+                            "type": "boolean",
+                            "description": "Advisory availability in the shared search index. Fetch artwork only through existing public artwork resources."
+                          },
                           "kind": {
                             "type": "string",
                             "const": "recording"
@@ -18500,6 +18518,14 @@
                           },
                           "description": {
                             "type": "string"
+                          },
+                          "durationSeconds": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "artworkAvailable": {
+                            "type": "boolean",
+                            "description": "Advisory availability in the shared search index. Fetch artwork only through existing public artwork resources."
                           },
                           "kind": {
                             "type": "string",

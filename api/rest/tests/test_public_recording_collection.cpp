@@ -266,8 +266,14 @@ int main()
                 item.eventId = "123";
                 item.startTime = "1791565200";
                 item.endTime = "1791572400";
+                item.durationSeconds = 7200;
+                item.artworkAvailable = true;
             } else {
                 item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+                item.startTime = "1791565200";
+                item.durationSeconds = 3600;
+                item.sizeMb = 2048;
+                item.artworkAvailable = true;
             }
             result.items.push_back(item);
         }
@@ -281,6 +287,10 @@ int main()
     assert(searchRecording.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
     assert(searchRecording.body.find("backendNativeId") == std::string::npos);
+    assert(searchRecording.body.find("\"startTime\":\"1791565200\"") != std::string::npos);
+    assert(searchRecording.body.find("\"durationSeconds\":3600") != std::string::npos);
+    assert(searchRecording.body.find("\"sizeMb\":2048") != std::string::npos);
+    assert(searchRecording.body.find("\"artworkAvailable\":true") != std::string::npos);
     assert(searchRecording.headers.at("Cache-Control") == "no-store");
     ApiResponse searchEpg;
     assert(runtime.tryHandleGet(
@@ -288,6 +298,9 @@ int main()
         "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
     assert(searchEpg.statusCode == 200);
     assert(searchEpg.body.find("\"kind\":\"epg\"") != std::string::npos);
+    assert(searchEpg.body.find("\"durationSeconds\":7200") != std::string::npos);
+    assert(searchEpg.body.find("\"artworkAvailable\":true") != std::string::npos);
+    assert(searchEpg.body.find("\"sizeMb\"") == std::string::npos);
     for (const std::string& invalid : {
         "backendId=backend-a&query=%GG",
         "backendId=backend-a&query=a",

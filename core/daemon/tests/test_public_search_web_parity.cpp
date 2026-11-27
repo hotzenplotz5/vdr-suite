@@ -25,6 +25,9 @@ GlobalSearchRecording recording(
     item.matchReason = "person";
     item.subtitle = "Episode";
     item.startTime = "1760000000";
+    item.durationSeconds = 5400;
+    item.sizeMb = 4096;
+    item.artworkAvailable = true;
     return item;
 }
 
@@ -83,6 +86,10 @@ int main()
         assert(page.items[index].personKey == "bruce willis\nactor");
         assert(page.items[index].matchReason == "person");
         assert(page.items[index].subtitle == "Episode");
+        assert(page.items[index].startTime == web.recordings[index].startTime);
+        assert(page.items[index].durationSeconds == web.recordings[index].durationSeconds);
+        assert(page.items[index].sizeMb == web.recordings[index].sizeMb);
+        assert(page.items[index].artworkAvailable);
         assert(page.items[index].recordingId.rfind("rec_", 0U) == 0U);
         assert(page.items[index].channelId.empty());
         assert(page.items[index].eventId.empty());
@@ -127,6 +134,8 @@ int main()
         event.subtitle = "Hobbits und die Wissenschaftspause";
         event.startTime = "1792000000";
         event.endTime = "1792001800";
+        event.durationSeconds = 1800;
+        event.artworkAvailable = true;
         epg.epg.push_back(event);
     }
     request.epg = true;
@@ -141,6 +150,8 @@ int main()
     assert(epgPage.items.front().matchedPerson == "Ewan McGregor");
     assert(epgPage.items.front().personKey == "ewan mcgregor\nactor");
     assert(epgPage.items.front().channelName == "Test channel");
+    assert(epgPage.items.front().durationSeconds == 1800);
+    assert(epgPage.items.front().artworkAvailable);
 
     // Never allow an item from another backend through the public adapter.
     web.status = "ready";

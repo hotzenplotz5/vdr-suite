@@ -67,6 +67,8 @@ inline PublicSearchResult project(
             item.endTime = event.endTime;
             item.channelName = event.channelName;
             item.description = event.description;
+            item.durationSeconds = std::max(0, event.durationSeconds);
+            item.artworkAvailable = event.artworkAvailable;
             item.matchedPerson = event.matchedPerson;
             item.matchedRole = event.matchedRole;
             item.matchReason = event.matchReason;
@@ -106,6 +108,9 @@ inline PublicSearchResult project(
             item.edited = display.edited;
             item.startTime = recording.startTime;
             item.subtitle = recording.subtitle;
+            item.durationSeconds = std::max(0, recording.durationSeconds);
+            item.sizeMb = std::max<std::int64_t>(0, recording.sizeMb);
+            item.artworkAvailable = recording.artworkAvailable;
             item.matchedPerson = recording.matchedPerson;
             item.matchedRole = recording.matchedRole;
             item.matchReason = recording.matchReason;

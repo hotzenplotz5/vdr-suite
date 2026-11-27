@@ -514,6 +514,9 @@ struct PublicSearchItem {
     std::string title, subtitle, startTime, endTime;
     bool edited = false;
     std::string matchedPerson, matchedRole, matchReason, personKey, channelName, description;
+    int durationSeconds = 0;
+    std::int64_t sizeMb = 0;
+    bool artworkAvailable = false;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;

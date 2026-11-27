@@ -63,3 +63,13 @@ wire it directly to TV or expose stream URLs.
 ### Person matches (additive projection)
 
 Both authorized search routes return `personProjectionVersion: 1` and per-item `matchedPerson`, `matchedRole`, `matchReason`, and `personKey` from the existing global search owner. The key uses the same Unicode folding and role as the Web people grouping. Clients combine the already authorized recording and EPG pages in key order, counting only returned matches. No extra permission, second matcher, native ID or filesystem path is introduced. Older servers lack the version marker. Recording subtitles and EPG channel name/description are also projected.
+
+### Search card data (additive projection)
+
+Both search result types also expose `durationSeconds` and advisory
+`artworkAvailable` from the same Web search index. Recording hits expose
+`startTime`, `sizeMb` and `edited`, with the existing canonical `rec_` identity.
+The availability hint is not an artwork grant or proof that a byte resource
+is currently available. Use the existing Public-v1 artwork resources;
+no native recording path, native ID or private URL is returned. This adds no
+new index query and does not yet replace the combined browser search dialog.
