@@ -58,6 +58,12 @@ class OpenApiDriftTests(unittest.TestCase):
         self.assert_rejected(security_source=changed_security,
                              reason="Media Tools route/owner/security anchor missing")
 
+    def test_media_transport_does_not_use_control_plane_authentication(self):
+        changed = copy.deepcopy(self.document)
+        path = "/api/v1/media/sessions/{sessionId}/hls/{artifact}"
+        changed["paths"][path]["get"]["security"] = [{"deviceCredential": []}]
+        self.assert_rejected(changed, reason="session-bound media authentication drifted")
+
     def test_missing_path(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends"]

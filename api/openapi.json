@@ -86,9 +86,1052 @@
     {
       "name": "Media Tools",
       "description": "Existing backend-scoped media import and processing contracts"
+    },
+    {
+      "name": "Media transport",
+      "description": "Session-bound media byte gateway"
     }
   ],
   "paths": {
+    "/api/v1/media/sessions/{sessionId}/hls/{artifact}": {
+      "get": {
+        "tags": [
+          "Media transport"
+        ],
+        "operationId": "getPublicHlsArtifact",
+        "summary": "Read session-bound HLS artifact",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only hls-fmp4 or hls-ts presentation. Allowed names are master.m3u8, init.mp4 and segment-NNNNNN.m4s or .ts. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Session identity returned by the authorized playback-session control plane.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          {
+            "name": "artifact",
+            "in": "path",
+            "required": true,
+            "description": "Exact artifact name from manifest.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(master\\.m3u8|init\\.mp4|segment-[0-9]{6}\\.(m4s|ts))$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Manifest or media artifact.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "No MIME sniffing.",
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Cross-Origin-Resource-Policy": {
+                "description": "Same-origin resource policy.",
+                "schema": {
+                  "type": "string",
+                  "const": "same-origin"
+                }
+              }
+            },
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/iso.segment": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/mp2t": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or mismatched scoped media credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current Device/resource authorization denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid media path or stream/artifact not ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "When present, media artifact/stream is not ready; seconds.",
+                "schema": {
+                  "type": "string",
+                  "const": "1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET is implemented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No active route lease or incompatible presentation profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Artifact read unavailable or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mediaSessionCookie": []
+          },
+          {
+            "mediaAuthorization": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "mediaSession"
+      }
+    },
+    "/api/v1/media/sessions/{sessionId}/live/stream.mp4": {
+      "get": {
+        "tags": [
+          "Media transport"
+        ],
+        "operationId": "getPublicLiveMediaStream",
+        "summary": "Read live fragmented MP4 stream",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only live-progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Session identity returned by the authorized playback-session control plane.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Progressive fragmented MP4 stream.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "No MIME sniffing.",
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Cross-Origin-Resource-Policy": {
+                "description": "Same-origin resource policy.",
+                "schema": {
+                  "type": "string",
+                  "const": "same-origin"
+                }
+              },
+              "X-Accel-Buffering": {
+                "description": "Disable proxy buffering.",
+                "schema": {
+                  "type": "string",
+                  "const": "no"
+                }
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or mismatched scoped media credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current Device/resource authorization denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid media path or stream/artifact not ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "When present, media artifact/stream is not ready; seconds.",
+                "schema": {
+                  "type": "string",
+                  "const": "1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET is implemented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No active route lease or incompatible presentation profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mediaSessionCookie": []
+          },
+          {
+            "mediaAuthorization": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "mediaSession"
+      }
+    },
+    "/api/v1/media/sessions/{sessionId}/recording/stream.mp4": {
+      "get": {
+        "tags": [
+          "Media transport"
+        ],
+        "operationId": "getPublicRecordingMediaStream",
+        "summary": "Read recording fragmented MP4 stream",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Session identity returned by the authorized playback-session control plane.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Progressive fragmented MP4 stream.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "No MIME sniffing.",
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Cross-Origin-Resource-Policy": {
+                "description": "Same-origin resource policy.",
+                "schema": {
+                  "type": "string",
+                  "const": "same-origin"
+                }
+              },
+              "X-Accel-Buffering": {
+                "description": "Disable proxy buffering.",
+                "schema": {
+                  "type": "string",
+                  "const": "no"
+                }
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or mismatched scoped media credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current Device/resource authorization denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid media path or stream/artifact not ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "When present, media artifact/stream is not ready; seconds.",
+                "schema": {
+                  "type": "string",
+                  "const": "1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET is implemented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No active route lease or incompatible presentation profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mediaSessionCookie": []
+          },
+          {
+            "mediaAuthorization": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "mediaSession"
+      }
+    },
+    "/api/v1/media/sessions/{sessionId}/recording/stream.ts": {
+      "get": {
+        "tags": [
+          "Media transport"
+        ],
+        "operationId": "getPublicRecordingDirectRange",
+        "summary": "Read direct recording transport-stream range",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-direct presentation. One byte range required; no multi-range. Response may be shorter than requested and Content-Range gives the actual returned bytes. Never assume a full 200 response. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Session identity returned by the authorized playback-session control plane.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "required": true,
+            "description": "Single bytes range.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "206": {
+            "description": "Returned TS byte range.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "No MIME sniffing.",
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Cross-Origin-Resource-Policy": {
+                "description": "Same-origin resource policy.",
+                "schema": {
+                  "type": "string",
+                  "const": "same-origin"
+                }
+              },
+              "Accept-Ranges": {
+                "description": "Supported range unit.",
+                "schema": {
+                  "type": "string",
+                  "const": "bytes"
+                }
+              },
+              "Content-Range": {
+                "description": "Actual byte range and readable length.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "video/mp2t": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed single range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Accept-Ranges": {
+                "description": "Supported range unit.",
+                "schema": {
+                  "type": "string",
+                  "const": "bytes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or mismatched scoped media credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current Device/resource authorization denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid media path or stream/artifact not ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "When present, media artifact/stream is not ready; seconds.",
+                "schema": {
+                  "type": "string",
+                  "const": "1"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET is implemented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No active route lease or incompatible presentation profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Unsatisfiable range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Accept-Ranges": {
+                "description": "Supported range unit.",
+                "schema": {
+                  "type": "string",
+                  "const": "bytes"
+                }
+              },
+              "Content-Range": {
+                "description": "bytes */readable length",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Direct source or read unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "mediaSessionCookie": []
+          },
+          {
+            "mediaAuthorization": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "mediaSession"
+      }
+    },
     "/api/v1/backends/{backendId}/capabilities/media-check": {
       "get": {
         "tags": [
@@ -22085,6 +23128,18 @@
       }
     },
     "securitySchemes": {
+      "mediaSessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "vdr_suite_media",
+        "description": "Short-lived session-scoped HttpOnly Secure SameSite=Strict media credential issued by the existing playback control plane."
+      },
+      "mediaAuthorization": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-VDR-Suite-Media-Authorization",
+        "description": "Bearer <media credential>; distinct from Device API Authorization."
+      },
       "browserSession": {
         "type": "apiKey",
         "in": "cookie",

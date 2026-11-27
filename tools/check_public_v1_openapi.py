@@ -24,6 +24,13 @@ DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 # Each anchor is an actual branch in the corresponding C++ GET/POST dispatcher.
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
 # This explicit inventory must be reviewed when already-audited routes move.
+MEDIA_TRANSPORT_AUDITED = {
+    "/api/v1/media/sessions/{sessionId}/hls/{artifact}": {"get": "HlsMarker"},
+    "/api/v1/media/sessions/{sessionId}/live/stream.mp4": {"get": "LiveSuffix"},
+    "/api/v1/media/sessions/{sessionId}/recording/stream.mp4": {"get": "RecordingStreamSuffix"},
+    "/api/v1/media/sessions/{sessionId}/recording/stream.ts": {"get": "RecordingDirectSuffix"},
+}
+
 MEDIA_PROCESSING_AUDITED = {
     "/api/v1/backends/{backendId}/capabilities/media-check": {
         "get": ("MediaCheck", "isPublicMediaCheckCapabilityResource", "/capabilities/media-check"),
@@ -479,7 +486,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -517,7 +524,7 @@ def validate(
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
         **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
-        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED
+        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -557,6 +564,17 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in MEDIA_TRANSPORT_AUDITED:
+                gateway = (ROOT / "core/http/src/MediaGatewayHttpServer.cpp").read_text(encoding="utf-8")
+                if (marker not in gateway or
+                    '"/api/v1/media/sessions/"' not in gateway or
+                    'authenticator_.authenticate(credential, mediaPath.sessionId)' not in gateway or
+                    'routeLeaseRepository_.findActive(' not in gateway or
+                    '!publicSessionAuthorizer_(' not in gateway):
+                    errors.append(f"{where}: session-bound media gateway anchor missing")
+                media_op = data.get(method, {})
+                if media_op.get("security") != [{"mediaSessionCookie": []}, {"mediaAuthorization": []}]:
+                    errors.append(f"{where}: session-bound media authentication drifted")
             elif path in MEDIA_PROCESSING_AUDITED:
                 owner, gate_marker, suffix = marker
                 verb = "Get" if method == "get" else "Post"
@@ -714,7 +732,7 @@ def main() -> int:
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
              **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
-             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED}
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 
