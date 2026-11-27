@@ -590,6 +590,11 @@ struct PublicEpgGenreItem {
 struct PublicEpgGenreEvent {
     std::string backendId, channelId, eventId, title, subtitle;
     std::string startTime, endTime;
+    std::string channelName, description, contentClass;
+    int durationSeconds = 0;
+    std::vector<std::string> genreIds;
+    bool artworkAvailable = false, portraitArtwork = false;
+    int artworkWidth = 0, artworkHeight = 0;
 };
 struct PublicEpgGenreResult {
     PublicEpgGenreStatus status = PublicEpgGenreStatus::unavailable;

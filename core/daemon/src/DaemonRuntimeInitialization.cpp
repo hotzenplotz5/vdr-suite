@@ -4027,7 +4027,7 @@ bool DaemonRuntime::initialize()
         {
             PublicEpgGenreResult result;
             if (!backendRegistryService_ || request.backendId.empty() ||
-                request.limit == 0U || request.limit > 30U ||
+                request.limit == 0U || request.limit > (request.events ? 48U : 30U) ||
                 request.offset > 1000000U)
             {
                 result.status = PublicEpgGenreStatus::invalid;
@@ -4070,6 +4070,17 @@ bool DaemonRuntime::initialize()
                     item.subtitle = event.subtitle;
                     item.startTime = std::to_string(event.startTime);
                     item.endTime = std::to_string(event.endTime);
+                    item.channelName = event.channelName;
+                    item.description = event.description;
+                    item.contentClass = event.contentClass;
+                    item.durationSeconds = event.durationSeconds;
+                    item.genreIds = event.genreIds;
+                    const auto poster = genres.epgPortraitArtwork(
+                        event.backendId, event.channelId, event.eventId);
+                    item.artworkAvailable = poster.available || event.artworkAvailable;
+                    item.portraitArtwork = poster.available;
+                    item.artworkWidth = poster.available ? poster.width : event.artworkWidth;
+                    item.artworkHeight = poster.available ? poster.height : event.artworkHeight;
                     result.events.push_back(std::move(item));
                 }
             }

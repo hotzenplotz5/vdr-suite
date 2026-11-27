@@ -269,7 +269,7 @@
         "fetchClientGenreEpg",
         "fetchPublicGenreRecordings"
       ],
-      "note": "Recording overview/membership and EPG overview use Public v1; EPG result-card projection and legacy membership remain until caller parity is established. EPG overview retains the explicit older-daemon and independently authorized browser compatibility read."
+      "note": "Recording overview/membership and EPG overview/result cards use Public v1. The public result includes the persisted sender, description and canonical portrait selection; the 48-card Web page and exact time window are preserved. Explicit older-daemon/independently authorized browser compatibility reads remain; the selected-recording identity bridge is separately classified."
     },
     {
       "domain": "live-remote-extension",

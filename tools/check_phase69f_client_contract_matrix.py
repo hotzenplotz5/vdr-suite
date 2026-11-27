@@ -128,7 +128,10 @@ for source_name, source in (
                     "Home recording view must be exact: " + view)
         source = source.replace(home_route, "'approved-home-recording-view'")
     if source_name == "genre":
-        # Reviewed recording facet/membership and EPG overview; EPG result cards remain legacy.
+        # Reviewed recording facet/membership and EPG overview/card reads.
+        for route in ("'/api/v1/genres/epg/events'", "'/api/v1/epg/artwork'", "'/api/v1/epg/preferred-artwork'"):
+            require(source.count(route) == 1, "EPG Genre result/artwork route must be exact: " + route)
+            source = source.replace(route, "'approved-epg-genre-result'")
         epg_overview = "'/api/v1/genres/epg'"
         require(source.count(epg_overview) == 1, "EPG Genre overview route must be exact")
         require("return fetchPublicEpgGenreOverview(normalized);" in source,

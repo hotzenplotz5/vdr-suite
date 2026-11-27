@@ -187,6 +187,15 @@ int main()
                     item.subtitle = "Hobbits und die Wissenschaftspause";
                     item.startTime = "1792060000";
                     item.endTime = "1792062000";
+                    item.channelName = "Das Erste HD";
+                    item.description = "Beschreibung";
+                    item.contentClass = "series";
+                    item.durationSeconds = 2000;
+                    item.genreIds = {"comedy"};
+                    item.artworkAvailable = true;
+                    item.portraitArtwork = true;
+                    item.artworkWidth = 500;
+                    item.artworkHeight = 750;
                     result.events.push_back(item);
                 }
         }
@@ -229,9 +238,14 @@ int main()
     assert(epgGenres.body.find("backendNativeId") == std::string::npos);
     ApiResponse epgEvents;
     assert(api.tryHandleGet(
-        "/api/v1/genres/epg/events?backendId=home&contentClass=series&limit=30&offset=0",
+        "/api/v1/genres/epg/events?backendId=home&contentClass=series&limit=48&offset=0",
         "actor:tv","epg-events","",epgEvents,"","",{"home"}));
     assert(epgEvents.statusCode == 200);
+    assert(epgEvents.body.find("\"channelName\":\"Das Erste HD\"") != std::string::npos);
+    assert(epgEvents.body.find("\"description\":\"Beschreibung\"") != std::string::npos);
+    assert(epgEvents.body.find("\"genreIds\":[\"comedy\"]") != std::string::npos);
+    assert(epgEvents.body.find("\"cardPresentation\":true") != std::string::npos);
+    assert(epgEvents.body.find("\"portrait\":true") != std::string::npos);
     assert(epgEvents.body.find("\"totalCount\":2") != std::string::npos);
     assert(epgEvents.body.find("Hobbits und die Wissenschaftspause") !=
         std::string::npos);

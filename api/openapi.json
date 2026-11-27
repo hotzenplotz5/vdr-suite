@@ -8006,7 +8006,7 @@
         ],
         "operationId": "listPublicEpgGenreEvents",
         "summary": "List EPG events for a content category",
-        "description": "Existing Web genre window, default now through the next 48 hours. Optional paired fromTime/untilTime reuse the overview window (maximum seven days); genreId is optional and only valid for contentClass=movie.",
+        "description": "Existing Web genre window, default now through the next 48 hours. Optional paired fromTime/untilTime reuse the overview window (maximum seven days); genreId is optional and only valid for contentClass=movie. Event cards include persisted sender, description, canonical genre memberships and artwork facts; limit supports the existing 48-card Web page.",
         "parameters": [
           {
             "name": "backendId",
@@ -8051,7 +8051,7 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 30,
+              "maximum": 48,
               "default": 30
             }
           },
@@ -8129,7 +8129,7 @@
                   "properties": {
                     "items": {
                       "type": "array",
-                      "maxItems": 30,
+                      "maxItems": 48,
                       "items": {
                         "type": "object",
                         "required": [
@@ -8167,6 +8167,47 @@
                           },
                           "endTime": {
                             "type": "string"
+                          },
+                          "channelName": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "contentClass": {
+                            "type": "string"
+                          },
+                          "durationSeconds": {
+                            "type": "integer"
+                          },
+                          "genreIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "artwork": {
+                            "type": "object",
+                            "required": [
+                              "available",
+                              "portrait",
+                              "width",
+                              "height"
+                            ],
+                            "properties": {
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "portrait": {
+                                "type": "boolean"
+                              },
+                              "width": {
+                                "type": "integer"
+                              },
+                              "height": {
+                                "type": "integer"
+                              }
+                            }
                           }
                         }
                       }
@@ -8183,7 +8224,7 @@
                         "limit": {
                           "type": "integer",
                           "minimum": 1,
-                          "maximum": 30
+                          "maximum": 48
                         },
                         "offset": {
                           "type": "integer",
@@ -8207,6 +8248,10 @@
                         "partial": {
                           "type": "boolean",
                           "const": false
+                        },
+                        "cardPresentation": {
+                          "type": "boolean",
+                          "const": true
                         }
                       }
                     },
@@ -21317,7 +21362,7 @@
         ],
         "operationId": "getPublicEpgPreferredArtworkImage",
         "summary": "Serve preferred TVScraper or existing persisted EPG series fallback artwork",
-        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend. Optional variant=home reuses the existing Home preview cache.",
+        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend. Optional variant=home reuses the existing Home preview cache. Optional variant=genre selects the persisted portrait from the canonical Genre index, or the existing direct image when no portrait is indexed.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "epg.view@backendId; no media.live.play-only access"
@@ -21363,10 +21408,11 @@
             "schema": {
               "type": "string",
               "enum": [
-                "home"
+                "home",
+                "genre"
               ]
             },
-            "description": "Optional existing Home preview, up to 400 x 600 pixels and 256 KiB when conversion succeeds; original bytes otherwise. Omit for original."
+            "description": "home: existing Home preview. genre: canonical persisted Genre portrait selection; no caller-selected image index."
           }
         ],
         "responses": {

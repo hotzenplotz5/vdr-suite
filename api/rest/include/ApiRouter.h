@@ -304,6 +304,20 @@ public:
             backendId, channelId, eventId, "preferred", 0);
     }
 
+    // Genre cards use the same persisted portrait selection as the legacy
+    // Genre controller, not an arbitrary client-supplied image kind/index.
+    ApiResponse getEpgGenreArtwork(
+        const std::string& backendId, const std::string& channelId,
+        const std::string& eventId) const
+    {
+        const auto poster = GenreBrowserApiRuntime::instance().epgPortraitArtwork(
+            backendId, channelId, eventId);
+        if (poster.available && epgCacheController_ != nullptr)
+            return epgCacheController_->getMetadataImage(
+                backendId, channelId, eventId, poster.kind, poster.imageIndex);
+        return getEpgArtwork(backendId, channelId, eventId);
+    }
+
     // Called only after the normal authenticated GET admission.
     std::shared_ptr<BrowserLiveEventSubscription> subscribeBrowserLive(
         const std::string& lastEventId) const;

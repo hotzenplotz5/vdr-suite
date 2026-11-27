@@ -2082,7 +2082,8 @@ HttpServerResponse TestHttpServer::handleRequest(
             else if (key == "backendId") ++backendCount;
             else if (key == "channelId") ++channelCount;
             else if (key == "eventId") ++eventCount;
-            else if (item == "variant=home") ++variantCount;
+            else if (item == "variant=home" ||
+                (isEpgPreferredArtwork && item == "variant=genre")) ++variantCount;
             else canonicalQueryKeys = false;
             if (end == std::string::npos) break;
             start = end + 1U;
@@ -2117,7 +2118,9 @@ HttpServerResponse TestHttpServer::handleRequest(
         else
         {
             response = isEpgPreferredArtwork
-                ? apiRouter_.getEpgPreferredArtwork(backend, channel, event)
+                ? (query.get("variant") == "genre"
+                    ? apiRouter_.getEpgGenreArtwork(backend, channel, event)
+                    : apiRouter_.getEpgPreferredArtwork(backend, channel, event))
                 : apiRouter_.getEpgArtwork(backend, channel, event);
             if (response.statusCode == 200 &&
                 response.contentType != "image/png" &&

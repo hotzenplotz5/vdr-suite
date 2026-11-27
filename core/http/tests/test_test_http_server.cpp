@@ -776,6 +776,20 @@ int main()
         assert(previewSource.body == original.body);
     }
 
+    // The Genre variant is valid only on preferred-artwork and reuses
+    // the direct image owner if no portrait is materialized in the index.
+    HttpServerRequest genreArtworkRequest;
+    genreArtworkRequest.method = "GET";
+    genreArtworkRequest.path = "/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42";
+    authorize(genreArtworkRequest);
+    const auto directGenreFallback = server.handleRequest(genreArtworkRequest);
+    genreArtworkRequest.path = "/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=genre";
+    const auto selectedGenreArtwork = server.handleRequest(genreArtworkRequest);
+    assert(selectedGenreArtwork.statusCode == directGenreFallback.statusCode);
+    assert(selectedGenreArtwork.body == directGenreFallback.body);
+    genreArtworkRequest.path = "/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=genre";
+    assertJsonResponse(server.handleRequest(genreArtworkRequest), 400);
+
     HttpServerRequest anonymousFrontendRequest;
     anonymousFrontendRequest.method = "GET";
     anonymousFrontendRequest.path = "/";

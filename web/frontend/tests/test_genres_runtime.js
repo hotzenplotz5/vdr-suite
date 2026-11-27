@@ -36,6 +36,35 @@ async function testPublicEpgOverview() {
   assert.strictEqual(result.until,until);
 }
 
+async function testPublicEpgCards() {
+  const calls = [];
+  const from = 1792060000, until = from + 172800;
+  const window = {VdrSuiteClientApi:{requestJson(route,options) {
+    calls.push({route,options});
+    return Promise.resolve({fromTime:from,untilTime:until,
+      items:[{backendId:'default',channelId:'C-1',eventId:'100',title:'Film',
+        channelName:'Das Erste HD',description:'Beschreibung',startTime:String(from),
+        endTime:String(from+3600),genreIds:['thriller'],
+        artwork:{available:true,portrait:true,width:500,height:750}}],
+      page:{limit:48,offset:0,totalCount:1,hasMore:false},
+      meta:{partial:false,cardPresentation:true}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot,'api','genre-client-api.js'),'utf8'),{window,console});
+  const result = await window.VdrSuiteClientApi.fetchClientGenreEpg({
+    backendId:'default',contentClass:'movie',genreId:'thriller',from,until,limit:48,offset:0
+  });
+  assert.strictEqual(calls.length,1);
+  assert.strictEqual(calls[0].route,'/api/v1/genres/epg/events');
+  assert.strictEqual(calls[0].options.query.limit,48);
+  assert.strictEqual(calls[0].options.query.fromTime,from);
+  assert.strictEqual(result.total,1);
+  assert.strictEqual(result.items[0].channelName,'Das Erste HD');
+  assert.strictEqual(result.items[0].description,'Beschreibung');
+  assert.strictEqual(result.items[0].startTime,from);
+  assert.strictEqual(result.items[0].artwork.url,'/api/v1/epg/preferred-artwork?backendId=default&channelId=C-1&eventId=100&variant=genre');
+  assert.strictEqual(result.items[0].artwork.fallbackUrl,'/api/v1/epg/artwork?backendId=default&channelId=C-1&eventId=100');
+}
+
 async function testPublicMembershipPage() {
   const requests = [];
   const id = 'rec_' + '1'.repeat(32);
@@ -241,6 +270,7 @@ function publicDetail(member, title, absent) {
 (async function main() {
   await testPublicMembershipPage();
   await testPublicEpgOverview();
+  await testPublicEpgCards();
   const mount = new FakeElement('main');
   const elementsById = Object.create(null);
   const head = new FakeElement('head');

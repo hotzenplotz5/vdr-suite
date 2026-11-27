@@ -223,8 +223,7 @@
     }));
   }
 
-  function fetchClientGenreEpg(options) {
-    const normalized = normalizeOptions(options);
+  function fetchLegacyGenreEpg(normalized) {
     return base.requestJson('/api/metadata/genres/epg', withQuery(normalized, {
       backend: normalized.backendId,
       contentClass: normalized.contentClass,
@@ -234,6 +233,62 @@
       limit: normalized.limit,
       offset: normalized.offset
     }));
+  }
+
+  // Keep the established 48-card page and exact selected overview window.
+  // The public response supplies cached card facts, including sender and poster,
+  // so this read never needs supplemental channel or metadata lookups.
+  async function fetchClientGenreEpg(options) {
+    const normalized = normalizeOptions(options);
+    const limit = normalized.limit === undefined ? 48 : normalized.limit;
+    const offset = normalized.offset === undefined ? 0 : normalized.offset;
+    let payload;
+    try {
+      payload = await base.requestJson('/api/v1/genres/epg/events', {
+        query: {backendId:normalized.backendId, contentClass: normalized.contentClass,
+          genreId:normalized.genreId || undefined, locale:normalized.locale || 'de',
+          fromTime:normalized.from, untilTime:normalized.until, limit, offset},
+        credentials:normalized.credentials || 'same-origin',
+        cache:normalized.cache || 'no-store', signal:normalized.signal
+      });
+    } catch (error) {
+      if (error && (error.status === 404 || error.status === 501 ||
+          (error.status === 400 && error.code === 'invalid_request') ||
+          (error.status === 403 && (error.code === 'permission_denied' ||
+            error.code === 'backend_scope_denied'))))
+        return fetchLegacyGenreEpg(normalized);
+      throw error;
+    }
+    if (payload && payload.meta && payload.meta.cardPresentation === undefined)
+      return fetchLegacyGenreEpg(normalized);
+    const page = payload && payload.page;
+    if (!page || !Array.isArray(payload.items) || !payload.meta ||
+        payload.meta.partial !== false || payload.meta.cardPresentation !== true ||
+        page.limit !== limit || page.offset !== offset ||
+        !Number.isSafeInteger(page.totalCount) || page.totalCount < 0 ||
+        (normalized.from !== undefined && payload.fromTime !== normalized.from) ||
+        (normalized.until !== undefined && payload.untilTime !== normalized.until) ||
+        payload.items.length > limit ||
+        page.hasMore !== (offset + payload.items.length < page.totalCount))
+      throw new Error('Unvollständige EPG-Genre-Ergebnisse.');
+    const items = payload.items.map(event => {
+      const image = event.artwork || {};
+      const suffix = '?backendId=' + encodeURIComponent(event.backendId) +
+        '&channelId=' + encodeURIComponent(event.channelId) +
+        '&eventId=' + encodeURIComponent(event.eventId);
+      const direct = '/api/v1/epg/artwork' + suffix;
+      const poster = '/api/v1/epg/preferred-artwork' + suffix + '&variant=genre';
+      return Object.assign({}, event, {
+        id:event.eventId, startTime:Number(event.startTime), endTime:Number(event.endTime),
+        artwork:Object.assign({}, image, {
+          url:image.available ? (image.portrait ? poster : direct) : '',
+          fallbackUrl:direct
+        })
+      });
+    });
+    return {backendId:normalized.backendId, contentClass:normalized.contentClass,
+      genreId:normalized.genreId || '', from:payload.fromTime, until:payload.untilTime,
+      items, limit, offset, total:page.totalCount, hasMore:page.hasMore};
   }
 
   global.VdrSuiteClientApi = Object.freeze(Object.assign({}, base, {

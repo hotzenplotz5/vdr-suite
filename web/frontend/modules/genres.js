@@ -148,6 +148,8 @@
   }
 
   function persistentEpgArtworkUrl(event) {
+    if (event && event.artwork && event.artwork.fallbackUrl)
+      return event.artwork.fallbackUrl;
     const backend = text(event && event.backendId, state.backendId || 'default') || 'default';
     const channelId = text(event && event.channelId);
     const eventId = text(event && (event.eventId || event.id));

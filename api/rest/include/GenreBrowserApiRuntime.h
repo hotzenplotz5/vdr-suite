@@ -71,6 +71,10 @@ public:
         std::int64_t untilTime, int limit, int offset,
         GenreEpgPage& result) const;
 
+    GenreEpgArtworkSelection epgPortraitArtwork(
+        const std::string& backendId, const std::string& channelId,
+        const std::string& eventId) const;
+
     bool recordingOverview(
         const std::string& backendId,
         const std::string& locale,

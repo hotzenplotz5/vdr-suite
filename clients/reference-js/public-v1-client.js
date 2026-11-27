@@ -328,7 +328,7 @@
         throw new Error('Invalid EPG genre window');
       fields.push('fromTime=' + from, 'untilTime=' + until);
     }
-    for (const [key, min, max] of [['limit',1,30],['offset',0,1000000]]) {
+    for (const [key, min, max] of [['limit',1,events ? 48 : 30],['offset',0,1000000]]) {
       if (query[key] === undefined) continue;
       if (!Number.isInteger(query[key]) || query[key] < min || query[key] > max)
         throw new Error('Invalid EPG genre ' + key);
@@ -568,7 +568,8 @@
     p.set('channelId', options.channelId);
     p.set('eventId', options.eventId);
     if (options.variant !== undefined) {
-      if (options.variant !== 'home') throw new Error('Unsupported artwork variant');
+      if (options.variant !== 'home' && !(preferred && options.variant === 'genre'))
+        throw new Error('Unsupported artwork variant');
       p.set('variant', options.variant);
     }
     return '/api/v1/epg/' + (preferred ? 'preferred-artwork' : 'artwork') +

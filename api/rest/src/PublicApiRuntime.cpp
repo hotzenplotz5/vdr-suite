@@ -1441,7 +1441,7 @@ bool parsePublicEpgGenreQuery(
         else if (key == "limit")
         {
             if (limit || !decimalSize(value, query.limit) ||
-                query.limit == 0U || query.limit > 30U) return false;
+                query.limit == 0U || query.limit > (events ? 48U : 30U)) return false;
             limit = true;
         }
         else if (key == "offset")
@@ -5231,7 +5231,23 @@ ApiResponse publicEpgGenreResponse(
                 "\",\"title\":\"" + jsonEscape(item.title) +
                 "\",\"subtitle\":\"" + jsonEscape(item.subtitle) +
                 "\",\"startTime\":\"" + jsonEscape(item.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(item.endTime) + "\"}";
+                "\",\"endTime\":\"" + jsonEscape(item.endTime) +
+                "\",\"channelName\":\"" + jsonEscape(item.channelName) +
+                "\",\"description\":\"" + jsonEscape(item.description) +
+                "\",\"contentClass\":\"" + jsonEscape(item.contentClass) +
+                "\",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+                ",\"genreIds\":[";
+            for (std::size_t i = 0; i < item.genreIds.size(); ++i)
+            {
+                if (i) body += ",";
+                body += "\"" + jsonEscape(item.genreIds[i]) + "\"";
+            }
+            body += "],\"artwork\":{\"available\":" +
+                std::string(item.artworkAvailable ? "true" : "false") +
+                ",\"portrait\":" +
+                std::string(item.portraitArtwork ? "true" : "false") +
+                ",\"width\":" + std::to_string(item.artworkWidth) +
+                ",\"height\":" + std::to_string(item.artworkHeight) + "}}";
         }
     }
     else
@@ -5257,7 +5273,9 @@ ApiResponse publicEpgGenreResponse(
         ",\"totalCount\":" + std::to_string(page.totalCount) +
         ",\"hasMore\":" +
         std::string(query.offset + count < page.totalCount ? "true" : "false") +
-        "},\"meta\":{\"partial\":false}}";
+        "},\"meta\":{\"partial\":false";
+    if (query.events) body += ",\"cardPresentation\":true";
+    body += "}}";
     return jsonResponse(body, requestId, correlationId);
 }
 

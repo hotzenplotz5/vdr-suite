@@ -527,12 +527,23 @@ bool GenreBrowserApiRuntime::epgPage(
         !GenreIndexRepository::isEpgBrowseContentClass(contentClass) ||
         (!genreId.empty() && (contentClass != "movie" ||
             !GenreIndexRepository::isFilmGenre(genreId))) ||
-        untilTime <= fromTime || limit < 1 || limit > 30 ||
+        untilTime <= fromTime || limit < 1 || limit > 48 ||
         offset < 0 || offset > 1000000)
         return false;
     result = repository->epgByBrowse(
         backendId, contentClass, genreId, fromTime, untilTime, limit, offset);
     return true;
+}
+
+GenreEpgArtworkSelection GenreBrowserApiRuntime::epgPortraitArtwork(
+    const std::string& backendId, const std::string& channelId,
+    const std::string& eventId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository) return {};
+    return repository->epgPortraitArtwork(backendId, channelId, eventId);
 }
 
 bool GenreBrowserApiRuntime::recordingOverview(
