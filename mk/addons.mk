@@ -824,3 +824,10 @@ test-addon-image-source-settings:
 	"$(BUILD_DIR)/addons/test_image_gallery_source_settings"
 
 test-ci-fast: test-addon-image-source-settings
+
+.PHONY: test-addon-image-gallery-frontend
+test-addon-image-gallery-frontend:
+	node web/frontend/tests/test_image_gallery_navigation.js
+
+test-ci-frontend: test-addon-image-gallery-frontend
+test-frontend-contracts: test-addon-image-gallery-frontend
