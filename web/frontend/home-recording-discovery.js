@@ -4959,6 +4959,7 @@
 
     function requestPage(offset) {
       const fetch = publicMode ? client.fetchPublicRecordingFolder : client.fetchClientRecordingFolder;
+      let observedPage = false;
       return Promise.resolve(fetch.call(client, {
         backendId: backendId,
         query: Object.assign(publicMode ? {} : {path: ''}, {
@@ -4966,10 +4967,11 @@
           offset: offset
         }),
         cache: 'no-store',
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        onPage: function (page) { observedPage = true; if (cache) cache.accept(page); }
       })).then(function (payload) {
         if (!current(generation, backendId)) return {folders: [], rootRecordings: []};
-        if (cache) cache.accept(payload);
+        if (cache && !observedPage) cache.accept(payload);
         if (payload && payload.publicFolder === true) {
           const projection = projectRootFolderPayload(payload, backendId);
           folders.push(...projection.folders);
