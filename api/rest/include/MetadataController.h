@@ -108,6 +108,11 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
 
+    ApiResponse getPublicManualRecordingMetadata(
+        const std::string& backendId,
+        const std::string& resourceKey,
+        const std::string& publicRecordingId);
+
     ApiResponse getManualRecordingGenre(
         const std::string& backendId,
         const std::string& resourceKey,
