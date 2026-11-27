@@ -1044,7 +1044,7 @@ std::vector<std::string> VdrRecordingCacheRepository::publicFolderAncestors(
 
 bool VdrRecordingCacheRepository::folderPageForBackendByPublicId(
     const std::string& backendId, const std::string& folderId,
-    int limit, int offset, VdrRecordingFolderPage& page) const
+    int limit, int offset, VdrRecordingFolderPage& page, bool homeCards) const
 {
     if (!folderId.empty() &&
         (folderId.size() != 37U || folderId.rfind("fld1_", 0U) != 0U ||
@@ -1055,7 +1055,8 @@ bool VdrRecordingCacheRepository::folderPageForBackendByPublicId(
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     // This is the same indexed hierarchy used by Web Home.
-    (void) folderPageForBackend(normalizedBackendId, "", 1, 0);
+    if (browseSnapshots_.find(normalizedBackendId) == browseSnapshots_.end())
+        (void) folderPageForBackend(normalizedBackendId, "", 1, 0, true);
     const auto snapshot = browseSnapshots_.find(normalizedBackendId);
     if (snapshot == browseSnapshots_.end()) return false;
     std::string path;
@@ -1073,7 +1074,7 @@ bool VdrRecordingCacheRepository::folderPageForBackendByPublicId(
         }
         if (!found) return false;
     }
-    page = folderPageForBackend(normalizedBackendId, path, limit, offset);
+    page = folderPageForBackend(normalizedBackendId, path, limit, offset, homeCards);
     return true;
 }
 
@@ -1146,6 +1147,7 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
 
     page.folderCount = static_cast<int>(folder->second.folders.size());
     page.recordingCount = static_cast<int>(folder->second.recordings.size());
+    page.singleRecordingLeafCount = folder->second.singleRecordingLeafCount;
     const int folderStart = homeCards ? std::min(page.offset, page.folderCount) : 0;
     const int folderTake = homeCards
         ? std::min(page.limit, page.folderCount - folderStart)
@@ -1280,6 +1282,17 @@ void VdrRecordingCacheRepository::storeBrowseSnapshotLocked(
                 return left.path < right.path;
             });
     }
+
+    // Count embedded leaves once per snapshot, not by expanding every
+    // child on each paginated request.
+    for (auto& folder : snapshot.folders)
+        for (const auto& child : folder.second.folders)
+        {
+            const auto found = snapshot.folders.find(child.path);
+            if (found != snapshot.folders.end() && found->second.folders.empty() &&
+                found->second.recordings.size() == 1U)
+                ++folder.second.singleRecordingLeafCount;
+        }
 
     // Descendants sort after their prefix, so reverse order computes the
     // existing direct-first, alphabetically ordered representative once.

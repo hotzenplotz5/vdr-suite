@@ -47,6 +47,8 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "VdrRecordingArtworkIdentity.h"
+#include "VdrRecordingMetadataJsonSerializer.h"
+#include "ManualRecordingMetadataReadModelJson.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingMetadataDetailProjection.h"
@@ -112,6 +114,64 @@ std::optional<VdrRecordingArtworkRef> publicManualRecordingPoster(
     poster.reference = selected.posterReference;
     poster.temporary = false;
     return poster;
+}
+
+// Compact card projection reused by the public Home and folder reads.
+// Identity/artwork are resolved from already selected cache evidence.
+void projectPublicRecordingCard(const std::string& backendId,
+    const VdrRecording& recording, const ManualRecordingMetadataAssignment& manual,
+    const GenreRecordingPage& cardPage, PublicRecordingCollectionItem& entry)
+{
+            entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+                recording, manual.posterReference, 0, 0,
+                manual.found && manual.relationshipLocked, manual.revision);
+            const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
+                [&](const auto& value) { return value.backendNativeId == recording.backendNativeId; });
+            if (summary != cardPage.recordings.end())
+            {
+                PublicGenreRecordingItem card;
+                const auto seed = GenreBrowserApiRuntime::projectRecordingCard(*summary, card);
+                if (!seed.empty())
+                {
+                    card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(backendId, seed);
+                    card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
+                        backendId, recording);
+                    const auto addCoverKey = [&](const std::string& legacy) {
+                        const auto key = PublicSeriesGroupKey::fromLegacy(backendId, legacy);
+                        if (!key.empty() && std::find(entry.seriesCoverGroupKeys.begin(),
+                            entry.seriesCoverGroupKeys.end(), key) == entry.seriesCoverGroupKeys.end())
+                            entry.seriesCoverGroupKeys.push_back(key);
+                    };
+                    const auto& providerId = recording.metadata.provider.seriesId;
+                    if (!providerId.empty()) addCoverKey("provider:" + providerId);
+                    addCoverKey(seed);
+                    if (!summary->seriesProvider.empty() && summary->seriesProviderId != 0)
+                        addCoverKey("native:" + summary->seriesProvider + ":" + std::to_string(summary->seriesProviderId));
+                }
+                if (!(manual.found && manual.relationshipLocked) && !summary->cardArtworkPath.empty())
+                {
+                    entry.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
+                        recording, summary->cardArtworkPath, summary->cardArtworkWidth,
+                        summary->cardArtworkHeight, summary->seriesArtworkIndex);
+                }
+                entry.card.cardTitle = std::move(card.cardTitle);
+                entry.card.cardMediaType = std::move(card.cardMediaType);
+                entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
+                entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
+                entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
+                entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
+                entry.card.episodeName = std::move(card.episodeName);
+                entry.card.seasonNumber = std::move(card.seasonNumber);
+                entry.card.episodeNumber = std::move(card.episodeNumber);
+                entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
+                entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
+                entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
+                entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
+                entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
+                entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
+                entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
+                entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
+            }
 }
 
 bool searchCasReplayMatches(
@@ -3401,112 +3461,128 @@ bool DaemonRuntime::initialize()
 
             if (request.browseFolders)
             {
-                // Reuse the Home cache hierarchy; only opaque folder IDs,
-                // safe labels and Public-v1 recording identities leave here.
-                VdrRecordingFolderPage initial;
+                // One mixed page from the existing Home hierarchy, including
+                // its embedded leaves and representative recordings.
+                VdrRecordingFolderPage page;
                 if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
-                        request.backendId, request.folderId, 1, 0, initial))
+                        request.backendId, request.folderId,
+                        static_cast<int>(request.limit), static_cast<int>(request.offset), page, true))
                 {
                     result.status = PublicRecordingCollectionStatus::invalid;
                     return result;
                 }
-                const std::size_t folderCount = initial.folders.size();
-                const std::size_t recordingCount =
-                    static_cast<std::size_t>(std::max(0, initial.recordingCount));
-                result.totalEntries = folderCount + recordingCount;
-                const std::size_t begin =
-                    std::min(request.offset, folderCount);
-                const std::size_t end =
-                    std::min(folderCount, request.offset + request.limit);
-                for (std::size_t index = begin; index < end; ++index)
+
+                PublicRecordingFolderContext context;
+                context.folderId = request.folderId;
+                context.parentFolderId = page.parentPath.empty() ? std::string{} :
+                    VdrRecordingCacheRepository::publicFolderId(request.backendId, page.parentPath);
+                context.folderCount = page.folderCount - page.singleRecordingLeafCount;
+                context.recordingCount = page.recordingCount + page.singleRecordingLeafCount;
+                context.catalogTotalCount = page.totalCount;
+                context.cacheState = page.cacheState;
+                context.cacheReady = page.cacheReady;
+                std::string prefix;
+                std::size_t start = 0;
+                while (start < page.path.size())
                 {
-                    const auto& child = initial.folders[index];
+                    const auto end = page.path.find('/', start);
+                    const auto part = page.path.substr(start,
+                        end == std::string::npos ? std::string::npos : end - start);
+                    if (!part.empty())
+                    {
+                        if (!prefix.empty()) prefix += '/';
+                        prefix += part;
+                        context.breadcrumbs.emplace_back(
+                            VdrRecordingCacheRepository::publicFolderId(request.backendId, prefix),
+                            PublicRecordingDisplayName::decodeDisplayText(part));
+                    }
+                    if (end == std::string::npos) break;
+                    start = end + 1U;
+                }
+
+                std::vector<std::string> nativeIds;
+                const auto addNative = [&](const VdrRecording& recording) {
+                    if (std::find(nativeIds.begin(), nativeIds.end(), recording.backendNativeId) == nativeIds.end())
+                        nativeIds.push_back(recording.backendNativeId);
+                };
+                for (const auto& child : page.folders)
+                {
+                    if (child.singleRecordingLeaf) addNative(child.singleRecording);
+                    else if (child.hasRepresentativeRecording) addNative(child.representativeRecording);
+                }
+                for (const auto& recording : page.recordings) addNative(recording);
+                GenreRecordingPage cardPage;
+                if (!nativeIds.empty() &&
+                    (!GenreBrowserApiRuntime::instance().recordingCards(request.backendId, nativeIds, cardPage) ||
+                        cardPage.recordings.size() != nativeIds.size())) return result;
+                const auto manualAssignments = metadataController_ && !nativeIds.empty()
+                    ? metadataController_->findManualRecordingMetadataForBackend(request.backendId)
+                    : std::map<std::string, ManualRecordingMetadataAssignment>{};
+
+                PublicRecordingCollectionProjection projector(*publicRecordingIdentities_);
+                const auto project = [&](const VdrRecording& recording, PublicRecordingCollectionItem& entry) {
+                    const auto visible = projector.project(request.backendId, {recording}, true);
+                    if (!visible.valid || visible.items.size() != 1U) return false;
+                    const auto& item = visible.items.front();
+                    entry.recordingId = item.recordingId;
+                    entry.backendId = item.backendId;
+                    entry.title = item.title;
+                    entry.recordedAt = item.recordedAt;
+                    entry.durationSeconds = item.durationSeconds;
+                    entry.durationKnown = item.durationKnown;
+                    entry.edited = item.edited;
+                    entry.description = item.description;
+                    entry.sizeMb = item.sizeMb;
+                    ManualRecordingMetadataAssignment manual;
+                    for (const auto* key : {&recording.backendNativeId, &recording.path, &recording.id})
+                    {
+                        if (key->empty()) continue;
+                        const auto found = manualAssignments.find(*key);
+                        if (found != manualAssignments.end()) { manual = found->second; break; }
+                    }
+                    if (manual.found && manual.relationshipLocked)
+                    {
+                        if (!manual.title.empty()) entry.title = manual.title;
+                        entry.subtitle = vdrsuite::rest::manual_recording_metadata_json::seasonEpisodeLabel(manual);
+                        if (!manual.overview.empty())
+                        {
+                            std::size_t length = std::min<std::size_t>(2048U, manual.overview.size());
+                            while (length < manual.overview.size() && length > 0U &&
+                                (static_cast<unsigned char>(manual.overview[length]) & 0xc0U) == 0x80U) --length;
+                            entry.description = manual.overview.substr(0, length);
+                        }
+                    }
+                    else entry.subtitle = VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+                    projectPublicRecordingCard(request.backendId, recording, manual, cardPage, entry);
+                    return true;
+                };
+                for (const auto& child : page.folders)
+                {
                     PublicRecordingFolderItem entry;
-                    entry.folderId =
-                        VdrRecordingCacheRepository::publicFolderId(
-                            request.backendId, child.path);
-                    entry.name = child.name;
+                    entry.folderId = VdrRecordingCacheRepository::publicFolderId(request.backendId, child.path);
+                    entry.name = PublicRecordingDisplayName::decodeDisplayText(child.name);
                     entry.recordingCount = child.recordingCount;
+                    entry.singleRecordingLeaf = child.singleRecordingLeaf;
                     if (child.singleRecordingLeaf)
                     {
-                        // A VDR title directory with exactly one recording is
-                        // presented as a recording, not as another TV folder.
-                        PublicRecordingCollectionProjection projector(
-                            *publicRecordingIdentities_);
-                        const auto visible = projector.project(
-                            request.backendId, {child.singleRecording});
-                        if (!visible.valid || visible.items.size() != 1U)
-                        {
-                            std::cerr << "Public-v1 Recording browse unavailable: "
-                                         "single-recording leaf projection failed"
-                                      << std::endl;
-                            result.status =
-                                PublicRecordingCollectionStatus::unavailable;
-                            return result;
-                        }
-                        const auto& item = visible.items.front();
-                        entry.singleRecordingLeaf = true;
-                        entry.singleRecording.recordingId = item.recordingId;
-                        entry.singleRecording.backendId = item.backendId;
-                        entry.singleRecording.title = item.title;
-                        entry.singleRecording.recordedAt = item.recordedAt;
-                        entry.singleRecording.durationSeconds =
-                            item.durationSeconds;
-                        entry.singleRecording.durationKnown =
-                            item.durationKnown;
-                        entry.singleRecording.edited = item.edited;
-                        entry.singleRecording.description = item.description;
-                        entry.singleRecording.sizeMb = item.sizeMb;
+                        if (!project(child.singleRecording, entry.singleRecording)) return result;
+                    }
+                    else if (child.hasRepresentativeRecording)
+                    {
+                        if (!project(child.representativeRecording, entry.representativeRecording)) return result;
                     }
                     result.folders.push_back(std::move(entry));
                 }
-                const std::size_t used = result.folders.size();
-                if (used < request.limit &&
-                    request.offset + used >= folderCount &&
-                    request.offset + used < result.totalEntries)
+                for (const auto& recording : page.recordings)
                 {
-                    const std::size_t recordingOffset =
-                        request.offset + used - folderCount;
-                    VdrRecordingFolderPage direct;
-                    if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
-                            request.backendId, request.folderId,
-                            static_cast<int>(request.limit - used),
-                            static_cast<int>(recordingOffset), direct))
-                    {
-                        result.status = PublicRecordingCollectionStatus::unavailable;
-                        return result;
-                    }
-                    PublicRecordingCollectionProjection projector(
-                        *publicRecordingIdentities_);
-                    // Preserve the shared folder cache's order across pages.
-                    const auto visible = projector.project(
-                        request.backendId, direct.recordings, true);
-                    if (!visible.valid)
-                    {
-                        std::cerr << "Public-v1 Recording browse unavailable: "
-                                     "direct-recording projection failed"
-                                  << std::endl;
-                        result.status = PublicRecordingCollectionStatus::unavailable;
-                        return result;
-                    }
-                    for (const auto& item : visible.items)
-                    {
-                        PublicRecordingCollectionItem entry;
-                        entry.recordingId = item.recordingId;
-                        entry.backendId = item.backendId;
-                        entry.title = item.title;
-                        entry.recordedAt = item.recordedAt;
-                        entry.durationSeconds = item.durationSeconds;
-                        entry.durationKnown = item.durationKnown;
-                        entry.edited = item.edited;
-                        entry.description = item.description;
-                        entry.sizeMb = item.sizeMb;
-                        result.recordings.push_back(std::move(entry));
-                    }
+                    PublicRecordingCollectionItem entry;
+                    if (!project(recording, entry)) return result;
+                    result.recordings.push_back(std::move(entry));
                 }
-                result.hasMore = request.offset +
-                    result.folders.size() + result.recordings.size() <
-                        result.totalEntries;
+                result.totalEntries = static_cast<std::size_t>(page.folderCount) +
+                    static_cast<std::size_t>(page.recordingCount);
+                result.hasMore = request.offset + result.folders.size() + result.recordings.size() < result.totalEntries;
+                result.folderContext = std::move(context);
                 result.status = PublicRecordingCollectionStatus::ok;
                 return result;
             }
@@ -3559,56 +3635,7 @@ bool DaemonRuntime::initialize()
                     // Use the same batch-selected manual assignment as the Web
                     // query. No second metadata lookup or image request.
                     const auto& manual = row.manualAssignment;
-                    entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
-                        row.recording, manual.posterReference, 0, 0,
-                        manual.found && manual.relationshipLocked, manual.revision);
-                    const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
-                        [&](const auto& value) { return value.backendNativeId == row.recording.backendNativeId; });
-                    if (summary != cardPage.recordings.end())
-                    {
-                        PublicGenreRecordingItem card;
-                        const auto seed = GenreBrowserApiRuntime::projectRecordingCard(*summary, card);
-                        if (!seed.empty())
-                        {
-                            card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(request.backendId, seed);
-                            card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
-                                request.backendId, row.recording);
-                            const auto addCoverKey = [&](const std::string& legacy) {
-                                const auto key = PublicSeriesGroupKey::fromLegacy(request.backendId, legacy);
-                                if (!key.empty() && std::find(entry.seriesCoverGroupKeys.begin(),
-                                    entry.seriesCoverGroupKeys.end(), key) == entry.seriesCoverGroupKeys.end())
-                                    entry.seriesCoverGroupKeys.push_back(key);
-                            };
-                            const auto& providerId = row.recording.metadata.provider.seriesId;
-                            if (!providerId.empty()) addCoverKey("provider:" + providerId);
-                            addCoverKey(seed);
-                            if (!summary->seriesProvider.empty() && summary->seriesProviderId != 0)
-                                addCoverKey("native:" + summary->seriesProvider + ":" + std::to_string(summary->seriesProviderId));
-                        }
-                        if (!(manual.found && manual.relationshipLocked) && !summary->cardArtworkPath.empty())
-                        {
-                            entry.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
-                                row.recording, summary->cardArtworkPath, summary->cardArtworkWidth,
-                                summary->cardArtworkHeight, summary->seriesArtworkIndex);
-                        }
-                        entry.card.cardTitle = std::move(card.cardTitle);
-                        entry.card.cardMediaType = std::move(card.cardMediaType);
-                        entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
-                        entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
-                        entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
-                        entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
-                        entry.card.episodeName = std::move(card.episodeName);
-                        entry.card.seasonNumber = std::move(card.seasonNumber);
-                        entry.card.episodeNumber = std::move(card.episodeNumber);
-                        entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
-                        entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
-                        entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
-                        entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
-                        entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
-                        entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
-                        entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
-                        entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
-                    }
+                    projectPublicRecordingCard(request.backendId, row.recording, manual, cardPage, entry);
                     entry.recordedAt = item.recordedAt;
                     entry.durationSeconds = item.durationSeconds;
                     entry.durationKnown = item.durationKnown;

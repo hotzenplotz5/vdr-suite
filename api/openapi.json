@@ -23713,6 +23713,7 @@
           "name": {
             "type": "string"
           },
+          "representativeRecording": {"$ref": "#/components/schemas/PublicFolderRepresentative"},
           "recordingCount": {
             "type": "integer",
             "minimum": 0
@@ -23745,6 +23746,91 @@
           }
         ]
       },
+      "PublicRecordingFolderContext": {
+        "type": "object",
+        "required": [
+          "folderId",
+          "parentFolderId",
+          "folderCount",
+          "recordingCount",
+          "catalogTotalCount",
+          "cacheState",
+          "cacheReady",
+          "breadcrumbs"
+        ],
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "pattern": "^(|fld1_[0-9a-f]{32})$"
+          },
+          "parentFolderId": {
+            "type": "string",
+            "pattern": "^(|fld1_[0-9a-f]{32})$"
+          },
+          "folderCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recordingCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "catalogTotalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cacheState": {
+            "type": "string"
+          },
+          "cacheReady": {
+            "type": "boolean"
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "folderId",
+                "name"
+              ],
+              "properties": {
+                "folderId": {
+                  "type": "string",
+                  "pattern": "^fld1_[0-9a-f]{32}$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PublicFolderRepresentative": {
+        "type": "object",
+        "required": [
+          "recordingId",
+          "backendId",
+          "recordedAt",
+          "preferredArtworkId"
+        ],
+        "properties": {
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "preferredArtworkId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          }
+        }
+      },
       "RecordingFolderBrowse": {
         "type": "object",
         "required": [
@@ -23766,6 +23852,7 @@
               ]
             }
           },
+          "folderContext": {"$ref": "#/components/schemas/PublicRecordingFolderContext"},
           "page": {
             "$ref": "#/components/schemas/PublicOffsetPage"
           },

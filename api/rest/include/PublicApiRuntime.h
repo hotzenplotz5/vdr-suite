@@ -405,6 +405,20 @@ struct PublicRecordingFolderItem
     // as recording leaves. Preserve that distinction in Public-v1.
     bool singleRecordingLeaf = false;
     PublicRecordingCollectionItem singleRecording;
+    PublicRecordingCollectionItem representativeRecording = {};
+};
+
+struct PublicRecordingFolderContext
+{
+    std::string folderId;
+    std::string parentFolderId;
+    // Ordered root-relative display labels and opaque navigation IDs.
+    std::vector<std::pair<std::string, std::string>> breadcrumbs;
+    int folderCount = 0;
+    int recordingCount = 0;
+    int catalogTotalCount = 0;
+    std::string cacheState;
+    bool cacheReady = false;
 };
 
 struct PublicRecordingCollectionRequest
@@ -427,6 +441,7 @@ struct PublicRecordingCollectionResult
     std::vector<PublicRecordingFolderItem> folders;
     std::size_t totalEntries = 0U;
     bool hasMore = false;
+    std::optional<PublicRecordingFolderContext> folderContext = {};
 };
 
 // M1: one public rec_ detail under an exact recordings.view backend grant.

@@ -45,6 +45,7 @@ struct VdrRecordingFolderPage
     int offset = 0;
     std::vector<VdrRecordingFolderEntry> folders;
     std::vector<VdrRecording> recordings;
+    int singleRecordingLeafCount = 0;
 };
 
 class VdrRecordingCacheRepository
@@ -112,7 +113,8 @@ public:
         const std::string& backendId, const VdrRecording& recording);
     bool folderPageForBackendByPublicId(
         const std::string& backendId, const std::string& folderId,
-        int limit, int offset, VdrRecordingFolderPage& page) const;
+        int limit, int offset, VdrRecordingFolderPage& page,
+        bool homeCards = false) const;
 
 private:
     struct BrowseFolderSnapshot
@@ -122,6 +124,7 @@ private:
         // Path of the first direct recording in this subtree, computed once.
         std::string representativeFolderPath;
         bool hasRepresentative = false;
+        int singleRecordingLeafCount = 0;
     };
 
     struct BrowseBackendSnapshot

@@ -5097,6 +5097,42 @@ void appendPublicRecordingCard(std::string& body, const Card& item)
     }
 }
 
+void appendPublicRecordingBrowseItem(std::string& body,
+    const PublicRecordingCollectionItem& item, const PublicRecordingCollectionQuery& query)
+{
+    body += "{\"kind\":\"recording\",\"recordingId\":\"" +
+        jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
+        jsonEscape(item.backendId) + "\",\"title\":\"" +
+        jsonEscape(item.title) + "\",\"recordedAt\":\"" +
+        jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
+        std::to_string(item.durationSeconds) +
+        ",\"durationKnown\":" +
+        (item.durationKnown ? "true" : "false") +
+        ",\"edited\":" + (item.edited ? "true" : "false") +
+        ",\"description\":\"" + jsonEscape(item.description) +
+        "\",\"sizeMb\":" + std::to_string(item.sizeMb);
+    if (!query.homeView.empty() || query.browseFolders)
+    {
+        body += ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+        if (query.homeView == "movies")
+            body += ",\"releaseDate\":\"" + jsonEscape(item.releaseDate) + "\"";
+        if (!item.preferredArtworkId.empty())
+            body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
+        appendPublicRecordingCard(body, item.card);
+        if (!item.seriesCoverGroupKeys.empty())
+        {
+            body += ",\"seriesCoverGroupKeys\":[";
+            for (std::size_t i = 0; i < item.seriesCoverGroupKeys.size(); ++i)
+            {
+                if (i) body += ",";
+                body += "\"" + jsonEscape(item.seriesCoverGroupKeys[i]) + "\"";
+            }
+            body += "]";
+        }
+    }
+    body += "}";
+}
+
 ApiResponse publicRecordingBrowseResponse(
     const PublicRecordingCollectionResult& page,
     const PublicRecordingCollectionQuery& query,
@@ -5109,64 +5145,49 @@ ApiResponse publicRecordingBrowseResponse(
     {
         if (count++) body += ",";
         if (folder.singleRecordingLeaf)
-        {
-            const auto& item = folder.singleRecording;
-            body += "{\"kind\":\"recording\",\"recordingId\":\"" +
-                jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
-                jsonEscape(item.backendId) + "\",\"title\":\"" +
-                jsonEscape(item.title) + "\",\"recordedAt\":\"" +
-                jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
-                std::to_string(item.durationSeconds) +
-                ",\"durationKnown\":" +
-                (item.durationKnown ? "true" : "false") +
-                ",\"edited\":" + (item.edited ? "true" : "false") +
-                ",\"description\":\"" + jsonEscape(item.description) +
-                "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
-        }
+            appendPublicRecordingBrowseItem(body, folder.singleRecording, query);
         else
         {
             body += "{\"kind\":\"folder\",\"folderId\":\"" +
                 jsonEscape(folder.folderId) + "\",\"name\":\"" +
                 jsonEscape(folder.name) + "\",\"recordingCount\":" +
-                std::to_string(folder.recordingCount) + "}";
+                std::to_string(folder.recordingCount);
+            const auto& representative = folder.representativeRecording;
+            if (!representative.recordingId.empty() && !representative.preferredArtworkId.empty())
+                body += ",\"representativeRecording\":{\"recordingId\":\"" +
+                    jsonEscape(representative.recordingId) + "\",\"backendId\":\"" +
+                    jsonEscape(representative.backendId) + "\",\"recordedAt\":\"" +
+                    jsonEscape(representative.recordedAt) + "\",\"preferredArtworkId\":\"" +
+                    jsonEscape(representative.preferredArtworkId) + "\"}";
+            body += "}";
         }
     }
     for (const auto& item : page.recordings)
     {
         if (count++) body += ",";
-        body += "{\"kind\":\"recording\",\"recordingId\":\"" +
-            jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
-            jsonEscape(item.backendId) + "\",\"title\":\"" +
-            jsonEscape(item.title) + "\",\"recordedAt\":\"" +
-            jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
-            std::to_string(item.durationSeconds) +
-            ",\"durationKnown\":" +
-            (item.durationKnown ? "true" : "false") +
-            ",\"edited\":" + (item.edited ? "true" : "false") +
-            ",\"description\":\"" + jsonEscape(item.description) +
-            "\",\"sizeMb\":" + std::to_string(item.sizeMb);
-        if (!query.homeView.empty())
-        {
-            body += ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
-            if (query.homeView == "movies")
-                body += ",\"releaseDate\":\"" + jsonEscape(item.releaseDate) + "\"";
-            if (!item.preferredArtworkId.empty())
-                body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
-            appendPublicRecordingCard(body, item.card);
-            if (!item.seriesCoverGroupKeys.empty())
-            {
-                body += ",\"seriesCoverGroupKeys\":[";
-                for (std::size_t i = 0; i < item.seriesCoverGroupKeys.size(); ++i)
-                {
-                    if (i) body += ",";
-                    body += "\"" + jsonEscape(item.seriesCoverGroupKeys[i]) + "\"";
-                }
-                body += "]";
-            }
-        }
-        body += "}";
+        appendPublicRecordingBrowseItem(body, item, query);
     }
-    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+    body += "]";
+    if (query.browseFolders && page.folderContext)
+    {
+        const auto& context = *page.folderContext;
+        body += ",\"folderContext\":{\"folderId\":\"" + jsonEscape(context.folderId) +
+            "\",\"parentFolderId\":\"" + jsonEscape(context.parentFolderId) +
+            "\",\"folderCount\":" + std::to_string(context.folderCount) +
+            ",\"recordingCount\":" + std::to_string(context.recordingCount) +
+            ",\"catalogTotalCount\":" + std::to_string(context.catalogTotalCount) +
+            ",\"cacheState\":\"" + jsonEscape(context.cacheState) +
+            "\",\"cacheReady\":" + (context.cacheReady ? "true" : "false") +
+            ",\"breadcrumbs\":[";
+        for (std::size_t i = 0; i < context.breadcrumbs.size(); ++i)
+        {
+            if (i) body += ",";
+            body += "{\"folderId\":\"" + jsonEscape(context.breadcrumbs[i].first) +
+                "\",\"name\":\"" + jsonEscape(context.breadcrumbs[i].second) + "\"}";
+        }
+        body += "]}";
+    }
+    body += ",\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalEntries) +
         ",\"hasMore\":" + (page.hasMore ? "true" : "false") +

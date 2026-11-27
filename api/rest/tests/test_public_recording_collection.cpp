@@ -136,6 +136,15 @@ int main()
                 folder.folderId = "fld1_0123456789abcdef0123456789abcdef";
                 folder.name = "Serien";
                 folder.recordingCount = 1;
+                folder.representativeRecording = recording("rec_00000000000000000000000000000003");
+                folder.representativeRecording.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                PublicRecordingFolderContext context;
+                context.folderCount = 1;
+                context.recordingCount = 2;
+                context.catalogTotalCount = 3;
+                context.cacheState = "ready";
+                context.cacheReady = true;
+                page.folderContext = context;
                 page.folders.push_back(folder);
             }
             else if (request.offset == 1U)
@@ -146,6 +155,8 @@ int main()
                     recording("rec_00000000000000000000000000000001");
                 leaf.singleRecording.title = "48 Hrs";
                 leaf.singleRecording.edited = true;
+                leaf.singleRecording.subtitle = "Episode";
+                leaf.singleRecording.preferredArtworkId = "fedcba9876543210fedcba9876543210";
                 page.folders.push_back(leaf);
             }
             else if (request.offset == 2U)
@@ -163,6 +174,9 @@ int main()
     assert(folders.body.find("Serien") != std::string::npos);
     assert(folders.body.find("folderId") != std::string::npos);
     assert(folders.body.find("backendNativeId") == std::string::npos);
+    assert(folders.body.find("\"folderContext\":{") != std::string::npos);
+    assert(folders.body.find("\"folderCount\":1,\"recordingCount\":2") != std::string::npos);
+    assert(folders.body.find("\"representativeRecording\":{") != std::string::npos);
     ApiResponse children;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&view=folders&limit=1&offset=1",
@@ -172,6 +186,8 @@ int main()
     assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
     assert(children.body.find("\"folderId\"") == std::string::npos);
     assert(children.body.find("\"edited\":true") != std::string::npos);
+    assert(children.body.find("\"subtitle\":\"Episode\"") != std::string::npos);
+    assert(children.body.find("\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"") != std::string::npos);
     assert(children.body.find("\"hasMore\":true") != std::string::npos);
     ApiResponse direct;
     assert(runtime.tryHandleGet(
