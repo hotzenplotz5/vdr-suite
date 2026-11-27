@@ -16650,7 +16650,7 @@
         ],
         "operationId": "listRecordingsForGenre",
         "summary": "List recording identities in a genre, with bounded offset pagination",
-        "description": "Requires recordings.view@backendId. The genreId identifier must be 1–128 letters/digits/dot/dash/underscore. Closed query: backendId, genreId, optional locale=de|en, limit=1–30 default 30, offset up to 1,000,000. Items contain Suite-owned recordingId, backendId, title, recordedAt, durationSeconds, durationKnown; no native path. page.totalCount supports bounded pagination; no ETag or auto-play.",
+        "description": "Requires recordings.view@backendId. The genreId identifier must be 1–128 letters/digits/dot/dash/underscore. Closed query: backendId, genreId, optional locale=de|en, limit=1–100 default 30, offset up to 1,000,000. Items contain Suite-owned recordingId, backendId, title, recordedAt, durationSeconds, durationKnown; no native path. page.totalCount supports bounded pagination; no ETag or auto-play.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
@@ -16685,11 +16685,11 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Default 30; inclusive range 1–30.",
+            "description": "Default 30; inclusive range 1–100.",
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 30,
+              "maximum": 100,
               "default": 30
             }
           },

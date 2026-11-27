@@ -288,7 +288,15 @@
       return null;
     }
 
-    return state.seriesCoverOverrides.get(key) || null;
+    const direct = state.seriesCoverOverrides.get(key);
+    if (direct) return direct;
+    for (const member of (series.episodes || [])) {
+      for (const alias of (member.recording && member.recording.seriesCoverGroupKeys || [])) {
+        const match = state.seriesCoverOverrides.get(alias);
+        if (match) return match;
+      }
+    }
+    return null;
   }
 
   function seriesCoverPosterUrl(series, backendId) {
@@ -1810,7 +1818,7 @@
 
   function episodeToken(recording) {
     const value = text(recording && recording.title) || recordingPath(recording);
-    const leaf = value.split('/').filter(Boolean).pop() || value;
+    const leaf = isPublicHomeRecording(recording) ? value : value.split('/').filter(Boolean).pop() || value;
     const match = leaf.match(/\bS(\d{1,3})\s*E(\d{1,4})\b/i);
     if (!match) return {seasonNumber: 0, episodeNumber: 0};
     return {
@@ -1821,7 +1829,7 @@
 
   function episodeLeafTitle(recording) {
     const value = text(recording && recording.title) || recordingPath(recording);
-    const leaf = value.split('/').filter(Boolean).pop() || value;
+    const leaf = isPublicHomeRecording(recording) ? value : value.split('/').filter(Boolean).pop() || value;
     return text(leaf.replace(/^S\d{1,3}\s*E\d{1,4}\s*[-–—:.]?\s*/i, ''));
   }
 
@@ -3293,7 +3301,7 @@
     const canEnrich = Boolean(
       client &&
       typeof client.requestJson === 'function' &&
-      recordings.length &&
+      recordings.some(recordingBackendNativeId) &&
       current(generation, backendId)
     );
     const hierarchyIncomplete = (series.episodes || []).some(function (member) {
@@ -4786,6 +4794,10 @@
 
   function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress, isRevisionCurrent, cache) {
     const recordings = [];
+    const publicRead = typeof client.fetchPublicGenreRecordings === 'function';
+    const read = publicRead ? client.fetchPublicGenreRecordings : client.fetchClientGenreRecordings;
+    const seen = new Set();
+    let expectedTotal = null;
     const scanCurrent = function () {
       return current(generation, backendId) &&
         (typeof isRevisionCurrent !== 'function' || isRevisionCurrent());
@@ -4793,16 +4805,31 @@
 
     function requestPage(offset) {
       if (!scanCurrent()) return Promise.resolve(null);
-      return Promise.resolve(client.fetchClientGenreRecordings({
+      return Promise.resolve(read.call(client, {
         backendId: backendId,
         genreId: genreId,
         limit: SERIES_PAGE_LIMIT,
         offset: offset,
         cache: 'no-store',
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        onPage: function (raw) { if (cache && scanCurrent()) cache.accept(raw); }
       })).then(function (payload) {
         if (!scanCurrent()) return null;
-        if (cache) cache.accept(payload);
+        if (cache && !publicRead) cache.accept(payload);
+        if (publicRead) {
+          const page = payload && payload.page;
+          const items = payload && payload.recordings;
+          if (!page || !Array.isArray(items) || !Number.isSafeInteger(page.totalCount) ||
+              page.totalCount < 0 || page.offset !== offset || page.limit !== SERIES_PAGE_LIMIT ||
+              items.length !== Math.min(SERIES_PAGE_LIMIT, Math.max(0, page.totalCount - offset)) ||
+              page.hasMore !== (offset + items.length < page.totalCount) ||
+              (expectedTotal !== null && expectedTotal !== page.totalCount) ||
+              items.some(item => !isPublicHomeRecording(item) || item.backendId !== backendId ||
+                !/^sg1_[0-9a-f]{32}$/.test(text(item.seriesGrouping && item.seriesGrouping.groupKey)))) {
+            throw new Error('Ungültige öffentliche Serienseite');
+          }
+          expectedTotal = page.totalCount;
+        }
         return {
           offset: offset,
           payload: payload,
@@ -4814,6 +4841,11 @@
 
     function appendPage(page) {
       if (!page || !scanCurrent()) return false;
+      if (publicRead) page.recordings.forEach(function (recording) {
+        const id = recordingId(recording);
+        if (seen.has(id)) throw new Error('Doppelte öffentliche Serienaufnahme');
+        seen.add(id);
+      });
       Array.prototype.push.apply(recordings, page.recordings);
       return true;
     }
@@ -5455,6 +5487,7 @@
           posterUrl: seriesCoverPosterUrl(series, backendId)};
       }));
       if (rendered && seriesCurrent()) markSeriesWarm(backendId);
+      if (recordings.every(isPublicHomeRecording)) return rendered;
 
       if (client && typeof client.requestJson === 'function') {
         // Scoped corrections already have an authoritative fresh read below.
@@ -5806,7 +5839,7 @@
         }
         return reads.get(nativeId);
       }
-      changedNativeIds.forEach(function (id) {
+      if (newlyPublicBackend !== backendId) changedNativeIds.forEach(function (id) {
         refreshSpecificRecording(id, backendId, generation, readChangedMetadata);
       });
       clearSeriesWarm();

@@ -516,7 +516,7 @@
       }
     }
     if (input.limit !== undefined) {
-      const max = folder ? 100 : 30;
+      const max = folder || membership ? 100 : 30;
       if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > max)
         throw new Error('Recording/Genre limit is invalid');
       values.push('limit=' + input.limit);

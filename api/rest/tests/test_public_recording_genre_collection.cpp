@@ -123,6 +123,12 @@ int main()
     assert(artworkPos != std::string::npos);
     assert(recordings.body.find("\"preferredArtworkId\"", artworkPos + artworkField.size()) ==
         std::string::npos);
+    ApiResponse largePage;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=100&offset=100",
+        "actor:tv","members-large-page","",largePage,"","",{"home"}));
+    assert(largePage.statusCode == 200);
+    assert(largePage.body.find("\"limit\":100") != std::string::npos);
     ApiResponse withoutArtwork;
     assert(api.tryHandleGet(
         "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=1&offset=1",
@@ -141,6 +147,7 @@ int main()
     assert(badArtwork.body.find("/private/poster.jpg") == std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=101",
         "/api/v1/genres?backendId=home&genreId=crime",
         "/api/v1/genres/recordings?backendId=home&genreId=/private",
         "/api/v1/genres/recordings?backendId=home&limit=30",

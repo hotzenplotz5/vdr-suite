@@ -43,7 +43,7 @@ assert(clientApi.includes("requestJson('/api/vdr/recordings/folder', backendQuer
 
 // Genre discovery consumes the existing metadata genre truth and existing genre browser.
 assert(source.includes("scope: 'recordings'"));
-assert(source.includes('fetchClientGenreRecordings({'));
+assert(source.includes('publicRead ? client.fetchPublicGenreRecordings : client.fetchClientGenreRecordings'));
 assert(source.includes("global.VdrSuiteGenres.openRecordingGenre(entry"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres'"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recordings'"));

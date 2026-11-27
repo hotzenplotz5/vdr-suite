@@ -1361,7 +1361,7 @@ bool parsePublicGenreCollectionQuery(
         else if (key == "limit")
         {
             if (limitSeen || !decimalSize(value, query.limit) ||
-                query.limit == 0U || query.limit > PublicGenreMaximumLimit)
+                query.limit == 0U || query.limit > (recordings ? 100U : PublicGenreMaximumLimit))
                 return false;
             limitSeen = true;
         }

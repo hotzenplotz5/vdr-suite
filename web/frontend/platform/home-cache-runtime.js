@@ -11,6 +11,7 @@
   });
   const PUBLIC_GENRE_ROUTE = '/api/v1/genres';
   const PUBLIC_RECORDING_ROUTE = '/api/v1/recordings';
+  const PUBLIC_SERIES_ROUTE = '/api/v1/genres/recordings';
   const ALL_RAILS = Object.keys(RAIL_ROUTES);
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
@@ -190,8 +191,9 @@
     function requestStamp(path, requestedBackend, view) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
-      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_RECORDING_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
+      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_RECORDING_ROUTE && path !== PUBLIC_SERIES_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
       if (path === PUBLIC_RECORDING_ROUTE && view !== 'new' && view !== 'movies') return null;
+      if (path === PUBLIC_SERIES_ROUTE && view !== 'series') return null;
       return {path, view, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
         versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
     }
@@ -311,6 +313,7 @@
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
         const route = observed && observed.stamp.path;
         const matchesRoute = route === RAIL_ROUTES[rail] || (rail === 'genres' && route === PUBLIC_GENRE_ROUTE) ||
+          (rail === 'series' && route === PUBLIC_SERIES_ROUTE && observed.stamp.view === 'series') ||
           (route === PUBLIC_RECORDING_ROUTE &&
             ((rail === 'recent-movies' && observed.stamp.view === 'movies') ||
              (rail === 'newly-recorded' && observed.stamp.view === 'new')));
@@ -446,7 +449,7 @@
     createRuntime,
     selectBackend: backend => { const r = get(); if (r) r.selectBackend(backend); },
     sessionBoundary: () => { const r = get(); if (r) r.sessionBoundary(); },
-    requestStamp: (path, backend) => { const r = get(); return r ? r.requestStamp(path, backend) : null; },
+    requestStamp: (path, backend, view) => { const r = get(); return r ? r.requestStamp(path, backend, view) : null; },
     observe: (stamp, response, payload) => { const r = get(); if (r) r.observe(stamp, response, payload); },
     liveEvent: (type, event) => { const r = get(); return r ? r.liveEvent(type, event) : false; },
     suspend: () => { const r = get(); if (r) r.suspend(); },

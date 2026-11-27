@@ -272,7 +272,7 @@
     const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
       (path !== '/api/metadata/genres' || query.scope === 'recordings') &&
       (path !== '/api/v1/recordings' || query.view === 'movies' || query.view === 'new')
-        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId, query.view)
+        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId, query.view || query.genreId)
         : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
       if (stamp) homeCache.observe(stamp, response, null);

@@ -3929,7 +3929,7 @@ bool DaemonRuntime::initialize()
         {
             PublicGenreCollectionResult result;
             if (!backendRegistryService_ || request.backendId.empty() ||
-                request.limit == 0U || request.limit > 30U ||
+                request.limit == 0U || request.limit > (request.recordings ? 100U : 30U) ||
                 request.offset > 1000000U)
             {
                 result.status = PublicGenreCollectionStatus::invalid;

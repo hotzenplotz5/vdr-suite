@@ -605,7 +605,7 @@ bool GenreBrowserApiRuntime::recordingPage(
     GenreIndexRepository* repository = readRepository_ ?
         readRepository_.get() : writerRepository_.get();
     if (!repository || backendId.empty() || genreId.empty() ||
-        limit < 1 || limit > 30 || offset < 0 || offset > 1000000)
+        limit < 1 || limit > 100 || offset < 0 || offset > 1000000)
         return false;
     result = repository->recordingsByGenre(
         backendId, genreId, limit, offset);
