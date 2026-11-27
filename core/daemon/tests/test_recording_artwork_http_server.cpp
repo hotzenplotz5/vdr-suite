@@ -63,13 +63,17 @@ public:
             return response;
         }
 
-        if (request.path.find("backend=forbidden") != std::string::npos)
+        if (request.path.find("backend=forbidden") != std::string::npos ||
+            request.path.find("backendId=forbidden") != std::string::npos)
         {
             response.statusCode = 403;
             response.body = "forbidden";
             return response;
         }
-        if (request.path.find("/api/vdr/recordings/metadata/image?") == 0 ||
+        if (request.path.find("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?backendId=default") == 0 ||
+            request.path.find("/api/v1/epg/artwork?backendId=default") == 0 ||
+            request.path.find("/api/v1/epg/preferred-artwork?backendId=default") == 0 ||
+            request.path.find("/api/vdr/recordings/metadata/image?") == 0 ||
             request.path.find("/api/recordings/metadata/image?") == 0 ||
             request.path.find("/api/epg/cache/metadata/image?backend=default") == 0 ||
             request.path.find("/api/epg/cache/artwork?backend=default&channelId=C2") == 0 ||
@@ -262,6 +266,41 @@ int main()
             authorized.path = variantPrefix + "variant=" + invalid;
             assert(server.handleRequest(authorized).statusCode == 400);
         }
+    }
+    // Public-v1 routes use exactly the same prewarmed preview and worker.
+    for (const std::string& url : {
+        std::string("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?backendId=default"),
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=C1&eventId=42"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=C1&eventId=42")})
+    {
+        HttpServerRequest publicRequest = authorized;
+        publicRequest.path = url;
+        const auto original = server.handleRequest(publicRequest);
+        assert(original.statusCode == 200 && original.body == large.output);
+        publicRequest.path += "&variant=home";
+        const auto preview = server.handleRequest(publicRequest);
+        assert(preview.statusCode == 200 && preview.body == prewarmed);
+        assert(preview.headers.at("Content-Type") == "image/jpeg");
+        assert(preview.headers.at("Cache-Control") == "no-store");
+        publicRequest.deferArtworkPreview = true;
+        auto pending = server.handleRequest(publicRequest);
+        assert(pending.body == large.output && pending.deferredArtworkPreview);
+        auto finish = std::move(pending.deferredArtworkPreview);
+        pending.deferredArtworkPreview = {};
+        finish(pending);
+        assert(pending.body == prewarmed);
+        HttpServerRequest denied = publicRequest;
+        denied.headers.erase("Authorization");
+        auto rejected = server.handleRequest(denied);
+        assert(rejected.statusCode == 401 && !rejected.deferredArtworkPreview);
+        publicRequest.path.replace(publicRequest.path.find("backendId=default"),
+            std::string("backendId=default").size(), "backendId=forbidden");
+        rejected = server.handleRequest(publicRequest);
+        assert(rejected.statusCode == 403 && !rejected.deferredArtworkPreview);
+        publicRequest.path.replace(publicRequest.path.find("backendId=forbidden"),
+            std::string("backendId=forbidden").size(), "backendId=missing");
+        rejected = server.handleRequest(publicRequest);
+        assert(rejected.statusCode == 404 && !rejected.deferredArtworkPreview);
     }
     // Both the scoped tag and the final representation must match. Authorization
     // still runs every time through the original delegate.

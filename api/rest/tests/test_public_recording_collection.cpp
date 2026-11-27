@@ -654,6 +654,31 @@ int main()
     assert(artBytes.body == "PNGbytes");
     assert(artBytes.headers.at("Cache-Control") == "private, max-age=300");
     assert(artBytes.headers.at("X-Content-Type-Options") == "nosniff");
+    for (const std::string& query : {
+        std::string("?backendId=backend-a&variant=home"),
+        std::string("?variant=home&backendId=backend-a")})
+    {
+        ApiResponse previewSource;
+        assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId + query,
+            "actor:tv", "art-preview", "", previewSource, "", "", {"backend-a"}));
+        assert(previewSource.statusCode == 200);
+        assert(previewSource.body == artBytes.body); // HTTP decorator owns resizing.
+    }
+    for (const std::string& query : {
+        std::string("?backendId=backend-a&variant=unknown"),
+        std::string("?backendId=backend-a&variant=home&variant=home"),
+        std::string("?backendId=backend-a&variant="),
+        std::string("?backendId=backend-a&variant=home&other=1")})
+    {
+        ApiResponse invalidPreview;
+        assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId + query,
+            "actor:tv", "art-invalid-preview", "", invalidPreview, "", "", {"backend-a"}));
+        assert(invalidPreview.statusCode == 400);
+    }
+    ApiResponse invalidListPreview;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a&variant=home",
+        "actor:tv", "art-list-preview", "", invalidListPreview, "", "", {"backend-a"}));
+    assert(invalidListPreview.statusCode == 400);
     ApiResponse artWrongBackend;
     assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
         "actor:tv", "art-cross", "", artWrongBackend, "", "",

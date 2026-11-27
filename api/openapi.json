@@ -8829,7 +8829,7 @@
               "maxLength": 128,
               "pattern": "^[A-Za-z0-9._-]+$"
             },
-            "description": "Exactly one authorized backendId; no other query parameters"
+            "description": "Exactly one authorized backendId; optional variant=home for binary delivery"
           },
           {
             "name": "artworkId",
@@ -8840,6 +8840,18 @@
               "pattern": "^[0-9a-f]{32}$"
             },
             "description": "Opaque Recording artwork ID, not a local filename or provider ID"
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "home"
+              ]
+            },
+            "description": "Optional existing Home preview, up to 400 x 600 pixels and 256 KiB when conversion succeeds; original bytes otherwise. Omit for original."
           }
         ],
         "x-vdr-suite-authentication": {
@@ -8849,7 +8861,7 @@
         },
         "operationId": "getPublicRecordingArtworkImage",
         "summary": "Deliver binary artwork for a public Recording",
-        "description": "M2 read-only byte delivery. Authenticated and exact backend-bound recordings.view; shared VdrRecordingArtworkService verifies canonical allowed root, file size, bytes and MIME. No remote fetch, image resizing or token in URLs. Private max-age=300, nosniff.",
+        "description": "M2 read-only byte delivery. Authenticated and exact backend-bound recordings.view; shared VdrRecordingArtworkService verifies canonical allowed root, file size, bytes and MIME. No remote fetch or token in URLs. Optional variant=home reuses the existing Home preview cache; originals retain private max-age=300, previews use no-store when unscoped.",
         "responses": {
           "200": {
             "description": "Actual PNG/JPEG/WebP artwork bytes",
@@ -8877,7 +8889,7 @@
               "Cache-Control": {
                 "schema": {
                   "type": "string",
-                  "const": "private, max-age=300"
+                  "enum": ["private, max-age=300", "no-store"]
                 }
               },
               "X-Content-Type-Options": {
@@ -13443,7 +13455,7 @@
         ],
         "operationId": "getPublicEpgArtworkImage",
         "summary": "Read cached EPG event artwork bytes through the existing EPG repository",
-        "description": "M2 read-only binary delivery. Requires exactly one backendId, authenticated epg.view@backendId, channelId and eventId. Uses the existing EPG Artwork Controller and file-access policy. No public path or URL input and no new scraper or image cache. This is the direct EPG image; TVScraper preferred/series fallback metadata images remain a separate authenticated legacy route.",
+        "description": "M2 read-only binary delivery. Requires exactly one backendId, authenticated epg.view@backendId, channelId and eventId. Uses the existing EPG Artwork Controller and file-access policy. No public path or URL input and no new scraper or image cache. This is the direct EPG image. Optional variant=home reuses the existing Home preview cache.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "epg.view@backendId; no media.live.play-only access"
@@ -13481,6 +13493,18 @@
               "maxLength": 256,
               "pattern": "^[A-Za-z0-9._:-]+$"
             }
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "home"
+              ]
+            },
+            "description": "Optional existing Home preview, up to 400 x 600 pixels and 256 KiB when conversion succeeds; original bytes otherwise. Omit for original."
           }
         ],
         "responses": {
@@ -13510,7 +13534,7 @@
               "Cache-Control": {
                 "schema": {
                   "type": "string",
-                  "const": "private, max-age=300"
+                  "enum": ["private, max-age=300", "no-store"]
                 }
               }
             }
@@ -13552,7 +13576,7 @@
         ],
         "operationId": "getPublicEpgPreferredArtworkImage",
         "summary": "Serve preferred TVScraper or existing persisted EPG series fallback artwork",
-        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend.",
+        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend. Optional variant=home reuses the existing Home preview cache.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "epg.view@backendId; no media.live.play-only access"
@@ -13590,6 +13614,18 @@
               "maxLength": 256,
               "pattern": "^[A-Za-z0-9._:-]+$"
             }
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "home"
+              ]
+            },
+            "description": "Optional existing Home preview, up to 400 x 600 pixels and 256 KiB when conversion succeeds; original bytes otherwise. Omit for original."
           }
         ],
         "responses": {
@@ -13619,7 +13655,7 @@
               "Cache-Control": {
                 "schema": {
                   "type": "string",
-                  "const": "private, max-age=300"
+                  "enum": ["private, max-age=300", "no-store"]
                 }
               }
             }

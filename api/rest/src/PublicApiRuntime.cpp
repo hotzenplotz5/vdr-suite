@@ -7882,18 +7882,24 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         const std::string artworkId = artworkMarker + 8U == path.size()
             ? std::string()
             : path.substr(artworkMarker + 9U);
+        const std::string rawQuery = requestQueryString(requestTarget);
+        const std::string backendQuery = authorizedBackendIds.size() == 1U
+            ? "backendId=" + authorizedBackendIds.front() : std::string();
+        const bool exactQuery = rawQuery == backendQuery ||
+            (!artworkId.empty() &&
+             (rawQuery == backendQuery + "&variant=home" ||
+              rawQuery == "variant=home&" + backendQuery));
         if (!validHexId(recordingId, "rec_") ||
             (artworkMarker + 8U < path.size() && artworkId.empty()) ||
             (!artworkId.empty() && !validHexId(artworkId, "")) ||
             authorizedBackendIds.size() != 1U ||
             authorizedBackendIds.front().empty() ||
             authorizedBackendIds.front() == "*" ||
-            requestQueryString(requestTarget) !=
-                "backendId=" + authorizedBackendIds.front())
+            !exactQuery)
         {
             response = invalidRequestProblem(path,
                 "Valid Recording/artwork IDs and one authorized backendId "
-                "are required.", requestId, correlationId);
+                "are required; binary artwork optionally accepts variant=home.", requestId, correlationId);
             return true;
         }
         const auto found = lookupRecordingArtwork(

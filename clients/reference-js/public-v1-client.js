@@ -496,9 +496,12 @@
     if (binary && (typeof options.artworkId !== 'string' ||
         !/^[0-9a-f]{32}$/.test(options.artworkId)))
       throw new Error('Artwork requires opaque 32-hex artworkId');
+    if (options.variant !== undefined && (!binary || options.variant !== 'home'))
+      throw new Error('Artwork variant home is supported only for binary images');
     return '/api/v1/recordings/' + options.recordingId + '/artwork' +
       (binary ? '/' + options.artworkId : '') +
-      '?backendId=' + encodeURIComponent(options.backendId);
+      '?backendId=' + encodeURIComponent(options.backendId) +
+      (options.variant === 'home' ? '&variant=home' : '');
   }
 
   function epgArtworkPath(options, preferred) {
@@ -514,6 +517,10 @@
     p.set('backendId', options.backendId);
     p.set('channelId', options.channelId);
     p.set('eventId', options.eventId);
+    if (options.variant !== undefined) {
+      if (options.variant !== 'home') throw new Error('Unsupported artwork variant');
+      p.set('variant', options.variant);
+    }
     return '/api/v1/epg/' + (preferred ? 'preferred-artwork' : 'artwork') +
       '?' + p.toString();
   }

@@ -2068,6 +2068,7 @@ HttpServerResponse TestHttpServer::handleRequest(
         std::size_t backendCount = 0U;
         std::size_t channelCount = 0U;
         std::size_t eventCount = 0U;
+        std::size_t variantCount = 0U;
         bool canonicalQueryKeys = true;
         for (std::size_t start = 0U; start < rawQuery.size();)
         {
@@ -2081,12 +2082,14 @@ HttpServerResponse TestHttpServer::handleRequest(
             else if (key == "backendId") ++backendCount;
             else if (key == "channelId") ++channelCount;
             else if (key == "eventId") ++eventCount;
+            else if (item == "variant=home") ++variantCount;
             else canonicalQueryKeys = false;
             if (end == std::string::npos) break;
             start = end + 1U;
         }
         const bool exactQuery = canonicalQueryKeys &&
-            backendCount == 1U && channelCount == 1U && eventCount == 1U;
+            backendCount == 1U && channelCount == 1U && eventCount == 1U &&
+            variantCount <= 1U;
         const std::string backend = query.get("backendId");
         const std::string channel = query.get("channelId");
         const std::string event = query.get("eventId");

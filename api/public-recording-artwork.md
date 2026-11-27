@@ -57,6 +57,16 @@ paths, filesystem references or arbitrary client-supplied URLs are
 returned or followed. Duplicate or unknown EPG artwork query keys
 are rejected rather than silently overriding an identity.
 
+All three binary image routes above accept optional `variant=home`. The
+existing HTTP artwork owner reuses the same persistent Home preview cache
+(400 × 600 pixel bounding box, up to 256 KiB when conversion succeeds).
+Small images or failed/contended conversions may return original bytes.
+The parameter is not accepted on the artwork list. Existing authentication,
+backend and image identity validation run before preview work; no new grant
+or provider is involved. Unscoped preview HTTP responses use `no-store`;
+the existing server-side derivative cache is still shared. Requests without
+the parameter preserve the original bytes and HTTP caching contract.
+
 The relative image URL is **not** a bearer token; every image GET needs
 normal authentication. Device clients must request bytes with their
 authorization header: ordinary browser `<img>` cannot attach a Device
@@ -113,7 +123,7 @@ getrennt von der serverseitigen Code- und CI-Abnahme.
 | Artwork bound to cached Recording metadata | Same cached artwork refs and opaque ID calculation |
 | Local allowed-root/signature/size checks | Same `VdrRecordingArtworkService` |
 | Poster, fanart, still, banner assets | Listed and binary delivered where present |
-| Optional Web home-preview variant | Deliberately not exposed yet; original bytes only |
+| Optional Web home-preview variant | Binary Recording and EPG endpoints accept `variant=home` via the existing preview owner; original bytes remain the default |
 | EPG cached direct artwork | `GET /api/v1/epg/artwork?backendId=...&channelId=...&eventId=...` uses the existing EPG image owner with an exact `epg.view` grant |
 | TVScraper preferred and persisted EPG series fallback | Same existing `EpgCacheController` read-only selection, now also via Public-v1 preferred-artwork bytes |
 | Other series galleries and per-person images | Not yet exposed in Public v1; remain in existing authenticated metadata-image route |

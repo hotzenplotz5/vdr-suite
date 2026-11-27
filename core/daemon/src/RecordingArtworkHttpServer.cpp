@@ -55,6 +55,17 @@ bool epgImagePath(const std::string& path)
         path == "/api/epg/cache/metadata/image";
 }
 
+bool publicArtworkImagePath(const std::string& path)
+{
+    if (path == "/api/v1/epg/artwork" ||
+        path == "/api/v1/epg/preferred-artwork")
+        return true;
+    const std::string prefix = "/api/v1/recordings/";
+    const auto marker = path.find("/artwork/", prefix.size());
+    return path.compare(0, prefix.size(), prefix) == 0 &&
+        marker != std::string::npos && marker + 9U < path.size();
+}
+
 void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& request,
                   const RestQueryParameters& query, HttpServerResponse& response,
                   std::chrono::steady_clock::time_point requestStarted,
@@ -167,6 +178,15 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         invalid.headers["Cache-Control"] = "no-store";
         invalid.body = "{\"error\":\"unsupported artwork variant\"}";
         return invalid;
+    }
+
+    // Public-v1 authorization, exact query validation and original bytes
+    // remain owned by the existing delegate. Never use a legacy fallback.
+    if (request.method == "GET" && publicArtworkImagePath(path))
+    {
+        if (delegated.statusCode == 200 && query.get("variant") == "home")
+            applyPreview(previews_, request, query, delegated, requestStarted);
+        return delegated;
     }
 
     // The selected series-cover route is already owned by the settings API.

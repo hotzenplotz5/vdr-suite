@@ -743,7 +743,9 @@ int main()
         std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&channelId=other"),
         std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&eventId=43"),
         std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&%65ventId=43"),
-        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&unknown=1")
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&unknown=1"),
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=other"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=home&variant=home")
     })
     {
         HttpServerRequest artworkRequest;
@@ -755,6 +757,21 @@ int main()
         assertJsonResponse(artworkResponse, 400);
         assert(artworkResponse.body.find("invalid_epg_artwork_scope") !=
             std::string::npos);
+    }
+
+    for (const auto* route : {"/api/v1/epg/artwork", "/api/v1/epg/preferred-artwork"})
+    {
+        HttpServerRequest artworkRequest;
+        artworkRequest.method = "GET";
+        artworkRequest.path = std::string(route) +
+            "?backendId=default&channelId=S19.2E-1-100&eventId=42";
+        authorize(artworkRequest);
+        const auto original = server.handleRequest(artworkRequest);
+        artworkRequest.path += "&variant=home";
+        const auto previewSource = server.handleRequest(artworkRequest);
+        assert(original.statusCode != 400);
+        assert(previewSource.statusCode == original.statusCode);
+        assert(previewSource.body == original.body);
     }
 
     HttpServerRequest anonymousFrontendRequest;
