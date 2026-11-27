@@ -115,11 +115,14 @@ for route in (
     require(browser_client.count(route) == 1,
             "reviewed Browser search route missing or duplicated: " + route)
     browser_client = browser_client.replace(route, "'reviewed-global-search-route'")
-# Reviewed Home movie offset read and its cache-evidence path comparison.
-movie_route = "'/api/v1/recordings'"
-require(browser_client.count(movie_route) == 2,
-        "reviewed Home movie route missing or duplicated")
-browser_client = browser_client.replace(movie_route, "'reviewed-home-movie-view'")
+# Reviewed Home movie/new offset reads and their shared cache-evidence path.
+home_route = "'/api/v1/recordings'"
+require(browser_client.count(home_route) == 3,
+        "reviewed Home recording route missing or duplicated")
+for view in ("movies", "new"):
+    require(browser_client.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
+            "reviewed Home recording view missing or duplicated: " + view)
+browser_client = browser_client.replace(home_route, "'reviewed-home-recording-view'")
 require("/api/v1" not in browser_client,
         "non-equivalent bundled browser was silently migrated to public-v1")
 

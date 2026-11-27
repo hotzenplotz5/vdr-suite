@@ -434,6 +434,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 78 exactly once (including recording actions, trailer, Genre membership and Home movies).")
+print("Classified browser Client API operations: 79 exactly once (including recording actions, trailer, Genre membership and Home movies/new).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

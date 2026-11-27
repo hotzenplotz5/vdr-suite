@@ -22,8 +22,12 @@ const index = read('web/frontend/index.html');
 const makefile = read('Makefile');
 const sliceMake = read('mk/phase66-recording-discovery.mk');
 
-// Newly Recorded consumes the existing bounded recording query and explicit backend scope.
-assert(source.includes("fetchClientRecordings({"));
+// Newly Recorded consumes the bounded public recording view; older servers
+// can still use the explicitly retained compatibility read.
+assert(source.includes("typeof client.fetchPublicHomeNew === 'function'"));
+assert(source.includes('? client.fetchPublicHomeNew : client.fetchClientRecordings'));
+assert(clientApi.includes("query: {backendId, view: 'new', limit, offset}"));
+assert(source.includes('fetchNewlyPage(client, backendId, cache)'));
 assert(source.includes("backend: backendId"));
 assert(source.includes("sort: 'startTime'"));
 assert(source.includes("order: 'desc'"));
