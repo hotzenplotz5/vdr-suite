@@ -1317,29 +1317,32 @@
     const request = ++publicDetailRequest;
     const generation = state.generation;
     const publicRecording = isPublicHomeRecording(recording);
-    const resolved = publicRecording
-      ? Promise.resolve().then(function () {
-          return clientApi().fetchClientRecordingForPublicId({
-            backendId: scopedBackend, recordingId: id
-          });
-        }).then(function (detail) { return detail.recording; })
-      : Promise.resolve(recording);
-    return resolved.then(function (detail) {
-      if (publicRecording &&
-          (request !== publicDetailRequest || !current(generation, scopedBackend))) return false;
-      recording = detail;
+
+    function openResolved() {
       releasePreview('Recording Discovery Aufnahme geöffnet');
-      return ensureRecordings2();
-    }).then(function (ready) {
-      if (publicRecording &&
-          (request !== publicDetailRequest || !current(generation, scopedBackend))) return false;
-      if (!ready || !selectShellModule('recordings2')) return false;
-      global.VdrSuiteRecordings2.openRecording(recording, {
-        backendId: scopedBackend,
-        backLabel: config.backLabel || '← Zurück zu Home',
-        onClose: typeof config.onClose === 'function' ? config.onClose : returnHome
+      return ensureRecordings2().then(function (ready) {
+        if (publicRecording &&
+            (request !== publicDetailRequest || !current(generation, scopedBackend))) return false;
+        if (!ready || !selectShellModule('recordings2')) return false;
+        global.VdrSuiteRecordings2.openRecording(recording, {
+          backendId: scopedBackend,
+          backLabel: config.backLabel || '← Zurück zu Home',
+          onClose: typeof config.onClose === 'function' ? config.onClose : returnHome
+        });
+        return true;
       });
-      return true;
+    }
+
+    // Keep the existing synchronous preview release and native owner timing.
+    if (!publicRecording) return openResolved();
+    return Promise.resolve().then(function () {
+      return clientApi().fetchClientRecordingForPublicId({
+        backendId: scopedBackend, recordingId: id
+      });
+    }).then(function (detail) {
+      if (request !== publicDetailRequest || !current(generation, scopedBackend)) return false;
+      recording = detail.recording;
+      return openResolved();
     }).catch(function (error) {
       console.error('Aufnahme konnte nicht geöffnet werden', error);
       return false;
