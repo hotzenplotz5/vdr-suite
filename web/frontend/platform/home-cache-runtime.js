@@ -192,7 +192,7 @@
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
       if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_RECORDING_ROUTE && path !== PUBLIC_SERIES_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
-      if (path === PUBLIC_RECORDING_ROUTE && view !== 'new' && view !== 'movies') return null;
+      if (path === PUBLIC_RECORDING_ROUTE && view !== 'new' && view !== 'movies' && view !== 'folders') return null;
       if (path === PUBLIC_SERIES_ROUTE && view !== 'series') return null;
       return {path, view, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
         versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
@@ -316,9 +316,16 @@
           (rail === 'series' && route === PUBLIC_SERIES_ROUTE && observed.stamp.view === 'series') ||
           (route === PUBLIC_RECORDING_ROUTE &&
             ((rail === 'recent-movies' && observed.stamp.view === 'movies') ||
-             (rail === 'newly-recorded' && observed.stamp.view === 'new')));
-        if ((folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
-            payload.offset !== 0 || payload.cacheReady !== true)) ||
+             (rail === 'newly-recorded' && observed.stamp.view === 'new') ||
+             (rail === 'folders' && observed.stamp.view === 'folders')));
+        const publicFolder = route === PUBLIC_RECORDING_ROUTE && observed.stamp.view === 'folders';
+        const folderContext = payload && payload.folderContext;
+        const folderMismatch = publicFolder
+          ? (!folderContext || folderContext.folderId !== (folder ? folder.path : '') ||
+             folderContext.cacheReady !== true || !payload.page || (folder && payload.page.offset !== 0))
+          : (folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
+             payload.offset !== 0 || payload.cacheReady !== true));
+        if (folderMismatch ||
             !live() || !observed || observed.stamp.generation !== local || !matchesRoute || (acceptedRoute && route !== acceptedRoute) ||
             !observed.domains.includes(domain(rail)) ||
             (requireCursor && (!connected || !observed.stamp.cursor || observed.stamp.versions[ALL_RAILS.indexOf(rail)] !== railVersion)) || (proven && observed.partition !== proven)) {
