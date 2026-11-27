@@ -1067,8 +1067,24 @@ int main()
         assert(assigned.body.find("public-test/key") == std::string::npos);
         assert(assigned.body.find("\"revision\":1") != std::string::npos);
         assert(runtime.findSelected("living-room", "public-test/key").found);
+        const auto manualRead = [&](const std::string& query, const std::vector<std::string>& scope) {
+            ApiResponse result;
+            assert(runtime.tryHandleGet(prefix + "manual?" + query, result, scope));
+            return result;
+        };
+        const auto selected = manualRead("recordingId=" + publicId, {"living-room"});
+        assert(selected.statusCode == 200);
+        assert(selected.body.find("\"found\":true") != std::string::npos);
+        assert(selected.body.find("\"revision\":1") != std::string::npos);
+        assert(selected.body.find(publicId) != std::string::npos);
+        assert(selected.body.find("public-test/key") == std::string::npos);
+        assert(manualRead("recordingId=" + publicId, {"bedroom"}).statusCode == 403);
+        assert(manualRead("recordingId=" + publicId + "&recordingId=" + publicId,
+            {"living-room"}).statusCode == 400);
+        assert(manualRead("resourceKey=public-test/key", {"living-room"}).statusCode == 400);
         const auto removed = publicPost("withdraw",
             "{\"recordingId\":\"" + publicId + "\",\"expectedRevision\":1}");
+        assert(manualRead("recordingId=" + publicId, {"living-room"}).body.find("\"found\":false") != std::string::npos);
         assert(removed.statusCode == 200);
         assert(removed.body.find("\"relationshipLocked\":false") != std::string::npos);
         assert(presentationChanges.size() == before + 2U);
