@@ -20,7 +20,9 @@ require(len(owner.splitlines()) <= 330, 'Recordings 2 owner exceeds its modulari
 require(len(refresh.splitlines()) <= 240, 'Recording folder refresh module is too large')
 for token in (
     'global.VdrSuiteRecordings2FolderRefresh = Object.freeze({create})',
-    'const INTERVAL_MS = 30000;',
+    'if (delay !== undefined) pending = true;',
+    'if (!pending || busy || state().loading || state().loadingMore ||',
+    'timer = global.setTimeout(function () { timer = null; refresh(); }, 0);',
     'options.fetchClientRecordingFolder({',
     "cache: 'no-store'",
     "credentials: 'same-origin'",
@@ -36,7 +38,7 @@ for token in (
     'global.clearTimeout(timer)',
 ):
     require(token in refresh, f'missing recording refresh contract: {token}')
-for forbidden in ('fetch(', 'XMLHttpRequest', 'EventSource', 'WebSocket',
+for forbidden in ('INTERVAL_MS', 'setInterval(', 'fetch(', 'XMLHttpRequest', 'EventSource', 'WebSocket',
                   'localStorage', 'sessionStorage', "method: 'POST'", 'NCUT EXEC'):
     require(forbidden not in refresh, f'refresh module violates read-only Client API boundary: {forbidden}')
 for token in (

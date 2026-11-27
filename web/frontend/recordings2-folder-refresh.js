@@ -1,7 +1,6 @@
 // Canonical recording-folder reads, projection and background refresh lifecycle.
 (function (global) {
   'use strict';
-
   function create(options) {
     const state = options.getState;
     let timer = null;
@@ -167,16 +166,11 @@
       cancelTimer();
       if (!state().active) return;
       subscribe();
-      // Only a committed SSE hint or an explicit lifecycle read (opening
-      // an existing view, closing detail, visibility restoration) schedules
-      // work. An idle folder never creates a periodic request.
+      // SSE hints and explicit lifecycle reads only; no periodic requests.
       if (delay !== undefined) pending = true;
       if (!pending || busy || state().loading || state().loadingMore ||
           state().selectedRecording || (global.document && global.document.hidden)) return;
-      timer = global.setTimeout(function () {
-        timer = null;
-        refresh();
-      }, 0);
+      timer = global.setTimeout(function () { timer = null; refresh(); }, 0);
     }
 
     function refresh() {
