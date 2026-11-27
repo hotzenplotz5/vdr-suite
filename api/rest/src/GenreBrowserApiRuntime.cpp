@@ -15,6 +15,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <codecvt>
+#include <locale>
+#include <locale.h>
+#include <wctype.h>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -669,7 +673,25 @@ std::string GenreBrowserApiRuntime::projectRecordingCard(
     target.seriesNativeMetadataAvailable = source.seriesMetadataAvailable &&
         !source.seriesProvider.empty() && source.seriesProviderId != 0;
 
-    const auto lowerAscii = [](std::string text) {
+    // The old Web grouping key used Unicode lowercase. Keep persisted
+    // folder/title keys compatible independently of the daemon's locale.
+    const auto lowerText = [](std::string text) {
+        static const auto utf8 = newlocale(LC_CTYPE_MASK, "C.UTF-8", nullptr);
+        if (utf8)
+        {
+            try
+            {
+                std::wstring_convert<std::codecvt_utf8<wchar_t>> convert;
+                std::wstring lower;
+                for (wchar_t c : convert.from_bytes(text))
+                {
+                    if (c == L'\u0130') lower += L"i\u0307";
+                    else lower += static_cast<wchar_t>(towlower_l(c, utf8));
+                }
+                return convert.to_bytes(lower);
+            }
+            catch (const std::range_error&) { /* malformed legacy bytes */ }
+        }
         for (char& c : text)
             if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
         return text;
@@ -691,7 +713,7 @@ std::string GenreBrowserApiRuntime::projectRecordingCard(
     std::string folder;
     for (std::size_t i = 0; i + 1U < parts.size(); ++i)
     {
-        if (lowerAscii(parts[i]) == "serien")
+        if (lowerText(parts[i]) == "serien")
         {
             folder = "Serien/" + parts[i + 1U];
             target.seriesFolderTitle = parts[i + 1U];
@@ -708,7 +730,7 @@ std::string GenreBrowserApiRuntime::projectRecordingCard(
         }
     }
     if (!folder.empty())
-        return "folder:" + lowerAscii(folder);
+        return "folder:" + lowerText(folder);
 
     if (target.seriesNativeMetadataAvailable)
         return "native:" + source.seriesProvider + ":" +
@@ -719,9 +741,9 @@ std::string GenreBrowserApiRuntime::projectRecordingCard(
     const auto seriesTitle = PublicRecordingDisplayName::trim(source.seriesTitle);
     const auto episodeName = PublicRecordingDisplayName::trim(source.episodeName);
     const auto title = source.seriesMetadataAvailable && !seriesTitle.empty() &&
-        lowerAscii(seriesTitle) != lowerAscii(episodeName)
+        lowerText(seriesTitle) != lowerText(episodeName)
         ? seriesTitle : PublicRecordingDisplayName::trim(source.title);
-    return "title:" + lowerAscii(title.empty() ? "Aufnahme" : title);
+    return "title:" + lowerText(title.empty() ? "Aufnahme" : title);
 }
 
 bool GenreBrowserApiRuntime::configured() const

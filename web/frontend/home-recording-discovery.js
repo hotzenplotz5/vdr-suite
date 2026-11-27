@@ -3531,6 +3531,7 @@
     const recording = member && member.recording;
     const labels = [
       text(recording && recording.path),
+      text(recording && recording.seriesGrouping && recording.seriesGrouping.folderTitle),
       text(recording && recording.title),
       text(member && member.episodeTitle)
     ];
@@ -3547,7 +3548,7 @@
   function missingSeriesEpisodeMetadata(member) {
     if (!member || !member.recording ||
         Number(member.seasonNumber) <= 0 || Number(member.episodeNumber) <= 0 ||
-        !recordingBackendNativeId(member.recording)) return false;
+        (!recordingBackendNativeId(member.recording) && !isPublicHomeRecording(member.recording))) return false;
     const embedded = member.recording.seriesMetadata || {};
     if (embedded.manualAssignment && embedded.manualAssignment.active === true)
       return false;
@@ -3595,11 +3596,22 @@
       sequence = sequence.then(function () {
         const season = Number(member.seasonNumber);
         const episodeNumber = Number(member.episodeNumber);
-        const resourceKey = recordingBackendNativeId(member.recording);
+        const publicId = isPublicHomeRecording(member.recording) ? recordingId(member.recording) : '';
+        const identity = publicId
+          ? Promise.resolve().then(function () {
+              if (typeof client.fetchClientRecordingForPublicId !== 'function') throw new Error('Aufnahmedetail nicht verfügbar');
+              return client.fetchClientRecordingForPublicId({backendId: backendId, recordingId: publicId});
+            }).then(function (detail) {
+              const key = recordingBackendNativeId(detail && detail.recording);
+              if (!key) throw new Error('Aufnahmeidentität nicht verfügbar');
+              return key;
+            })
+          : Promise.resolve(recordingBackendNativeId(member.recording));
         status((index + 1) + '/' + targets.length + ': ' +
           text(member.episodeTitle) + ' – zentrale TMDb-Zuordnung …');
         const year = seriesPremiereYearFromMember(member);
-        return post(resolver, Object.assign({
+        return identity.then(function (resourceKey) {
+          return post(resolver, Object.assign({
           title: title, kind: 'series',
           seasonNumber: season, episodeNumber: episodeNumber
         }, year ? {year: year} : {})).then(function (resolved) {
@@ -3664,8 +3676,8 @@
                 result.skipped += 1;
                 return;
               }
-              return post(endpoint + 'assign', {
-                resourceKey: resourceKey, providerId: 'tmdb',
+              return post(publicId ? '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/assign' : endpoint + 'assign', Object.assign(publicId ? {recordingId: publicId} : {resourceKey: resourceKey}, {
+                providerId: 'tmdb',
                 externalNamespace: candidate.externalNamespace,
                 externalId: candidate.externalId, mediaType: 'episode',
                 title: titleNeedsRepair ? candidate.title :
@@ -3680,11 +3692,12 @@
                 posterReference: poster,
                 seasonNumber: season, episodeNumber: episodeNumber,
                 expectedRevision: selected ? Number(existing.revision) : 0
-              }).then(function (saved) {
+              })).then(function (saved) {
                 if (saved && saved.found === true) result.updated += 1;
                 else result.failed += 1;
               });
             });
+          });
         }).catch(function (error) {
           result.failed += 1;
           if (error && (error.status === 401 || error.status === 403))

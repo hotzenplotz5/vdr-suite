@@ -166,7 +166,7 @@ function buildSeriesSet() {
   return items;
 }
 
-function createHarness(seriesItems) {
+function createHarness(seriesItems, publicMode) {
   const host = new FakeElement('div');
   const calls = [];
   const pendingPages = new Map();
@@ -208,6 +208,19 @@ function createHarness(seriesItems) {
       return Promise.resolve({folders: []});
     }
   };
+
+  if (publicMode) {
+    const legacyRead = client.fetchClientGenreRecordings;
+    client.fetchClientGenreRecordings = function () { throw new Error('Unexpected private Series read'); };
+    client.fetchPublicGenreRecordings = function (request) {
+      return legacyRead(request).then(function (legacy) {
+        const page = {offset: legacy.offset, limit: legacy.limit, totalCount: legacy.total, hasMore: legacy.hasMore};
+        const payload = {items: legacy.items, page};
+        if (request.onPage) request.onPage(payload);
+        return Object.assign({}, payload, {recordings: legacy.items, total: legacy.total, hasMore: legacy.hasMore});
+      });
+    };
+  }
 
   const document = {
     readyState: 'loading',
@@ -310,7 +323,23 @@ async function flushMicrotasks(turns) {
     14
   );
 
-  console.log('phase66 series projection renders progressively while pagination continues');
+  const opaque = buildSeriesSet().map(function (episode, index) {
+    const parts = episode.path.split('/');
+    const series = index < 145 ? 1 : Math.floor((index - 145) / 9) + 2;
+    const token = /S(\d+)E(\d+)/.exec(parts[2]);
+    return {recordingId: 'rec_' + (index + 1).toString(16).padStart(32, '0'), backendId: 'default',
+      recordedAt: '2026-11-20T12:00:00Z', title: parts[2],
+      seriesGrouping: {groupKey: 'sg1_' + series.toString(16).padStart(32, '0'), folderTitle: parts[1]},
+      cardMetadata: {title: parts[1], mediaType: 'series', seasonNumber: Number(token[1]), episodeNumber: Number(token[2])}};
+  });
+  const publicHarness = createHarness(opaque, true);
+  const publicRefresh = publicHarness.api.refresh();
+  await flushMicrotasks(20);
+  assert.deepStrictEqual(publicHarness.calls.map(call => Number(call.offset || 0)), [0, 100, 200]);
+  assert(publicHarness.releasePage(100));
+  assert.strictEqual(await publicRefresh, true);
+  assert.strictEqual(findSeriesCards(findRail(publicHarness.host, 'series')).length, 14);
+  console.log('phase66 series projection renders progressively while pagination continues, including Public v1');
 }()).catch((error) => {
   console.error(error);
   process.exitCode = 1;

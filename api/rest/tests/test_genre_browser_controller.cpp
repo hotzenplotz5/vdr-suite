@@ -471,6 +471,12 @@ int main()
         GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, nativeCard);
     assert(fallbackSeed == "folder:serien/band_of_brothers");
     assert(fallbackSeed == nativeSeed);
+    auto unicodeEpisode = fallbackEpisode;
+    unicodeEpisode.path = "Serien/ÄRZTE/Staffel 1/Folge";
+    PublicGenreRecordingItem unicodeCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(unicodeEpisode, unicodeCard) == "folder:serien/ärzte");
+    unicodeEpisode.path = "Serien/ärzte/Staffel 2/Folge";
+    assert(GenreBrowserApiRuntime::projectRecordingCard(unicodeEpisode, unicodeCard) == "folder:serien/ärzte");
     assert(fallbackCard.seriesFolderTitle == "Band_Of_Brothers");
     assert(!fallbackCard.seriesNativeMetadataAvailable);
     assert(nativeCard.seriesNativeMetadataAvailable);
