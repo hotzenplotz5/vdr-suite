@@ -139,10 +139,12 @@ public:
             !gate.publicApiV1 &&
             path != "/api/security/browser-sessions/current";
         const bool isAddonActivationMutation =
-            isPost && path == "/api/v1/addons/rectools/activation";
+            isPost && (path == "/api/v1/addons/rectools/activation" ||
+                       path == "/api/v1/addons/image/activation");
         const bool isAddonActivationRead =
             request.method == "GET" &&
-            path == "/api/v1/addons/rectools/activation";
+            (path == "/api/v1/addons/rectools/activation" ||
+             path == "/api/v1/addons/image/activation");
         const bool isAddonSourceMutation =
             isPost && path == "/api/v1/addons/rectools/sources";
         const bool isAddonSourceRead =

@@ -386,13 +386,29 @@ int main()
            IntentStatus::forbidden);
     ++checks;
 
-    // Inactive photo/music scaffolds cannot express enabled intent.
+    // Gallery can store local desired intent without Agent evidence. Music
+    // remains inactive, and Media Tools evidence cannot enable either module.
     b = backend();
     evidence = trustedEvidence();
     for (auto module : {"image", "music"}) {
         assert(store.update(actor, {module, "backend-a", true, 0}, b, evidence).status ==
                IntentStatus::ineligible);
     }
+    ++checks;
+
+    assert(f.database.execute("INSERT INTO addon_media_import_maintenance "
+        "VALUES ('rectools',1,1,'maintenance-admin');"));
+    const auto gallery = store.update(actor, {"image", "backend-a", true, 0}, b, {});
+    assert(gallery.status == IntentStatus::ok && gallery.intent.desiredEnabled);
+    assert(gallery.intent.revision == 1 && gallery.intent.agentId.empty());
+    assert(store.read(actor, "image", "backend-b").intent.revision == 0);
+    assert(store.update(actor, {"image", "backend-a", false, 0}, {}, {}).status ==
+           IntentStatus::revisionConflict);
+    assert(store.update(actor, {"image", "backend-a", false, 1}, {}, {}).status ==
+           IntentStatus::ok);
+    assert(store.update(actor, {"music", "backend-a", true, 0}, b, {}).status ==
+           IntentStatus::ineligible);
+    assert(f.database.execute("DELETE FROM addon_media_import_maintenance;"));
     ++checks;
 
     // TVScraper is native SuiteBridge/Core metadata integration, not an add-on.

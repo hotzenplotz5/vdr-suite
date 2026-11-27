@@ -2303,6 +2303,14 @@ HttpServerResponse TestHttpServer::handleRequest(
                       "{\"error\":\"addon_activation_unavailable\"}", {}};
         }
         else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/image/activation")
+        {
+            apiResponse = imageActivationLookup_
+                ? imageActivationLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
                 "/api/v1/addons/rectools/sources")
         {
             apiResponse = addonSourceLookup_
@@ -2356,6 +2364,14 @@ HttpServerResponse TestHttpServer::handleRequest(
         {
             apiResponse = addonActivationMutation_
                 ? addonActivationMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/image/activation")
+        {
+            apiResponse = imageActivationMutation_
+                ? imageActivationMutation_(gate.context, request.body)
                 : ApiResponse{503, "application/json",
                       "{\"error\":\"addon_activation_unavailable\"}", {}};
         }
