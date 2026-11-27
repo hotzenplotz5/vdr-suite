@@ -548,6 +548,20 @@
     card.appendChild(rows);
     card.appendChild(add);
     card.appendChild(save);
+    card.appendChild(node('h4',word('Diashow auf diesem Gerät','Slideshow on this device')));
+    const intervalLabel=node('label',word('Intervall (Sekunden)','Interval (seconds)'));
+    const interval=node('input');interval.type='number';interval.min='1';interval.max='60';
+    intervalLabel.appendChild(interval);card.appendChild(intervalLabel);
+    const repeatLabel=node('label',word('Wiederholen','Repeat'));
+    const repeat=node('input');repeat.type='checkbox';repeatLabel.appendChild(repeat);card.appendChild(repeatLabel);
+    let preferences={};
+    try { preferences=JSON.parse(global.localStorage.getItem('vdr-suite.image-gallery.slideshow')||'{}')||{}; } catch (_) {}
+    interval.value=String(Math.max(1,Math.min(60,Number(preferences.intervalMs)/1000||5)));
+    repeat.checked=preferences.repeat===true;
+    const savePlayback=()=>{try {global.localStorage.setItem('vdr-suite.image-gallery.slideshow',JSON.stringify({
+      intervalMs:Math.max(1,Math.min(60,Number(interval.value)||5))*1000,repeat:repeat.checked
+    }));} catch (_) {}};
+    interval.addEventListener('change',savePlayback);repeat.addEventListener('change',savePlayback);
     parent.appendChild(card);
     let current = null, busy = true, nextId = 0;
     const model = [];
