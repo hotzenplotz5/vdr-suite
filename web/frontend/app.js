@@ -731,16 +731,46 @@ function formatRecordingStart(value) {
 }
 
 function renderSnapshotMetrics(data) {
+  if (typeof window !== 'undefined' && renderSnapshotMetrics.clockTimer != null) {
+    window.clearTimeout(renderSnapshotMetrics.clockTimer);
+    renderSnapshotMetrics.clockTimer = null;
+  }
   detailDataElement.replaceChildren();
   const count = key => data ? valueOrZero(data[key]) : '…';
-  detailDataElement.appendChild(createMetric('Snapshot', data ? (data.snapshotAvailable ? 'ja' : 'nein') : '…'));
-  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
-  detailDataElement.appendChild(createMetric('Events', count('eventCount')));
-  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
+  const mb = data && data.diskFreeMb;
+  const free = Number.isSafeInteger(mb) && mb >= 0
+    ? new Intl.NumberFormat('de-DE', {maximumFractionDigits: mb >= 1048576 ? 2 : 1})
+        .format(mb / (mb >= 1048576 ? 1048576 : 1024)) + (mb >= 1048576 ? ' TiB' : ' GiB')
+    : (data ? '–' : '…');
+  detailDataElement.appendChild(createMetric('Freier Aufnahmespeicher', free));
   const recordingMetric = createMetric('Aufnahmen',
     !data || data.recordingCountPending ? '…' : count('recordingCount'));
   recordingMetric.id = 'home-recording-count';
   detailDataElement.appendChild(recordingMetric);
+  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
+  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
+  const timeText = date => date.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  const dateText = date => date.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const now = new Date();
+  const clock = createMetric(dateText(now), timeText(now));
+  clock.id = 'home-local-clock';
+  clock.title = 'Datum und lokale Uhrzeit';
+  detailDataElement.appendChild(clock);
+  // Only the local clock is updated, never a backend/network poll.
+  if (typeof window !== 'undefined' && typeof window.setTimeout === 'function' &&
+      clock.firstElementChild && clock.lastElementChild) {
+    const tick = () => {
+      renderSnapshotMetrics.clockTimer = null;
+      if (!clock.isConnected || selectedModule !== 'overview' || !browserSessionFrontendActive) return;
+      const date = new Date();
+      clock.firstElementChild.textContent = timeText(date);
+      clock.lastElementChild.textContent = dateText(date);
+      renderSnapshotMetrics.clockTimer = window.setTimeout(tick,
+        60000 - date.getSeconds() * 1000 - date.getMilliseconds());
+    };
+    renderSnapshotMetrics.clockTimer = window.setTimeout(tick,
+      60000 - now.getSeconds() * 1000 - now.getMilliseconds());
+  }
 }
 
 

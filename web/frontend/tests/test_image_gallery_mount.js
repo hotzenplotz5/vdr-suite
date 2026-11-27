@@ -136,8 +136,9 @@ async function run(){
     'Gallery must follow existing flex-ordered Home zones even when loaded late');
   const homeStyles=fs.readFileSync('web/frontend/home-continue-watching.js','utf8');
   assert(homeStyles.includes('[data-home-zone="additional-sections"]{order:40}') &&
-    homeStyles.includes('#detail-data{order:60}'),
-    'test covers the real Home shell flex ordering that caused the regression');
+    homeStyles.includes('[data-home-zone="primary-rail"]{order:110}') &&
+    homeStyles.includes('#detail-data{order:120}'),
+    'Gallery follows media rails but precedes the inventory heading and cards');
   cards[0].emit('click');cards[3].emit('click');
   assert.equal(opened[0],null);assert.equal(opened[1],sample[2]);
   assert.equal(cards[3].children[0].src,'/preview/pictures/Urlaub/Sample 2.jpg');
