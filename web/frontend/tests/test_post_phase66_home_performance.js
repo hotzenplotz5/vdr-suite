@@ -137,7 +137,10 @@ assert(recentMoviesMarkerIndex >= 0, 'recent movies projection marker must exist
 const recentMoviesSource = recentMoviesBundle.slice(recentMoviesMarkerIndex);
 assert(recentMoviesSource.includes("text(provider(recording).contentKind) !== 'movie'"));
 assert(recentMoviesSource.includes('provider(recording).releaseDate'));
-assert(recentMoviesSource.includes('fetchClientRecordings({'));
+assert(recentMoviesSource.includes("typeof client.fetchPublicHomeMovies === 'function'"));
+assert(recentMoviesSource.includes('? client.fetchPublicHomeMovies : client.fetchClientRecordings'));
+assert(recentMoviesSource.includes('movieReleaseYearFrom: currentYear - 4'));
+assert(recentMoviesSource.includes('movieReleaseYearTo: currentYear'));
 assert(!recentMoviesSource.includes('fetchClientGenreRecordings({'));
 assert(
   genreControllerSource.includes('json << "},\\\"provider\\\":{},\\\"native\\\":{},\\\"artwork\\\":{\\\"preferredUrl\\\":";'),
