@@ -791,3 +791,14 @@ test-media-tools-encoding-settings:
 
 test-ci-frontend: test-media-tools-encoding-settings
 test-frontend-contracts: test-media-tools-encoding-settings
+
+# Isolated image-gallery domain regression; no live sources or services.
+.PHONY: test-addon-image-catalog
+test-addon-image-catalog:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/image \
+		modules/image/ImageGalleryCatalog.cpp modules/image/test_image_gallery_catalog.cpp \
+		-o "$(BUILD_DIR)/addons/test_image_gallery_catalog"
+	"$(BUILD_DIR)/addons/test_image_gallery_catalog"
+
+test-ci-fast: test-addon-image-catalog
