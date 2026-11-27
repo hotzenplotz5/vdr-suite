@@ -74,6 +74,28 @@ assert.strictEqual(scrollCalls[0].top, 0);
 assert.strictEqual(scrollCalls[0].left, 0);
 assert.strictEqual(scrollCalls[0].behavior, 'auto');
 
+const event = {backendId:'living-room',channelId:'S19.2E-1-2',eventId:'42',
+  artwork:{available:true,url:'/api/epg/cache/artwork?backend=living-room&channelId=S19.2E-1-2&eventId=42'}};
+const artworkSources = testApi.epgArtworkSources(event);
+assert.strictEqual(artworkSources.length,2);
+assert.strictEqual(artworkSources[0],'/api/v1/epg/artwork?backendId=living-room&channelId=S19.2E-1-2&eventId=42&variant=home');
+assert.strictEqual(artworkSources[1],event.artwork.url);
+assert.strictEqual(testApi.epgArtworkSources({artwork:{available:false}}).length,0);
+assert.strictEqual(testApi.epgArtworkSources({artwork:event.artwork})[0],event.artwork.url);
+let errorHandler = null;
+let missing = 0;
+const image = {src:'',addEventListener(name, handler, options) {
+  assert.strictEqual(name,'error'); assert.strictEqual(options.once,true);
+  errorHandler = handler;
+}};
+testApi.setEpgArtworkImage(image,artworkSources,()=>{missing+=1;});
+assert.strictEqual(image.src,artworkSources[0]);
+errorHandler();
+assert.strictEqual(image.src,artworkSources[1]);
+assert.strictEqual(missing,0);
+errorHandler();
+assert.strictEqual(missing,1);
+
 (async function run() {
   const first = deferred();
   const second = deferred();
