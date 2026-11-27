@@ -5108,7 +5108,13 @@ ApiResponse publicRecordingBrowseResponse(
             ",\"description\":\"" + jsonEscape(item.description) +
             "\",\"sizeMb\":" + std::to_string(item.sizeMb);
         if (!query.homeView.empty())
+        {
             body += ",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+            if (query.homeView == "movies")
+                body += ",\"releaseDate\":\"" + jsonEscape(item.releaseDate) + "\"";
+            if (!item.preferredArtworkId.empty())
+                body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
+        }
         body += "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +

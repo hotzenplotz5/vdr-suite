@@ -341,11 +341,14 @@ VdrRecordingQueryController::HomePage VdrRecordingQueryController::homePage(
         {
             item.title = assignment->title;
             item.subtitle = vdrsuite::rest::manual_recording_metadata_json::seasonEpisodeLabel(*assignment);
+            item.releaseDate = assignment->releaseDate;
+            item.manualAssignment = *assignment;
         }
         else
         {
             item.title = VdrRecordingMetadataJsonSerializer::presentationTitle(recording);
             item.subtitle = VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+            item.releaseDate = recording.metadata.provider.releaseDate;
         }
         page.items.push_back(std::move(item));
     }

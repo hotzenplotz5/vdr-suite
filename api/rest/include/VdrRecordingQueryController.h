@@ -65,7 +65,8 @@ public:
 
     struct HomeItem {
         VdrRecording recording;
-        std::string title, subtitle;
+        std::string title, subtitle, releaseDate;
+        ManualRecordingMetadataAssignment manualAssignment{};
     };
     struct HomePage {
         std::vector<HomeItem> items;

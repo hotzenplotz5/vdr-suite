@@ -298,8 +298,15 @@ int main()
     const auto publicHome = moviesController.homePage("default", true, 2022, 2026, 1, 0);
     assert(publicHome.totalCount == 2 && publicHome.items.size() == 1U);
     assert(publicHome.items.front().recording.id == "movie-19");
+    assert(publicHome.items.front().releaseDate == "2025");
+    assert(!publicHome.items.front().manualAssignment.found);
     const auto manualHome = manualMovies.homePage("default", true, 2022, 2026, 1, 0);
     assert(manualHome.totalCount == 2 && manualHome.items.front().recording.id == "movie-18");
+    const auto manualTail = manualMovies.homePage("default", true, 2022, 2026, 1, 1);
+    assert(manualTail.totalCount == 2 && manualTail.items.size() == 1U);
+    assert(manualTail.items.front().recording.id == "movie-19");
+    assert(manualTail.items.front().releaseDate == "2023");
+    assert(manualTail.items.front().manualAssignment.relationshipLocked);
     int identityLookups = 0;
     VdrRecordingQueryController publicMovies(moviesQuery, jsonSerializer, {},
         [&identityLookups](const std::string& backend, const std::string& native)

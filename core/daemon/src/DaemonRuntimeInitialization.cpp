@@ -3535,6 +3535,13 @@ bool DaemonRuntime::initialize()
                     entry.backendId = item.backendId;
                     entry.title = row.title.empty() ? item.title : row.title;
                     entry.subtitle = row.subtitle;
+                    entry.releaseDate = row.releaseDate;
+                    // Use the same batch-selected manual assignment as the Web
+                    // query. No second metadata lookup or image request.
+                    const auto& manual = row.manualAssignment;
+                    entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+                        row.recording, manual.posterReference, 0, 0,
+                        manual.found && manual.relationshipLocked, manual.revision);
                     entry.recordedAt = item.recordedAt;
                     entry.durationSeconds = item.durationSeconds;
                     entry.durationKnown = item.durationKnown;

@@ -365,6 +365,9 @@ struct PublicRecordingCollectionItem
     std::string description;
     long long sizeMb = 0;
     std::string subtitle;
+    // Additive Home card facts, selected by the existing Web query owner.
+    std::string releaseDate = {};
+    std::string preferredArtworkId = {};
 };
 
 struct PublicRecordingFolderItem

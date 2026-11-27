@@ -111,6 +111,8 @@ int main()
                 page.totalEntries = 2;
                 auto item = recording("rec_00000000000000000000000000000003");
                 item.subtitle = "2026";
+                item.releaseDate = "2026-05-03";
+                item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
                 if (request.offset == 0) page.recordings.push_back(item);
                 page.hasMore = request.offset == 0;
                 return page;
@@ -174,6 +176,9 @@ int main()
         "actor:tv", "home-movies", "", movies, "", "", {"backend-a"}));
     assert(movies.statusCode == 200);
     assert(movies.body.find("\"subtitle\":\"2026\"") != std::string::npos);
+    assert(movies.body.find("\"releaseDate\":\"2026-05-03\"") != std::string::npos);
+    assert(movies.body.find("\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"") != std::string::npos);
+    assert(movies.body.find("backendNativeId") == std::string::npos);
     assert(movies.body.find("\"totalCount\":2") != std::string::npos);
     for (const std::string& query : {"view=movies", "view=new&movieReleaseYearFrom=2022",
                                     "view=movies&movieReleaseYearFrom=2026&movieReleaseYearTo=2022"}) {

@@ -23731,6 +23731,8 @@
             ],
             "properties": {
           "subtitle": {"type": "string"},
+              "releaseDate": {"type": "string", "description": "Effective release date for view=movies, including the existing locked manual assignment."},
+              "preferredArtworkId": {"type": "string", "pattern": "^[0-9a-f]{32}$", "description": "Optional existing opaque preferred artwork identity for Home cards."},
               "kind": {
                 "type": "string",
                 "const": "recording"
