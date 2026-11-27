@@ -1184,6 +1184,7 @@
           recordings.push(Object.assign({}, item, {folderCard:true}));
         } else throw new Error('Unbekannter öffentlicher Ordnereintrag.');
       }
+      if (typeof input.onPage === 'function') input.onPage(payload);
       offset += items.length;
       hasMore = page.hasMore;
       if (!hasMore) break;
