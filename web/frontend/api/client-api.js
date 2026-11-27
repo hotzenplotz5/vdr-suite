@@ -271,8 +271,8 @@
     const snapshot = path.match(/^\/api\/backends\/([A-Za-z0-9_.-]+)\/snapshot$/);
     const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
       (path !== '/api/metadata/genres' || query.scope === 'recordings') &&
-      (path !== '/api/v1/recordings' || query.view === 'movies')
-        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
+      (path !== '/api/v1/recordings' || query.view === 'movies' || query.view === 'new')
+        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId, query.view)
         : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
       if (stamp) homeCache.observe(stamp, response, null);
@@ -1046,6 +1046,52 @@
     return {recordings: rows, totalCount: total};
   }
 
+  // The compact page already contains the effective card facts. Keep the
+  // old query only for explicitly older servers; do not hide access errors.
+  async function fetchPublicHomeNew(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = query.backend;
+    const offset = Number(query.offset || 0);
+    const limit = Number(query.limit);
+    let payload;
+    try {
+      payload = await requestJson('/api/v1/recordings', {
+        query: {backendId, view: 'new', limit, offset},
+        credentials: input.credentials || 'same-origin',
+        cache: input.cache || 'no-store', signal: input.signal
+      });
+    } catch (error) {
+      if (error.status === 404 || error.status === 501)
+        return fetchClientRecordings(input);
+      throw error;
+    }
+    const page = payload && payload.page;
+    const items = payload && payload.items;
+    if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+        page.offset !== offset || page.limit !== limit ||
+        !Number.isSafeInteger(page.totalCount) || page.totalCount < 0 ||
+        items.length > limit ||
+        (offset > page.totalCount ? items.length !== 0 : offset + items.length > page.totalCount) ||
+        page.hasMore !== (offset + items.length < page.totalCount) ||
+        (page.hasMore && items.length !== limit))
+      throw new Error('Unvollständige Seite neu aufgenommener Inhalte.');
+    if (payload.meta.cardPresentation === undefined) return fetchClientRecordings(input);
+    if (payload.meta.cardPresentation !== true) throw new Error('Ungültige Kartenprojektion.');
+    const ids = new Set();
+    for (const item of items) {
+      if (!item || item.kind !== 'recording' || item.backendId !== backendId ||
+          !/^rec_[0-9a-f]{32}$/.test(item.recordingId) ||
+          typeof item.recordedAt !== 'string' || typeof item.title !== 'string' ||
+          item.backendNativeId !== undefined || item.path !== undefined ||
+          ids.has(item.recordingId))
+        throw new Error('Uneinheitliche Seite neu aufgenommener Inhalte.');
+      ids.add(item.recordingId);
+    }
+    if (typeof input.onPage === 'function') input.onPage(payload);
+    return {recordings: items, totalCount: page.totalCount, publicView: 'new'};
+  }
+
   function fetchClientRecordingCacheStatus(options) {
     return requestJson('/api/vdr/recordings/cache/status', backendQueryOptions(options));
   }
@@ -1346,6 +1392,7 @@
     fetchClientRecordingTrailer: fetchClientRecordingTrailer,
     fetchClientRecordings: fetchClientRecordings,
     fetchPublicHomeMovies: fetchPublicHomeMovies,
+    fetchPublicHomeNew: fetchPublicHomeNew,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
     fetchPublicRecordingAction: fetchPublicRecordingAction,

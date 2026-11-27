@@ -5153,6 +5153,16 @@ ApiResponse publicRecordingBrowseResponse(
             if (!item.preferredArtworkId.empty())
                 body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
             appendPublicRecordingCard(body, item.card);
+            if (!item.seriesCoverGroupKeys.empty())
+            {
+                body += ",\"seriesCoverGroupKeys\":[";
+                for (std::size_t i = 0; i < item.seriesCoverGroupKeys.size(); ++i)
+                {
+                    if (i) body += ",";
+                    body += "\"" + jsonEscape(item.seriesCoverGroupKeys[i]) + "\"";
+                }
+                body += "]";
+            }
         }
         body += "}";
     }
@@ -5160,7 +5170,9 @@ ApiResponse publicRecordingBrowseResponse(
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalEntries) +
         ",\"hasMore\":" + (page.hasMore ? "true" : "false") +
-        "},\"meta\":{\"partial\":false}}";
+        "},\"meta\":{\"partial\":false";
+    if (query.homeView == "new") body += ",\"cardPresentation\":true";
+    body += "}}";
     return jsonResponse(body, requestId, correlationId);
 }
 

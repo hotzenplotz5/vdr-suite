@@ -23733,6 +23733,7 @@
           "subtitle": {"type": "string"},
               "releaseDate": {"type": "string", "description": "Effective release date for view=movies, including the existing locked manual assignment."},
               "preferredArtworkId": {"type": "string", "pattern": "^[0-9a-f]{32}$", "description": "Optional existing opaque preferred artwork identity for Home cards."},
+              "seriesCoverGroupKeys": {"type": "array", "description": "Opaque aliases for existing saved Home Series covers, in their established lookup order.", "items": {"type": "string", "pattern": "^sg1_[0-9a-f]{32}$"}},
               "cardMetadata": {"$ref": "#/components/schemas/PublicGenreRecordingItem/properties/cardMetadata"},
               "seriesGrouping": {"$ref": "#/components/schemas/PublicGenreRecordingItem/properties/seriesGrouping"},
               "seriesHierarchyOverride": {"$ref": "#/components/schemas/PublicGenreRecordingItem/properties/seriesHierarchyOverride"},
@@ -23769,7 +23770,7 @@
             "$ref": "#/components/schemas/PublicOffsetPage"
           },
           "meta": {
-            "$ref": "#/components/schemas/PublicNonpartialMeta"
+            "allOf": [{"$ref": "#/components/schemas/PublicNonpartialMeta"}, {"type": "object", "properties": {"cardPresentation": {"type": "boolean", "const": true, "description": "Compact new-recording card projection is supported by this server."}}}]
           }
         }
       },

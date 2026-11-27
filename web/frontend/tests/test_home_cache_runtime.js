@@ -26,8 +26,8 @@ function response(scope, backend='alpha', domain='recordings') {
   const headers = new Map([['X-VDR-Suite-Home-Backend',backend],[domain==='history'?'X-VDR-Suite-Home-History-Scope':'X-VDR-Suite-Home-Recording-Scope',scope]]);
   return {ok:true, headers};
 }
-function observe(r, path, partition=scopeA, reply=response(partition), payload={}) {
-  const stamp = r.requestStamp(path,'alpha');
+function observe(r, path, partition=scopeA, reply=response(partition), payload={}, view) {
+  const stamp = r.requestStamp(path,'alpha',view);
   r.observe(stamp,reply,payload);
   return payload;
 }
@@ -131,7 +131,7 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
     labelDe:'Genre '+i, labelEn:'Genre '+i, known:true, count:i+1,
     activeCount:i+1, staleCount:0, conflictCount:0, displayOrder:30-i
   }));
-  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:(url,options)=>{
+  const genreFetch=(url,options)=>{
     requests.push(url);
     const parsed=new URL(url,'https://example.test');
     assert.equal(parsed.pathname,'/api/v1/genres');
@@ -150,7 +150,8 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
         page:{limit:30,offset,totalCount:31,hasMore:offset+items.length<31},meta:{partial:false}}));
     }
     return Promise.resolve(reply);
-  }});
+  };
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:genreFetch});
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
   const options={backendId:'alpha',locale:'de',onPage:page=>assert(genreTicket.accept(page))};
   const overview=await window.VdrSuiteClientApi.fetchClientGenres({...options,scope:'recordings'});
@@ -174,7 +175,7 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   const movieRuntime=create();
   const movieTicket=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
   const movieRoute='/api/v1/recordings';
-  assert(movieTicket.accept(observe(movieRuntime,movieRoute)));
+  assert(movieTicket.accept(observe(movieRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
   const movieArtwork='/api/v1/recordings/rec_'+'a'.repeat(32)+'/artwork/'+'b'.repeat(32)+'?backendId=alpha';
   const movieCards=[{id:'movie',title:'Movie',posterUrl:movieArtwork},
     {id:'foreign',title:'Foreign',posterUrl:movieArtwork.replace('alpha','beta')},
@@ -184,9 +185,31 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert.equal(movieDisk.items[0].posterUrl,movieArtwork);
   assert(movieDisk.items.slice(1).every(item=>!item.posterUrl));
   const movieMixed=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
-  assert(movieMixed.accept(observe(movieRuntime,movieRoute)));
+  assert(movieMixed.accept(observe(movieRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
   assert(!movieMixed.accept(observe(movieRuntime,pathA)));
   assert.equal(await movieMixed.finish(movieCards),false);
+  const newRuntime=create();
+  const newTicket=newRuntime.begin('newly-recorded','alpha','Neu',()=>true,false);
+  window.VdrSuiteHomeCache=newRuntime;
+  const newRows=[{kind:'recording', recordingId:'rec_'+'a'.repeat(32), backendId:'alpha', title:'New', recordedAt:'2026-11-27'}];
+  const newReply=response(scopeA);
+  newReply.text=()=>Promise.resolve(JSON.stringify({items:newRows,page:{limit:12,offset:0,totalCount:1,hasMore:false},meta:{partial:false,cardPresentation:true}}));
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:url=>{
+    assert(url.includes('view=new')); return Promise.resolve(newReply);
+  }});
+  let rawNew;
+  const newPage=await window.VdrSuiteClientApi.fetchPublicHomeNew({query:{backend:'alpha',limit:12,offset:0},onPage:page=>{rawNew=page;}});
+  assert.equal(newPage.publicView,'new');
+  assert(newTicket.accept(rawNew));
+  assert(await newTicket.finish(movieCards));
+  const wrongMovie=newRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  assert(!wrongMovie.accept(rawNew));
+  assert.equal(await wrongMovie.finish(movieCards),false);
+  const wrongNew=newRuntime.begin('newly-recorded','alpha','Neu',()=>true,false);
+  assert(!wrongNew.accept(observe(newRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
+  assert.equal(await wrongNew.finish(movieCards),false);
+  window.VdrSuiteHomeCache=genreRuntime;
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:genreFetch});
   const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
   failSecond=true;
   const beforeDenied=requests.length;

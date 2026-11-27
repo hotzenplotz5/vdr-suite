@@ -229,8 +229,8 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
     } else if (request.method == "GET" && at != std::string::npos &&
                (path == "/api/v1/genres" || path == "/api/v1/recordings")) {
         const auto raw = request.path.substr(at + 1);
-        if (path == "/api/v1/recordings" &&
-            RestQueryParameters::parse(raw).get("view") != "movies") return;
+        const auto view = RestQueryParameters::parse(raw).get("view");
+        if (path == "/api/v1/recordings" && view != "movies" && view != "new") return;
         // Reuse the authenticated Public-v1 scope; this decorates the response
         // only, without changing route admission or the returned projection.
         backend = canonicalHomeCacheBackend(raw, true);

@@ -664,13 +664,27 @@
         const rich = card.__vdrSuiteRichMetadata || null;
         const before = seriesMemberProjection(recording, null, id);
         const enriched = seriesMemberProjection(recording, rich, id);
-        if ([before.seriesKey, enriched.seriesKey].some(key =>
-            key === seriesKey || key === displayKey))
+        const cover = isPublicHomeRecording(recording) ? publicNewlyCover(recording, id) : null;
+        if ([before.seriesKey, enriched.seriesKey].concat(recording.seriesCoverGroupKeys || []).some(key =>
+            key === seriesKey || key === displayKey) || (cover && cover.seriesKey === seriesKey))
           updateNewlyRecordedTile(recording, id, rich);
       });
 
       return snapshot;
     });
+  }
+
+  function publicNewlyCover(recording, backendId) {
+    const aliases = Array.isArray(recording && recording.seriesCoverGroupKeys)
+      ? recording.seriesCoverGroupKeys : [];
+    const grouping = recording && recording.seriesGrouping;
+    const keys = aliases.concat(text(grouping && grouping.groupKey));
+    for (const key of keys) {
+      if (!/^sg1_[0-9a-f]{32}$/.test(key)) continue;
+      const cover = seriesCoverOverride({key: key}, backendId);
+      if (cover) return cover;
+    }
+    return null;
   }
 
   function recordingMetadataProjection(recording, richMetadata, backendId, useSeriesCover) {
@@ -699,7 +713,7 @@
       // metadata arrived after the first visible Home render.
       const initialMember = seriesMemberProjection(recording, null, backendId);
       const enrichedMember = seriesMemberProjection(recording, rich, backendId);
-      const override =
+      const override = publicRecording ? publicNewlyCover(recording, backendId) :
         seriesCoverOverride({key: initialMember.seriesKey}, backendId) ||
         seriesCoverOverride({key: enrichedMember.seriesKey}, backendId);
       // A persisted Series cover is the explicit presentation choice for
@@ -5060,6 +5074,34 @@
     return cards;
   }
 
+  function fetchNewlyPage(client, backendId, cache) {
+    let observed = false;
+    const options = {
+      query: {backend: backendId, sort: 'startTime', order: 'desc', limit: NEW_LIMIT, offset: 0},
+      cache: 'no-store', credentials: 'same-origin',
+      onPage: function (payload) { observed = true; if (cache) cache.accept(payload); }
+    };
+    const fetch = typeof client.fetchPublicHomeNew === 'function'
+      ? client.fetchPublicHomeNew : client.fetchClientRecordings;
+    return Promise.resolve(fetch.call(client, options)).then(function (payload) {
+      if (cache && !observed) cache.accept(payload);
+      return payload;
+    });
+  }
+
+  function updatePublicNewlyCovers(client, backendId, generation) {
+    return loadSeriesCoverSettings(client, backendId, generation).then(function () {
+      if (!current(generation, backendId)) return false;
+      const rail = newlyRecordingRail();
+      Array.from(rail && rail.children || []).forEach(function (card) {
+        const recording = card && card.__vdrSuiteRecording;
+        if (isPublicHomeRecording(recording) && publicNewlyCover(recording, backendId))
+          updateNewlyRecordedTile(recording, backendId, null);
+      });
+      return true;
+    }).catch(function () { return false; });
+  }
+
   function loadNewly(client, backendId, generation, options) {
     const config = options && typeof options === 'object' ? options : {};
     const retainVisible = config.retainVisible === true &&
@@ -5068,20 +5110,20 @@
       renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     }
     const cache = beginCachedRail('newly-recorded', 'Neu aufgenommen', backendId, generation);
-    return Promise.resolve(client.fetchClientRecordings({
-      query: {
-        backend: backendId,
-        sort: 'startTime',
-        order: 'desc',
-        limit: NEW_LIMIT,
-        offset: 0
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (payload) {
-      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
+    const revision = recordingRefreshRevision;
+    return fetchNewlyPage(client, backendId, cache).then(function (payload) {
+      if (!current(generation, backendId) ||
+          (payload.publicView === 'new' && revision !== recordingRefreshRevision)) {
+        if (cache) cache.cancel(); return false;
+      }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
-      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
+      newlyPublicBackend = payload.publicView === 'new' ? backendId : '';
+      if (cache) cache.finish(cachedRecordingCards(recordings));
+      if (payload.publicView === 'new') {
+        const rendered = renderRecordingRail('newly-recorded', 'Neu aufgenommen', recordings, backendId);
+        if (recordings.length) updatePublicNewlyCovers(client, backendId, generation);
+        return rendered;
+      }
       const richMetadata = new Map();
       const initialRevisions = new Map();
       recordings.forEach(function (recording) {
@@ -5728,6 +5770,7 @@
   let recordingSource = null;
   let recordingSequence = 0;
   let recordingConnectionSequence = 0;
+  let newlyPublicBackend = '';
   let recordingRefreshPending = false;
   let recordingRefreshScheduled = false;
   let recordingRefreshRevision = 0;
@@ -5832,16 +5875,17 @@
     const cacheOwner = global.VdrSuiteHomeCache;
     const cache = cacheOwner ? cacheOwner.begin('newly-recorded', backendId, 'Neu aufgenommen',
       function () { return current(generation, backendId) && revision === recordingRefreshRevision; }, false) : null;
-    return Promise.resolve(client.fetchClientRecordings({
-      query: {backend: backendId, sort: 'startTime', order: 'desc',
-        limit: NEW_LIMIT, offset: 0},
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (payload) {
+    return fetchNewlyPage(client, backendId, cache).then(function (payload) {
       if (!current(generation, backendId) ||
           revision !== recordingRefreshRevision) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
-      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
+      newlyPublicBackend = payload.publicView === 'new' ? backendId : '';
+      if (cache) cache.finish(cachedRecordingCards(recordings));
+      if (payload.publicView === 'new') {
+        const rendered = renderRecordingRail('newly-recorded', 'Neu aufgenommen', recordings, backendId);
+        if (recordings.length) updatePublicNewlyCovers(client, backendId, generation);
+        return rendered;
+      }
       const rail = newlyRecordingRail();
       if (!rail) return renderRecordingRail(
         'newly-recorded', 'Neu aufgenommen', recordings, backendId
@@ -5932,7 +5976,11 @@
             return typeof value === 'string' && value.length > 0;
           })
         : [];
-      if (!ids.length) {
+      // A public page has no native identities. Reconcile its one canonical
+      // window on each coalesced recording event, including insert/delete;
+      // the existing DOM owner preserves every unaffected card and image.
+      if (!ids.length || newlyPublicBackend === selectedBackendId() ||
+          (typeof client.fetchPublicHomeNew === 'function' && !newlyRecordingRail())) {
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();
       }

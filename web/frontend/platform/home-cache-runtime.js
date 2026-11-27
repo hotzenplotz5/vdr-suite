@@ -10,7 +10,7 @@
     'continue-watching': '/api/media/continue-watching'
   });
   const PUBLIC_GENRE_ROUTE = '/api/v1/genres';
-  const PUBLIC_MOVIE_ROUTE = '/api/v1/recordings';
+  const PUBLIC_RECORDING_ROUTE = '/api/v1/recordings';
   const ALL_RAILS = Object.keys(RAIL_ROUTES);
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
@@ -187,11 +187,12 @@
       return () => active() && generation === local && prefetchEpoch === localPrefetch &&
         version(rail) === railVersion && backend === requestedBackend && partition === scope;
     }
-    function requestStamp(path, requestedBackend) {
+    function requestStamp(path, requestedBackend, view) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
-      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_MOVIE_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
-      return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
+      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_RECORDING_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
+      if (path === PUBLIC_RECORDING_ROUTE && view !== 'new' && view !== 'movies') return null;
+      return {path, view, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
         versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
     }
     function observe(stamp, response, payload) {
@@ -310,7 +311,9 @@
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
         const route = observed && observed.stamp.path;
         const matchesRoute = route === RAIL_ROUTES[rail] || (rail === 'genres' && route === PUBLIC_GENRE_ROUTE) ||
-          (rail === 'recent-movies' && route === PUBLIC_MOVIE_ROUTE);
+          (route === PUBLIC_RECORDING_ROUTE &&
+            ((rail === 'recent-movies' && observed.stamp.view === 'movies') ||
+             (rail === 'newly-recorded' && observed.stamp.view === 'new')));
         if ((folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
             payload.offset !== 0 || payload.cacheReady !== true)) ||
             !live() || !observed || observed.stamp.generation !== local || !matchesRoute || (acceptedRoute && route !== acceptedRoute) ||

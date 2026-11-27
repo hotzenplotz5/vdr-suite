@@ -393,6 +393,7 @@ struct PublicRecordingCollectionItem
     std::string releaseDate = {};
     std::string preferredArtworkId = {};
     PublicRecordingCardPresentation card = {};
+    std::vector<std::string> seriesCoverGroupKeys = {};
 };
 
 struct PublicRecordingFolderItem

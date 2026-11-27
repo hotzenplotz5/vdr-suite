@@ -3539,8 +3539,9 @@ bool DaemonRuntime::initialize()
                     std::vector<std::string> nativeIds;
                     for (const auto& row : page.items)
                         nativeIds.push_back(row.recording.backendNativeId);
-                    GenreBrowserApiRuntime::instance().recordingCards(
-                        request.backendId, nativeIds, cardPage);
+                    if (!GenreBrowserApiRuntime::instance().recordingCards(
+                            request.backendId, nativeIds, cardPage) ||
+                        cardPage.recordings.size() != page.items.size()) return result;
                 }
                 PublicRecordingCollectionProjection projection(*publicRecordingIdentities_);
                 for (const auto& row : page.items)
@@ -3572,6 +3573,17 @@ bool DaemonRuntime::initialize()
                             card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(request.backendId, seed);
                             card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
                                 request.backendId, row.recording);
+                            const auto addCoverKey = [&](const std::string& legacy) {
+                                const auto key = PublicSeriesGroupKey::fromLegacy(request.backendId, legacy);
+                                if (!key.empty() && std::find(entry.seriesCoverGroupKeys.begin(),
+                                    entry.seriesCoverGroupKeys.end(), key) == entry.seriesCoverGroupKeys.end())
+                                    entry.seriesCoverGroupKeys.push_back(key);
+                            };
+                            const auto& providerId = row.recording.metadata.provider.seriesId;
+                            if (!providerId.empty()) addCoverKey("provider:" + providerId);
+                            addCoverKey(seed);
+                            if (!summary->seriesProvider.empty() && summary->seriesProviderId != 0)
+                                addCoverKey("native:" + summary->seriesProvider + ":" + std::to_string(summary->seriesProviderId));
                         }
                         if (!(manual.found && manual.relationshipLocked) && !summary->cardArtworkPath.empty())
                         {
