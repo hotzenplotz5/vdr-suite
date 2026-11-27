@@ -19,9 +19,14 @@
     let currentMode = 'carousel';
     try { currentMode = mode(storage.getItem(storageKey)); } catch (_) {}
     const state = {mode:currentMode, entries:[], selected:0, full:false, rotation:0, zoom:1, info:false};
+    let photos = [], positions = new Map();
     function resetPhoto() { state.rotation = 0; state.zoom = 1; state.info = false; }
     function setEntries(entries, selection) {
       state.entries = entries.slice();
+      photos = []; positions = new Map();
+      state.entries.forEach((entry,index) => {
+        if (!entry.directory) { positions.set(index,photos.length); photos.push(index); }
+      });
       state.selected = clamp(selection || 0, entries.length);
       state.full = false;
       resetPhoto();
@@ -42,9 +47,8 @@
     }
     function stepPhoto(delta, repeat) {
       if (!state.full || !delta) return false;
-      const photos = state.entries.map((entry, i) => entry.directory ? -1 : i).filter(i => i >= 0);
-      const at = photos.indexOf(state.selected);
-      if (at < 0) return false;
+      const at = positions.get(state.selected);
+      if (at === undefined) return false;
       let next = at + (delta < 0 ? -1 : 1);
       if (repeat) next = (next + photos.length) % photos.length;
       if (next < 0 || next >= photos.length) return false;
@@ -66,6 +70,9 @@
       .image-gallery{grid-column:1/-1;width:100%;min-width:0;background:#090a0c;color:#f5f5f5;padding:1rem;box-sizing:border-box}
       .image-gallery-bar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
       .image-gallery-bar span{flex:1;min-width:8rem}
+      .image-gallery-pages{display:flex;align-items:center;justify-content:center;gap:1rem;padding:.7rem}
+      .image-gallery-pages button{padding:.45rem .8rem}
+      .image-gallery-pages button:disabled{opacity:.45;cursor:default}
       .image-gallery button{font:inherit;color:inherit;background:#202124;border:1px solid #43464b;border-radius:.45rem;cursor:pointer}
       .image-gallery-bar button,.image-gallery-full-controls button{padding:.55rem .8rem}
       .image-gallery button:focus-visible,.image-gallery-tile.is-selected{outline:3px solid #40e2f1;outline-offset:2px}
@@ -103,9 +110,9 @@
     try { preferences = JSON.parse(global.localStorage.getItem('vdr-suite.image-gallery.slideshow') || '{}') || {}; } catch (_) {}
     const interval = Math.max(1000, Math.min(60000, Number(settings.intervalMs || preferences.intervalMs) || 5000));
     const repeat = settings.repeat === undefined ? preferences.repeat === true : settings.repeat === true;
-    let bar, gallery, message, more, fullImage, fullInfo, slideButton, fullPath, preload;
+    let bar, gallery, message, pages, previousPage, nextPage, pageInfo, fullImage, fullInfo, slideButton, fullPath, preload;
     let renderedEntries, renderedMode, renderedStatus, renderedDirectory, renderedSource;
-    let gridLimit = 80;
+    const gridPageSize = 80; // divisible by both TV (4) and mobile (2) columns
     const tiles = new Map();
     installStyles(doc);
 
@@ -298,9 +305,8 @@
     function updateTiles(focus) {
       if (!gallery || status) return;
       const carousel = s.mode === 'carousel';
-      if (!carousel && s.selected >= gridLimit) gridLimit = Math.ceil((s.selected+1)/80)*80;
-      const first = carousel ? Math.max(0,s.selected-3) : 0;
-      const last = Math.min(s.entries.length,carousel ? s.selected+4 : gridLimit);
+      const first = carousel ? Math.max(0,s.selected-3) : Math.floor(s.selected/gridPageSize)*gridPageSize;
+      const last = Math.min(s.entries.length,carousel ? s.selected+4 : first+gridPageSize);
       for (const [i,el] of tiles) {
         if (i < first || i >= last) { el.remove(); tiles.delete(i); }
       }
@@ -323,7 +329,10 @@
           el.setAttribute('aria-hidden',Math.abs(delta)>2?'true':'false');
         }
       }
-      more.hidden=carousel || last>=s.entries.length;
+      pages.hidden=carousel || s.entries.length<=gridPageSize;
+      previousPage.disabled=first===0;
+      nextPage.disabled=last>=s.entries.length;
+      pageInfo.textContent=(first+1)+'–'+last+' / '+s.entries.length;
       if (focus && !s.full && tiles.has(s.selected)) tiles.get(s.selected).focus();
     }
     function render(focus) {
@@ -333,16 +342,21 @@
         bar=node('div','image-gallery-bar');
         message=node('p');
         gallery=node('div');
-        more=button(settings.locale==='en'?'More pictures':'Weitere Bilder',()=>{
-          gridLimit+=80;updateTiles(false);
+        pages=node('div','image-gallery-pages');
+        previousPage=button(settings.locale==='en'?'Previous pictures':'Vorherige Bilder',()=>{
+          nav.move(-gridPageSize);updateTiles(true);
         });
-        root.append(bar,message,gallery,more);
+        nextPage=button(settings.locale==='en'?'More pictures':'Weitere Bilder',()=>{
+          nav.move(gridPageSize);updateTiles(true);
+        });
+        pageInfo=node('span');
+        pages.append(previousPage,pageInfo,nextPage);
+        root.append(bar,message,gallery,pages);
         swipe(gallery,delta=>{if(s.mode==='carousel'&&!status){nav.move(delta);updateTiles(true);}});
         target.appendChild(root);
       }
       if (renderedEntries!==s.entries || renderedMode!==s.mode || renderedStatus!==status ||
           renderedDirectory!==directory || renderedSource!==source) {
-        if (renderedEntries!==s.entries) gridLimit=80;
         renderedEntries=s.entries;renderedMode=s.mode;renderedStatus=status;
         renderedDirectory=directory;renderedSource=source;
         bar.replaceChildren();
@@ -354,7 +368,7 @@
         message.hidden=!message.textContent;
         gallery.replaceChildren();tiles.clear();
         gallery.className=s.mode==='carousel'?'image-gallery-carousel':'image-gallery-grid';
-        gallery.hidden=!!status;more.hidden=true;
+        gallery.hidden=!!status;pages.hidden=true;
       }
       updateTiles(focus);
       renderFull(focus);
@@ -372,7 +386,8 @@
       else if (k === '1' && !s.full) { nav.toggleMode(); render(true); }
       else if (s.full && (k === 'ArrowLeft' || k === 'ArrowRight')) step(k === 'ArrowLeft' ? -1 : 1,false);
       else if (s.full && (k === 'Info' || k === 'i')) { s.info=!s.info;renderFull(false); }
-      else if (s.full && (k === 'MediaPlayPause' || k === 'p')) toggleSlide();
+      else if (s.full && (k === 'MediaPlayPause' || k === 'p' || k === 'ColorF1Green')) toggleSlide();
+      else if (!s.full && source && !status && k === 'ColorF1Green') toggleSlide();
       else if (!s.full && event.target.dataset.index !== undefined &&
           ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k)) {
         const cols = root.clientWidth <= 700 ? 2 : 4;
