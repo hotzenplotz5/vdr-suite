@@ -228,6 +228,43 @@ function clientFor(requests, resolver) {
   assert.strictEqual(posterSelected.result.skipped, 1,
     'existing selected artwork must not be lost');
 
+  const publicId = 'rec_0123456789abcdef0123456789abcdef';
+  const publicMember = Object.assign({}, raw04, {
+    recording: {recordingId: publicId, backendId: 'default'}
+  });
+  async function repairPublic(existing) {
+    const calls = [];
+    const client = {
+      requestJson(route, options) {
+        const body = options.body ? JSON.parse(options.body) : {};
+        calls.push({route, body});
+        if (route === '/api/v1/backends/default/metadata/resolve')
+          return Promise.resolve(resolver(body));
+        if (route === '/api/v1/backends/default/recordings/metadata/manual?recordingId=' + publicId)
+          return Promise.resolve(existing);
+        if (route === '/api/v1/backends/default/recordings/metadata/assign') {
+          assert.strictEqual(body.recordingId, publicId);
+          assert.strictEqual(body.resourceKey, undefined);
+          return Promise.resolve({found: true, revision: 1});
+        }
+        throw Error('Unexpected private metadata request: ' + route);
+      }
+    };
+    const result = await api.backfillSeriesEpisodeMetadata({title, episodes:[publicMember]}, 'default', client);
+    return {result, calls};
+  }
+  const publicRepair = await repairPublic({recordingId: publicId, backendId:'default',found:false});
+  assert.strictEqual(publicRepair.result.updated, 1);
+  assert.strictEqual(publicRepair.calls.length, 3);
+  const wrongScope = await repairPublic({recordingId: publicId, backendId:'other',found:false});
+  assert.strictEqual(wrongScope.result.skipped, 1);
+  assert.strictEqual(wrongScope.calls.length, 2);
+  const foreignPublic = await repairPublic({recordingId: publicId, backendId:'default',found:true,
+    providerId:'tmdb', externalNamespace:'tv-episode',externalId:'foreign',mediaType:'episode',
+    seasonNumber:2,episodeNumber:4,revision:3});
+  assert.strictEqual(foreignPublic.result.skipped, 1);
+  assert.strictEqual(foreignPublic.calls.length, 2);
+
   let untouched = 0;
   const empty = await api.backfillSeriesEpisodeMetadata({
     title, episodes: [complete, raw11]
