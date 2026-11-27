@@ -1110,12 +1110,17 @@
     const offset = paging.offset;
     const publicId = /^fld1_[0-9a-f]{32}$/.test(paging.path) ? paging.path : '';
     const fetch = publicId ? paging.client.fetchPublicRecordingFolder : paging.client.fetchClientRecordingFolder;
+    let observedPage = false;
     return Promise.resolve(fetch.call(paging.client, {
       backendId: paging.backendId,
       query: publicId ? {folderId: publicId, limit: limit, offset: offset}
         : {path: paging.path, limit: limit, offset: offset, homeCards: 1},
       cache: 'no-store',
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      onPage: function (page) {
+        observedPage = true;
+        if (offset === 0 && paging.ticket) paging.ticket.accept(page);
+      }
     })).then(function (payload) {
       if (!folderPageCurrent(paging)) return null;
       if (payload && payload.recordingFolder === true && payload.homeCardPage !== true && payload.publicFolder !== true && offset === 0)
@@ -1125,7 +1130,7 @@
           Number(payload.returnedCards) !== returned || returned > limit ||
           typeof payload.hasMore !== 'boolean' || (!returned && payload.hasMore))
         throw new Error('invalid Home folder card page');
-      if (offset === 0 && paging.ticket) paging.ticket.accept(payload);
+      if (offset === 0 && paging.ticket && !observedPage) paging.ticket.accept(payload);
       const projected = projectFolderEntries(payload, paging.backendId);
       return {folders: projected.folders,
         recordings: projected.recordings.concat(canonicalRecordings(payload, paging.backendId)),
