@@ -111,7 +111,10 @@ or introduce a second identity or metadata database.
 A selected manual metadata assignment already owns Suite opaque `mdent_`,
 `mdasg_`, and `mdtgt_` identities with a revision. The M1 detail read uses
 `MetadataRepository::getManualRecordingMetadataReadOnly`, which does not create
-metadata schemas or materialize portraits. It requires an active backend-target
+metadata schemas or materialize portraits. It also reads already persisted
+local person-profile references for the selected cast through the same
+profile owner as Web, scoped to that assignment, without writes or provider
+requests. It requires an active backend-target
 binding, selected locked relationship, valid IDs and positive revision. Manual
 selection wins over automatically scraped provider fields, but does not rewrite
 the public Recording title or native EPG fields. The HTTP metadata object

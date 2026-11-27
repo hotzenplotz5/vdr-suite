@@ -288,6 +288,30 @@ int main()
     assert(scalar(database.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
 
+
+    // Public detail and artwork GET must see the exact persisted profile
+    // used by Web, without initializing schema or materializing an image.
+    assert(database.execute(
+        "INSERT INTO suite_metadata_person_profiles "
+        "(provider_id,external_namespace,external_id,profile_reference,local_path) VALUES "
+        "('tmdb','person','31','cached-profile',"
+        "'/var/cache/vdr-suite/recording-metadata/posters/person31.jpg');"));
+    const int changesBefore = sqlite3_total_changes(database.handle());
+    assert(database.execute("PRAGMA query_only=ON;"));
+    const auto readOnly = repository.getManualRecordingMetadataReadOnly(
+        "default", "/video/other.rec");
+    assert(readOnly.found && readOnly.people.size() == 1U);
+    assert(readOnly.people[0].name == "Tom Hanks");
+    assert(readOnly.people[0].profileReference == "cached-profile");
+    assert(readOnly.people[0].profilePath ==
+        "/var/cache/vdr-suite/recording-metadata/posters/person31.jpg");
+    assert(!repository.getManualRecordingMetadataReadOnly(
+        "default", "/video/example.rec").found);
+    assert(!repository.getManualRecordingMetadataReadOnly(
+        "other", "/video/other.rec").found);
+    assert(sqlite3_total_changes(database.handle()) == changesBefore);
+    assert(database.execute("PRAGMA query_only=OFF;"));
+
     Database recovered;
     assert(recovered.open(":memory:"));
     sqlite3_backup* recovery =
