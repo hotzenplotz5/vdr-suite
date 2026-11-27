@@ -117,10 +117,15 @@ int main()
             assert(owner.backendNativeId == "b");
             assert(source.index == 3 && source.assignmentRevision == 7);
             return std::string("0123456789abcdef0123456789abcdef");
+        },
+        [](const VdrRecording& owner, const GlobalSearchRecording& hit) {
+            assert(owner.backendNativeId == hit.backendNativeId);
+            return std::string("abcdef0123456789abcdef0123456789");
         });
     assert(portraitPage.items.size() == 3U && portraitLookups == 1);
     for (const auto& item : portraitPage.items)
     {
+        assert(item.preferredArtworkId == "abcdef0123456789abcdef0123456789");
         assert(item.personPortraitRecordingId == SecondId);
         assert(item.personPortraitArtworkId == "0123456789abcdef0123456789abcdef");
     }

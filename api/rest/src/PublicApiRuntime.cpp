@@ -8322,6 +8322,8 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                 "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
                 "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +
                 "\",\"personKey\":\"" + jsonEscape(item.personKey) + "\"";
+            if (!request.epg && !item.preferredArtworkId.empty())
+                body += ",\"preferredArtworkId\":\"" + jsonEscape(item.preferredArtworkId) + "\"";
             if (!request.epg && !item.personPortraitRecordingId.empty() &&
                 !item.personPortraitArtworkId.empty())
                 body += ",\"personPortrait\":{\"recordingId\":\"" +

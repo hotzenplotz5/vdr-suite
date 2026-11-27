@@ -3305,6 +3305,13 @@ bool DaemonRuntime::initialize()
                     return VdrRecordingFolderController::publicManualPortraitArtworkId(
                         recording, portrait.index, portrait.assignmentRevision,
                         portrait.localPath);
+                },
+                [](const VdrRecording& recording,
+                   const GlobalSearchRecording& hit) {
+                    return VdrRecordingFolderController::publicSearchPreferredArtworkId(
+                        recording, hit.preferredArtworkPath,
+                        hit.preferredArtworkWidth, hit.preferredArtworkHeight,
+                        hit.manualArtworkSelected, hit.preferredArtworkManualRevision);
                 });
 
             const std::size_t original = request.epg

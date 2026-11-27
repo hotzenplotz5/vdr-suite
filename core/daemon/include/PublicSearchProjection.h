@@ -22,6 +22,8 @@ using RecordingIdLookup = std::function<std::optional<std::string>(
     const std::string&, const std::string&)>;
 using PortraitArtworkIdLookup = std::function<std::string(
     const VdrRecording&, const GlobalSearchPersonPortrait&)>;
+using PreferredArtworkIdLookup = std::function<std::string(
+    const VdrRecording&, const GlobalSearchRecording&)>;
 
 inline bool validRecordingId(const std::string& id)
 {
@@ -38,7 +40,8 @@ inline PublicSearchResult project(
     const GlobalSearchResult& searched,
     const std::vector<VdrRecording>& currentRecordings,
     const RecordingIdLookup& recordingIdLookup,
-    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {})
+    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {},
+    const PreferredArtworkIdLookup& preferredArtworkIdLookup = {})
 {
     PublicSearchResult result;
     const std::size_t pageCount =
@@ -119,6 +122,15 @@ inline PublicSearchResult project(
             item.matchedRole = recording.matchedRole;
             item.matchReason = recording.matchReason;
             item.personKey = recording.personKey;
+            if (preferredArtworkIdLookup)
+            {
+                const auto id = preferredArtworkIdLookup(*live, recording);
+                if (id.size() == 32U && std::all_of(id.begin(), id.end(),
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+                    }))
+                    item.preferredArtworkId = id;
+            }
             result.items.push_back(std::move(item));
         }
     }

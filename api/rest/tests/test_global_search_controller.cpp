@@ -18,13 +18,13 @@ void createSchemas(Database& database)
 {
     assert(database.execute(
         "CREATE TABLE vdr_recording_cache(backend_id TEXT,cache_key TEXT,recording_id TEXT,backend_native_id TEXT,title TEXT,path TEXT,start_time TEXT,duration_seconds INTEGER,size_mb INTEGER,metadata_payload TEXT,PRIMARY KEY(backend_id,cache_key));"
-        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,title TEXT,original_title TEXT,episode_name TEXT,preferred_artwork_path TEXT,PRIMARY KEY(backend_id,recording_key));"
+        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,title TEXT,original_title TEXT,episode_name TEXT,preferred_artwork_path TEXT,preferred_artwork_width INTEGER DEFAULT 0,preferred_artwork_height INTEGER DEFAULT 0,PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_person(backend_id TEXT,recording_key TEXT,ordinal INTEGER,role TEXT,name TEXT,name_folded TEXT,normalized_name TEXT,character_name TEXT,character_name_folded TEXT,PRIMARY KEY(backend_id,recording_key,ordinal));"
         "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_scraper_metadata_cache(backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "INSERT INTO vdr_recording_cache VALUES('default','r1','id-1','native-1','Pulp Fiction','Filme/Pulp','1785000000',9000,2048,'');"
-        "INSERT INTO vdr_recording_native_metadata VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','','/var/cache/vdr-suite/recording-metadata/posters/pulp.jpg');"
+        "INSERT INTO vdr_recording_native_metadata(backend_id,recording_key,backend_native_id,content_state,title,original_title,episode_name,preferred_artwork_path) VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','','/var/cache/vdr-suite/recording-metadata/posters/pulp.jpg');"
         "INSERT INTO vdr_recording_native_person VALUES('default','rk1',0,'actor','John Travolta','john travolta','john travolta','','');"
         "INSERT INTO epg_events VALUES('default','c1','e1','Pulp Fiction','','','1785100000','1785109000',9000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','c1','e1','{\"available\":true,\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"\"}]}',1780000000);"));

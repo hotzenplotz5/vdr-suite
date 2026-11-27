@@ -131,6 +131,9 @@ public:
         const VdrRecordingNativeMetadataRecord& native);
     // Search uses the same selected manual-portrait identity as detail and
     // the binary reader, with the persisted cast ordinal and revision.
+    static std::string publicSearchPreferredArtworkId(
+        const VdrRecording& recording, const std::string& localPath,
+        int width, int height, bool manualSelected, int manualRevision);
     static std::string publicManualPortraitArtworkId(
         const VdrRecording& recording, int index, int revision,
         const std::string& localPath);

@@ -529,6 +529,12 @@ int main()
     assert(assets[0].kind == "preferred" && assets[1].kind == "person" &&
         assets[2].kind == "gallery");
     assert(assets[1].artworkId != assets[2].artworkId);
+    const auto& preferred = withPortrait.metadata.preferredArtwork;
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        preferred.path, preferred.width, preferred.height, false, 0) ==
+        assets[0].artworkId);
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        "", 0, 0, true, 7).empty());
     const auto portraitBytes = controller.loadPublicMetadataArtwork(
         artworkRecording, {}, withPortrait, assets[1].artworkId);
     assert(portraitBytes && portraitBytes->statusCode == 200 &&
@@ -558,6 +564,17 @@ int main()
         manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
     assert(controller.publicManualPortraitArtworkId(artworkRecording, 1, 8,
         manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
+    manualPortrait.posterReference =
+        "/var/cache/vdr-suite/recording-metadata/posters/poster.jpg";
+    const auto manualPosterImages = controller.publicMetadataArtwork(
+        artworkRecording, manualPortrait, {});
+    assert(manualPosterImages.size() == 2U && manualPosterImages[0].kind == "preferred");
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        manualPortrait.posterReference, 0, 0, true, 7) ==
+        manualPosterImages[0].artworkId);
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        manualPortrait.posterReference, 0, 0, true, 8) !=
+        manualPosterImages[0].artworkId);
     auto foreign = artworkRecording;
     foreign.backendId = "other";
     assert(controller.publicMetadataArtwork(foreign, {}, withPortrait).empty());

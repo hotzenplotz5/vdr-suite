@@ -21,7 +21,7 @@ void createExistingSchemas(Database& database)
 {
     execute(database,
         "CREATE TABLE vdr_recording_cache(backend_id TEXT,cache_key TEXT,recording_id TEXT,backend_native_id TEXT,title TEXT,path TEXT,start_time TEXT,duration_seconds INTEGER,size_mb INTEGER,metadata_payload TEXT,PRIMARY KEY(backend_id,cache_key));"
-        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,title TEXT,original_title TEXT,episode_name TEXT,preferred_artwork_path TEXT,PRIMARY KEY(backend_id,recording_key));"
+        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,title TEXT,original_title TEXT,episode_name TEXT,preferred_artwork_path TEXT,preferred_artwork_width INTEGER DEFAULT 0,preferred_artwork_height INTEGER DEFAULT 0,PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_person(backend_id TEXT,recording_key TEXT,ordinal INTEGER,role TEXT,name TEXT,name_folded TEXT,normalized_name TEXT,character_name TEXT,character_name_folded TEXT,PRIMARY KEY(backend_id,recording_key,ordinal));"
         "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_scraper_metadata_cache(backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
@@ -66,9 +66,9 @@ void insertFixtures(Database& database)
     sqlite3_finalize(statement);
 
     execute(database,
-        "INSERT INTO vdr_recording_native_metadata VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','', '/poster/pulp.jpg');"
-        "INSERT INTO vdr_recording_native_metadata VALUES('default','rk2','native-2','found','München','Munich','Folge München','');"
-        "INSERT INTO vdr_recording_native_metadata VALUES('second','rk3','native-3','found','Pulp Fiction','Pulp Fiction','','');"
+        "INSERT INTO vdr_recording_native_metadata(backend_id,recording_key,backend_native_id,content_state,title,original_title,episode_name,preferred_artwork_path) VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','', '/poster/pulp.jpg');"
+        "INSERT INTO vdr_recording_native_metadata(backend_id,recording_key,backend_native_id,content_state,title,original_title,episode_name,preferred_artwork_path) VALUES('default','rk2','native-2','found','München','Munich','Folge München','');"
+        "INSERT INTO vdr_recording_native_metadata(backend_id,recording_key,backend_native_id,content_state,title,original_title,episode_name,preferred_artwork_path) VALUES('second','rk3','native-3','found','Pulp Fiction','Pulp Fiction','','');"
         "INSERT INTO vdr_recording_native_person VALUES('default','rk1',0,'actor','John Travolta','john travolta','john travolta','Vincent Vega','vincent vega');"
         "INSERT INTO vdr_recording_native_person VALUES('default','rk1',1,'actor','Uma Thurman','uma thurman','uma thurman','Mia Wallace','mia wallace');"
         "INSERT INTO vdr_recording_native_person VALUES('second','rk3',0,'actor','John Travolta','john travolta','john travolta','Vincent Vega','vincent vega');"

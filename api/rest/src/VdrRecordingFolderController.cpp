@@ -1085,6 +1085,24 @@ VdrRecordingFolderController::publicMetadataArtwork(
     return result;
 }
 
+std::string VdrRecordingFolderController::publicSearchPreferredArtworkId(
+    const VdrRecording& recording, const std::string& localPath,
+    int width, int height, bool manualSelected, int manualRevision)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty()) return {};
+    if (manualSelected)
+    {
+        if (manualRevision <= 0 || !localManualImage(localPath)) return {};
+        return metadataArtworkId(recording, "preferred", 0, manualRevision,
+            localPath, 0, 0);
+    }
+    if (!localPath.empty())
+        return metadataArtworkId(recording, "preferred", 0, 0,
+            localPath, width, height);
+    const auto* cached = VdrRecordingArtworkIdentity::preferredArtwork(recording);
+    return cached ? VdrRecordingArtworkIdentity::assetId(recording, *cached) : std::string{};
+}
+
 std::string VdrRecordingFolderController::publicManualPortraitArtworkId(
     const VdrRecording& recording, int index, int revision,
     const std::string& localPath)

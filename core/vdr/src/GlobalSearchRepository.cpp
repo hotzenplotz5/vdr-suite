@@ -141,6 +141,10 @@ std::string recordingBaseSql(bool manualAvailable)
             "c.backend_native_id,c.title,c.path,c.start_time,c.duration_seconds,"
             "c.size_mb,c.metadata_payload,COALESCE(m.episode_name,'') AS episode_name,"
             "COALESCE(m.preferred_artwork_path,'') AS preferred_artwork_path,"
+            "COALESCE(m.preferred_artwork_path,'') AS selected_artwork_path,"
+            "COALESCE(m.preferred_artwork_width,0) AS selected_artwork_width,"
+            "COALESCE(m.preferred_artwork_height,0) AS selected_artwork_height,"
+            "0 AS selected_artwork_revision,0 AS manual_artwork_selected,"
             "CASE WHEN " + automaticTitlePredicate() +
             " THEN 1 ELSE 0 END AS title_hit,"
             "COALESCE(np.name,'') AS matched_person,"
@@ -164,7 +168,7 @@ std::string recordingBaseSql(bool manualAvailable)
     return
         " WITH active_manual AS ("
         "SELECT v.backend_id,v.resource_key,v.metadata_assignment_id,v.media_type,"
-        "v.title,v.original_title,v.poster_reference "
+        "v.title,v.original_title,v.poster_reference,v.revision "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
         "ON a.metadata_assignment_id=v.metadata_assignment_id "
@@ -193,6 +197,12 @@ std::string recordingBaseSql(bool manualAvailable)
         "ELSE COALESCE(m.episode_name,'') END AS episode_name,"
         "CASE WHEN COALESCE(am.poster_reference,'')<>'' THEN am.poster_reference "
         "ELSE COALESCE(m.preferred_artwork_path,'') END AS preferred_artwork_path,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN COALESCE(am.poster_reference,'') "
+        "ELSE COALESCE(m.preferred_artwork_path,'') END AS selected_artwork_path,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN 0 ELSE COALESCE(m.preferred_artwork_width,0) END AS selected_artwork_width,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN 0 ELSE COALESCE(m.preferred_artwork_height,0) END AS selected_artwork_height,"
+        "COALESCE(am.revision,0) AS selected_artwork_revision,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN 1 ELSE 0 END AS manual_artwork_selected,"
         "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN CASE WHEN " +
         manualTitlePredicate + " THEN 1 ELSE 0 END "
         "ELSE CASE WHEN " + automaticTitlePredicate() +
@@ -473,7 +483,8 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
     const std::string selectSql = base +
         "SELECT recording_id,backend_id,backend_native_id,title,path,start_time,"
         "duration_seconds,size_mb,metadata_payload,episode_name,preferred_artwork_path,"
-        "matched_person,matched_role,title_hit "
+        "matched_person,matched_role,title_hit,selected_artwork_path,"
+        "selected_artwork_width,selected_artwork_height,selected_artwork_revision,manual_artwork_selected "
         "FROM search_base WHERE title_hit=1 OR matched_person<>'' "
         "ORDER BY CASE "
         "WHEN vdr_suite_fold(title)=:q THEN 0 "
@@ -514,6 +525,11 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
             !metadata.artwork.empty();
         item.matchedPerson = columnText(statement, 11);
         item.matchedRole = columnText(statement, 12);
+        item.preferredArtworkPath = columnText(statement, 14);
+        item.preferredArtworkWidth = sqlite3_column_int(statement, 15);
+        item.preferredArtworkHeight = sqlite3_column_int(statement, 16);
+        item.preferredArtworkManualRevision = sqlite3_column_int(statement, 17);
+        item.manualArtworkSelected = sqlite3_column_int(statement, 18) != 0;
         const bool titleHit = sqlite3_column_int(statement, 13) != 0;
         item.matchReason = titleHit
             ? (item.matchedPerson.empty() ? "title" : "title-and-person")

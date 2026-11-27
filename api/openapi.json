@@ -18314,6 +18314,11 @@
                             "type": "boolean",
                             "description": "Advisory availability in the shared search index. Fetch artwork only through existing public artwork resources."
                           },
+                          "preferredArtworkId": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$",
+                            "description": "Opaque preferred artwork identity for this recording; use the existing Recording artwork GET."
+                          },
                           "personPortrait": {
                             "type": "object",
                             "description": "Optional opaque cached portrait reference for the matched person. Available only in Recording search; use the existing individual Recording artwork GET with the same backendId.",

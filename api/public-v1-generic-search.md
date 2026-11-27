@@ -85,3 +85,14 @@ The referenced recording can differ from the search hit; its current backend
 identity must resolve. Missing/stale portraits do not remove valid hits.
 EPG search never emits Recording portrait references. Existing independent
 `recordings.view` and `epg.view` authorization remains unchanged.
+
+### Preferred artwork in Recording search
+
+Recording hits optionally include `preferredArtworkId`, referencing the existing
+individual Recording artwork GET with the hit's `recordingId` and `backendId`.
+The shared search query already joins the selected manual and persisted native
+metadata. Its image evidence now includes native dimensions and the selected
+manual revision, so the same existing opaque asset identity is generated without
+additional per-result metadata lookups. Selected manual metadata has precedence;
+missing/stale images do not remove a hit, and no private paths are returned.
+`artworkAvailable` remains an advisory hint from the shared index.

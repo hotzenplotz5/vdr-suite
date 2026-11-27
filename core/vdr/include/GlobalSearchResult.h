@@ -16,6 +16,12 @@ struct GlobalSearchRecording
     int durationSeconds = 0;
     long long sizeMb = 0;
     bool artworkAvailable = false;
+    // Internal evidence from the existing joined metadata row. Never expose
+    // the cache path or assignment revision as a public image selector.
+    std::string preferredArtworkPath;
+    int preferredArtworkWidth = 0, preferredArtworkHeight = 0;
+    int preferredArtworkManualRevision = 0;
+    bool manualArtworkSelected = false;
     std::string matchedPerson;
     std::string matchedRole;
     std::string matchReason;
