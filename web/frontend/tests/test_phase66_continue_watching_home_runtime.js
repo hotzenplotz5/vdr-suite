@@ -407,7 +407,7 @@ const item = {
     const modules = [];
     Object.assign(ctx, {
       document:{querySelectorAll(){return [];}, querySelector(){return null;}},
-      placeMediaImportTab(){}, closeHomeHevcStream(){},
+      placeMediaImportTab(){}, placeImageGalleryTab(){}, clearImageGalleryHome(){}, closeHomeHevcStream(){},
       renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
       shouldPublishHomeResume(){return false;}
     });

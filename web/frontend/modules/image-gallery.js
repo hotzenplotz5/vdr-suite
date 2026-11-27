@@ -94,7 +94,7 @@
       .image-gallery-home-rail .image-gallery-home-card img{width:100%;height:100%;object-fit:cover;display:block}
       .image-gallery-home-rail .image-gallery-home-link{display:grid;place-content:center;gap:.4rem;text-align:center;background:#182334;color:#f1f5f9}
       .image-gallery-home-icon{font-size:2.3rem;line-height:1}
-      .image-gallery-home-rail{display:flex;gap:.6rem;overflow-x:auto;padding:.25rem .15rem .65rem;scroll-snap-type:x proximity}
+      .image-gallery-home-rail{display:flex;gap:.6rem;overflow-x:auto;padding:.25rem 1rem .65rem;scroll-snap-type:x proximity}
       .image-gallery-home-card{scroll-snap-align:start}
       .image-gallery-home-card:focus-visible{outline:2px solid #40e2f1;outline-offset:2px}
       @media(max-width:700px){.image-gallery-tile{flex-basis:calc(50% - .55rem)}.image-gallery{padding:.55rem}}
@@ -441,9 +441,11 @@
     const doc = host.ownerDocument, en = options.locale === 'en';
     let disposed = false;
     installStyles(doc);
-    const heading = doc.createElement('h3');
+    const heading = doc.createElement('div');
     heading.className = 'media-home-section-heading';
-    heading.textContent = en ? 'Discover pictures' : 'Bilder entdecken';
+    const title = doc.createElement('h3');
+    title.textContent = en ? 'Discover pictures' : 'Bilder entdecken';
+    heading.appendChild(title);
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail image-gallery-home-rail';
     function card(label,photo) {

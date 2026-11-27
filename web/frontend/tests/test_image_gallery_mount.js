@@ -142,6 +142,49 @@ async function run(){
   const stale=window.VdrSuiteImageGallery.mountHome(home,{sample:()=>new Promise(resolve=>{resolveSample=resolve;})},{locale:'en',open(){}});
   await flush();stale.dispose();resolveSample(sample);await flush();
   assert.equal(home.children.length,0);
+  // Exercise the actual application owner, including sample lifetime and
+  // selecting the existing gallery module with a photo from the rail.
+  const app=fs.readFileSync('web/frontend/app.js','utf8');
+  const extract=(from,to)=>{
+    const start=app.indexOf(from),end=app.indexOf(to,start);
+    assert(start>=0 && end>start);return app.slice(start,end);
+  };
+  const appWindow=window;
+  let selected=null, sampleReads=0;
+  const tab={hidden:false,disabled:false};
+  const nav={children:[],querySelector(){return this.search;},insertBefore(child,before){
+    this.children.splice(this.children.indexOf(child),1);
+    this.children.splice(before ? this.children.indexOf(before) : this.children.length,0,child);
+  }};
+  const search={parentNode:nav};
+  Object.defineProperty(search,'nextElementSibling',{get(){return nav.children[nav.children.indexOf(search)+1]||null;}});
+  tab.parentNode=nav;nav.search=search;nav.children=[tab,search];
+  const galleryApi=appWindow.VdrSuiteImageGallery;
+  appWindow.VdrSuiteImageGallery={...galleryApi,adapterFor:()=>({
+    sample:async()=>{++sampleReads;return sample;},
+    previewUrl:railAdapter.previewUrl
+  })};
+  const ctx={
+    window:appWindow,document:{documentElement:{lang:'en'},querySelector:()=>home,
+      getElementById:()=>nav,querySelectorAll:()=>[]},
+    imageGalleryTab:tab,imageGalleryHome:null,imageGalleryInitialPhoto:null,imageGalleryBackend:'default',
+    selectedModule:'overview',selectedBackendId:'default',browserSessionFrontendActive:true,
+    selectedBackend:{id:'default'},currentSnapshot:{},placeMediaImportTab(){},
+    closeHomeHevcStream(){},renderMediaToolsHomeShortcut(){},shouldPublishHomeResume(){return false;},
+    renderSelectedModule(){selected=ctx.selectedModule;if(selected==='overview')ctx.renderImageGalleryHome();},
+    disposeImageGallery(){},mediaImportModule(){return null;}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extract('function clearImageGalleryHome()', 'function resetImageGalleryVisibility()')+
+    extract('function placeImageGalleryTab()', 'placeImageGalleryTab();')+
+    extract('function selectModule(moduleName)', 'function markSelected(backendId)'),ctx);
+  ctx.placeImageGalleryTab();assert.equal(nav.children[1],tab);
+  ctx.renderImageGalleryHome();await flush();
+  ctx.renderImageGalleryHome();assert.equal(sampleReads,1);
+  home.children[1].children[2].emit('click');
+  assert.equal(selected,'image-gallery');assert.equal(ctx.imageGalleryInitialPhoto,sample[1]);assert(home.hidden);
+  ctx.selectModule('overview');await flush();assert.equal(sampleReads,2);
+  ctx.imageGalleryBackend='';ctx.renderImageGalleryHome();assert(home.hidden);
   console.log('IMAGE_GALLERY_HOME_RAIL=PASS');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
