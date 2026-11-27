@@ -163,6 +163,24 @@ class PackagingProfileTests(unittest.TestCase):
         index = (ROOT / "web/frontend/index.html").read_text(encoding="utf-8")
         self.assertNotIn('src="../frontend/modules/image-gallery.js"', index)
 
+    @unittest.skipUnless(shutil.which("make") and shutil.which("install"), "stage tools unavailable")
+    def test_image_gallery_runtime_stage_contains_exact_files(self):
+        with TemporaryDirectory(prefix="image-gallery-stage-") as temp:
+            root = Path(temp)
+            subprocess.run(["make", "stage-image-gallery-runtime",
+                            "DESTDIR=" + str(root), "PREFIX=/usr"],
+                           cwd=ROOT, check=True, capture_output=True, text=True)
+            files = {str(p.relative_to(root)): p for p in root.rglob("*") if p.is_file()}
+            expected = {
+                "usr/share/vdr-suite/addons/image/" + name: ROOT / "modules/image" / name
+                for name in ("addon.json", "README.md", "AGENTS.md")
+            }
+            expected["usr/share/vdr-suite/web/frontend/modules/image-gallery.js"] = (
+                ROOT / "web/frontend/modules/image-gallery.js")
+            self.assertEqual(set(files), set(expected))
+            for rel, source in expected.items():
+                self.assertEqual(files[rel].read_bytes(), source.read_bytes(), rel)
+
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
     def test_build_artifacts_ignored_but_metadata_tracked(self):
         with TemporaryDirectory(prefix="packaging-ignore-") as temp:
