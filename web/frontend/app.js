@@ -14,13 +14,41 @@ let mediaToolsHomeAllowedBackendId = '';
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
 const imageGalleryTab = document.querySelector('.module-tab[data-module="image-gallery"]');
 let imageGalleryMount = null, imageGalleryEpoch = 0, imageGalleryBackend = '';
+let imageGalleryHome = null, imageGalleryInitialPhoto = null;
 function disposeImageGallery() {
   if (imageGalleryMount) imageGalleryMount.dispose();
   imageGalleryMount = null;
 }
+function clearImageGalleryHome() {
+  if (imageGalleryHome) imageGalleryHome.dispose();
+  imageGalleryHome = null;
+}
+function renderImageGalleryHome() {
+  const gallery = window.VdrSuiteImageGallery;
+  if (!browserSessionFrontendActive || selectedModule !== 'overview' ||
+      !imageGalleryBackend || imageGalleryBackend !== selectedBackendId || !gallery) {
+    clearImageGalleryHome();
+    return;
+  }
+  if (imageGalleryHome) return;
+  const host = document.querySelector('[data-home-zone="image-gallery"]');
+  if (!host) return;
+  const backendId = selectedBackendId;
+  imageGalleryHome = gallery.mountHome(host,gallery.adapterFor(backendId),{
+    locale:document.documentElement.lang,
+    open(photo) {
+      if (selectedModule !== 'overview' || backendId !== selectedBackendId ||
+          imageGalleryBackend !== backendId) return;
+      imageGalleryInitialPhoto = photo || null;
+      selectModule('image-gallery');
+    }
+  });
+}
 function resetImageGalleryVisibility() {
   ++imageGalleryEpoch;
   imageGalleryBackend='';
+  imageGalleryInitialPhoto=null;
+  clearImageGalleryHome();
   disposeImageGallery();
   if (imageGalleryTab) {imageGalleryTab.hidden=true;imageGalleryTab.disabled=true;}
 }
@@ -39,6 +67,7 @@ function refreshImageGalleryVisibility(backendId) {
     imageGalleryBackend=data.enabled===true && window.VdrSuiteImageGallery ? backendId : '';
     imageGalleryTab.hidden=!imageGalleryBackend;
     imageGalleryTab.disabled=!imageGalleryBackend;
+    renderImageGalleryHome();
     if (!imageGalleryBackend && selectedModule==='image-gallery') selectModule('overview');
   }).catch(error=>{
     if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId) return;
@@ -50,8 +79,10 @@ function refreshImageGalleryVisibility(backendId) {
 }
 if (typeof window.addEventListener==='function') {
   window.addEventListener('vdr-suite:image-gallery-activation-changed',event=>{
-    if (event.detail && event.detail.backendId===selectedBackendId)
+    if (event.detail && event.detail.backendId===selectedBackendId) {
+      clearImageGalleryHome();
       refreshImageGalleryVisibility(selectedBackendId);
+    }
   });
 }
 
@@ -67,6 +98,14 @@ function placeMediaImportTab() {
     nav.insertBefore(mediaImportTab, recordingsTab.nextElementSibling);
 }
 placeMediaImportTab();
+function placeImageGalleryTab() {
+  const nav = document.getElementById('module-nav');
+  const search = nav && nav.querySelector('.module-tab[data-module="searchtimers"]');
+  if (search && imageGalleryTab && imageGalleryTab.parentNode === nav &&
+      search.nextElementSibling !== imageGalleryTab)
+    nav.insertBefore(imageGalleryTab,search.nextElementSibling);
+}
+placeImageGalleryTab();
 
 function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
@@ -4283,8 +4322,9 @@ function renderSelectedModule(data) {
       detailDataElement.replaceChildren();
       const gallery=window.VdrSuiteImageGallery;
       imageGalleryMount=gallery.mount(detailDataElement,gallery.adapterFor(selectedBackendId),{
-        locale:document.documentElement.lang
+        locale:document.documentElement.lang, initialPhoto:imageGalleryInitialPhoto
       });
+      imageGalleryInitialPhoto=null;
     }
     return;
   }
@@ -4292,6 +4332,7 @@ function renderSelectedModule(data) {
     renderSnapshotMetrics(data);
     renderHevcHomeActivity();
     renderMediaToolsHomeShortcut();
+    renderImageGalleryHome();
     return;
   }
 
@@ -4418,6 +4459,7 @@ function shouldPublishHomeResume(previousModule) {
 
 function selectModule(moduleName) {
   placeMediaImportTab();
+  placeImageGalleryTab();
   if (moduleName === 'media-import' &&
       (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
   if (moduleName === 'image-gallery' && (!imageGalleryTab || imageGalleryTab.hidden || imageGalleryTab.disabled)) return;
@@ -4438,7 +4480,7 @@ function selectModule(moduleName) {
   }
 
   selectedModule = moduleName;
-  if (moduleName !== 'overview') closeHomeHevcStream();
+  if (moduleName !== 'overview') { closeHomeHevcStream(); clearImageGalleryHome(); }
   renderMediaToolsHomeShortcut();
 
   if (moduleName === 'channels') {

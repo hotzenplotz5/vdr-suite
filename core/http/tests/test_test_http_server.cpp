@@ -613,7 +613,8 @@ int main()
         HttpServerRequest picture;
         picture.method = "GET";
         picture.path = "/api/v1/addons/image/" + endpoint + "?backendId=default";
-        if (endpoint != "library") picture.path += "&sourceId=pictures&path=Urlaub.jpg";
+        if (endpoint == "library") picture.path += "&sample=1";
+        else picture.path += "&sourceId=pictures&path=Urlaub.jpg";
         const auto before = pictureReads;
         assert(server.handleRequest(picture).statusCode == 401);
         assert(pictureReads == before);

@@ -117,5 +117,31 @@ async function run(){
   assert.equal(timers.size,0);
   assert.equal(requests.length,1,'navigation and slideshow must not poll the backend');
   console.log('IMAGE_GALLERY_MOUNT_LARGE_COLLECTION=PASS');
+  const home=doc.createElement('section');doc.body.appendChild(home);
+  const sample=Array.from({length:12},(_,i)=>({sourceId:'pictures',name:'Sample '+i,relativePath:'Urlaub/Sample '+i+'.jpg'}));
+  let reads=0,opened=[];
+  const railAdapter={sample:async()=>{++reads;return sample;},previewUrl:(id,path)=>'/preview/'+id+'/'+path};
+  const rail=window.VdrSuiteImageGallery.mountHome(home,railAdapter,{locale:'en',open:photo=>opened.push(photo)});
+  await flush();
+  const cards=home.children[1].children;
+  assert.equal(cards.length,10);assert.equal(reads,1);
+  cards[0].emit('click');cards[3].emit('click');
+  assert.equal(opened[0],null);assert.equal(opened[1],sample[2]);
+  assert.equal(cards[3].children[0].src,'/preview/pictures/Urlaub/Sample 2.jpg');
+  rail.dispose();assert(home.hidden);assert.equal(home.children.length,0);
+  const direct=window.VdrSuiteImageGallery.mount(target,{
+    listSources:async()=>[{id:'pictures',title:'Pictures'}],
+    browse:async(id,path)=>{assert.equal(path,'Urlaub');return sample;},
+    previewUrl:(id,path)=>'/preview/'+id+'/'+path,
+    originalUrl:(id,path)=>'/photo/'+id+'/'+path
+  },{locale:'en',initialPhoto:sample[2]});
+  await flush();
+  assert.equal(byClass(doc.body,'image-gallery-full').querySelector('img').src,'/photo/pictures/Urlaub/Sample 2.jpg');
+  direct.dispose();
+  let resolveSample;
+  const stale=window.VdrSuiteImageGallery.mountHome(home,{sample:()=>new Promise(resolve=>{resolveSample=resolve;})},{locale:'en',open(){}});
+  await flush();stale.dispose();resolveSample(sample);await flush();
+  assert.equal(home.children.length,0);
+  console.log('IMAGE_GALLERY_HOME_RAIL=PASS');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

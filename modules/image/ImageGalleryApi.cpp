@@ -131,16 +131,31 @@ ApiResponse ImageGalleryApi::get(const std::string& target, bool enabled) const
     const auto path = target.substr(0,target.find('?'));
     const bool admin = path == "/api/v1/addons/image/sources";
     const bool library = path == "/api/v1/addons/image/library";
-    if (library && !enabled && args.size() == 1)
-        return response(200,"{\"enabled\":false,\"sources\":[]}");
+    const bool sample = library && args.size() == 2 && args.count("sample") && args.at("sample") == "1";
+    if (library && !enabled && (args.size() == 1 || sample))
+        return response(200,sample ? "{\"enabled\":false,\"sources\":[],\"sample\":[]}" :
+            "{\"enabled\":false,\"sources\":[]}");
     if (!admin && !enabled) return problem(404,"gallery_disabled");
     const auto snapshot = settings_.load();
     if (snapshot.state == SourceSettingsState::unavailable) return problem(503,"sources_unavailable");
     if (admin || library) {
-        if (args.size() != 1) return problem(400,"invalid_query");
-        return response(200, std::string("{\"backendId\":") + quote(localBackend_) +
+        if (args.size() != 1 && !sample) return problem(400,"invalid_query");
+        std::string body = std::string("{\"backendId\":") + quote(localBackend_) +
             ",\"enabled\":" + (enabled ? "true" : "false") +
-            ",\"sources\":" + sourceJson(snapshot.sources,admin) + '}');
+            ",\"sources\":" + sourceJson(snapshot.sources,admin);
+        if (sample) {
+            body += ",\"sample\":[";
+            bool first = true;
+            for (const auto& photo : sampleLocalPhotos(snapshot.sources)) {
+                if (!first) body += ',';
+                first = false;
+                body += "{\"sourceId\":" + quote(photo.sourceId) +
+                    ",\"name\":" + quote(photo.name) +
+                    ",\"relativePath\":" + quote(photo.relativePath) + '}';
+            }
+            body += ']';
+        }
+        return response(200,body + '}');
     }
     if (args.size() != 3 || !args.count("sourceId") || !args.count("path"))
         return problem(400,"invalid_query");

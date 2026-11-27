@@ -1,7 +1,9 @@
 #include "LocalImageGalleryProvider.h"
 #include "EpgArtworkPathPolicy.h"
 
+#include <algorithm>
 #include <cerrno>
+#include <random>
 #include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
@@ -108,7 +110,8 @@ bool regularInside(const fs::path& candidate, const std::string& root)
 } // namespace
 
 BrowseResult browseLocalDirectory(const Source& source,
-                                  const std::string& relativeDirectory)
+                                  const std::string& relativeDirectory,
+                                  std::size_t* scanBudget)
 {
     fs::path root, relative;
     if (!resolveSourcePath(source, relativeDirectory, root, relative)) return {};
@@ -122,7 +125,7 @@ BrowseResult browseLocalDirectory(const Source& source,
     }
     std::unique_ptr<DIR, DirectoryCloser> directory(raw);
     std::vector<Entry> entries;
-    for (;;) {
+    while (!scanBudget || *scanBudget > 0) {
         errno = 0;
         const auto* item = ::readdir(directory.get());
         if (!item) {
@@ -131,6 +134,7 @@ BrowseResult browseLocalDirectory(const Source& source,
         }
         const std::string name(item->d_name);
         if (name == "." || name == "..") continue;
+        if (scanBudget) --*scanBudget;
         struct stat st {};
         if (::fstatat(::dirfd(directory.get()), name.c_str(), &st, AT_SYMLINK_NOFOLLOW) != 0)
             continue;
@@ -150,11 +154,50 @@ BrowseResult browseLocalDirectory(const Source& source,
         if (!folder && !(file && isPhotoFilename(name))) continue;
         Entry entry{name, child.generic_string(), folder};
         if (!folder) entry.cover = entry.relativePath;
-        else if (regularInside(root / child / "folder.jpg", root.string()))
+        else if (!scanBudget && regularInside(root / child / "folder.jpg", root.string()))
             entry.cover = (child / "folder.jpg").generic_string();
         entries.push_back(std::move(entry));
     }
     return {true, galleryEntries(std::move(entries))};
+}
+
+std::vector<SamplePhoto> sampleLocalPhotos(const std::vector<Source>& sources)
+{
+    constexpr std::size_t sampleSize = 9, maxEntries = 8192, maxFolders = 64;
+    std::mt19937 rng(std::random_device{}());
+    struct Pending { std::size_t source; std::string path; unsigned depth; };
+    std::vector<Pending> pending;
+    for (std::size_t i = 0; i < sources.size(); ++i) pending.push_back({i,{},0});
+    std::shuffle(pending.begin(),pending.end(),rng);
+    std::vector<SamplePhoto> result;
+    std::size_t budget = maxEntries, seen = 0;
+    // Breadth-first traversal gives different sources and albums a chance;
+    // each folder is bounded, including entries that are not pictures.
+    for (std::size_t i = 0; i < pending.size() && i < maxFolders && budget; ++i) {
+        const auto folder = pending[i];
+        std::size_t allowance = std::min<std::size_t>(1024,budget);
+        const auto initial = allowance;
+        auto listing = browseLocalDirectory(sources[folder.source],folder.path,&allowance);
+        budget -= initial - allowance;
+        if (!listing.success) continue;
+        std::shuffle(listing.entries.begin(),listing.entries.end(),rng);
+        for (const auto& entry : listing.entries) {
+            if (entry.directory) {
+                if (folder.depth < 12 && pending.size() < maxFolders)
+                    pending.push_back({folder.source,entry.relativePath,folder.depth+1});
+                continue;
+            }
+            SamplePhoto photo{sources[folder.source].id,entry.name,entry.relativePath};
+            ++seen;
+            if (result.size() < sampleSize) result.push_back(std::move(photo));
+            else {
+                const auto pos = std::uniform_int_distribution<std::size_t>(0,seen-1)(rng);
+                if (pos < sampleSize) result[pos] = std::move(photo);
+            }
+        }
+    }
+    std::shuffle(result.begin(),result.end(),rng);
+    return result;
 }
 
 PhotoReadResult readLocalPhoto(const Source& source,

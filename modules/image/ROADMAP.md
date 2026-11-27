@@ -71,3 +71,7 @@ IG5–IG8: Fotos stehen im Mittelpunkt, kein permanentes Metadatenfeld oder gro�
 - [Image Next CI #99](https://github.com/hotzenplotz5/vdr-plugin-image-nex/actions/runs/45956632175), Referenz-SHA oben: completed/success.
 
 Die Baseline oben ist historisch. Die Branch-Implementierung enthält lokale Provider-, API-, Frontend- und Paketierungstests. Der vollständige aktuelle Branch-CI-Nachweis und reale Installation/CEF-/TV-Abnahme stehen noch aus. Remote-Agent-Transport ist absichtlich nicht Bestandteil der lokalen Abnahme.
+
+## IG11 — Home discovery (maintainer request 27.11.2026)
+
+Bilder follows Suchtimer. Last Home rail: permanent folder selector plus up to nine randomly selected preview cards; open the existing fullscreen viewer directly, keep sample stable during the Home visit, discard it on leaving/disable/logout. The existing authenticated library route gains optional `sample=1`; traversal is bounded and confined to configured sources, not a complete library index. No polling, new service, schema, or Agent transport. Existing CI and actual browser/CEF evidence must be reported separately.

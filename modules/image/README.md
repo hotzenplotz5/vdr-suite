@@ -6,6 +6,8 @@ Local-first gallery for the browser and CEF frontend. No running VDR, Backend Ag
 
 The optional `vdr-suite-addon-image` Debian binary package stages its UI separately from the daemon. Its Core handler is compiled into the daemon. Installation does not enable the gallery; enable it in Settings → Add-ons → Image Gallery. Add named local directories or mounted NAS paths there. On Ubuntu the initial source is `/srv/picture`; saved sources, including an explicitly empty list, take precedence. Sources are stored next to the daemon database in `image-sources.tsv`. The daemon needs read access to the selected directories. Originals are never modified.
 
+Home shows a final horizontal picture rail with a permanent gallery/folder shortcut and up to nine randomly sampled local photos. The sample is refreshed on entering Home, uses preview URLs, and opens the existing gallery viewer at the selected photo. Discovery is best-effort and bounded (64 folders, 8192 directory entries total, 1024 per folder, depth 12); it is not a uniform sample of an unbounded library. No polling or index is introduced.
+
 The browser loads the gallery runtime only when enabled and available. Grid and Cover Flow, keyboard/D-pad, mouse/touch navigation, fullscreen rotation/zoom/info, slideshow and device-local display preferences are implemented; actual TV/CEF visual acceptance is pending. Thumbnails use the shared FFmpeg artwork preview implementation with a separate cache directory and 896px profile. FFmpeg is recommended. Unsupported or unavailable previews do not substitute full originals. A single original is limited to 64 MiB. The gallery does not recursively enumerate arbitrary mounts.
 
 ## Public API v1
@@ -16,7 +18,7 @@ All gallery endpoints use the existing Core HTTP authorization path. The existin
 | --- | --- | --- |
 | GET/POST | /api/v1/addons/image/activation | Existing audited desired-state and revision contract |
 | GET/POST | /api/v1/addons/image/sources | Admin-only local source configuration |
-| GET | /api/v1/addons/image/library | Enabled state and source IDs/titles |
+| GET | /api/v1/addons/image/library | Enabled state and source IDs/titles; optional `sample=1` returns up to nine source-relative photos |
 | GET | /api/v1/addons/image/browse | Current source-relative folder entries and covers |
 | GET | /api/v1/addons/image/preview | Bounded JPEG preview |
 | GET | /api/v1/addons/image/photo | Original bytes on demand |

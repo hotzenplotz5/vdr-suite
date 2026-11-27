@@ -61,6 +61,8 @@ async function testPublicGalleryClient() {
   assert.equal(client.imageGalleryPreviewUrl(options),prefix+'preview'+query);
   assert.equal(client.imageGalleryPhotoUrl(options),prefix+'photo'+query);
   assert.equal(requests.length,2,'constructing image URLs must not trigger extra requests');
+  await client.getImageGalleryLibrary({backendId:'default',sample:true,cache:'no-store'});
+  assert.equal(requests[2].url,prefix+'library?backendId=default&sample=1');
   assert.throws(()=>client.getImageGalleryLibrary({backendId:'../other'}));
   assert.throws(()=>client.getImageGalleryFolder({backendId:'default',path:''}));
   console.log('IMAGE_GALLERY_PUBLIC_CLIENT=PASS');

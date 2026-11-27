@@ -90,6 +90,13 @@
       .image-gallery-full img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .18s ease}
       .image-gallery-full-controls{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:.4rem;flex-wrap:wrap;padding:.7rem;background:linear-gradient(transparent,#000b)}
       .image-gallery-info{position:absolute;top:1rem;left:1rem;padding:.8rem;background:#111d;max-width:90%;overflow-wrap:anywhere}
+      .image-gallery-home-rail .image-gallery-home-card{flex:0 0 clamp(9rem,20vw,16rem);min-width:0;aspect-ratio:4/3;overflow:hidden;position:relative;padding:0;border-radius:.55rem}
+      .image-gallery-home-rail .image-gallery-home-card img{width:100%;height:100%;object-fit:cover;display:block}
+      .image-gallery-home-rail .image-gallery-home-link{display:grid;place-content:center;gap:.4rem;text-align:center;background:#182334;color:#f1f5f9}
+      .image-gallery-home-icon{font-size:2.3rem;line-height:1}
+      .image-gallery-home-rail{display:flex;gap:.6rem;overflow-x:auto;padding:.25rem .15rem .65rem;scroll-snap-type:x proximity}
+      .image-gallery-home-card{scroll-snap-align:start}
+      .image-gallery-home-card:focus-visible{outline:2px solid #40e2f1;outline-offset:2px}
       @media(max-width:700px){.image-gallery-tile{flex-basis:calc(50% - .55rem)}.image-gallery{padding:.55rem}}
       @media(prefers-reduced-motion:reduce){.image-gallery-tile,.image-gallery-full img{transition:none!important}}
     `;
@@ -181,14 +188,16 @@
       if (source) loadFolder(parent.selected);
       else { nav.setEntries(sources.map(x => ({name:x.title,directory:true})), parent.selected); status=''; render(true); }
     }
-    async function loadFolder(selection) {
+    async function loadFolder(selection, openPhoto = false) {
       const request = ++epoch;
       status = labels.loading;
       render();
       try {
         const entries = await adapter.browse(source.id, directory);
         if (disposed || request !== epoch) return;
-        nav.setEntries(entries, selection);
+        const index = typeof selection === 'string' ? entries.findIndex(x => x.relativePath === selection) : selection;
+        nav.setEntries(entries, Math.max(0,index || 0));
+        if (openPhoto && index >= 0) nav.open();
         status = '';
       } catch (_) {
         if (disposed || request !== epoch) return;
@@ -405,13 +414,86 @@
       sources = result;
       nav.setEntries(sources.map(x => ({name:x.title,directory:true})));
       status = '';
-      render(true);
+      const initial = settings.initialPhoto;
+      const sourceIndex = initial && sources.findIndex(x => x.id === initial.sourceId);
+      if (initial && sourceIndex >= 0 && typeof initial.relativePath === 'string') {
+        source = sources[sourceIndex];
+        const parts = initial.relativePath.split('/');
+        parts.pop();
+        parents = [{source:null,directory:'',selected:sourceIndex}];
+        directory = '';
+        for (const part of parts) {
+          const child = directory ? directory+'/'+part : part;
+          parents.push({source,directory,selected:child});
+          directory = child;
+        }
+        loadFolder(initial.relativePath,true);
+      } else render(true);
     }).catch(() => { if (!disposed) {status=labels.error;render();} });
     return {dispose() {
       disposed = true; ++epoch; stop(); doc.removeEventListener('keydown',key,true);
       closeOverlay();
       if (root) root.remove();
     }};
+  }
+  // Independent Home projection: one sample per Home visit; no timers.
+  function mountHome(host,adapter,options) {
+    const doc = host.ownerDocument, en = options.locale === 'en';
+    let disposed = false;
+    installStyles(doc);
+    const heading = doc.createElement('h3');
+    heading.className = 'media-home-section-heading';
+    heading.textContent = en ? 'Discover pictures' : 'Bilder entdecken';
+    const rail = doc.createElement('div');
+    rail.className = 'media-home-discovery-rail image-gallery-home-rail';
+    function card(label,photo) {
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'media-home-discovery-card image-gallery-home-card';
+      button.setAttribute('aria-label',label);
+      button.title = label;
+      button.addEventListener('click',()=>{if (!disposed) options.open(photo);});
+      return button;
+    }
+    const shortcut = card(en ? 'Open gallery and folders' : 'Galerie und Ordner öffnen',null);
+    shortcut.className += ' image-gallery-home-link';
+    const icon = doc.createElement('span');
+    icon.className = 'image-gallery-home-icon';
+    icon.setAttribute('aria-hidden','true');
+    icon.textContent = '▧';
+    const label = doc.createElement('span');
+    label.textContent = en ? 'My pictures' : 'Meine Bilder';
+    shortcut.append(icon,label);
+    rail.appendChild(shortcut);
+    host.replaceChildren(heading,rail);
+    host.hidden = false;
+    rail.addEventListener('keydown',event=>{
+      if (!['ArrowLeft','ArrowRight'].includes(event.key)) return;
+      const cards = Array.from(rail.children);
+      const at = cards.indexOf(event.target);
+      const next = cards[at+(event.key==='ArrowLeft'?-1:1)];
+      if (at < 0 || !next) return;
+      event.preventDefault();event.stopPropagation();next.focus();
+    });
+    Promise.resolve().then(()=>adapter.sample()).then(photos=>{
+      if (disposed) return;
+      const seen = new Set();
+      for (const photo of photos || []) {
+        if (!photo || typeof photo.sourceId !== 'string' || typeof photo.relativePath !== 'string') continue;
+        const key = JSON.stringify([photo.sourceId,photo.relativePath]);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const button = card(photo.name || photo.relativePath,photo);
+        const img = doc.createElement('img');
+        img.alt = photo.name || photo.relativePath;
+        img.loading = 'lazy';img.decoding = 'async';
+        img.src = adapter.previewUrl(photo.sourceId,photo.relativePath);
+        button.appendChild(img);
+        rail.appendChild(button);
+        if (seen.size === 9) break;
+      }
+    }).catch(()=>{}); // The folder shortcut remains usable when discovery fails.
+    return {dispose(){disposed=true;host.hidden=true;host.replaceChildren();}};
   }
   let client;
   function publicClient() {
@@ -429,12 +511,13 @@
     const options = (sourceId,path) => ({backendId,sourceId,path,cache:'no-store'});
     return {
       listSources:() => library(backendId).then(data => data.sources || []),
+      sample:() => api.getImageGalleryLibrary({backendId,cache:'no-store',sample:true}).then(data=>data.sample || []),
       browse:(sourceId,path) => api.getImageGalleryFolder(options(sourceId,path)).then(data => data.entries),
       previewUrl:(sourceId,path) => api.imageGalleryPreviewUrl(options(sourceId,path)),
       originalUrl:(sourceId,path) => api.imageGalleryPhotoUrl(options(sourceId,path))
     };
   }
-  const api = Object.freeze({createNavigation,mount,library,adapterFor});
+  const api = Object.freeze({createNavigation,mount,mountHome,library,adapterFor});
   global.VdrSuiteImageGallery = api;
   if (global.VdrSuitePlatform) global.VdrSuitePlatform.registerModule('image-gallery',api);
 })(window);

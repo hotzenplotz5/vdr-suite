@@ -627,6 +627,7 @@
       throw new Error('Image Gallery requires canonical backendId');
     let path = '/api/v1/addons/image/' + resource + '?backendId=' +
       encodeURIComponent(options.backendId);
+    if (resource === 'library' && options.sample === true) path += '&sample=1';
     if (resource !== 'library') {
       if (typeof options.sourceId !== 'string' || !options.sourceId ||
           typeof options.path !== 'string')
