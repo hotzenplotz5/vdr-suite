@@ -734,6 +734,38 @@ function wait(milliseconds) {
   clickElement(seriesCard);
   assert.strictEqual(stopped,1);
   assert.strictEqual(seriesSection.querySelector('.media-home-inline-expansion'),null);
+  // Public Home folders use opaque identities, not reconstructed native paths.
+  delete window.VdrSuiteHomeRecordingDiscovery;
+  delete window.VdrSuiteHomeCache;
+  const publicRoot='fld1_'+'a'.repeat(32), publicChild='fld1_'+'b'.repeat(32);
+  const publicRecording='rec_'+'c'.repeat(32), artwork='d'.repeat(32);
+  const publicCalls=[];
+  const publicCard=makeCard('folder',publicRoot,'Public root');
+  publicCard.__vdrSuiteFolderEntry={folderId:publicRoot,name:'Public root',recordingCount:1};
+  const publicSection=makeSection('folders',publicCard);
+  client.fetchClientRecordingFolder=()=>{throw new Error('Unexpected private folder read');};
+  client.fetchPublicRecordingFolder=options=>{
+    publicCalls.push(options);
+    assert(!Object.hasOwn(options.query,'path'));
+    const root=options.query.folderId===publicRoot;
+    assert(root || options.query.folderId===publicChild);
+    return Promise.resolve({publicFolder:true,recordingFolder:true,offset:0,
+      returnedCards:1,nextOffset:1,hasMore:false,
+      folders:root?[{folderId:publicChild,name:'Nested child',recordingCount:1,
+        representativeRecording:{recordingId:publicRecording,backendId:'backend-a',preferredArtworkId:artwork}}]:[],
+      recordings:root?[]:[{recordingId:publicRecording,backendId:'backend-a',title:'Public recording',preferredArtworkId:artwork}]});
+  };
+  clickElement(publicCard); await settle(); await settle();
+  let publicExpansion=publicSection.querySelector('.media-home-inline-expansion');
+  const publicNested=publicExpansion.querySelector('.media-home-inline-folder');
+  assert(publicNested);
+  assert.strictEqual(publicNested.dataset.inlineFolderPath,publicChild);
+  assert.strictEqual(publicNested.querySelector('strong').textContent,'Nested child');
+  clickElement(publicNested); await settle(); await settle();
+  publicExpansion=publicSection.querySelector('.media-home-inline-expansion');
+  assert.strictEqual(publicExpansion.querySelector('.media-home-discovery-card.recording').dataset.recordingId,publicRecording);
+  clickElement(publicExpansion.querySelector('.media-home-inline-back')); await settle(); await settle();
+  assert.deepStrictEqual(publicCalls.map(call=>call.query.folderId),[publicRoot,publicChild,publicRoot]);
   console.log('phase66 Home inline genre native metadata, paginated folder and preview contract ok');
 }()).catch(error => {
   console.error(error);
