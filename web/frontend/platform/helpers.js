@@ -128,7 +128,7 @@
 
   function homeArtworkPreviewUrl(value) {
     const url = normalizedText(value);
-    if (!/^\/(?:recording-artwork\/[^/?#]+\/[^/?#]+|api\/(?:vdr\/)?recordings\/metadata\/image|api\/epg\/cache\/(?:artwork|metadata\/image)|api\/backends\/[A-Za-z0-9_.-]+\/settings\/series-artwork\/image)(?:\?|$)/.test(url)) return url;
+    if (!/^\/(?:recording-artwork\/[^/?#]+\/[^/?#]+|api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}|api\/(?:vdr\/)?recordings\/metadata\/image|api\/epg\/cache\/(?:artwork|metadata\/image)|api\/backends\/[A-Za-z0-9_.-]+\/settings\/series-artwork\/image)(?:\?|$)/.test(url)) return url;
     const hashIndex = url.indexOf('#');
     const hash = hashIndex < 0 ? '' : url.slice(hashIndex);
     const base = hashIndex < 0 ? url : url.slice(0, hashIndex);

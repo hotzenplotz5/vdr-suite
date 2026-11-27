@@ -182,5 +182,21 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
     backendId:'alpha',onPage:page=>incomplete.accept(page)});
   assert.equal(online.genres.length,31,'missing optional cache proof does not block online data');
   assert.equal(await incomplete.finish(genreCards),false);
+  const movieRuntime=create();
+  const movieTicket=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  const movieRoute='/api/v1/recordings';
+  assert(movieTicket.accept(observe(movieRuntime,movieRoute)));
+  const movieArtwork='/api/v1/recordings/rec_'+'a'.repeat(32)+'/artwork/'+'b'.repeat(32)+'?backendId=alpha';
+  const movieCards=[{id:'movie',title:'Movie',posterUrl:movieArtwork},
+    {id:'foreign',title:'Foreign',posterUrl:movieArtwork.replace('alpha','beta')},
+    {id:'token',title:'Token',posterUrl:movieArtwork+'&token=secret'}];
+  assert(await movieTicket.finish(movieCards));
+  const movieDisk=await staleDisk.read(oldScope,'recent-movies');
+  assert.equal(movieDisk.items[0].posterUrl,movieArtwork);
+  assert(movieDisk.items.slice(1).every(item=>!item.posterUrl));
+  const movieMixed=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  assert(movieMixed.accept(observe(movieRuntime,movieRoute)));
+  assert(!movieMixed.accept(observe(movieRuntime,pathA)));
+  assert.equal(await movieMixed.finish(movieCards),false);
   console.log('PWA.4/PWA.13 scoped Home preview and early headers contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

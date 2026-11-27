@@ -10,6 +10,7 @@
     'continue-watching': '/api/media/continue-watching'
   });
   const PUBLIC_GENRE_ROUTE = '/api/v1/genres';
+  const PUBLIC_MOVIE_ROUTE = '/api/v1/recordings';
   const ALL_RAILS = Object.keys(RAIL_ROUTES);
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
@@ -189,7 +190,7 @@
     function requestStamp(path, requestedBackend) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
-      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
+      if (!snapshot && path !== PUBLIC_GENRE_ROUTE && path !== PUBLIC_MOVIE_ROUTE && !Object.values(RAIL_ROUTES).includes(path)) return null;
       return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
         versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
     }
@@ -308,7 +309,8 @@
       function accept(payload) {
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
         const route = observed && observed.stamp.path;
-        const matchesRoute = route === RAIL_ROUTES[rail] || (rail === 'genres' && route === PUBLIC_GENRE_ROUTE);
+        const matchesRoute = route === RAIL_ROUTES[rail] || (rail === 'genres' && route === PUBLIC_GENRE_ROUTE) ||
+          (rail === 'recent-movies' && route === PUBLIC_MOVIE_ROUTE);
         if ((folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
             payload.offset !== 0 || payload.cacheReady !== true)) ||
             !live() || !observed || observed.stamp.generation !== local || !matchesRoute || (acceptedRoute && route !== acceptedRoute) ||

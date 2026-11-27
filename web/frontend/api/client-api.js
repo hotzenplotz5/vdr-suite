@@ -982,6 +982,69 @@
     return requestJson('/api/vdr/recordings/query', options);
   }
 
+  // Adapt the canonical public Home movie pages without inventing native
+  // recording paths. Retain the established large expanded-rail read by
+  // traversing the public offset pages (maximum 100 per HTTP response).
+  async function fetchPublicHomeMovies(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = query.backend;
+    const start = Number(query.offset || 0);
+    const count = Number(query.limit);
+    const rows = [], pages = [], ids = new Set();
+    let total;
+    let offset = start;
+    do {
+      const limit = Math.min(100, count - rows.length);
+      let payload;
+      try {
+        payload = await requestJson('/api/v1/recordings', {
+          query: {backendId, view: 'movies', limit, offset,
+            movieReleaseYearFrom: query.movieReleaseYearFrom,
+            movieReleaseYearTo: query.movieReleaseYearTo},
+          credentials: input.credentials || 'same-origin',
+          cache: input.cache || 'no-store', signal: input.signal
+        });
+      } catch (error) {
+        // Only explicit older-route absence permits compatibility. Never
+        // fall back on an authorization or provider failure.
+        if (!pages.length && (error.status === 404 || error.status === 501))
+          return fetchClientRecordings(input);
+        throw error;
+      }
+      const page = payload && payload.page;
+      const items = payload && payload.items;
+      if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+          page.offset !== offset || page.limit !== limit ||
+          !Number.isSafeInteger(page.totalCount) || page.totalCount < 0 ||
+          items.length > limit ||
+          (offset > page.totalCount ? items.length !== 0 : offset + items.length > page.totalCount) ||
+          page.hasMore !== (offset + items.length < page.totalCount) ||
+          (page.hasMore && !items.length) ||
+          (total !== undefined && total !== page.totalCount))
+        throw new Error('Unvollständige Filmseite.');
+      // Older versions of this same endpoint lack the effective release date.
+      // A whole first page lacking that additive field identifies the old
+      // presentation contract. Never mix proven public and legacy pages.
+      if (!pages.length && items.length && items.every(item =>
+          item && item.releaseDate === undefined)) return fetchClientRecordings(input);
+      for (const item of items) {
+        if (!item || item.kind !== 'recording' || item.backendId !== backendId ||
+            !/^rec_[0-9a-f]{32}$/.test(item.recordingId) ||
+            typeof item.recordedAt !== 'string' || typeof item.releaseDate !== 'string' ||
+            ids.has(item.recordingId)) throw new Error('Uneinheitliche Filmseite.');
+        ids.add(item.recordingId);
+        rows.push(item);
+      }
+      pages.push(payload);
+      total = page.totalCount;
+      offset += items.length;
+      if (!page.hasMore) break;
+    } while (rows.length < count);
+    if (typeof input.onPage === 'function') pages.forEach(input.onPage);
+    return {recordings: rows, totalCount: total};
+  }
+
   function fetchClientRecordingCacheStatus(options) {
     return requestJson('/api/vdr/recordings/cache/status', backendQueryOptions(options));
   }
@@ -1281,6 +1344,7 @@
     fetchClientRecordingPersons: fetchClientRecordingPersons,
     fetchClientRecordingTrailer: fetchClientRecordingTrailer,
     fetchClientRecordings: fetchClientRecordings,
+    fetchPublicHomeMovies: fetchPublicHomeMovies,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
     fetchPublicRecordingAction: fetchPublicRecordingAction,
