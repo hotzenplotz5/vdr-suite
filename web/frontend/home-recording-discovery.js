@@ -3586,16 +3586,7 @@
         const season = Number(member.seasonNumber);
         const episodeNumber = Number(member.episodeNumber);
         const publicId = isPublicHomeRecording(member.recording) ? recordingId(member.recording) : '';
-        const identity = publicId
-          ? Promise.resolve().then(function () {
-              if (typeof client.fetchClientRecordingForPublicId !== 'function') throw new Error('Aufnahmedetail nicht verfügbar');
-              return client.fetchClientRecordingForPublicId({backendId: backendId, recordingId: publicId});
-            }).then(function (detail) {
-              const key = recordingBackendNativeId(detail && detail.recording);
-              if (!key) throw new Error('Aufnahmeidentität nicht verfügbar');
-              return key;
-            })
-          : Promise.resolve(recordingBackendNativeId(member.recording));
+        const identity = Promise.resolve(publicId || recordingBackendNativeId(member.recording));
         status((index + 1) + '/' + targets.length + ': ' +
           text(member.episodeTitle) + ' – zentrale TMDb-Zuordnung …');
         const year = seriesPremiereYearFromMember(member);
@@ -3618,11 +3609,14 @@
             result.skipped += 1;
             return;
           }
-          return client.requestJson(endpoint + 'manual?resourceKey=' +
-            encodeURIComponent(resourceKey), {
+          const manualRoute = publicId
+            ? '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/manual?recordingId=' + encodeURIComponent(publicId)
+            : endpoint + 'manual?resourceKey=' + encodeURIComponent(resourceKey);
+          return client.requestJson(manualRoute, {
               method: 'GET', cache: 'no-store', credentials: 'same-origin'
             }).then(function (existing) {
               if (!existing ||
+                  (publicId && (existing.recordingId !== publicId || existing.backendId !== backendId)) ||
                   (existing.found !== false && existing.found !== true)) {
                 result.skipped += 1;
                 return;
