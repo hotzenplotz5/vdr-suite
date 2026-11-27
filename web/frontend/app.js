@@ -12,6 +12,42 @@ let mediaImportCapabilityEpoch = 0;
 let mediaImportKnownBackendId = '';
 let mediaToolsHomeAllowedBackendId = '';
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
+const imageGalleryTab = document.querySelector('.module-tab[data-module="image-gallery"]');
+let imageGalleryMount = null, imageGalleryEpoch = 0, imageGalleryBackend = '';
+function disposeImageGallery() {
+  if (imageGalleryMount) imageGalleryMount.dispose();
+  imageGalleryMount = null;
+}
+function resetImageGalleryVisibility() {
+  ++imageGalleryEpoch;
+  imageGalleryBackend='';
+  disposeImageGallery();
+  if (imageGalleryTab) {imageGalleryTab.hidden=true;imageGalleryTab.disabled=true;}
+}
+function refreshImageGalleryVisibility(backendId) {
+  const api=window.VdrSuiteImageGallery;
+  if (!imageGalleryTab || !api || !browserSessionFrontendActive || !backendId) return;
+  const epoch=++imageGalleryEpoch;
+  api.library(backendId).then(data=>{
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId || !browserSessionFrontendActive) return;
+    imageGalleryBackend=data.enabled===true ? backendId : '';
+    imageGalleryTab.hidden=!imageGalleryBackend;
+    imageGalleryTab.disabled=!imageGalleryBackend;
+    if (!imageGalleryBackend && selectedModule==='image-gallery') selectModule('overview');
+  }).catch(error=>{
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId) return;
+    if ([401,403,404].includes(error.status)) {
+      resetImageGalleryVisibility();
+      if (selectedModule==='image-gallery') selectModule('overview');
+    }
+  });
+}
+if (typeof window.addEventListener==='function') {
+  window.addEventListener('vdr-suite:image-gallery-activation-changed',event=>{
+    if (event.detail && event.detail.backendId===selectedBackendId)
+      refreshImageGalleryVisibility(selectedBackendId);
+  });
+}
 
 // Keep the live tab order independent of addon activation and delayed capability
 // responses. The shipped HTML already has the correct order; an addon or older
@@ -337,7 +373,8 @@ const moduleLabels = {
   timers: frontendTranslate('module.timers', 'Timer'),
   recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
   searchtimers: frontendTranslate('module.searchTimers', 'Suchtimer'),
-  'media-import': 'Media Tools'
+  'media-import': 'Media Tools',
+  'image-gallery': frontendTranslate('module.imageGallery', 'Bilder')
 };
 
 function addText(element, text) {
@@ -3932,7 +3969,10 @@ function renderSettingsView(data) {
 
   const addonsSettings = window.VdrSuiteAddonSettings;
   if (addonsSettings && typeof addonsSettings.render === 'function') {
-    inCategory('addons', panel => { addonsSettings.render(panel, selectedBackendId); });
+    inCategory('addons', panel => {
+      addonsSettings.render(panel, selectedBackendId);
+      if (typeof addonsSettings.renderImageGallery === 'function') addonsSettings.renderImageGallery(panel, selectedBackendId);
+    });
   }
 
   const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
@@ -4232,6 +4272,16 @@ document.addEventListener('vdr-suite:hevc-activity-changed', function () {
 });
 
 function renderSelectedModule(data) {
+  if (selectedModule === 'image-gallery') {
+    if (!imageGalleryMount && imageGalleryBackend===selectedBackendId && window.VdrSuiteImageGallery) {
+      detailDataElement.replaceChildren();
+      const gallery=window.VdrSuiteImageGallery;
+      imageGalleryMount=gallery.mount(detailDataElement,gallery.adapterFor(selectedBackendId),{
+        locale:document.documentElement.lang
+      });
+    }
+    return;
+  }
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
     renderHevcHomeActivity();
@@ -4364,7 +4414,9 @@ function selectModule(moduleName) {
   placeMediaImportTab();
   if (moduleName === 'media-import' &&
       (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
+  if (moduleName === 'image-gallery' && (!imageGalleryTab || imageGalleryTab.hidden || imageGalleryTab.disabled)) return;
   const previousModule = selectedModule;
+  if (previousModule === 'image-gallery' && moduleName !== 'image-gallery') disposeImageGallery();
   if (previousModule === 'media-import') {
     const moduleApi = mediaImportModule();
     if (moduleApi && typeof moduleApi.deactivate === 'function') moduleApi.deactivate();
@@ -4445,6 +4497,7 @@ function markHomeStartup(stage) {
 function loadBackendDetails(backend) {
   const sequence = ++backendDetailSequence;
   resetMediaImportVisibility(false);
+  resetImageGalleryVisibility();
   selectedBackend = backend;
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
@@ -4460,6 +4513,7 @@ function loadBackendDetails(backend) {
     refreshDetailButton.disabled = false;
     markHomeStartup('home-navigation-ready');
     refreshMediaImportVisibility(backendId);
+    refreshImageGalleryVisibility(backendId);
   }
 
   if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
@@ -4727,6 +4781,7 @@ let browserSessionFrontendBound = false;
 function renderAuthenticationRequiredFrontend() {
   closeHomeHevcStream();
   resetMediaImportVisibility(true);
+  resetImageGalleryVisibility();
   selectedBackendId = '';
   selectedBackend = null;
   currentSnapshot = null;

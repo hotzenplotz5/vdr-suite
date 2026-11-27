@@ -15,6 +15,7 @@
   "module.epg": "EPG Zeitleiste",
   "module.overview": "Home",
   "module.recordings": "Aufnahmen",
+  "module.imageGallery": "Bilder",
   "module.searchTimers": "Suchtimer",
   "module.timers": "Timer",
   "recordings.actions.description": "Umbenennen und Verschieben werden vor der Ausführung bestätigt. Die Papierkorb-Aktion wird zusätzlich validiert und als Dry-Run gegen die Backend-Sicherheitsregeln geprüft.",

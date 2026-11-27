@@ -150,6 +150,7 @@
       if (s.full) { closePhoto(); return; }
       const parent = parents.pop();
       if (!parent) return;
+      ++epoch;
       source = parent.source;
       directory = parent.directory;
       if (source) loadFolder(parent.selected);
@@ -283,7 +284,28 @@
       if (root) root.remove();
     }};
   }
-  const api = Object.freeze({createNavigation,mount});
+  let client;
+  function publicClient() {
+    if (!client) client = global.VdrSuitePublicV1Client.createClient({
+      baseUrl:global.location && global.location.origin || '',
+      credentials:'same-origin'
+    });
+    return client;
+  }
+  function library(backendId) {
+    return publicClient().getImageGalleryLibrary({backendId,cache:'no-store'});
+  }
+  function adapterFor(backendId) {
+    const api = publicClient();
+    const options = (sourceId,path) => ({backendId,sourceId,path,cache:'no-store'});
+    return {
+      listSources:() => library(backendId).then(data => data.sources || []),
+      browse:(sourceId,path) => api.getImageGalleryFolder(options(sourceId,path)).then(data => data.entries),
+      previewUrl:(sourceId,path) => api.imageGalleryPreviewUrl(options(sourceId,path)),
+      originalUrl:(sourceId,path) => api.imageGalleryPhotoUrl(options(sourceId,path))
+    };
+  }
+  const api = Object.freeze({createNavigation,mount,library,adapterFor});
   global.VdrSuiteImageGallery = api;
   if (global.VdrSuitePlatform) global.VdrSuitePlatform.registerModule('image-gallery',api);
 })(window);

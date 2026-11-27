@@ -15,6 +15,7 @@
   "module.epg": "EPG timeline",
   "module.overview": "Home",
   "module.recordings": "Recordings",
+  "module.imageGallery": "Pictures",
   "module.searchTimers": "Search timers",
   "module.timers": "Timers",
   "recordings.actions.description": "Rename and move require confirmation before execution. The trash action is additionally validated and checked against backend safety rules as a dry run.",
