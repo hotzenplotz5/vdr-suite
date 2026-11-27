@@ -228,12 +228,19 @@ esac
                 self.assertEqual(bad.read_text(), "operator sentinel")
 
     def test_image_gallery_coowner_allows_clean_daemon_upgrade(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            self.assertIn('vdr-suite-addon-image: $shared_child',
-                          render("vdr-suite-daemon", test_root=str(root)))
-            self.assertIn('vdr-suite-addon-image, vdr-suite-daemon, vdr-suite-addon-media-tools: $target',
-                          render("vdr-suite-daemon", test_root=str(root)))
+        for owners in ("vdr-suite-addon-image",
+                       "vdr-suite-addon-image, vdr-suite-daemon",
+                       "vdr-suite-addon-image, vdr-suite-daemon, vdr-suite-addon-media-tools"):
+            with self.subTest(owners=owners):
+                host, bindir, script = self.fixture()
+                self.put(host, "usr/sbin/vdr-suite-daemon")
+                addon = self.put(host, "usr/share/vdr-suite/web/frontend/modules/image-gallery.js")
+                result = self.run_gate(
+                    bindir, script, owner="vdr-suite-daemon", action="upgrade",
+                    shared_root_owner=owners,
+                    shared_child_owner="vdr-suite-addon-image")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(addon.read_text(), "operator sentinel")
 
     def test_shared_root_rejects_foreign_coowner(self):
         host, bindir, script = self.fixture()
