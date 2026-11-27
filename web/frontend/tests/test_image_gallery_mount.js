@@ -125,6 +125,19 @@ async function run(){
   await flush();
   const cards=home.children[1].children;
   assert.equal(cards.length,10);assert.equal(reads,1);
+  const camera=cards[0].children[0];
+  assert.equal(camera.tagName,'img');
+  assert.equal(camera.alt,'');
+  assert.equal(camera.src,'data:image/webp;base64,'+
+    fs.readFileSync('modules/image/assets/gallery-camera.webp').toString('base64'),
+    'shortcut must render the exact approved camera artwork');
+  const styles=doc.getElementById('image-gallery-style').textContent;
+  assert(styles.includes('#detail:has(.module-tab.active[data-module="overview"]) > [data-home-zone="image-gallery"]{order:100;'),
+    'Gallery must follow existing flex-ordered Home zones even when loaded late');
+  const homeStyles=fs.readFileSync('web/frontend/home-continue-watching.js','utf8');
+  assert(homeStyles.includes('[data-home-zone="additional-sections"]{order:40}') &&
+    homeStyles.includes('#detail-data{order:60}'),
+    'test covers the real Home shell flex ordering that caused the regression');
   cards[0].emit('click');cards[3].emit('click');
   assert.equal(opened[0],null);assert.equal(opened[1],sample[2]);
   assert.equal(cards[3].children[0].src,'/preview/pictures/Urlaub/Sample 2.jpg');

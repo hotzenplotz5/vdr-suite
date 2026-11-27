@@ -1,6 +1,10 @@
 (function (global) {
   'use strict';
 
+  // Approved artwork from modules/image/assets/gallery-camera.webp.
+  // Embed the small WebP in this already served optional module so the
+  // installed daemon route inventory and PWA asset composition stay unchanged.
+  const galleryCamera = 'data:image/webp;base64,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';
   const storageKey = 'vdr-suite.image-gallery.view';
   const mode = value => value === 'grid' ? 'grid' : 'carousel';
   const clamp = (value, size) => Math.max(0, Math.min(value, size - 1));
@@ -92,8 +96,12 @@
       .image-gallery-info{position:absolute;top:1rem;left:1rem;padding:.8rem;background:#111d;max-width:90%;overflow-wrap:anywhere}
       .image-gallery-home-rail .image-gallery-home-card{flex:0 0 clamp(9rem,20vw,16rem);min-width:0;aspect-ratio:4/3;overflow:hidden;position:relative;padding:0;border-radius:.55rem}
       .image-gallery-home-rail .image-gallery-home-card img{width:100%;height:100%;object-fit:cover;display:block}
-      .image-gallery-home-rail .image-gallery-home-link{display:grid;place-content:center;gap:.4rem;text-align:center;background:#182334;color:#f1f5f9}
-      .image-gallery-home-icon{font-size:2.3rem;line-height:1}
+      /* Other Home owners use flex order 40–60 on the detail shell.
+         The gallery is a separate final sibling, not part of their reorderable rails. */
+      #detail:has(.module-tab.active[data-module="overview"]) > [data-home-zone="image-gallery"]{order:100;min-width:0}
+      .image-gallery-home-rail .image-gallery-home-link{display:grid;grid-template-rows:minmax(0,1fr) auto;align-items:center;justify-items:center;gap:.2rem;padding:.35rem .45rem .5rem;text-align:center;background:linear-gradient(145deg,#173a52,#0b2033);color:#f1f5f9;border:1px solid #3983a5}
+      .image-gallery-home-rail .image-gallery-home-link .image-gallery-home-icon{width:100%;height:100%;min-height:0;object-fit:contain}
+      .image-gallery-home-link span{font-weight:700;line-height:1.2;font-size:clamp(.85rem,1.4vw,1.1rem)}
       .image-gallery-home-rail{display:flex;gap:.6rem;overflow-x:auto;padding:.25rem 1rem .65rem;scroll-snap-type:x proximity}
       .image-gallery-home-card{scroll-snap-align:start}
       .image-gallery-home-card:focus-visible{outline:2px solid #40e2f1;outline-offset:2px}
@@ -459,10 +467,11 @@
     }
     const shortcut = card(en ? 'Open gallery and folders' : 'Galerie und Ordner öffnen',null);
     shortcut.className += ' image-gallery-home-link';
-    const icon = doc.createElement('span');
+    const icon = doc.createElement('img');
     icon.className = 'image-gallery-home-icon';
+    icon.alt = '';
     icon.setAttribute('aria-hidden','true');
-    icon.textContent = '▧';
+    icon.src = galleryCamera;
     const label = doc.createElement('span');
     label.textContent = en ? 'My pictures' : 'Meine Bilder';
     shortcut.append(icon,label);
