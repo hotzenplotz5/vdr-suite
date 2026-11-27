@@ -2061,6 +2061,15 @@ bool DaemonRuntime::initialize()
                 return found.status == PublicRecordingPlaybackTargetStatus::ready
                     ? found.recording.backendNativeId : std::string{};
             });
+    RecordingSeriesHierarchyApiRuntime::instance().registerPublicRecordingKeyLookup(
+        [this](const std::string& backendId, const std::string& publicId) {
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_) return std::string{};
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(backendId, publicId);
+            return found.status == PublicRecordingPlaybackTargetStatus::ready
+                ? VdrRecordingCacheRepository::cacheKeyForRecording(found.recording) : std::string{};
+        });
     ManualRecordingMetadataApiRuntime::instance()
         .registerPublicRecordingTrailerLookup(
             [this](const std::string& backendId, const std::string& nativeId)

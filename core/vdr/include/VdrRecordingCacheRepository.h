@@ -116,6 +116,9 @@ public:
         int limit, int offset, VdrRecordingFolderPage& page,
         bool homeCards = false) const;
 
+    // Existing canonical storage identity, resolved server-side only.
+    static std::string cacheKeyForRecording(const VdrRecording& recording);
+
 private:
     struct BrowseFolderSnapshot
     {
@@ -145,9 +148,6 @@ private:
 
     static std::string parentFolderPath(
         const std::string& folderPath);
-
-    static std::string cacheKeyForRecording(
-        const VdrRecording& recording);
 
     static std::string folderPathForRecording(
         const VdrRecording& recording);

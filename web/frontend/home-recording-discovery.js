@@ -2084,7 +2084,7 @@
 
   function seriesHierarchyCanEdit(member) {
     if (!member || !member.recording) return false;
-    if (!text(member.recording.resourceKey)) return false;
+    if (!text(member.recording.resourceKey) && !isPublicHomeRecording(member.recording)) return false;
     return member.seriesHierarchyOverrideAvailable === true ||
       Number(member.nativeSeasonNumber || 0) <= 0;
   }
@@ -2104,15 +2104,15 @@
     }
 
     const resourceKey = text(recording && recording.resourceKey);
-    if (!resourceKey) {
+    const publicId = isPublicHomeRecording(recording) ? recordingId(recording) : '';
+    if (!resourceKey && !publicId) {
       return Promise.reject(
-        new Error('Die Aufnahme besitzt keinen kanonischen resourceKey.')
+        new Error('Die Aufnahme besitzt keine kanonische Identität.')
       );
     }
 
-    const payload = Object.assign({}, mutation || {}, {
-      resourceKey: resourceKey
-    });
+    const payload = Object.assign({}, mutation || {}, publicId
+      ? {recordingId: publicId} : {resourceKey: resourceKey});
 
     return client.requestJson(
       '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +

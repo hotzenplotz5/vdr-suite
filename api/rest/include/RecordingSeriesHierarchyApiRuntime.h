@@ -3,6 +3,7 @@
 #include "DashboardController.h"
 #include "Database.h"
 
+#include <functional>
 #include <mutex>
 #include <string>
 
@@ -14,6 +15,8 @@ public:
     bool configure(Database& database);
     bool configured() const;
     void reset();
+    using PublicRecordingKeyLookup = std::function<std::string(const std::string&, const std::string&)>;
+    void registerPublicRecordingKeyLookup(PublicRecordingKeyLookup lookup);
 
     bool tryHandleGet(
         const std::string& requestTarget,
@@ -32,4 +35,5 @@ private:
 
     mutable std::mutex mutex_;
     Database* database_ = nullptr;
+    PublicRecordingKeyLookup publicRecordingKeyLookup_;
 };

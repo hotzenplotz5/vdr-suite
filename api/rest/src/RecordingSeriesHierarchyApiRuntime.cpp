@@ -718,6 +718,13 @@ void RecordingSeriesHierarchyApiRuntime::reset()
         lock(mutex_);
 
     database_ = nullptr;
+    publicRecordingKeyLookup_ = {};
+}
+
+void RecordingSeriesHierarchyApiRuntime::registerPublicRecordingKeyLookup(PublicRecordingKeyLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingKeyLookup_ = std::move(lookup);
 }
 
 Database*
@@ -847,10 +854,36 @@ tryHandlePost(
             strings,
             "operation");
 
-    const std::string recordingKey =
-        stringValue(
-            strings,
-            "resourceKey");
+    std::string recordingKey = stringValue(strings, "resourceKey");
+    const std::string publicId = stringValue(strings, "recordingId");
+    if (strings.count("recordingId") || integers.count("recordingId"))
+    {
+        if (strings.count("resourceKey") || integers.count("resourceKey") ||
+            publicId.size() != 36 || publicId.compare(0, 4, "rec_") != 0 ||
+            !std::all_of(publicId.begin() + 4, publicId.end(), [](char c) {
+                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+            }))
+        {
+            response = errorResponse(400, "invalid_recording_id", "An opaque recording ID is required");
+            return true;
+        }
+        PublicRecordingKeyLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            lookup = publicRecordingKeyLookup_;
+        }
+        if (!lookup)
+        {
+            response = errorResponse(503, "recording_lookup_unavailable", "Recording identity lookup unavailable");
+            return true;
+        }
+        recordingKey = lookup(backendId, publicId);
+        if (recordingKey.empty())
+        {
+            response = errorResponse(404, "recording_not_found", "Recording not found in backend");
+            return true;
+        }
+    }
 
     RecordingSeriesHierarchyOverrideRepository
         repository(*db);
@@ -954,8 +987,9 @@ tryHandlePost(
         return true;
     }
 
-    response =
-        valueResponse(result.value);
+    auto value = result.value;
+    if (!publicId.empty()) value.recordingKey = publicId;
+    response = valueResponse(value);
 
     return true;
 }
