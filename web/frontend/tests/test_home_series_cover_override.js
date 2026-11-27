@@ -585,7 +585,7 @@ console.log(
 
 context.VdrSuiteClientApi = {
   requestJson(path, options) {
-    assert(path.endsWith('/recordings/metadata/seasons'));
+    assert.strictEqual(path,'/api/v1/backends/default/recordings/metadata/seasons');
     const body = JSON.parse(options.body);
     assert.strictEqual(body.seriesExternalId, '1399');
     assert.strictEqual(body.limit, 20);
