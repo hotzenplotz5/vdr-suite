@@ -131,8 +131,35 @@ async function run() {
   assert.equal(calls[7].url,base+
     '/api/v1/search/recordings?backendId=home-vdr&query=Caf%C3%A9%20%26%20Urlaub&offset=30');
 
+  const eventQuery = {backendId:'home-vdr',channelId:'S19.2E-1-1019-10301',eventId:'139'};
+  const tag = '"epg1:sha256:example"';
+  replies.push({...response(200, { ...eventQuery, title:'Tatort' }),
+    headers:{get(name){return name.toLowerCase() === 'etag' ? tag : null;}}});
+  const detail = await client.getEpgEvent({query:eventQuery});
+  assert.equal(detail.status, 200);
+  assert.equal(detail.etag, tag);
+  assert.equal(detail.data.eventId, '139');
+  assert.equal(calls.at(-1).url,base+'/api/v1/epg/event?backendId=home-vdr&channelId=S19.2E-1-1019-10301&eventId=139');
+  replies.push({status:304,ok:false,headers:{get(){return tag;}}});
+  assert.deepEqual(await client.getEpgEvent({query:eventQuery,ifNoneMatch:tag}),
+    {status:304,etag:tag,data:null});
+  assert.equal(calls.at(-1).options.headers['If-None-Match'],tag);
+  const genres = {items:[{genreId:'adventure',contentClass:'movie',label:'Abenteuer',count:31}],
+    page:{offset:0,limit:30,totalCount:31,hasMore:true},meta:{partial:false}};
+  replies.push(response(200,genres));
+  assert.deepEqual(await client.getEpgGenres({query:{backendId:'home-vdr',limit:30}}),genres);
+  assert.equal(calls.at(-1).url,base+'/api/v1/genres/epg?backendId=home-vdr&limit=30');
+  const genreEvents={items:[{kind:'epg',...eventQuery,title:'Tatort'}],
+    page:{offset:30,limit:30,totalCount:31,hasMore:false},meta:{partial:false}};
+  replies.push(response(200,genreEvents));
+  assert.deepEqual(await client.getEpgGenreEvents({query:{backendId:'home-vdr',contentClass:'movie',genreId:'adventure',offset:30}}),genreEvents);
+  assert.equal(calls.at(-1).url,base+'/api/v1/genres/epg/events?backendId=home-vdr&contentClass=movie&genreId=adventure&offset=30');
   const beforeInvalid=calls.length;
   for(const invalid of [
+    () => client.getEpgEvent({query:{...eventQuery,eventId:'../bad'}}),
+    () => client.getEpgEvent({query:{...eventQuery,legacy:true}}),
+    () => client.getEpgGenres({query:{backendId:'home-vdr',limit:31}}),
+    () => client.getEpgGenreEvents({query:{backendId:'home-vdr',contentClass:'series',genreId:'adventure'}}),
     () => client.getEpgWindow({query:{backendId:'home-vdr',channelId:'one',fromTime:start,untilTime:start}}),
     () => client.getEpgWindow({query:{backendId:'home-vdr',channelId:'one',fromTime:start,untilTime:until,limit:193}}),
     () => client.getEpgNowNext({query:{backendId:'home-vdr',channelId:'one',fromTime:start,limit:3}}),

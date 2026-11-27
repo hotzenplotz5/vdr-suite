@@ -25,3 +25,10 @@ Acceptance must compare EPG-category counts and EPG items with the Web
 Live-TV permissions are separate: `channels.view`, `epg.view` and
 `media.live.play` may all be assigned to an already paired Hisense device
 via administrator `/api/v1/devices/{deviceId}/grants` with ETag and CSRF.
+
+The existing OpenAPI and reference JavaScript client expose these reads as
+`getEpgGenres({query})` and `getEpgGenreEvents({query})`. The existing
+`GET /api/v1/epg/event` is also documented and available through
+`getEpgEvent({query, ifNoneMatch})`, returning `{status, etag, data}` so
+clients can retain the strong event revision and handle 304 without a
+second lookup. No new runtime path or grant is introduced.

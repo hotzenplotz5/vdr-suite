@@ -287,6 +287,49 @@
     return text;
   }
 
+  function f3EpgEventQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query) ||
+        Object.keys(query).some(key => !['backendId','channelId','eventId'].includes(key)))
+      throw new Error('EPG event requires exact backend, channel and event IDs');
+    const backend = f3CanonicalId(query.backendId, 'EPG backendId', 128);
+    const eventIdentity = (value) => {
+      if (typeof value !== 'string' || !/^[A-Za-z0-9._:-]{1,160}$/.test(value))
+        throw new Error('Invalid EPG event identity');
+      return value;
+    };
+    return '?backendId=' + backend + '&channelId=' + eventIdentity(query.channelId) +
+      '&eventId=' + eventIdentity(query.eventId);
+  }
+
+  function f3EpgGenreQuery(query, events) {
+    const allowed = ['backendId','locale','limit','offset'];
+    if (events) allowed.push('contentClass','genreId');
+    if (!query || typeof query !== 'object' || Array.isArray(query) ||
+        Object.keys(query).some(key => !allowed.includes(key)))
+      throw new Error('Invalid EPG genre query');
+    const fields = ['backendId=' + f3CanonicalId(query.backendId, 'EPG backendId', 128)];
+    if (events) {
+      if (!['movie','series','documentary','sports'].includes(query.contentClass))
+        throw new Error('Invalid EPG contentClass');
+      fields.push('contentClass=' + query.contentClass);
+      if (query.genreId !== undefined) {
+        if (query.contentClass !== 'movie') throw new Error('genreId requires movie');
+        fields.push('genreId=' + f3CanonicalId(query.genreId, 'EPG genreId', 128));
+      }
+    }
+    if (query.locale !== undefined) {
+      if (!['de','en'].includes(query.locale)) throw new Error('Invalid EPG locale');
+      fields.push('locale=' + query.locale);
+    }
+    for (const [key, min, max] of [['limit',1,30],['offset',0,1000000]]) {
+      if (query[key] === undefined) continue;
+      if (!Number.isInteger(query[key]) || query[key] < min || query[key] > max)
+        throw new Error('Invalid EPG genre ' + key);
+      fields.push(key + '=' + query[key]);
+    }
+    return '?' + fields.join('&');
+  }
+
   function f3EpgQuery(query, window) {
     if (!query || typeof query !== 'object' || Array.isArray(query))
       throw new Error('Public EPG query must be an object');
@@ -2503,6 +2546,18 @@
       getEpgNowNext(options) {
         const input = options && typeof options === 'object' ? options : {};
         return request('/api/v1/epg/now-next' + f3EpgQuery(input.query, false), input);
+      },
+      getEpgEvent(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned('/api/v1/epg/event' + f3EpgEventQuery(input.query), input);
+      },
+      getEpgGenres(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/epg' + f3EpgGenreQuery(input.query, false), input);
+      },
+      getEpgGenreEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/epg/events' + f3EpgGenreQuery(input.query, true), input);
       },
       searchEpg(options) {
         const input = options && typeof options === 'object' ? options : {};
