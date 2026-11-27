@@ -393,3 +393,15 @@ playback. No real-yaVDR native-effect acceptance is required.
 
 Acceptance requires the exact branch head to pass the complete repository CI
 graph. Merge still requires explicit user approval.
+
+## API-v1 finalization successor: combined search
+
+The browser's `fetchClientGlobalSearch` now uses the scoped GET
+`/api/v1/search` for its standard query, with existing public Recording and
+EPG artwork resources. Both existing read grants apply to the same backend.
+The historic accepted resource/reference counts above remain unchanged;
+this is a source candidate until exact-head CI and deployed parity are proven.
+The old authenticated browser route is retained for unsupported legacy query
+shapes, older daemons, and explicitly typed browser-only permission cases;
+no retry on authentication loss, revoked actors, transport or server failures.
+Recording detail continues through the existing opaque-ID private bridge.

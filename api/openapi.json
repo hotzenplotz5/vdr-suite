@@ -18568,7 +18568,7 @@
         },
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Requires authenticated Actor/Device credential and recordings.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
+          "authorization": "Requires authenticated Actor/Device credential and both recordings.view@backendId and epg.view@backendId for exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime. No browser-private fallback inside Public v1."
         },
         "security": [
           {

@@ -55,3 +55,17 @@ query, backend, and EPG time window. Confirm zero native paths in the TV
 response, three Hobbit recording results and two EPG subtitle results.
 Search-specific errors must carry a non-secret reason in the daemon log.
 Do not alter permissions or SQLite grants directly during the parity test.
+
+## Combined search dialog successor
+
+| Scenario | Expected parity |
+| --- | --- |
+| Standard dialog query (24 hits per domain) | One shared search, independent recording/EPG counts and order |
+| Manual/native artwork | Existing opaque preferred artwork ID, no extra detail fetch per result |
+| Person matched only in EPG | Existing cached portrait if available, only with both existing read grants |
+| One-domain grant only | Split endpoint remains available; combined endpoint rejects |
+| Recording selection | Existing opaque-ID-to-private detail bridge; no title-based guessing |
+| Existing browser-only or older-daemon compatibility | Narrow authenticated legacy path; no retry on auth loss or server failure |
+
+Kodi/Plex comparison and deployed yaVDR/Hisense behavior are not verified by
+these source tests. Do not promote this candidate on that basis.

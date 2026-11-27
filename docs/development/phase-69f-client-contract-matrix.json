@@ -170,7 +170,7 @@
       "exports": [
         "fetchClientGlobalSearch"
       ],
-      "note": "Current global search is a first-party transition route, not a public-v1 search contract."
+      "note": "Combined Public-v1 search and existing public Recording/EPG artwork are source candidates. The existing authenticated browser route remains a narrow compatibility path; recording detail opens through the existing opaque-to-private bridge. Historical accepted reference inventory is unchanged."
     },
     {
       "domain": "epg-cache",

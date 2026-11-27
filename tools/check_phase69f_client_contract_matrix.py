@@ -109,6 +109,15 @@ for source_name, source in (
         ):
             require(source.count(route) == 1, "reviewed recording route drifted: " + route)
             source = source.replace(route, "'approved-recording-route'")
+        # Reviewed combined-search successor: one exact read and its existing
+        # public artwork resources, never a general public prefix allowance.
+        for route in (
+            "'/api/v1/search'",
+            "'/api/v1/recordings/' + recordingId + '/artwork/' + artworkId",
+            "'/api/v1/epg/artwork?backendId='",
+        ):
+            require(source.count(route) == 1, "reviewed search route drifted: " + route)
+            source = source.replace(route, "'approved-global-search-route'")
     if source_name == "genre":
         # Reviewed recording facet and membership; EPG remains legacy.
         route = "'/api/v1/genres'"

@@ -619,7 +619,8 @@ def validate(
                     "isPublicManualMetadataRead" not in security_source or
                     '(manualMetadataOperation == "genre" || manualMetadataOperation == "trailer")' not in security_source or
                     'std::vector<std::string>{manualMetadataBackendId}' not in security_source or
-                    'recordingReadRequest.permission = "recordings.view"' not in security_source or
+                    'std::vector<std::string>{"recordings.view"}' not in security_source or
+                    'recordingReadRequest.permission = permission' not in security_source or
                     native_router_source.find(router_marker) >
                     native_router_source.find("PublicApiRuntime::instance().tryHandleGet(")
                 ):

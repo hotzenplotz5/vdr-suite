@@ -156,7 +156,7 @@ assert.strictEqual(missing,1);
       text:() => Promise.resolve(JSON.stringify(reply.data))
     });
   };
-  vm.runInNewContext(clientSource,{window:clientWindow,fetch,console,Promise,Date},
+  vm.runInNewContext(clientSource,{window:clientWindow,fetch,console,Promise,Date,URLSearchParams},
     {filename:'client-api.js'});
   const api = clientWindow.VdrSuiteClientApi;
   const recId = 'rec_0123456789abcdef0123456789abcdef';
