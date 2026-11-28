@@ -614,8 +614,35 @@ void testQueryCacheRefresh()
 }
 }
 
+void testPublicPreviewCacheRefresh()
+{
+    SecurityHttpGateBrowserTestFixture fixture;
+    const std::string path = "/api/v1/search-timers/preview-cache/refresh";
+    const auto evaluate = [&](const std::string& query, bool csrf = true) {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = path + query;
+        fixture.addBrowserAuthentication(request, csrf);
+        return fixture.gate.evaluate(request);
+    };
+    assertDenied(evaluate("?backendId=default"), 403, "permission_denied");
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId,
+        "searchtimers.preview-cache.refresh", "default"));
+    const auto admitted = evaluate("?backendId=default&timespan=1209600&channelEventLimit=96");
+    assert(admitted.allowed && admitted.protectedMutation);
+    assert(admitted.authorizationDecision.backendId == "default");
+    assert(admitted.authorizationDecision.permission == "searchtimers.preview-cache.refresh");
+    assertDenied(evaluate("?backendId=foreign"), 403, "backend_scope_denied");
+    assertDenied(evaluate("?backendId=default", false), 403, "csrf_validation_failed");
+    assertDenied(evaluate("?backendId=default&backendId=foreign"), 400, "invalid_backend_scope");
+    assertDenied(evaluate(""), 400, "invalid_backend_scope");
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId, "role.read-only", "default"));
+    assertDenied(evaluate("?backendId=default"), 403, "role_read_only");
+}
+
 int main()
 {
+    testPublicPreviewCacheRefresh();
     testNativeFuzzyRefresh();
     testNativeFuzzyStaleProbeDelete();
     testQueryCacheRefresh();

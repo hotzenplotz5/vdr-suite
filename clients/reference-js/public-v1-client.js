@@ -2862,6 +2862,28 @@
       assignRecordingMetadata(options) {
         return postRecordingMetadata(options,'assign',true);
       },
+      refreshSearchTimerPreviewCache(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Preview cache refresh requires backendId');
+        const query = ['backendId=' + encodeURIComponent(input.backendId)];
+        for (const key of ['from','timespan','start','limit','channelEventLimit']) {
+          if (input[key] === undefined) continue;
+          if (!Number.isInteger(input[key]) || input[key] < -2147483648 || input[key] > 2147483647)
+            throw new Error('Invalid preview refresh integer: ' + key);
+          query.push(key + '=' + input[key]);
+        }
+        const path = '/api/v1/search-timers/preview-cache/refresh?' + query.join('&');
+        return fetchImpl(buildUrl(baseUrl,path), {
+          method:'POST', headers:Object.assign({Accept:'application/json'},defaultHeaders,copyHeaders(input.headers)),
+          cache:'no-store', credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+          signal:input.signal
+        }).then(response => parseJsonBody(response).then(data => {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return data;
+        }));
+      },
       setRecordingSeriesHierarchy(options) {
         const input = options && typeof options === 'object' ? options : {};
         const body = input.payload;

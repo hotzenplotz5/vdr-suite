@@ -268,6 +268,11 @@ RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/gen
     "post": 'route.operation == "genre"',
 }
 
+SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH = "/api/v1/search-timers/preview-cache/refresh"
+RECORDING_METADATA_AUDITED[SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH] = {
+    "post": "searchTimerPreviewEpgCacheRefreshController_->refreshBackend(",
+}
+
 SERIES_HIERARCHY_PATH = "/api/v1/backends/{backendId}/recordings/series-hierarchy"
 RECORDING_METADATA_AUDITED[SERIES_HIERARCHY_PATH] = {
     "post": "recordingKey = lookup(backendId, publicId);",
@@ -640,6 +645,15 @@ def validate(
                     native_router_source.find(router_marker) > native_router_source.find(public_dispatch) or
                     gate_marker not in security_source or suffix not in owner_source):
                     errors.append(f"{where}: Media Tools route/owner/security anchor missing")
+            elif path == SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH:
+                if (path not in native_router_source or
+                    "return handlePublicSearchTimerPreviewCacheRefresh(" not in native_router_source or
+                    marker not in recording_router_source or
+                    "backendId != authorizedBackendId" not in recording_router_source or
+                    path not in security_source or
+                    "isPublicSearchTimerPreviewCacheRefresh" not in security_source or
+                    'requestToAuthorize.permission = "searchtimers.preview-cache.refresh"' not in security_source):
+                    errors.append(f"{where}: preview cache refresh owner or existing grant missing")
             elif path == SERIES_HIERARCHY_PATH:
                 owner = (ROOT / "api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp").read_text(encoding="utf-8")
                 router_marker = "RecordingSeriesHierarchyApiRuntime::instance().tryHandlePost("
@@ -808,7 +822,10 @@ def validate(
             elif any(not isinstance(v, dict) or not v.get("description") for v in responses.values()):
                 errors.append(f"{where}: response missing description")
             if method == "post":
-                should_have_body = path != "/api/v1/device-pairings/{pairingRequestId}/credential"
+                should_have_body = path not in {
+                    "/api/v1/device-pairings/{pairingRequestId}/credential",
+                    SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH,
+                }
                 body = op.get("requestBody")
                 if should_have_body and (not isinstance(body, dict) or body.get("required") is not True):
                     errors.append(f"{where}: required POST body missing")

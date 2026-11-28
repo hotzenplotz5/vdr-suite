@@ -1277,10 +1277,16 @@
   }
 
   function fetchClientSearchTimerPreviewCacheRefresh(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/preview/cache/refresh',
-      backendQueryOptions(queryMutationOptions(options))
-    );
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const backendId = input.backendId || query.backendId || query.backend;
+    if (typeof backendId !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/.test(backendId))
+      return Promise.reject(new Error('Preview-Cache benötigt eine Backend-ID.'));
+    delete query.backend;
+    delete query._;
+    query.backendId = backendId;
+    return requestJson('/api/v1/search-timers/preview-cache/refresh',
+      queryMutationOptions(Object.assign({}, input, {query, method:'POST'})));
   }
 
   function fetchClientSearchTimerPlan(options) {

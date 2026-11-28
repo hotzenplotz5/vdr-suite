@@ -80,6 +80,16 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/assign"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_public_preview_cache_refresh_contract_and_existing_grant(self):
+        path = guard.SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH
+        changed = copy.deepcopy(self.document)
+        del changed["paths"][path]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            "isPublicSearchTimerPreviewCacheRefresh", "obsoleteRefresh")
+        self.assert_rejected(security_source=changed_security,
+                             reason="preview cache refresh owner or existing grant missing")
+
     def test_public_series_hierarchy_contract_and_existing_grant(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"][guard.SERIES_HIERARCHY_PATH]

@@ -2402,9 +2402,9 @@ def check_client_api_contract():
         ),
         "fetchClientSearchTimerPreviewCacheRefresh": (
             "fetchClientSearchTimerPlan",
+            "/api/v1/search-timers/preview-cache/refresh",
             "/api/vdr/searchtimers/preview/cache/refresh",
-            "/api/searchtimers/preview/cache/refresh",
-            "backendQueryOptions(queryMutationOptions(options))",
+            "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))",
         ),
         "fetchClientSearchTimerPlan": (
             "fetchClientSearchTimerValidate",

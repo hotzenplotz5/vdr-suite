@@ -10655,7 +10655,8 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
-    if (path == PublicManualTimerIntentPath || publicSeriesHierarchyPath(path))
+    if (path == PublicManualTimerIntentPath || publicSeriesHierarchyPath(path) ||
+        path == "/api/v1/search-timers/preview-cache/refresh")
     {
         response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
         return true;
@@ -14370,6 +14371,12 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     }
 
     std::string mediaImportBackend;
+    if (path == "/api/v1/search-timers/preview-cache/refresh")
+    {
+        response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
+        return true;
+    }
+
     if (publicSeriesHierarchyPath(path) || publicMediaImportCollectionPath(path, mediaImportBackend))
     {
         response = methodNotAllowedProblem(

@@ -20674,6 +20674,137 @@
         "x-vdr-suite-auth-profile": "device"
       }
     },
+    "/api/v1/search-timers/preview-cache/refresh": {
+      "post": {
+        "operationId": "publicSearchTimerPreviewCacheRefresh",
+        "summary": "Explicitly refresh the existing SearchTimer EPG preview cache",
+        "description": "Uses the existing backend-specific refresh service, not a SearchTimer mutation. No request body or automatic retry.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": -1
+            }
+          },
+          {
+            "name": "timespan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 7200
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": -1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "channelEventLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing searchtimers.preview-cache.refresh grant for exact backend, Browser CSRF where applicable; audited operation."
+        },
+        "responses": {
+          "200": {
+            "description": "Refresh completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "status",
+                    "available",
+                    "eventCount"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready"
+                      ]
+                    },
+                    "available": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "eventCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid refresh query"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Backend scope, permission or CSRF denied"
+          },
+          "404": {
+            "description": "No preview cache service for backend"
+          },
+          "503": {
+            "description": "Refresh unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/search-timers/draft-preview": {
       "get": {
         "tags": [

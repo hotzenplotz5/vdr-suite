@@ -50,6 +50,13 @@ unversionierten Wrapper bleiben bis zur vollständigen Aufrufer-Inventur
 bestehen; alte Daemons ohne Direct-Action-Contract sind keine
 Public-v1-Paritätskandidaten. CI und echte VDR-Abnahme sind separat offen.
 
+**Suchtimer-Preview-Cache (28.11.2026):** Aktiver Browser-Refresh
+über Public v1, derselbe Controller/Cache und vorhandene Scope-/CSRF-
+Autorisierung. 14-Tage-/96-pro-Kanal-Parameter bleiben erhalten.
+Keine zusätzlichen Provider-Abfragen, kein Polling, keine zweite
+Cache-Implementierung. OpenAPI, Referenzclient, Security- und Router-
+Regressionen ergänzt; finaler CI-/Hardware-Nachweis offen.
+
 **Nachweisbare Restlücken:**
 
 - `GET /api/v1/backends` liefert laut Backend-Discovery-Vertrag bewusst nur

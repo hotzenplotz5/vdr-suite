@@ -251,6 +251,23 @@ int main()
     assert(aliasResponse.contentType == "application/json");
     assert(aliasResponse.body.find("\"status\":\"backend-not-found\"") != std::string::npos);
 
+    const std::string publicPath = "/api/v1/search-timers/preview-cache/refresh";
+    const auto dispatch = [&](const std::string& query, const std::string& authorized,
+                              const std::string& body = "") {
+        return router.handleClientPost(publicPath + query, body,
+            "test-actor", "", "corr", "req", "", "", "", authorized);
+    };
+    const auto publicMissing = dispatch("?backendId=missing&timespan=1209600&channelEventLimit=96", "missing");
+    assert(publicMissing.statusCode == 404);
+    assert(publicMissing.body.find("backend_not_found") != std::string::npos);
+    assert(publicMissing.contentType == "application/problem+json");
+    assert(dispatch("?backendId=missing", "default").statusCode == 403);
+    assert(dispatch("?backendId=missing&backendId=default", "missing").statusCode == 400);
+    assert(dispatch("?backendId=missing&timespan=oops", "missing").statusCode == 400);
+    assert(dispatch("?backendId=missing&limit=999999999999", "missing").statusCode == 400);
+    assert(dispatch("?backendId=missing&backend=default", "missing").statusCode == 400);
+    assert(dispatch("?backendId=missing", "missing", "{}").statusCode == 400);
+
     std::cout << "test_api_router_searchtimer_preview_epg_cache_refresh_route passed" << std::endl;
     return 0;
 }

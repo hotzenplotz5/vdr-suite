@@ -205,8 +205,11 @@ public:
             (path == "/api/searchtimers/execute" || path == "/api/vdr/searchtimers/execute");
         const bool isSearchTimerRealTestAction = isPost &&
             (path == "/api/searchtimers/real-test" || path == "/api/vdr/searchtimers/real-test");
+        const bool isPublicSearchTimerPreviewCacheRefresh = isPost &&
+            path == "/api/v1/search-timers/preview-cache/refresh";
         const bool isSearchTimerPreviewCacheRefreshAction = isPost &&
-            (path == "/api/searchtimers/preview/cache/refresh" || path == "/api/vdr/searchtimers/preview/cache/refresh");
+            (isPublicSearchTimerPreviewCacheRefresh ||
+             path == "/api/searchtimers/preview/cache/refresh" || path == "/api/vdr/searchtimers/preview/cache/refresh");
         const bool isEpgCacheRefreshAction = isPost && path == "/api/epg/cache/refresh";
         const bool isNativeFuzzyRefreshAction = isPost &&
             (path == "/api/epgsearch/native-fuzzy/refresh" || path == "/api/vdr/epgsearch/native-fuzzy/refresh");
@@ -3470,8 +3473,31 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.preview-cache.refresh";
             requestToAuthorize.action = "searchtimers.preview-cache.refresh";
-            requestToAuthorize.backendId = queryStringValue(request.path, "backend");
-            defaultBackend(requestToAuthorize);
+            if (isPublicSearchTimerPreviewCacheRefresh)
+            {
+                const auto scopes = queryStringValues(request.path, "backendId");
+                if (scopes.size() != 1U || scopes.front().empty() ||
+                    scopes.front().size() > 128U ||
+                    scopes.front() == "." || scopes.front() == ".." ||
+                    !std::all_of(scopes.front().begin(), scopes.front().end(),
+                        [](unsigned char ch) {
+                            return std::isalnum(ch) || ch == '.' || ch == '_' || ch == '-';
+                        }))
+                {
+                    AuthorizationDecision invalid;
+                    invalid.permission = requestToAuthorize.permission;
+                    invalid.action = requestToAuthorize.action;
+                    invalid.backendId = "*";
+                    invalid.reasonCode = "invalid_backend_scope";
+                    return rejectWithAudit(gate, invalid, 400, "One exact backendId is required.", "");
+                }
+                requestToAuthorize.backendId = scopes.front();
+            }
+            else
+            {
+                requestToAuthorize.backendId = queryStringValue(request.path, "backend");
+                defaultBackend(requestToAuthorize);
+            }
         }
         else if (isEpgCacheRefreshAction)
         {

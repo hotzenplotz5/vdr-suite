@@ -55,7 +55,7 @@ const context = {
   fetch(url, options) {
     requests.push({url, options});
     if (previewPrimaryFails &&
-        String(url).startsWith('/api/vdr/searchtimers/preview/cache/refresh')) {
+        String(url).startsWith('/api/v1/search-timers/preview-cache/refresh')) {
       return Promise.resolve(response(false, 404, {error: 'missing'}));
     }
     return Promise.resolve(response(true, 200, {
@@ -90,7 +90,7 @@ function latestRequest() {
 function assertScopedMutation(request, pathName) {
   const parsed = new URL(request.url, 'https://vdr-suite.test/');
   assert.strictEqual(parsed.pathname, pathName);
-  assert.strictEqual(parsed.searchParams.get('backend'), 'living-room');
+  assert.strictEqual(parsed.searchParams.get(pathName.startsWith('/api/v1/') ? 'backendId' : 'backend'), 'living-room');
   assert.strictEqual(request.options.method, 'POST');
   assert.strictEqual(
     request.options.headers['X-CSRF-Token'],
@@ -129,7 +129,7 @@ async function run() {
   });
   assertScopedMutation(
     latestRequest(),
-    '/api/vdr/searchtimers/preview/cache/refresh'
+    '/api/v1/search-timers/preview-cache/refresh'
   );
 
   previewPrimaryFails = true;
@@ -153,7 +153,7 @@ async function run() {
   assert.strictEqual(failedRequests.length, 1);
   assertScopedMutation(
     failedRequests[0],
-    '/api/vdr/searchtimers/preview/cache/refresh'
+    '/api/v1/search-timers/preview-cache/refresh'
   );
 
   const epgActionsSource = fs.readFileSync(epgActionsPath, 'utf8');

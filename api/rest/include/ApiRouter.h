@@ -606,6 +606,14 @@ public:
             return response;
         }
 
+        if (requestTarget.substr(0, requestTarget.find('?')) ==
+            "/api/v1/search-timers/preview-cache/refresh")
+        {
+            return handlePublicSearchTimerPreviewCacheRefresh(
+                requestTarget, body, actorRef, authorizedBackendRef,
+                requestRef, correlationRef);
+        }
+
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 requestRef,
@@ -719,6 +727,10 @@ public:
     }
 
 private:
+    ApiResponse handlePublicSearchTimerPreviewCacheRefresh(
+        const std::string& requestTarget, const std::string& body,
+        const std::string& actorRef, const std::string& authorizedBackendId,
+        const std::string& requestId, const std::string& correlationId);
     ApiResponse handlePublicRecordingAction(
         const std::string& body, bool execute,
         const std::string& ifMatch,
