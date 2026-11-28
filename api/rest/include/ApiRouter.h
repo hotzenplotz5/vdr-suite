@@ -137,6 +137,11 @@ public:
         std::function<ApiResponse(
             const std::string& body,
             const std::string& actorRef)>;
+    using BrowserRecordingPlaybackHandler =
+        std::function<ApiResponse(
+            const std::string& body,
+            const std::string& actorRef,
+            const std::string& authorizedBackendId)>;
     using DeviceRecordingPlaybackHandler =
         std::function<ApiResponse(
             const std::string& requestTarget,
@@ -223,6 +228,26 @@ public:
         RecordingMediaSessionHandler handler)
     {
         recordingMediaSessionHandler_ = std::move(handler);
+    }
+
+    void setBrowserRecordingPlaybackHandler(BrowserRecordingPlaybackHandler handler)
+    {
+        browserRecordingPlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleBrowserRecordingPlayback(
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& authorizedBackendId)
+    {
+        if (browserRecordingPlaybackHandler_)
+            return browserRecordingPlaybackHandler_(body, actorRef, authorizedBackendId);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"media_session_runtime_unavailable\"}}";
+        return response;
     }
 
     void setDeviceRecordingPlaybackHandler(DeviceRecordingPlaybackHandler handler)
@@ -731,6 +756,7 @@ private:
     VdrRecordingFolderController* vdrRecordingFolderController_;
     LocalBackendSetupStatusLookup localBackendSetupStatusLookup_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
+    BrowserRecordingPlaybackHandler browserRecordingPlaybackHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
     DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;
 };

@@ -418,8 +418,11 @@ public:
             recordingSeriesHierarchyRoute(
                 path,
                 recordingSeriesHierarchyBackendId);
+        const bool isPublicBrowserRecordingSessionCreate =
+            isPost && path == "/api/v1/browser/recording-playback-sessions";
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
-        const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        const bool isRecordingPlaybackSessionCreate =
+            isMediaSessionMutation || isPublicBrowserRecordingSessionCreate;
         // Control-plane reservation. Media bytes use the separately guarded
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
@@ -3157,6 +3160,19 @@ public:
                 "Credential rotation requires an administrator Browser Session",
                 "");
         }
+        if (isPublicBrowserRecordingSessionCreate &&
+            (!gate.browserAuthenticated || gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "media.recording.play";
+            denial.action = "media.recording.play";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "A verified Browser Session is required", "");
+        }
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
@@ -3312,6 +3328,11 @@ public:
                  isPublicDeviceRecordingProgressUpdate ||
                  isPublicDeviceRecordingSessionStop ||
                   isPublicDeviceRecordingSubtitleSelection)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.play";
+        }
+        else if (isPublicBrowserRecordingSessionCreate)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";

@@ -2411,6 +2411,12 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = vdrsuite::mediatools::local_encoding_admin::save(
                 request.body);
         }
+        else if (request.path == "/api/v1/browser/recording-playback-sessions")
+        {
+            apiResponse = apiRouter_.handleBrowserRecordingPlayback(
+                request.body, gate.context.actor.actorId,
+                gate.authorizationDecision.backendId);
+        }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
@@ -2532,7 +2538,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     // exception as Browser-session login. Never apply it to Public-v1 Device
     // playback, forwarded requests, errors or unrelated Set-Cookie headers.
     if (request.method == "POST" &&
-        request.path == "/api/media/sessions" &&
+        (request.path == "/api/media/sessions" ||
+         request.path == "/api/v1/browser/recording-playback-sessions") &&
         response.statusCode == 201)
     {
         auto cookie = response.headers.find("Set-Cookie");

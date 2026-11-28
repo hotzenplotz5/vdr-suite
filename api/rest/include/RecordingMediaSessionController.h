@@ -46,6 +46,14 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
+    // Browser CREATE uses the same controller and media cookie/transport as
+    // the existing browser player, after backend-scoped public ID resolution.
+    ApiResponse createBrowserSession(
+        const std::string& body,
+        const std::string& actorId,
+        const VdrRecording& authorizedRecording,
+        const std::string& publicRecordingId) const;
+
     // Only after live Device authentication, grant verification, and
     // canonical public-ID admission. No native identity reaches the response.
     ApiResponse createDeviceSession(

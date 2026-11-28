@@ -17786,6 +17786,129 @@
         "x-vdr-suite-auth-profile": "device"
       }
     },
+    "/api/v1/browser/recording-playback-sessions": {
+      "post": {
+        "tags": [
+          "Browser Recording playback"
+        ],
+        "operationId": "createBrowserRecordingPlaybackSession",
+        "summary": "Create a Browser recording playback session from a canonical Recording ID",
+        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser control operations and media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "capabilities"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "capabilities": {
+                    "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+                  },
+                  "startPositionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "audioTrackId": {
+                    "type": "string",
+                    "pattern": "^audio-[1-9][0-9]{0,9}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Owned Browser MediaSession created, existing scoped HttpOnly media cookie and presentation contract; recordingId is canonical.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mediaSession"
+                  ],
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "backendId",
+                        "recordingId",
+                        "mediaPath",
+                        "playback"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "backendId": {
+                          "type": "string"
+                        },
+                        "recordingId": {
+                          "type": "string",
+                          "pattern": "^rec_[0-9a-f]{32}$"
+                        },
+                        "mediaPath": {
+                          "type": "string"
+                        },
+                        "playback": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid recording or playback request."
+          },
+          "401": {
+            "description": "Browser authentication missing."
+          },
+          "403": {
+            "description": "Missing playback grant, scope or CSRF."
+          },
+          "404": {
+            "description": "Recording not found."
+          },
+          "422": {
+            "description": "Requested presentation or position unavailable."
+          },
+          "503": {
+            "description": "Recording cache or playback unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions": {
       "post": {
         "tags": [

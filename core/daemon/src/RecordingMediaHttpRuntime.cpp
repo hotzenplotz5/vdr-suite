@@ -184,6 +184,42 @@ int runRecordingMediaHttpRuntime(
                 liveResource);
         });
 
+    // Versioned Browser CREATE reuses the existing media controller, worker,
+    // cookie and presentation contract. The authorized scope is from the
+    // existing SecurityHttpGate; never derive it from an untrusted native ID.
+    apiRouter.setBrowserRecordingPlaybackHandler(
+        [&recordingMediaSessionController, &targetResolver, &recordingCache](
+            const std::string& body, const std::string& actorRef,
+            const std::string& authorizedBackendId)
+        {
+            auto fail = [](int status, const char* code) {
+                ApiResponse response;
+                response.statusCode = status;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.headers["X-Content-Type-Options"] = "nosniff";
+                response.body = std::string("{\"error\":{\"code\":\"") + code + "\"}}";
+                return response;
+            };
+            if (actorRef.empty()) return fail(401, "media_actor_required");
+            const auto request = RecordingMediaSessionRequestParser().parse(body);
+            if (!request.valid || LiveMediaSessionRequestParser::requestsLiveChannel(body) ||
+                request.nativeMediaAccessRequested || request.deviceMediaProfileRequested)
+                return fail(400, "invalid_browser_recording_request");
+            if (authorizedBackendId.empty() || authorizedBackendId != request.backendId)
+                return fail(403, "backend_scope_denied");
+            if (recordingCache.statusForBackend(authorizedBackendId).state != "ready")
+                return fail(503, "recording_cache_unavailable");
+            const auto target = targetResolver.resolve(authorizedBackendId, request.recordingId);
+            if (target.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+                return fail(400, "invalid_recording_id");
+            if (target.status != PublicRecordingPlaybackTargetStatus::ready)
+                return fail(404, "recording_not_found");
+            return MediaPlaybackContractResponse::augment(
+                recordingMediaSessionController.createBrowserSession(
+                    body, actorRef, target.recording, request.recordingId), false);
+        });
+
     // Separate versioned Device control plane. SecurityHttpGate has already
     // verified the live Device proof and media.recording.play@backend; the
     // domain Admission checks it again before native ID resolution.
@@ -887,6 +923,7 @@ int runRecordingMediaHttpRuntime(
     HbbtvApiRuntime::instance().setMediaSessionHandler({});
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});
+    apiRouter.setBrowserRecordingPlaybackHandler({});
     apiRouter.setDeviceRecordingPlaybackHandler({});
     apiRouter.setDeviceLivePlaybackHandler({});
     MediaTranscodeSettingsApiRuntime::instance().reset();

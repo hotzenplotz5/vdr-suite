@@ -338,6 +338,24 @@ int main()
         playbackAllowed,
         201));
 
+    // Versioned Browser CREATE has precisely the existing playback grant
+    // and Browser CSRF boundary, not the Device-only control-plane policy.
+    auto publicBrowserPlayback = fixture.mutationRequest(
+        "/api/v1/browser/recording-playback-sessions", "default");
+    assert(fixture.gate.evaluate(publicBrowserPlayback).rejection.statusCode == 401);
+    fixture.addBrowserAuthentication(publicBrowserPlayback);
+    assert(fixture.gate.evaluate(publicBrowserPlayback).rejection.statusCode == 403);
+    fixture.addBrowserAuthentication(publicBrowserPlayback, true);
+    const auto publicPlaybackAllowed = fixture.gate.evaluate(publicBrowserPlayback);
+    assert(publicPlaybackAllowed.allowed && publicPlaybackAllowed.publicApiV1);
+    assert(!publicPlaybackAllowed.protectedMutation);
+    assert(publicPlaybackAllowed.authorizationDecision.permission == "media.recording.play");
+    assert(publicPlaybackAllowed.authorizationDecision.backendId == "default");
+    auto publicWrongScope = fixture.mutationRequest(
+        "/api/v1/browser/recording-playback-sessions", "house-b");
+    fixture.addBrowserAuthentication(publicWrongScope, true);
+    assert(fixture.gate.evaluate(publicWrongScope).rejection.statusCode == 403);
+
     HttpServerRequest livePlaybackWithoutGrant =
         fixture.mutationRequest(
             "/api/media/sessions",

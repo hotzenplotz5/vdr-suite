@@ -193,3 +193,7 @@ For browser-local Volume/Mute, real acceptance additionally verifies audible vol
 For classified failure work, acceptance must prove the detailed reason remains available, the normalized class is truthful and classification does not itself trigger silent provider/profile/session recovery.
 
 This contract stays inside Phase 65.D. It does not authorize Phase 66, Live-TV timeshift or unrelated media work.
+
+## Public-v1 Browser Recording CREATE (source stage)
+
+`POST /api/v1/browser/recording-playback-sessions` accepts the existing Browser capability/start/audio-preference body with a canonical `rec_` identity. The existing Browser Session, CSRF and backend-scoped `media.recording.play` permission apply. The daemon resolves the ID through the existing PublicRecordingPlaybackTargetResolver and passes the authorized recording into the same RecordingMediaSessionController. The Browser response retains the established presentation contract and scoped cookie while returning the public identity. Device CREATE, Device registry, Browser media byte routes and existing session operations remain unchanged. This is the first source stage, not proof of full Browser migration or real playback acceptance.
