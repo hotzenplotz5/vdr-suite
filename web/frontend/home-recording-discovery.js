@@ -3563,7 +3563,7 @@
     const title = text(series.title);
     if (!title || targets.length > SERIES_PAGE_LIMIT)
       return Promise.reject(new Error('Serienname oder Umfang nicht eindeutig.'));
-    const endpoint = '/api/backends/' + encodeURIComponent(backendId) +
+    const endpoint = '/api/v1/backends/' + encodeURIComponent(backendId) +
       '/recordings/metadata/';
     const resolver = '/api/v1/backends/' + encodeURIComponent(backendId) +
       '/metadata/resolve';
@@ -3585,12 +3585,22 @@
       sequence = sequence.then(function () {
         const season = Number(member.seasonNumber);
         const episodeNumber = Number(member.episodeNumber);
-        const publicId = isPublicHomeRecording(member.recording) ? recordingId(member.recording) : '';
-        const identity = Promise.resolve(publicId || recordingBackendNativeId(member.recording));
+        const recording = member.recording;
+        const directId = isPublicHomeRecording(recording) &&
+          recordingBackendId(recording) === backendId ? recordingId(recording) : '';
+        // Old cached cards use the existing Recording identity resolver, never
+        // a private metadata read or write. Current public cards need no lookup.
+        const identity = directId ? Promise.resolve(directId) :
+          Promise.resolve(global.VdrSuiteRecordings2Shared || ensureRecordings2()).then(function () {
+            const shared = global.VdrSuiteRecordings2Shared;
+            if (!shared || typeof shared.resolvePublicRecordingId !== 'function')
+              throw new Error('Kanonische Aufnahme-ID nicht verfügbar.');
+            return shared.resolvePublicRecordingId(recording, backendId, client);
+          });
         status((index + 1) + '/' + targets.length + ': ' +
           text(member.episodeTitle) + ' – zentrale TMDb-Zuordnung …');
         const year = seriesPremiereYearFromMember(member);
-        return identity.then(function (resourceKey) {
+        return identity.then(function (publicId) {
           return post(resolver, Object.assign({
           title: title, kind: 'series',
           seasonNumber: season, episodeNumber: episodeNumber
@@ -3609,14 +3619,12 @@
             result.skipped += 1;
             return;
           }
-          const manualRoute = publicId
-            ? '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/manual?recordingId=' + encodeURIComponent(publicId)
-            : endpoint + 'manual?resourceKey=' + encodeURIComponent(resourceKey);
+          const manualRoute = endpoint + 'manual?recordingId=' + encodeURIComponent(publicId);
           return client.requestJson(manualRoute, {
               method: 'GET', cache: 'no-store', credentials: 'same-origin'
             }).then(function (existing) {
               if (!existing ||
-                  (publicId && (existing.recordingId !== publicId || existing.backendId !== backendId)) ||
+                  existing.recordingId !== publicId || existing.backendId !== backendId ||
                   (existing.found !== false && existing.found !== true)) {
                 result.skipped += 1;
                 return;
@@ -3659,7 +3667,7 @@
                 result.skipped += 1;
                 return;
               }
-              return post(publicId ? '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/assign' : endpoint + 'assign', Object.assign(publicId ? {recordingId: publicId} : {resourceKey: resourceKey}, {
+              return post(endpoint + 'assign', Object.assign({recordingId: publicId}, {
                 providerId: 'tmdb',
                 externalNamespace: candidate.externalNamespace,
                 externalId: candidate.externalId, mediaType: 'episode',

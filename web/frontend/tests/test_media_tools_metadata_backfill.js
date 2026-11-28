@@ -18,6 +18,7 @@ win.VdrSuiteBrowserSession = {
 vm.createContext(win);
 vm.runInContext([
   fs.readFileSync(path.join(root, 'platform/helpers.js'), 'utf8'),
+  fs.readFileSync(path.join(root, 'recordings2-shared.js'), 'utf8'),
   fs.readFileSync(path.join(root, 'home-recording-discovery.js'), 'utf8')
 ].join('\n'), win);
 const api = win.VdrSuiteHomeRecordingDiscovery._test;
@@ -64,8 +65,19 @@ assert.strictEqual(api.seriesMetadataBackfillTargets({
   title, episodes: [raw04, raw11, posterOnly, complete]
 }).length, 2);
 
+function canonicalId(number) {
+  return 'rec_' + String(number).padStart(32, '0');
+}
 function clientFor(requests, resolver) {
   return {
+    fetchClientRecordings({query}) {
+      const match = [raw04, posterOnly].find(m => m.recording.path === query.path);
+      assert.strictEqual(query.backend, 'default');
+      assert(match, 'legacy identity lookup must use the actual recording path');
+      return Promise.resolve({recordings: [Object.assign({}, match.recording, {
+        publicRecordingId: canonicalId(match.episodeNumber)
+      })], totalCount: 1});
+    },
     requestJson(route, opts) {
       const action = route.split('/').pop().split('?')[0];
       const body = opts && opts.body ? JSON.parse(opts.body) : {};
@@ -81,10 +93,16 @@ function clientFor(requests, resolver) {
       }
       if (action === 'manual') {
         assert.strictEqual(opts.method, 'GET');
-        return Promise.resolve({found: false});
+        const id = route.split('recordingId=')[1];
+        assert.strictEqual(route, '/api/v1/backends/default/recordings/metadata/manual?recordingId=' + id);
+        assert(/^rec_[0-9a-f]{32}$/.test(id));
+        return Promise.resolve({found: false, recordingId:id, backendId:'default'});
       }
       if (action === 'assign') {
         assert.strictEqual(opts.method, 'POST');
+        assert.strictEqual(route, '/api/v1/backends/default/recordings/metadata/assign');
+        assert.strictEqual(body.recordingId, canonicalId(body.episodeNumber));
+        assert.strictEqual(body.resourceKey, undefined);
         assert.strictEqual(body.providerId, 'tmdb');
         assert.strictEqual(body.seriesTitle, 'Star Wars: Andor');
         assert.strictEqual(body.mediaType, 'episode');
@@ -148,6 +166,7 @@ function clientFor(requests, resolver) {
     seasonNumber: 1, episodeNumber: 5, posterUrl: '',
     episodeTitle: 'DE - Foundation (2021) - S01E05 - Erwachen',
     recording: {
+      backendId: 'default', publicRecordingId: canonicalId(5),
       backendNativeId: '/video/Foundation/S01E05.rec',
       path: 'Serien/Foundation (2021)/S01E05',
       title: 'DE - Foundation (2021) - S01E05 - Erwachen'
@@ -188,8 +207,16 @@ function clientFor(requests, resolver) {
             }
           });
         }
-        if (action === 'manual') return Promise.resolve(existing);
-        if (action === 'assign') return Promise.resolve({found: true, revision: 4});
+        if (action === 'manual') {
+          assert.strictEqual(route, '/api/v1/backends/default/recordings/metadata/manual?recordingId=' + canonicalId(5));
+          return Promise.resolve(Object.assign({recordingId:canonicalId(5),backendId:'default'}, existing));
+        }
+        if (action === 'assign') {
+          assert.strictEqual(route, '/api/v1/backends/default/recordings/metadata/assign');
+          assert.strictEqual(body.recordingId, canonicalId(5));
+          assert.strictEqual(body.resourceKey, undefined);
+          return Promise.resolve({found: true, revision: 4});
+        }
         throw new Error('Unexpected API route: ' + route);
       }
     };
@@ -230,7 +257,7 @@ function clientFor(requests, resolver) {
 
   const publicId = 'rec_0123456789abcdef0123456789abcdef';
   const publicMember = Object.assign({}, raw04, {
-    recording: {recordingId: publicId, backendId: 'default'}
+    recording: {recordingId: publicId, backendId: 'default', recordedAt:'2026-11-28T10:00:00Z'}
   });
   async function repairPublic(existing) {
     const calls = [];
@@ -264,6 +291,13 @@ function clientFor(requests, resolver) {
     seasonNumber:2,episodeNumber:4,revision:3});
   assert.strictEqual(foreignPublic.result.skipped, 1);
   assert.strictEqual(foreignPublic.calls.length, 2);
+
+  const missingRequests = [];
+  const missingClient = clientFor(missingRequests, resolver);
+  missingClient.fetchClientRecordings = () => Promise.resolve({recordings:[],totalCount:0});
+  const missingIdentity = await api.backfillSeriesEpisodeMetadata({title, episodes:[raw04]}, 'default', missingClient);
+  assert.strictEqual(missingIdentity.failed, 1);
+  assert.strictEqual(missingRequests.length, 0, 'no metadata mutation without resolved identity');
 
   let untouched = 0;
   const empty = await api.backfillSeriesEpisodeMetadata({
