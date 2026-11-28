@@ -78,7 +78,8 @@ const window = {
       personSearchOptions = options;
       return Promise.resolve({
         matches: [
-          {recording: {id: 'recording-1', title: 'Film A'}},
+          {recording: {recordingId:publicRecordingId, backendId:'remote',
+            recordedAt:'2026-11-20T20:15:00Z', title:'Film A'}},
           {recording: null},
           null
         ]
@@ -133,7 +134,7 @@ const publicPersonPoster = personView.__test.createRecordingPoster({
   recordedAt: '2026-11-20T20:15:00Z', preferredArtworkId: 'b'.repeat(32)
 });
 assert.strictEqual(publicPersonPoster.children.length, 1);
-assert.strictEqual(publicPersonPoster.children[0].src, publicImageUrl);
+assert.strictEqual(publicPersonPoster.children[0].src, '/vdr-suite' + publicImageUrl);
 assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
 assert.strictEqual(api.roleLabel('actor'), 'Schauspiel');
@@ -550,7 +551,7 @@ Promise.all([
   assert.strictEqual(personSearchOptions.cache, 'no-store');
   assert.strictEqual(personSearchOptions.credentials, 'same-origin');
   assert.strictEqual(recordings.length, 1);
-  assert.strictEqual(recordings[0].id, 'recording-1');
+  assert.strictEqual(recordings[0].recordingId, publicRecordingId);
   console.log('recordings2 modular metadata detail ok');
 }).catch(error => {
   console.error(error);

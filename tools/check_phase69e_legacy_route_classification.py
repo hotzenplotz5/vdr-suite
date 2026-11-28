@@ -97,7 +97,7 @@ require(
 read_alias_contracts = (
     ("fetchClientVdrOverview","fetchClientVdrStatus","/api/vdr/overview","/api/vdr"),
     ("fetchClientPersons","fetchClientRecordingPersons","/api/vdr/persons","/api/persons"),
-    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","/api/vdr/recordings/persons/search","/api/recordings/persons/search"),
+    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","/api/v1/search/recordings","/api/vdr/recordings/persons/search"),
 )
 for function_name, next_name, primary_route, alternate_route in read_alias_contracts:
     body = function_body(client_api, function_name, next_name)

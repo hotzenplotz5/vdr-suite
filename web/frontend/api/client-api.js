@@ -967,10 +967,32 @@
   }
 
   function fetchClientRecordingPersons(options) {
-    return requestJson(
-      '/api/vdr/recordings/persons/search',
-      backendQueryOptions(options)
-    );
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const backendId = input.backendId || query.backendId || query.backend || 'default';
+    const limit = query.limit === undefined ? 20 : Number(query.limit);
+    const offset = query.offset === undefined ? 0 : Number(query.offset);
+    return requestJson('/api/v1/search/recordings', Object.assign({}, input, {
+      backendId: undefined, query: {backendId, query: query.name || query.query,
+        match:'person', limit, offset}
+    })).then(function (payload) {
+      const page = payload && payload.page;
+      if (!page || !Array.isArray(payload.items) || page.offset !== offset ||
+          page.limit !== limit || !Number.isSafeInteger(page.totalCount) ||
+          page.totalCount < offset + payload.items.length ||
+          page.hasMore !== (offset + payload.items.length < page.totalCount) ||
+          payload.items.length > limit)
+        throw new Error('Ungültige öffentliche Personensuche.');
+      const matches = payload.items.map(function (item) {
+        if (item.kind !== 'recording' || item.backendId !== backendId ||
+            !/^rec_[0-9a-f]{32}$/.test(item.recordingId || '') ||
+            item.matchReason !== 'person' || !item.matchedPerson)
+          throw new Error('Ungültiger öffentlicher Personentreffer.');
+        return {recording: Object.assign({}, item, {recordedAt: String(item.startTime || '')}),
+          person:{originalName:item.matchedPerson, role:item.matchedRole}};
+      });
+      return {matches, totalCount:page.totalCount, returnedCount:matches.length, limit, offset};
+    });
   }
 
   function fetchClientRecordingTrailer(options) {

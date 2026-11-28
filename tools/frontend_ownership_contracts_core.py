@@ -2527,7 +2527,7 @@ def check_client_api_contract():
         "fetchClientMetadata": ("/api/metadata",),
         "fetchClientPersons": ("/api/vdr/persons",),
         "fetchClientRecordingPersons": (
-            "/api/vdr/recordings/persons/search",
+            "/api/v1/search/recordings",
         ),
     }
 

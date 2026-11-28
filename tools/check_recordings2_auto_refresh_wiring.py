@@ -42,8 +42,9 @@ for forbidden in ('INTERVAL_MS', 'setInterval(', 'fetch(', 'XMLHttpRequest', 'Ev
     require(forbidden not in refresh and forbidden not in page, f'refresh/page module violates read-only Client API boundary: {forbidden}')
 for token in ('options.fetchClientRecordingFolder({', 'options.fetchPublicRecordingFolder({',
               "cache: 'no-store'", "credentials: 'same-origin'", 'requestSequence',
-              'signature(data)', 'updatePresentedFolderState()', 'fetchClientRecordingForPublicId'):
+              'signature(data)', 'updatePresentedFolderState()', 'recording.recordingId'):
     require(token in page, f'missing recording folder page contract: {token}')
+require('fetchClientRecordingForPublicId' not in page, 'private folder detail bridge must remain retired')
 for token in (
     'global.VdrSuiteRecordings2FolderRefresh',
     'fetchClientRecordingFolder: function (options)',

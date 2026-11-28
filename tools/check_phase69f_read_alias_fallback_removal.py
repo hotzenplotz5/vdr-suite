@@ -47,8 +47,8 @@ read_aliases = (
     (
         "fetchClientRecordingPersons",
         "fetchClientRecordingTrailer",
+        "/api/v1/search/recordings",
         "/api/vdr/recordings/persons/search",
-        "/api/recordings/persons/search",
     ),
 )
 
@@ -73,8 +73,9 @@ recording_persons_body = function_body(
     "fetchClientRecordingTrailer",
 )
 require(
-    "backendQueryOptions(options)" in recording_persons_body,
-    "RecordingPersons backend query normalization drifted",
+    "match:'person'" in recording_persons_body
+    and "backendId, query:" in recording_persons_body,
+    "RecordingPersons public backend/person query normalization drifted",
 )
 
 router = read("api/rest/src/ApiRouter.cpp")
