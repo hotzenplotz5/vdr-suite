@@ -42,6 +42,12 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
+    // Versioned Browser control: same recording owner and operation parsers.
+    ApiResponse handleBrowserControl(
+        const std::string& body,
+        const std::string& actorId,
+        const std::string& authorizedBackendId) const;
+
     ApiResponse createSession(
         const std::string& body,
         const std::string& actorId) const;
@@ -97,15 +103,18 @@ private:
 
     ApiResponse stopSession(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse seekSession(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse playbackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse trackStatus(
         const std::string& body,

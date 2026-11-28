@@ -17797,7 +17797,7 @@
         ],
         "operationId": "createBrowserRecordingPlaybackSession",
         "summary": "Create a Browser recording playback session from a canonical Recording ID",
-        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser control operations and media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
+        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser stop, seek and playback-status use the versioned control route; track operations and media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
@@ -17909,6 +17909,157 @@
           },
           "503": {
             "description": "Recording cache or playback unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/browser/recording-playback-sessions/control": {
+      "post": {
+        "tags": [
+          "Browser Recording playback"
+        ],
+        "operationId": "controlBrowserRecordingPlaybackSession",
+        "summary": "Control an owned Browser Recording playback session",
+        "description": "Uses the existing Recording MediaSession owner for stop, in-session seek and playback-status (including index preparation). Does not create a session or change transport, permissions, or scheduling. The existing session ID is authoritative; no native Recording ID is returned. Device and Live-TV control paths are unchanged.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "sessionId",
+                  "operation"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "stop",
+                      "seek",
+                      "playback-status"
+                    ]
+                  },
+                  "positionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  }
+                },
+                "oneOf": [
+                  {
+                    "properties": {
+                      "operation": {
+                        "enum": [
+                          "stop",
+                          "playback-status"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "positionSeconds"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "seek"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing MediaSession result: ended for stop, ready with normalized playback/index/seek state for seek or playback-status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mediaSession"
+                  ],
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "state"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "backendId": {
+                          "type": "string"
+                        },
+                        "presentationProfileId": {
+                          "type": "string"
+                        },
+                        "mediaPath": {
+                          "type": "string"
+                        },
+                        "playback": {
+                          "type": "object"
+                        },
+                        "playbackContract": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session control request."
+          },
+          "401": {
+            "description": "Browser authentication missing."
+          },
+          "403": {
+            "description": "Missing playback grant, scope, CSRF or session ownership."
+          },
+          "404": {
+            "description": "Session not found on the requested backend."
+          },
+          "409": {
+            "description": "Session state, seek mode or index operation unavailable."
+          },
+          "422": {
+            "description": "Requested seek position unavailable."
+          },
+          "503": {
+            "description": "Media runtime unavailable or control failed."
           }
         }
       }

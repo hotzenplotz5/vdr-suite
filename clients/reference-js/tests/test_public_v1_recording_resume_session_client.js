@@ -143,5 +143,23 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
     ...identity,capabilities,nativeMediaAccess:true
   }));
   assert.strictEqual(browserRequests.length,1);
-  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE client PASS');
+  const browserControl = {backendId:identity.backendId, sessionId,
+    headers:{'X-CSRF-Token':'browser-fixture'}};
+  await browser.seekBrowserRecordingPlaybackSession({...browserControl,positionSeconds:42});
+  await browser.getBrowserRecordingPlaybackStatus(browserControl);
+  await browser.stopBrowserRecordingPlaybackSession(browserControl);
+  assert.strictEqual(browserRequests.length,4);
+  const controls = browserRequests.slice(1);
+  assert(controls.every(entry => new URL(entry.url).pathname ===
+    '/api/v1/browser/recording-playback-sessions/control'));
+  assert(controls.every(entry => entry.credentials === 'same-origin' &&
+    entry.headers['X-CSRF-Token'] === 'browser-fixture'));
+  assert.deepStrictEqual(controls.map(entry => JSON.parse(entry.body)),[
+    {operation:'seek',backendId:identity.backendId,sessionId,positionSeconds:42},
+    {operation:'playback-status',backendId:identity.backendId,sessionId},
+    {operation:'stop',backendId:identity.backendId,sessionId}
+  ]);
+  assert.throws(() => browser.seekBrowserRecordingPlaybackSession({...browserControl,positionSeconds:-1}));
+  assert.strictEqual(browserRequests.length,4);
+  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});

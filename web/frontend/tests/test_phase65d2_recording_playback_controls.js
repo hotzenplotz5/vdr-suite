@@ -419,6 +419,7 @@ function createRuntime(options) {
   await playback.seekRelative(10);
   let seekRequests = runtime.requests.filter(entry => entry.body.operation === 'seek');
   assert.strictEqual(seekRequests.length, 1);
+  assert.strictEqual(seekRequests[0].path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(seekRequests[0].body.sessionId, id);
   assert.strictEqual(seekRequests[0].body.positionSeconds, 28);
   assert.strictEqual(playback.sessionId(), id, 'seek must preserve the MediaSession identity');
@@ -468,6 +469,7 @@ function createRuntime(options) {
   assert.strictEqual(stopResult, true);
   assert.strictEqual(playback.state(), 'stopped');
   const stopRequests = runtime.requests.filter(entry => entry.body.operation === 'stop');
+  assert.strictEqual(stopRequests.at(-1).path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(stopRequests.at(-1).body.sessionId, id);
 
   const unsupported = createRuntime({seekSupported: false});
@@ -542,6 +544,7 @@ function createRuntime(options) {
   const statusRequests = preparing.requests.filter(entry => entry.body.operation === 'playback-status');
   assert.strictEqual(createRequests.length, 1, 'lazy index activation must not create a second MediaSession');
   assert.strictEqual(statusRequests.length, 1, 'lazy index activation must poll the owned MediaSession');
+  assert.strictEqual(statusRequests[0].path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(statusRequests[0].body.sessionId, preparingId);
   assert.strictEqual(preparingPlayback.sessionId(), preparingId, 'index activation must preserve MediaSession identity');
   assert.strictEqual(preparingPlayback.duration(), 5530, 'duration must become available after index activation');

@@ -212,6 +212,9 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(starts, 2);
   assert.strictEqual(startOptionsSeen[1], undefined,
     'ordinary HLS resume must keep the default autoplay behavior');
+  const statusRequests = requests.filter(entry => entry.body.operation === 'playback-status');
+  assert(statusRequests.length > 0);
+  assert(statusRequests.every(entry => entry.path === '/api/v1/browser/recording-playback-sessions/control'));
   const createRequests = requests.filter(entry => !entry.body.operation);
   assert.strictEqual(createRequests.length, 2);
   assert(createRequests.every(entry => entry.path === '/api/v1/browser/recording-playback-sessions'));

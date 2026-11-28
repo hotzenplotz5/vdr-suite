@@ -90,7 +90,8 @@ ApiResponse stopFailureResponse(
 ApiResponse seekedResponse(
     const StoredMediaSession& stored,
     int positionSeconds,
-    int durationSeconds)
+    int durationSeconds,
+    bool publicResponse)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -104,7 +105,8 @@ ApiResponse seekedResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"progressive-fmp4\"," +
         "\"growing\":false," +
         "\"mediaPath\":\"/api/media/sessions/" +
@@ -289,9 +291,46 @@ ApiResponse RecordingMediaSessionController::handleRequest(
     return createSession(body, actorId);
 }
 
+ApiResponse RecordingMediaSessionController::handleBrowserControl(
+    const std::string& body,
+    const std::string& actorId,
+    const std::string& authorizedBackendId) const
+{
+    if (actorId.empty()) return jsonError(401, "media_actor_required");
+    const RecordingMediaSessionRequestParser parser;
+    const auto status = parser.parsePlaybackStatus(body);
+    if (status.valid) {
+        if (status.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return playbackStatus(body, actorId, true);
+    }
+    if (status.reasonCode != "media_session_playback_status_not_requested")
+        return jsonError(400, status.reasonCode);
+
+    const auto seek = parser.parseSeek(body);
+    if (seek.valid) {
+        if (seek.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return seekSession(body, actorId, true);
+    }
+    if (seek.reasonCode != "media_session_seek_not_requested")
+        return jsonError(400, seek.reasonCode);
+
+    const auto stop = parser.parseStop(body);
+    if (stop.valid) {
+        if (stop.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return stopSession(body, actorId, true);
+    }
+    // This route is not CREATE, Live-TV, or a track mutation.
+    return jsonError(400, stop.reasonCode == "media_session_stop_not_requested"
+        ? "invalid_media_session_operation" : stop.reasonCode);
+}
+
 ApiResponse RecordingMediaSessionController::stopSession(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionStopRequest request =
         RecordingMediaSessionRequestParser().parseStop(body);
@@ -310,6 +349,9 @@ ApiResponse RecordingMediaSessionController::stopSession(
     if (stored->actorId != actorId) {
         return jsonError(403, "media_session_not_owned");
     }
+
+    if (publicResponse && stored->resourceKind != "recording")
+        return jsonError(404, "media_session_not_found");
 
     {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
@@ -342,7 +384,8 @@ ApiResponse RecordingMediaSessionController::stopSession(
 
 ApiResponse RecordingMediaSessionController::seekSession(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionSeekRequest request =
         RecordingMediaSessionRequestParser().parseSeek(body);
@@ -388,5 +431,5 @@ ApiResponse RecordingMediaSessionController::seekSession(
                 : seek.reasonCode);
     }
 
-    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds);
+    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds, publicResponse);
 }

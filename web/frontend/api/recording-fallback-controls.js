@@ -103,7 +103,7 @@
     if (!api || typeof api.requestJson !== 'function' || !id) {
       return Promise.reject(new Error('Recording-Indexstatus ist nicht verfügbar.'));
     }
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({

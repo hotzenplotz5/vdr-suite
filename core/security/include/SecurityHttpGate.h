@@ -420,9 +420,12 @@ public:
                 recordingSeriesHierarchyBackendId);
         const bool isPublicBrowserRecordingSessionCreate =
             isPost && path == "/api/v1/browser/recording-playback-sessions";
+        const bool isPublicBrowserRecordingSessionControl =
+            isPost && path == "/api/v1/browser/recording-playback-sessions/control";
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate =
-            isMediaSessionMutation || isPublicBrowserRecordingSessionCreate;
+            isMediaSessionMutation || isPublicBrowserRecordingSessionCreate ||
+            isPublicBrowserRecordingSessionControl;
         // Control-plane reservation. Media bytes use the separately guarded
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
@@ -3160,7 +3163,7 @@ public:
                 "Credential rotation requires an administrator Browser Session",
                 "");
         }
-        if (isPublicBrowserRecordingSessionCreate &&
+        if ((isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl) &&
             (!gate.browserAuthenticated || gate.context.actor.type != ActorType::User ||
              !gate.context.session.has_value()))
         {
@@ -3332,7 +3335,7 @@ public:
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
         }
-        else if (isPublicBrowserRecordingSessionCreate)
+        else if (isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";

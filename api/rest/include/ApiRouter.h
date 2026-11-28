@@ -139,6 +139,7 @@ public:
             const std::string& actorRef)>;
     using BrowserRecordingPlaybackHandler =
         std::function<ApiResponse(
+            const std::string& requestTarget,
             const std::string& body,
             const std::string& actorRef,
             const std::string& authorizedBackendId)>;
@@ -236,12 +237,13 @@ public:
     }
 
     ApiResponse handleBrowserRecordingPlayback(
+        const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
         const std::string& authorizedBackendId)
     {
         if (browserRecordingPlaybackHandler_)
-            return browserRecordingPlaybackHandler_(body, actorRef, authorizedBackendId);
+            return browserRecordingPlaybackHandler_(requestTarget, body, actorRef, authorizedBackendId);
         ApiResponse response;
         response.statusCode = 503;
         response.contentType = "application/json";

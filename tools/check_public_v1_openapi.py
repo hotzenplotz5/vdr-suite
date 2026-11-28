@@ -295,6 +295,10 @@ BROWSER_PLAYBACK_AUDITED = {
         "post": ("handleBrowserRecordingPlayback(",
                  "isPublicBrowserRecordingSessionCreate"),
     },
+    "/api/v1/browser/recording-playback-sessions/control": {
+        "post": ("handleBrowserRecordingPlayback(",
+                 "isPublicBrowserRecordingSessionControl"),
+    },
 }
 
 DEVICE_AUDITED = {
@@ -691,6 +695,10 @@ def validate(
                     'authorizedBackendId != request.backendId' not in device_source or
                     'recordingMediaSessionController.createBrowserSession(' not in device_source):
                     errors.append(f"{where}: Browser playback route/owner/scope anchor missing")
+                if path.endswith("/control") and (
+                    'recordingMediaSessionController.handleBrowserControl(' not in device_source
+                ):
+                    errors.append(f"{where}: Browser control owner missing")
                 if data.get(method, {}).get("security") != [
                     {"browserSession": [], "browserCsrf": []}
                 ]:

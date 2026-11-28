@@ -122,7 +122,7 @@
     if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
     if (!id) return Promise.resolve(null);
 
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -163,7 +163,7 @@
     const id = safeSessionId(sessionId);
     if (!id || typeof global.fetch !== 'function') return Promise.resolve(null);
 
-    return global.fetch('/api/media/sessions', {
+    return global.fetch('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({

@@ -273,7 +273,7 @@ assert.strictEqual(
   assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
 
   await test.stopSession('default', 'mediasess_test');
-  assert.strictEqual(request.path, '/api/media/sessions');
+  assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(request.options.method, 'POST');
   assert.strictEqual(request.options.credentials, 'same-origin');
   assert.strictEqual(request.options.cache, 'no-store');
@@ -291,7 +291,7 @@ assert.strictEqual(
   keepaliveRequest = null;
   await test.stopSessionKeepalive('default', 'mediasess_keepalive');
   assert.ok(keepaliveRequest);
-  assert.strictEqual(keepaliveRequest.path, '/api/media/sessions');
+  assert.strictEqual(keepaliveRequest.path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(keepaliveRequest.options.method, 'POST');
   assert.strictEqual(keepaliveRequest.options.credentials, 'same-origin');
   assert.strictEqual(keepaliveRequest.options.cache, 'no-store');

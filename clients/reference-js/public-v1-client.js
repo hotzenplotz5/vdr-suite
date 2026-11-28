@@ -2190,6 +2190,35 @@
       }));
     }
 
+    function browserRecordingControl(input, operation) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.sessionId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(input.sessionId))
+        throw new Error('Browser Recording sessionId required');
+      if (typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+        throw new Error('Exact backendId required');
+      const body = {operation, backendId: input.backendId, sessionId: input.sessionId};
+      if (operation === 'seek') {
+        if (!Number.isInteger(input.positionSeconds) || input.positionSeconds < 0 ||
+            input.positionSeconds > 2147483647)
+          throw new Error('Valid absolute positionSeconds required');
+        body.positionSeconds = input.positionSeconds;
+      }
+      const path = '/api/v1/browser/recording-playback-sessions/control';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
     function deviceSessionRead(input) {
       const sessionId = recordingPlaybackSessionId(input);
       return request('/api/v1/recording-playback-sessions/' + sessionId, input);
@@ -2668,6 +2697,15 @@
       },
       createBrowserRecordingPlaybackSession(options) {
         return startDeviceRecordingPlayback(options, true);
+      },
+      stopBrowserRecordingPlaybackSession(options) {
+        return browserRecordingControl(options, 'stop');
+      },
+      seekBrowserRecordingPlaybackSession(options) {
+        return browserRecordingControl(options, 'seek');
+      },
+      getBrowserRecordingPlaybackStatus(options) {
+        return browserRecordingControl(options, 'playback-status');
       },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);

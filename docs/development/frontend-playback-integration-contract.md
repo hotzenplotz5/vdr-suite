@@ -199,3 +199,17 @@ This contract stays inside Phase 65.D. It does not authorize Phase 66, Live-TV t
 `POST /api/v1/browser/recording-playback-sessions` accepts the existing Browser capability/start/audio-preference body with a canonical `rec_` identity. The existing Browser Session, CSRF and backend-scoped `media.recording.play` permission apply. The daemon resolves the ID through the existing PublicRecordingPlaybackTargetResolver and passes the authorized recording into the same RecordingMediaSessionController. The Browser response retains the established presentation contract and scoped cookie while returning the public identity. Device CREATE, Device registry, Browser media byte routes and existing session operations remain unchanged. This is the first source stage, not proof of full Browser migration or real playback acceptance.
 
 The production progressive owner in `session-frontend-sync.js`, HLS base owner and HLS restart/resume decorator select this CREATE when the existing shared Recording identity helper supplies a canonical ID. Older cached cards lacking a canonical ID retain the legacy CREATE until their identity migration; there is no retry on the legacy route after a Public-v1 CREATE failure. Playback controls, status, stop, progress and media byte migration remain separate. The reference client exposes `createBrowserRecordingPlaybackSession` and the existing Device method is unchanged.
+
+## Public-v1 Browser Recording control (source stage)
+
+`POST /api/v1/browser/recording-playback-sessions/control` uses the same Browser Session, CSRF, exact backend playback grant and Recording MediaSession owner as the existing browser operations. It accepts `stop`, `seek` and `playback-status` with the existing session identity and absolute seek position. The control route never creates a session or dispatches a Device/Live-TV operation. Its response preserves the existing playback contract, media paths, normalized position, state and cookie cleanup; the old native `recordingId` is omitted from Public-v1 controls because the active session already binds the recording. Existing legacy requests and responses remain unchanged. No new status cadence or polling is introduced.
+
+| Browser baseline | Public-v1 parity assertion |
+| --- | --- |
+| User stop and teardown keepalive | Same owner and session, same stop result and cookie cleanup |
+| Progressive seek, including pause | Same absolute position, session identity, and transport continuity |
+| HLS resume/restart | Existing replacement owner and CREATE path; status migrates without a new restart path |
+| Pending index and failure status | Existing index completion/readback and reason semantics |
+| Session ownership and grant errors | Existing Browser CSRF, backend-scoped playback grant and stored owner |
+
+Kodi/Plex provide familiar stop, seek and resume interactions; no current competitor runtime test is available for this migration. The proven VDR-Suite browser behavior is the acceptance baseline. Track operations and media bytes remain separate. These are source/test assertions, not real-VDR acceptance.

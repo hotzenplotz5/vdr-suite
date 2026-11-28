@@ -189,6 +189,7 @@ int runRecordingMediaHttpRuntime(
     // existing SecurityHttpGate; never derive it from an untrusted native ID.
     apiRouter.setBrowserRecordingPlaybackHandler(
         [&recordingMediaSessionController, &targetResolver, &recordingCache](
+            const std::string& requestTarget,
             const std::string& body, const std::string& actorRef,
             const std::string& authorizedBackendId)
         {
@@ -202,6 +203,10 @@ int runRecordingMediaHttpRuntime(
                 return response;
             };
             if (actorRef.empty()) return fail(401, "media_actor_required");
+            if (requestTarget == "/api/v1/browser/recording-playback-sessions/control")
+                return MediaPlaybackContractResponse::augment(
+                    recordingMediaSessionController.handleBrowserControl(
+                        body, actorRef, authorizedBackendId), false);
             const auto request = RecordingMediaSessionRequestParser().parse(body);
             if (!request.valid || LiveMediaSessionRequestParser::requestsLiveChannel(body) ||
                 request.nativeMediaAccessRequested || request.deviceMediaProfileRequested)

@@ -835,7 +835,7 @@
     });
 
     if (keepalive && typeof global.fetch === 'function') {
-      return global.fetch('/api/media/sessions', {
+      return global.fetch('/api/v1/browser/recording-playback-sessions/control', {
         method: 'POST',
         headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
         body: body,
@@ -847,7 +847,7 @@
 
     const api = global.VdrSuiteClientApi;
     if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: body,
@@ -867,7 +867,7 @@
       return Promise.reject(new Error('Ungültige Recording-Seek-Anforderung.'));
     }
 
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -890,7 +890,7 @@
     if (!id) {
       return Promise.reject(new Error('Ungültige Recording-MediaSession-ID.'));
     }
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({

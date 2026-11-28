@@ -106,6 +106,7 @@ std::string playbackJson(
 
 ApiResponse recordingPlaybackResponse(
     const StoredMediaSession& stored,
+    bool publicResponse,
     int positionSeconds,
     int durationSeconds,
     bool seekSupported,
@@ -129,7 +130,8 @@ ApiResponse recordingPlaybackResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"" + jsonEscape(stored.presentationProfileId) + "\"," +
         "\"growing\":false," +
         "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
@@ -149,7 +151,8 @@ ApiResponse recordingPlaybackResponse(
 
 ApiResponse RecordingMediaSessionController::playbackStatus(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionPlaybackStatusRequest request =
         RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
@@ -192,6 +195,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     if (update.running()) {
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             0,
             false,
@@ -207,6 +211,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         }
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             0,
             false,
@@ -227,6 +232,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             0,
             false,
@@ -251,6 +257,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             durationSeconds,
             false,
@@ -267,6 +274,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             durationSeconds,
             false,
@@ -286,6 +294,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
             0,
             durationSeconds,
             false,
@@ -303,6 +312,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     }
     return recordingPlaybackResponse(
         *stored,
+        publicResponse,
         0,
         enabled.durationSeconds,
         true,

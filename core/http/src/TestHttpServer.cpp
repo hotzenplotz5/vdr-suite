@@ -2411,10 +2411,11 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = vdrsuite::mediatools::local_encoding_admin::save(
                 request.body);
         }
-        else if (request.path == "/api/v1/browser/recording-playback-sessions")
+        else if (request.path == "/api/v1/browser/recording-playback-sessions" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/control")
         {
             apiResponse = apiRouter_.handleBrowserRecordingPlayback(
-                request.body, gate.context.actor.actorId,
+                request.path, request.body, gate.context.actor.actorId,
                 gate.authorizationDecision.backendId);
         }
         else if (pathWithoutQuery(request.path).rfind(

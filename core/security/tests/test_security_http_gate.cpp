@@ -356,6 +356,25 @@ int main()
     fixture.addBrowserAuthentication(publicWrongScope, true);
     assert(fixture.gate.evaluate(publicWrongScope).rejection.statusCode == 403);
 
+    // The control plane keeps the same Browser/CSRF/backend grant boundary.
+    auto publicControl = fixture.mutationRequest(
+        "/api/v1/browser/recording-playback-sessions/control", "default");
+    publicControl.body = R"json({"backendId":"default","sessionId":"mediasess_fixture","operation":"stop"})json";
+    assert(fixture.gate.evaluate(publicControl).rejection.statusCode == 401);
+    fixture.addBrowserAuthentication(publicControl);
+    assert(fixture.gate.evaluate(publicControl).rejection.statusCode == 403);
+    fixture.addBrowserAuthentication(publicControl, true);
+    const auto publicControlAllowed = fixture.gate.evaluate(publicControl);
+    assert(publicControlAllowed.allowed && publicControlAllowed.publicApiV1);
+    assert(!publicControlAllowed.protectedMutation);
+    assert(publicControlAllowed.authorizationDecision.permission == "media.recording.play");
+    assert(publicControlAllowed.authorizationDecision.backendId == "default");
+    auto publicControlWrongScope = fixture.mutationRequest(
+        "/api/v1/browser/recording-playback-sessions/control", "house-b");
+    publicControlWrongScope.body = R"json({"backendId":"house-b","sessionId":"mediasess_fixture","operation":"seek","positionSeconds":1})json";
+    fixture.addBrowserAuthentication(publicControlWrongScope, true);
+    assert(fixture.gate.evaluate(publicControlWrongScope).rejection.statusCode == 403);
+
     HttpServerRequest livePlaybackWithoutGrant =
         fixture.mutationRequest(
             "/api/media/sessions",
