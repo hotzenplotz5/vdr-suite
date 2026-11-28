@@ -14,6 +14,7 @@ const source = fs.readFileSync(
   'utf8'
 );
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const timerSource = fs.readFileSync(path.join(__dirname, '..', 'modules', 'timers.js'), 'utf8');
 const deSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'de.js'), 'utf8');
 const enSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'en.js'), 'utf8');
 const deferredSource = fs.readFileSync(
@@ -103,7 +104,8 @@ assert(source.includes("t.textContent='VDR - Fernbedienung'"));
 
 assert(source.includes('function recordAction(x)'));
 assert(source.includes('fetchClientTimers'));
-assert(source.includes('fetchClientTimerDeleteAction'));
+assert(source.includes('owner.stopRunningTimer'));
+assert(!source.includes('fetchClientTimerDeleteAction'));
 assert(source.includes('Mehrere laufende Aufnahmen auf diesem Kanal gefunden.'));
 assert(source.includes('Aufnahme gestoppt und Timer gelöscht.'));
 assert(source.includes("x.dataset.action==='record'"));
@@ -274,7 +276,8 @@ assert.strictEqual(requests[0].url, '/api/vdr/live/overlay');
 
 console.log('remote frontend contract ok');
 async function exerciseRemoteOverlay(clientSource, source, assert, load, log) {
- const sockets=[], reads=[]; let dialog, selected='default', token='a'.repeat(40);
+ const sockets=[], reads=[], timerReads=[], timerWrites=[]; let dialog, selected='default', token='a'.repeat(40);
+ let binding='verified', operationState='accepted';
  function node(tag) {
   const listeners={};
   const x={tagName:tag.toUpperCase(),dataset:{},style:{},attrs:{},children:[],
@@ -282,6 +285,7 @@ async function exerciseRemoteOverlay(clientSource, source, assert, load, log) {
    setAttribute(k,v){this.attrs[k]=v},getAttribute(k){return this.attrs[k]||null},removeAttribute(k){delete this.attrs[k]},
    append(...children){this.children.push(...children)},appendChild(child){this.append(child)},replaceChildren(...children){this.children=children},
    addEventListener(k,fn){(listeners[k]||=[]).push(fn)},
+   emit(k,event){(listeners[k]||=[]).forEach(fn=>fn(event))},
    querySelector(s){return this.querySelectorAll(s)[0]||null},
    querySelectorAll(s){const out=[];for(const c of this.children){if(s==='[data-overlay]'&&c.dataset.overlay||s==='[data-status]'&&c.dataset.status||s==='[data-action]'&&c.dataset.action)out.push(c);out.push(...c.querySelectorAll(s))}return out},
    showModal(){this.open=true},close(){this.open=false;(listeners.close||[]).forEach(fn=>fn())}
@@ -297,12 +301,19 @@ async function exerciseRemoteOverlay(clientSource, source, assert, load, log) {
   close(){this.closed=true}
  }
  const window={document,EventSource,console:log,setTimeout(){return 1},clearTimeout(){},fetch:async()=>({ok:true,status:200,text:async()=>JSON.stringify({csrfToken:token,expiresAt:'2099-01-01T00:00:00Z'})}),
+  crypto:{getRandomValues(bytes){bytes.fill(5);return bytes}},confirm(){return true},
   VdrSuiteClientApi:{requestJson(url,opts){assert.strictEqual(url,'/api/vdr/live/overlay');return new Promise((resolve,reject)=>reads.push({backend:opts.query.backend,resolve,reject}))},
-   fetchClientBackends(){return Promise.resolve({backends:[{backendId:selected,canRemoteControl:true}]})}},
+   fetchClientBackends(){return Promise.resolve({backends:[{backendId:selected,canRemoteControl:true}]})},
+   fetchClientTimers(){return Promise.resolve({timers:[{id:'17',channelId:'Arte',recording:true}]})},
+   fetchPublicNativeTimerDetail(input){timerReads.push(input);return Promise.resolve({status:200,etag:'"fixture-etag"',data:{bindingState:binding,directActions:true}})},
+   fetchPublicNativeTimerDelete(input){timerWrites.push({kind:'managed',input});return Promise.resolve({status:202,data:{operation:{operationId:'op_remote_stop'}}})},
+   fetchPublicNativeTimerDirectDelete(input){timerWrites.push({kind:'direct',input});return Promise.resolve({success:true})},
+   fetchPublicNativeTimerOperation(input){return Promise.resolve({status:200,data:{operationId:input.operationId,state:operationState}})},
+   fetchClientTimerDeleteAction(){throw Error('private timer writer must not be called')}},
   VdrSuitePlatform:{getSelectedBackendId(){return selected},getClientApi(){return window.VdrSuiteClientApi}}
  };
- window.window=window;load(clientSource,window);load(source,window);
- const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
+ window.window=window;load(clientSource,window);load(timerSource,window);load(source,window);
+ const flush=async()=>{for(let i=0;i<40;i++)await Promise.resolve()};
  const payload=name=>({channel:{available:true,id:name,number:1,name},present:{available:true,title:'Programm'}});
  const overlay=()=>dialog.querySelector('[data-overlay]').children.map(x=>x.textContent).join(' | ');
  await window.VdrSuiteBrowserSession.restore();
@@ -329,7 +340,30 @@ async function exerciseRemoteOverlay(clientSource, source, assert, load, log) {
  await window.VdrSuiteBrowserSession.restore();await flush();assert.strictEqual(reads.length,8);
  dialog.close();reads[7].resolve(payload('geschlossen'));await flush();assert(!overlay().includes('geschlossen'));assert(sockets[sockets.length-1].closed);
  window.VdrSuiteRemote.open();await flush();assert.strictEqual(reads.length,9);
- reads[8].resolve(payload('Arte'));await flush();assert(overlay().includes('Arte'));dialog.close();
+ reads[8].resolve(payload('Arte'));await flush();assert(overlay().includes('Arte'));
+ // Real remote REC click composed with the real Timer browser owner.
+ const record=dialog.querySelectorAll('[data-action]').find(x=>x.dataset.action==='record');
+ const clickRecord=()=>dialog.children[0].emit('click',{target:{closest:()=>record}});
+ const message=()=>dialog.querySelector('[data-status]').textContent;
+ clickRecord();await flush();assert.equal(reads.length,10);
+ reads[9].resolve(payload('Arte'));await flush();
+ assert.equal(timerWrites.length,1);assert.equal(timerWrites[0].kind,'managed');
+ assert.equal(timerWrites[0].input.backendId,'secondary');assert.equal(timerWrites[0].input.timerId,'17');
+ assert.equal(timerWrites[0].input.ifMatch,'"fixture-etag"');
+ assert.ok(timerWrites[0].input.idempotencyKey.startsWith('manual-web-'));
+ assert(message().includes('Bestätigung steht noch aus'));assert.equal(reads.length,10);
+ const operationSocket=sockets[sockets.length-1];operationState='succeeded';
+ operationSocket.emit('operation',{operationId:'op_remote_stop'});await flush();
+ assert(operationSocket.closed);assert(message().includes('Aufnahme gestoppt und Timer gelöscht.'));
+ assert.equal(reads.length,11);reads[10].resolve(payload('Arte'));await flush();
+ binding='adoption_required';
+ clickRecord();await flush();assert.equal(reads.length,12);
+ reads[11].resolve(payload('Arte'));await flush();
+ assert.equal(timerWrites.length,2);assert.equal(timerWrites[1].kind,'direct');
+ assert.equal(timerWrites[1].input.backendId,'secondary');assert.equal(timerWrites[1].input.timerId,'17');
+ assert(message().includes('Aufnahme gestoppt und Timer gelöscht.'));
+ assert.equal(reads.length,13);reads[12].resolve(payload('Arte'));await flush();
+ assert.equal(timerReads.length,2);dialog.close();
 }
 
 exerciseRemoteOverlay(clientSource, source, assert, (code, window) => vm.runInNewContext(code, {window, document:window.document, console, Date, Promise, JSON, Object, Set, URLSearchParams, setTimeout, clearTimeout}),console).then(()=>console.log('remote overlay SSE lifecycle passed')).catch(error=>{console.error(error);process.exitCode=1});

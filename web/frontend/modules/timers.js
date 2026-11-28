@@ -486,6 +486,10 @@
   }
 
   function setFeedback(target, message, error) {
+    if (typeof target === 'function') {
+      target(message, error);
+      return;
+    }
     target.className = 'timer-feedback ' + (error ? 'error' : 'success');
     target.textContent = String(message || '');
   }
@@ -520,7 +524,7 @@
   // Managed/adopted and external/unbound Timers retain their distinct
   // existing Public-v1 writers. A denied or unavailable API is not a
   // reason to retry an unversioned mutation.
-  function executePublicNativeTimerAction(type, payload, button, feedback, originalAux) {
+  function executePublicNativeTimerAction(type, payload, button, feedback, originalAux, onConfirmed) {
     // The browser's recording flag is UI state, not a DELETE field.
     const directPayload = type === 'delete'
       ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
@@ -567,6 +571,8 @@
               'VDR hat die direkte Timer-Aktion abgelehnt.'));
           setFeedback(feedback,
             resultMessage(result, 'VDR hat die Timer-Aktion bestätigt.'), false);
+          if (typeof onConfirmed === 'function')
+            return Promise.resolve(onConfirmed()).then(() => result);
           global.setTimeout(reloadTimers, 250);
           return result;
         });
@@ -596,7 +602,10 @@
         setFeedback(feedback, 'Timer-Auftrag ' + operation.operationId +
           ' angenommen. VDR-Bestätigung steht noch aus.', false);
         observeManualTimerOperation(operation.operationId, feedback,
-          () => nativeMutationAttempts.delete(button));
+          () => {
+            nativeMutationAttempts.delete(button);
+            if (typeof onConfirmed === 'function') onConfirmed();
+          }, typeof onConfirmed !== 'function');
         return result;
       });
     }).catch(error => {
@@ -607,6 +616,13 @@
         String(error && error.message ? error.message : error), true);
       return null;
     }).finally(() => { button.disabled = false; });
+  }
+
+  // The remote REC button uses the same binding selection, existing writer,
+  // stable mutation key and operation observer as the Timer editor.
+  function stopRunningTimer(payload, button, feedback, onConfirmed) {
+    return executePublicNativeTimerAction('delete', payload, button, feedback,
+      undefined, onConfirmed);
   }
 
   function actionClientFunction(type) {
@@ -643,7 +659,7 @@
 
   // No status polling: one immediate read and event-driven readbacks.
   // The POST is never re-dispatched to resolve an uncertain outcome.
-  function observeManualTimerOperation(operationId, feedback, onSucceeded) {
+  function observeManualTimerOperation(operationId, feedback, onSucceeded, reloadOnSuccess = true) {
     const api = resolvedClientApi();
     if (!api || typeof api.fetchPublicNativeTimerOperation !== 'function')
       return;
@@ -667,7 +683,7 @@
             close();
             setFeedback(feedback, 'Timer wurde im VDR bestätigt.', false);
             if (typeof onSucceeded === 'function') onSucceeded();
-            reloadTimers();
+            if (reloadOnSuccess) reloadTimers();
           } else if (['rejected', 'conflict', 'failed_before_dispatch',
               'failed_verified', 'cancelled'].includes(state)) {
             close();
@@ -1296,6 +1312,7 @@
     manualOneShotSpecification: manualOneShotSpecification,
     manualTimerIntentSpecification: manualTimerIntentSpecification,
     publicNativeTimerUpdatePayload: publicNativeTimerUpdatePayload,
+    stopRunningTimer: stopRunningTimer,
     timerDeleteLabel: timerDeleteLabel,
     timerDeletePrompt: timerDeletePrompt,
     validateTimerPayload: validateTimerPayload,
