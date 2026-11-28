@@ -2752,7 +2752,6 @@
       recordingCapabilities: recordingCapabilities,
       safeRecordingMediaPath: safeRecordingMediaPath,
       publicRecordingMediaPath: publicRecordingMediaPath,
-      recordingId: recordingId,
       recordingPlaybackStatus: recordingPlaybackStatus,
       supportsContinuousFmp4Mse: supportsContinuousFmp4Mse
     })
