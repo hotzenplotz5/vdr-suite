@@ -4,10 +4,9 @@ DAEMON_SRC += \
 	core/media/src/RecentlyWatched.cpp \
 	core/media/src/RecentlyWatchedRepository.cpp
 
-# test-test-http-server compiles ContinueWatchingApiRuntime.cpp directly rather
-# than through DAEMON_SRC. Extend only that target's existing source list so the
-# Slice-66.6 symbols referenced by the shared runtime are linked there as well.
-test-test-http-server: REST_ROUTER_SRC += \
+# Both integration tests compile ContinueWatchingApiRuntime.cpp directly rather
+# than through DAEMON_SRC. Link its existing Slice-66.6 dependencies in both.
+test-api-router test-test-http-server: REST_ROUTER_SRC += \
 	core/media/src/RecentlyWatched.cpp \
 	core/media/src/RecentlyWatchedRepository.cpp
 
