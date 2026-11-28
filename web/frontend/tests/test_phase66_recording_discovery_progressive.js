@@ -171,6 +171,8 @@ function createHarness(seriesItems, publicMode) {
   const calls = [];
   const pendingPages = new Map();
   const folderCalls = [];
+  let publicNewReads = 0;
+  let liveSource = null;
 
   function pagePayload(request) {
     const serverLimit = Math.min(Number(request.limit || 0) || 48, 100);
@@ -211,7 +213,16 @@ function createHarness(seriesItems, publicMode) {
   };
 
   if (publicMode) {
-    client.fetchClientRecordingFolder = function () { throw new Error('Unexpected private root folder read'); };
+    delete client.fetchClientRecordingFolder;
+    delete client.fetchClientRecordings;
+    client.fetchPublicHomeNew = function () {
+      publicNewReads += 1;
+      return Promise.resolve({publicView:'new',recordings:[]});
+    };
+    client.createClientLiveUpdateSource = function () {
+      liveSource = {handlers:{},addEventListener(type,listener){this.handlers[type]=listener;},close(){}};
+      return liveSource;
+    };
     client.fetchPublicRecordingFolder = function (options) {
       const offset=options.query.offset;
       folderCalls.push(offset);
@@ -226,7 +237,7 @@ function createHarness(seriesItems, publicMode) {
         nextOffset:offset+folders.length+recordings.length,hasMore:offset===0,folders,recordings});
     };
     const legacyRead = client.fetchClientGenreRecordings;
-    client.fetchClientGenreRecordings = function () { throw new Error('Unexpected private Series read'); };
+    delete client.fetchClientGenreRecordings;
     client.fetchPublicGenreRecordings = function (request) {
       return legacyRead(request).then(function (legacy) {
         const page = {offset: legacy.offset, limit: legacy.limit, totalCount: legacy.total, hasMore: legacy.hasMore};
@@ -273,6 +284,12 @@ function createHarness(seriesItems, publicMode) {
     calls,
     folderCalls,
     opened,
+    publicNewReads: () => publicNewReads,
+    emitRecordingChange() {
+      assert(liveSource, 'Home SSE subscription missing');
+      liveSource.handlers.update({data:JSON.stringify({sequenceNumber:1,backendId:'default',
+        changedDomains:['recordings'],recordingNativeIds:['/native/changed']})});
+    },
     releasePage(offset) {
       const release = pendingPages.get(offset);
       if (!release) return false;
@@ -374,6 +391,15 @@ async function flushMicrotasks(turns) {
   assert.strictEqual(publicHarness.opened.length,1);
   assert.strictEqual(publicHarness.opened[0].recording.recordingId,rootRecording.dataset.recordingId);
   assert.strictEqual(publicHarness.opened[0].recording.backendNativeId,undefined);
+  assert.strictEqual(publicHarness.publicNewReads(),1);
+  await publicHarness.api._test.refreshForHome();
+  publicHarness.emitRecordingChange();
+  await flushMicrotasks(20);
+  assert.strictEqual(publicHarness.publicNewReads(),2,'public-only SSE must refresh new recordings');
+  assert.deepStrictEqual(publicHarness.calls.map(call => Number(call.offset || 0)),[0,100,200,0,100,200]);
+  assert(publicHarness.releasePage(100));
+  await flushMicrotasks(20);
+  assert.strictEqual(findSeriesCards(findRail(publicHarness.host,'series')).length,14);
   console.log('phase66 series projection renders progressively while pagination continues, including Public v1');
 }()).catch((error) => {
   console.error(error);

@@ -5759,11 +5759,13 @@
     if (!homeIsActive()) return Promise.resolve(false);
     const client = clientApi();
     const backendId = selectedBackendId();
+    // Public Home must not depend on private Client API methods being
+    // present. Keep the existing compatibility composition independently.
     if (!client ||
-        typeof client.fetchClientRecordings !== 'function' ||
+        (typeof client.fetchPublicHomeNew !== 'function' && typeof client.fetchClientRecordings !== 'function') ||
         typeof client.fetchClientGenres !== 'function' ||
-        typeof client.fetchClientGenreRecordings !== 'function' ||
-        typeof client.fetchClientRecordingFolder !== 'function') {
+        (typeof client.fetchPublicGenreRecordings !== 'function' && typeof client.fetchClientGenreRecordings !== 'function') ||
+        (typeof client.fetchPublicRecordingFolder !== 'function' && typeof client.fetchClientRecordingFolder !== 'function')) {
       return Promise.resolve(false);
     }
     const config = options && typeof options === 'object' ? options : {};
@@ -5852,7 +5854,8 @@
       if (!seriesRefreshPending || !homeIsActive() || (doc && doc.hidden)) return;
       seriesRefreshPending = false;
       const client = clientApi();
-      if (!client || typeof client.fetchClientGenreRecordings !== 'function') return;
+      if (!client || (typeof client.fetchPublicGenreRecordings !== 'function' &&
+          typeof client.fetchClientGenreRecordings !== 'function')) return;
       const changedNativeIds = Array.from(seriesChangedNativeIds);
       seriesChangedNativeIds.clear();
       const backendId = selectedBackendId();
@@ -5932,7 +5935,8 @@
   // Never rerun refresh(), loadGenres(), loadSeries() or loadFolders() here.
   function reconcileNewlyRecordingSnapshot(backendId, generation, revision) {
     const client = clientApi();
-    if (!client || typeof client.fetchClientRecordings !== 'function')
+    if (!client || (typeof client.fetchPublicHomeNew !== 'function' &&
+        typeof client.fetchClientRecordings !== 'function'))
       return Promise.resolve(false);
     const cacheOwner = global.VdrSuiteHomeCache;
     const cache = cacheOwner ? cacheOwner.begin('newly-recorded', backendId, 'Neu aufgenommen',
