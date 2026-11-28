@@ -445,10 +445,6 @@
     return text(recording && recording.backendId) || text(fallback);
   }
 
-  function recordingBackendNativeId(recording) {
-    return text(recording && recording.backendNativeId);
-  }
-
   function recordingMetadata(recording) {
     return recording && recording.metadata && typeof recording.metadata === 'object'
       ? recording.metadata
@@ -513,6 +509,24 @@
   function recordingMetadataProjection(recording, richMetadata) {
     if (!recording) return recording;
     const rich = richMetadata && richMetadata.available === true ? richMetadata : {};
+    const id = recordingId(recording);
+    if (/^rec_[0-9a-f]{32}$/.test(id)) {
+      if (rich.available !== true) return recording;
+      const card = recording.cardMetadata || {};
+      const poster = recordingMetadataPosterUrl(rich);
+      const prefix = '/api/v1/recordings/' + id + '/artwork/';
+      const suffix = '?backendId=' + encodeURIComponent(recordingBackendId(recording));
+      const artworkId = poster.startsWith(prefix) && poster.endsWith(suffix)
+        ? poster.slice(prefix.length, -suffix.length) : '';
+      return Object.assign({}, recording, {
+        cardMetadata:Object.assign({}, card, {
+          title:text(rich.title) || text(card.title) || text(recording.title),
+          episodeName:text(rich.episodeName) || text(card.episodeName)
+        }),
+        preferredArtworkId:/^[0-9a-f]{32}$/.test(artworkId)
+          ? artworkId : recording.preferredArtworkId
+      });
+    }
     const sourceMetadata = recordingMetadata(recording);
     const sourcePresentation = sourceMetadata.presentation &&
       typeof sourceMetadata.presentation === 'object'
@@ -862,7 +876,7 @@
     const recordings = [];
 
     function page(offset) {
-      return Promise.resolve(client.fetchClientGenreRecordings({
+      return Promise.resolve(client.fetchPublicGenreRecordings({
         backendId: backendId,
         genreId: genreId,
         limit: INLINE_PAGE_LIMIT,
@@ -936,10 +950,6 @@
     }
 
     const settled = new Array(recordings.length);
-    recordings.forEach(function (recording, index) {
-      const cardMetadata = recording.nativeCardMetadata;
-      if (cardMetadata && cardMetadata.available === true) settled[index] = cardMetadata;
-    });
     let cursor = 0;
     let published = 0;
 
@@ -968,21 +978,22 @@
       cursor += 1;
       if (index >= recordings.length) return Promise.resolve();
       const recording = recordings[index];
-      const nativeId = recordingBackendNativeId(recording);
-      if (!nativeId) {
+      const id = recordingId(recording);
+      if (!/^rec_[0-9a-f]{32}$/.test(id)) {
         settled[index] = null;
         publishReady();
         return worker();
       }
-      return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-        query: {
-          backend: backendId,
-          backendNativeId: nativeId
-        },
+      return Promise.resolve(client.requestJson('/api/v1/recordings/' + encodeURIComponent(id), {
+        query: {backendId: backendId},
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (value) {
-        settled[index] = value && value.available === true ? value : null;
+        if (value && value.recordingId === id && value.backendId === backendId) {
+          settled[index] = global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value);
+        } else {
+          settled[index] = null;
+        }
       }).catch(function () {
         settled[index] = null;
       }).then(function () {
@@ -1014,7 +1025,7 @@
     }
 
     const client = clientApi();
-    if (!client || typeof client.fetchClientGenreRecordings !== 'function') return Promise.resolve(false);
+    if (!client || typeof client.fetchPublicGenreRecordings !== 'function') return Promise.resolve(false);
 
     const state = inline.genre;
     state.request += 1;
