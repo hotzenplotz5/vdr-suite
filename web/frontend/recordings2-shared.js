@@ -87,11 +87,17 @@
   // object. It is not a second catalog or durable identity store.
   const refreshedRecordingIds = new WeakMap();
 
-  function publicRecordingId(recording, backendId) {
+  function publicRecordingId(recording) {
     for (const value of [recording && recording.publicRecordingId,
       recording && recording.recordingId, recording && recording.id]) {
       if (/^rec_[0-9a-f]{32}$/.test(String(value || ''))) return String(value);
     }
+    return '';
+  }
+
+  function playbackPublicRecordingId(recording, backendId) {
+    const direct = publicRecordingId(recording);
+    if (direct) return direct;
     if (recording && typeof recording === 'object') {
       const refreshed = refreshedRecordingIds.get(recording);
       const backend = String(backendId || recording.backendId || '');
@@ -107,7 +113,7 @@
     const unavailable = () => new Error('Kanonische Aufnahme-ID nicht verfügbar. Bitte Aufnahme aktualisieren.');
     if (!recording || !backend || (recording.backendId && recording.backendId !== backend))
       return Promise.reject(unavailable());
-    const direct = publicRecordingId(recording, backend);
+    const direct = publicRecordingId(recording);
     if (direct) return Promise.resolve(direct);
     const native = String(recording.backendNativeId || recording.nativePath || '');
     const client = api || clientApi();
@@ -123,11 +129,7 @@
         const rows = recordingList(data);
         const match = rows.find(candidate => candidate.backendId === backend &&
           candidate.backendNativeId === native && publicRecordingId(candidate));
-        if (match) {
-          const id = publicRecordingId(match);
-          refreshedRecordingIds.set(recording, {backend, native, id});
-          return id;
-        }
+        if (match) return publicRecordingId(match);
         const total = Number(data && data.totalCount);
         if (!rows.length || !Number.isSafeInteger(total) || offset + rows.length >= total)
           throw unavailable();
@@ -142,10 +144,18 @@
   // uses the existing exact-backend refresh before a Public-v1 CREATE.
   function withPublicRecordingId(recording, backendId, api, action) {
     const backend = String(backendId || 'default');
-    const id = publicRecordingId(recording, backend);
+    const id = publicRecordingId(recording);
     if (id && (!recording.backendId || recording.backendId === backend))
       return action(id);
-    return resolvePublicRecordingId(recording, backend, api).then(action);
+    // A new admission still revalidates an old card; destructive actions
+    // never consume the playback observer's previous identity mapping.
+    const native = String(recording && (recording.backendNativeId || recording.nativePath) || '');
+    return resolvePublicRecordingId(recording, backend, api).then(function (resolved) {
+      return Promise.resolve(action(resolved)).then(function (result) {
+        refreshedRecordingIds.set(recording, {backend, native, id:resolved});
+        return result;
+      });
+    });
   }
 
   function normalizePath(value) {
@@ -389,6 +399,7 @@
     first,
     normalizePath,
     publicRecordingId,
+    playbackPublicRecordingId,
     resolvePublicRecordingId,
     withPublicRecordingId,
     decodeDisplayText,
