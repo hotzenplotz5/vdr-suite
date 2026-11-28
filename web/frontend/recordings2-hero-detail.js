@@ -1249,10 +1249,15 @@
   }
 
   function sameRecording(left, right) {
+    const leftBackend = text(left && left.backendId), rightBackend = text(right && right.backendId);
+    if (leftBackend && rightBackend && leftBackend !== rightBackend) return false;
+    const a = shared.publicRecordingId(left), b = shared.publicRecordingId(right);
+    if (a && b) return a === b;
     const leftId = text(shared.first(left, ['backendNativeId'], ''));
     const rightId = text(shared.first(right, ['backendNativeId'], ''));
     if (leftId && rightId) return leftId === rightId;
-    return text(shared.first(left, ['path'], '')) === text(shared.first(right, ['path'], ''));
+    const leftPath = text(shared.first(left, ['path'], ''));
+    return Boolean(leftPath && leftPath === text(shared.first(right, ['path'], '')));
   }
 
   function createRelatedCard(recording, currentRecording, backendId) {

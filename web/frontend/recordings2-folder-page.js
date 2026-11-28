@@ -74,39 +74,19 @@
 
     function selectRecording(recording) {
       const state = options.getState();
-      const sequence = ++state.requestSequence;
-      const id = recording && recording.folderCard === true && recording.recordingId;
-      if (/^rec_[0-9a-f]{32}$/.test(id || '')) {
-        // Only this explicit selection needs the still-private detail bridge.
-        // The list remains public and no per-card detail requests are made.
-        const api = options.shared.clientApi();
-        if (!api || typeof api.fetchClientRecordingForPublicId !== 'function') {
-          state.error = new Error('Aufnahmedetails sind nicht verfügbar.');
-          options.render();
-          return;
-        }
-        const backendId = state.backendId;
-        state.loadingMore = false;
-        state.loading = true;
-        api.fetchClientRecordingForPublicId({backendId, recordingId:id})
-          .then(function (detail) {
-            if (!state.active || sequence !== state.requestSequence || state.backendId !== backendId) return;
-            state.loading = false;
-            if (!detail || !detail.recording || detail.recording.backendId !== backendId ||
-                detail.recording.publicRecordingId !== id)
-              throw new Error('Die Aufnahme konnte nicht eindeutig aufgelöst werden.');
-            state.selectedRecording = options.normalizeRecording(Object.assign({}, detail.recording,
-              recording.__vdrSuiteOpenHevcShrink ? {__vdrSuiteOpenHevcShrink:true} : {}));
-            options.render();
-            schedule();
-          }).catch(function (error) {
-            if (!state.active || sequence !== state.requestSequence) return;
-            state.loading = false;
-            state.error = error;
-            options.render();
-          });
+      ++state.requestSequence;
+      // Public folder cards already own the canonical identity and initial
+      // presentation. The existing detail metadata owner reads API v1 on
+      // demand; no private native-detail projection is needed before opening.
+      if (recording && recording.folderCard === true &&
+          (!/^rec_[0-9a-f]{32}$/.test(recording.recordingId || '') ||
+           recording.backendId !== state.backendId)) {
+        state.error = new Error('Die Aufnahme konnte nicht eindeutig zugeordnet werden.');
+        options.render();
         return;
       }
+      state.loadingMore = false;
+      state.loading = false;
       state.selectedRecording = options.normalizeRecording(recording);
       options.render();
       schedule();

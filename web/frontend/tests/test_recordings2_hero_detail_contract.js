@@ -282,6 +282,14 @@ assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
 // The actual Hero owner delegates identity resolution to the shared server
 // binding, including old cached cards; never guess from title or timestamp.
 const publicId = 'rec_fedcba9876543210fedcba9876543210';
+const compareRecording = trailerRuntime.__test.sameRecording;
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:publicId, backendId:'default'}), true);
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:'rec_' + 'a'.repeat(32), backendId:'default'}), false);
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:publicId, backendId:'other'}), false);
+assert.strictEqual(compareRecording({}, {}), false);
 const legacyRecording = {
   id: '7', backendId: 'default', startTime: '1788696000',
   title: 'Original', backendNativeId: '/private/video/Original.rec'

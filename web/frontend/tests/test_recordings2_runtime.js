@@ -288,6 +288,27 @@ async function run() {
   assert.strictEqual(shared.createPoster(noArtwork).textContent, '▶');
   assert.strictEqual(publicMember.backendNativeId, undefined);
 
+  // Exercise the actual folder selection owner with a client that has no
+  // private detail bridge. Public metadata is requested by the detail owner,
+  // not by the folder or by speculative per-card requests.
+  const selectionState = {backendId:'backend-a', requestSequence:0, loadingMore:true};
+  let detailRenders = 0, detailSchedules = 0;
+  const pageOwner = window.VdrSuiteRecordings2FolderPage.create({
+    getState: () => selectionState, shared,
+    normalizeRecording: test.normalizeRecording,
+    render: () => { detailRenders++; }
+  }, {schedule: () => { detailSchedules++; }});
+  pageOwner.selectRecording({...publicMember, folderCard:true});
+  assert.strictEqual(selectionState.selectedRecording.recordingId, publicMember.recordingId);
+  assert.strictEqual(selectionState.selectedRecording.backendNativeId, undefined);
+  assert.strictEqual(selectionState.selectedRecording.path, undefined);
+  assert.strictEqual(selectionState.loadingMore, false);
+  assert.strictEqual(detailRenders, 1);
+  assert.strictEqual(detailSchedules, 1);
+  pageOwner.selectRecording({...publicMember, folderCard:true, backendId:'other'});
+  assert(selectionState.error);
+  assert.strictEqual(detailSchedules, 1);
+
   const manualRecording = {
     title: 'Technischer_Titel',
     path: '/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',

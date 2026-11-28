@@ -330,10 +330,10 @@
       const provider = shared.provider(recording);
       const details = document.createElement('section');
       details.className = 'recordings2-detail-grid';
-      details.appendChild(detailField('Aufgenommen', shared.formatStart(shared.first(recording, ['startTime', 'start'], ''))));
+      details.appendChild(detailField('Aufgenommen', shared.formatStart(shared.first(recording, ['recordedAt', 'startTime', 'start'], ''))));
       details.appendChild(detailField('Dauer', shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0))));
       details.appendChild(detailField('Größe', shared.formatSize(shared.first(recording, ['sizeMb'], 0))));
-      details.appendChild(detailField('Ordner', shared.first(recording, ['path'], currentState.path || 'Hauptordner')));
+      details.appendChild(detailField('Ordner', shared.first(recording, ['path'], (currentState.breadcrumbs || []).map(crumb => crumb.name).join(' / ') || currentState.path || 'Hauptordner')));
       details.appendChild(detailField('Genre', shared.first(provider, ['genreText'], '')));
       details.appendChild(detailField('Veröffentlichung', shared.first(provider, ['releaseDate'], '')));
       details.appendChild(detailField(
