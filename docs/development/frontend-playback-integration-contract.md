@@ -213,3 +213,7 @@ The production progressive owner in `session-frontend-sync.js`, HLS base owner a
 | Session ownership and grant errors | Existing Browser CSRF, backend-scoped playback grant and stored owner |
 
 Kodi/Plex provide familiar stop, seek and resume interactions; no current competitor runtime test is available for this migration. The proven VDR-Suite browser behavior is the acceptance baseline. Track operations and media bytes remain separate. These are source/test assertions, not real-VDR acceptance.
+
+## Public-v1 Browser Recording track controls (source stage)
+
+The existing track decorator now sends `track-status`, `select-audio-track` and `select-subtitle-track` to the same versioned Browser control route. Progressive audio selection uses the owned MediaSession as its recording binding; the previous native Recording ID in the request was redundant with that stored owner. Legacy parser/recording consistency validation is unchanged. Track status and audio selection omit native Recording identity in Public-v1 responses. Subtitle delivery retains WebVTT and OFF JSON, including the existing absolute stream base. HLS audio replacement continues to use the existing replacement owner and canonical CREATE. No new status cadence or playback owner is introduced. Existing production-style lifecycle, audio and subtitle tests cover the versioned requests; real-VDR acceptance remains separate. Media bytes and history are still separate migration slices.

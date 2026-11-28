@@ -169,7 +169,8 @@ RecordingMediaSessionTrackStatusRequest RecordingMediaSessionRequestParser::pars
 }
 
 RecordingMediaSessionAudioTrackSelectionRequest RecordingMediaSessionRequestParser::parseAudioTrackSelection(
-    const std::string& body) const
+    const std::string& body,
+    bool requireRecordingId) const
 {
     std::size_t operationPosition = 0;
     if (!locateValue(body, "operation", operationPosition))
@@ -191,7 +192,7 @@ RecordingMediaSessionAudioTrackSelectionRequest RecordingMediaSessionRequestPars
     if (!readNonNegativeIntField(body, "positionSeconds", request.positionSeconds))
         return invalidAudioSelection("invalid_recording_audio_track_position");
 
-    const RecordingMediaSessionRequest mediaRequest = parse(body);
+    const RecordingMediaSessionRequest mediaRequest = parse(body, requireRecordingId);
     if (!mediaRequest.valid)
         return invalidAudioSelection(mediaRequest.reasonCode.empty() ? "invalid_media_capabilities" : mediaRequest.reasonCode);
     request.recordingId = mediaRequest.recordingId;

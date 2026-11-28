@@ -361,15 +361,17 @@ RecordingMediaSessionSeekRequest invalidSeek(const std::string& reasonCode)
 } // namespace
 
 RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
-    const std::string& body) const
+    const std::string& body,
+    bool requireRecordingId) const
 {
     RecordingMediaSessionRequest request;
     if (!readStringField(body, "backendId", request.backendId) ||
         !safeBackendId(request.backendId)) {
         return invalid("invalid_backend_id");
     }
-    if (!readStringField(body, "recordingId", request.recordingId) ||
-        !safeRecordingId(request.recordingId)) {
+    if (requireRecordingId &&
+        (!readStringField(body, "recordingId", request.recordingId) ||
+         !safeRecordingId(request.recordingId))) {
         return invalid("invalid_recording_id");
     }
 

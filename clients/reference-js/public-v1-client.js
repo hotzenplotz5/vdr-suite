@@ -2122,10 +2122,7 @@
       return input.sessionId;
     }
 
-    function startDeviceRecordingPlayback(input, browser = false) {
-      const identity = recordingProgressIdentity(input);
-      if (browser && (input.nativeMediaAccess !== undefined || input.capabilityProfile !== undefined))
-        throw new Error('Device media options are not Browser playback options');
+    function recordingPlaybackCapabilities(input) {
       const capabilities = input.capabilities;
       const protocols = new Set(['hls', 'progressive']);
       const containers = new Set(['mpeg-ts', 'fmp4', 'mp4']);
@@ -2148,6 +2145,14 @@
           !Number.isInteger(capabilities.maxAudioChannels) ||
           capabilities.maxAudioChannels < 0 || capabilities.maxAudioChannels > 32)
         throw new Error('Explicit, measured Device codec and protocol capabilities required');
+      return capabilities;
+    }
+
+    function startDeviceRecordingPlayback(input, browser = false) {
+      const identity = recordingProgressIdentity(input);
+      if (browser && (input.nativeMediaAccess !== undefined || input.capabilityProfile !== undefined))
+        throw new Error('Device media options are not Browser playback options');
+      const capabilities = recordingPlaybackCapabilities(input);
       const body = {...identity, capabilities};
       if (input.startPositionSeconds !== undefined) {
         if (!Number.isInteger(input.startPositionSeconds) ||
@@ -2190,20 +2195,32 @@
       }));
     }
 
-    function browserRecordingControl(input, operation) {
+    function browserRecordingSessionId(input) {
       if (!input || typeof input !== 'object' ||
           typeof input.sessionId !== 'string' ||
           !/^[A-Za-z0-9._:-]{1,128}$/.test(input.sessionId))
         throw new Error('Browser Recording sessionId required');
+      return input.sessionId;
+    }
+
+    function browserRecordingControl(input, operation) {
+      const sessionId = browserRecordingSessionId(input);
       if (typeof input.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
         throw new Error('Exact backendId required');
-      const body = {operation, backendId: input.backendId, sessionId: input.sessionId};
-      if (operation === 'seek') {
+      const body = {operation, backendId: input.backendId, sessionId};
+      if (operation === 'seek' || operation === 'select-audio-track') {
         if (!Number.isInteger(input.positionSeconds) || input.positionSeconds < 0 ||
             input.positionSeconds > 2147483647)
           throw new Error('Valid absolute positionSeconds required');
         body.positionSeconds = input.positionSeconds;
+      }
+      if (operation === 'select-audio-track') {
+        if (typeof input.audioTrackId !== 'string' ||
+            !/^audio-[1-9][0-9]{0,9}$/.test(input.audioTrackId))
+          throw new Error('Invalid canonical audioTrackId');
+        body.audioTrackId = input.audioTrackId;
+        body.capabilities = recordingPlaybackCapabilities(input);
       }
       const path = '/api/v1/browser/recording-playback-sessions/control';
       return fetchImpl(buildUrl(baseUrl, path), {
@@ -2310,15 +2327,17 @@
       });
     }
 
-    function selectRecordingSubtitle(input) {
-      const sessionId = recordingPlaybackSessionId(input);
+    function selectRecordingSubtitle(input, browser = false) {
+      const sessionId = browser
+        ? browserRecordingSessionId(input) : recordingPlaybackSessionId(input);
       const backendId = playbackBackend(input);
       if (typeof input.subtitleTrackId !== 'string' ||
           !/^(off|subtitle-[1-9][0-9]*)$/.test(input.subtitleTrackId) ||
           !Number.isInteger(input.streamBasePositionSeconds) ||
           input.streamBasePositionSeconds < 0 || input.streamBasePositionSeconds > 2147483647)
         throw new Error('Subtitle selection requires a canonical track and stream base');
-      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/subtitles';
+      const path = browser ? '/api/v1/browser/recording-playback-sessions/control'
+        : '/api/v1/recording-playback-sessions/' + sessionId + '/subtitles';
       return playbackPost(path, {
         operation:'select-subtitle-track',backendId,sessionId,
         subtitleTrackId:input.subtitleTrackId,
@@ -2706,6 +2725,15 @@
       },
       getBrowserRecordingPlaybackStatus(options) {
         return browserRecordingControl(options, 'playback-status');
+      },
+      getBrowserRecordingPlaybackTracks(options) {
+        return browserRecordingControl(options, 'track-status');
+      },
+      selectBrowserRecordingAudioTrack(options) {
+        return browserRecordingControl(options, 'select-audio-track');
+      },
+      selectBrowserRecordingSubtitle(options) {
+        return selectRecordingSubtitle(options, true);
       },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);

@@ -17797,7 +17797,7 @@
         ],
         "operationId": "createBrowserRecordingPlaybackSession",
         "summary": "Create a Browser recording playback session from a canonical Recording ID",
-        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser stop, seek and playback-status use the versioned control route; track operations and media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
+        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser stop, seek, status and track operations use the versioned control route; media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
@@ -17920,7 +17920,7 @@
         ],
         "operationId": "controlBrowserRecordingPlaybackSession",
         "summary": "Control an owned Browser Recording playback session",
-        "description": "Uses the existing Recording MediaSession owner for stop, in-session seek and playback-status (including index preparation). Does not create a session or change transport, permissions, or scheduling. The existing session ID is authoritative; no native Recording ID is returned. Device and Live-TV control paths are unchanged.",
+        "description": "Uses the existing Recording MediaSession owner for stop, in-session seek, playback-status, track status, audio selection and browser-text subtitle selection. The existing session ID binds the recording; no native Recording ID is accepted or returned for controls. HLS audio replacement uses the established CREATE and owner lifecycle. Device and Live-TV paths are unchanged.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
@@ -17959,10 +17959,29 @@
                     "enum": [
                       "stop",
                       "seek",
-                      "playback-status"
+                      "playback-status",
+                      "track-status",
+                      "select-audio-track",
+                      "select-subtitle-track"
                     ]
                   },
                   "positionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "audioTrackId": {
+                    "type": "string",
+                    "pattern": "^audio-[1-9][0-9]{0,9}$"
+                  },
+                  "capabilities": {
+                    "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+                  },
+                  "subtitleTrackId": {
+                    "type": "string",
+                    "pattern": "^(off|subtitle-[1-9][0-9]{0,11})$"
+                  },
+                  "streamBasePositionSeconds": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
@@ -17974,7 +17993,8 @@
                       "operation": {
                         "enum": [
                           "stop",
-                          "playback-status"
+                          "playback-status",
+                          "track-status"
                         ]
                       }
                     }
@@ -17988,6 +18008,29 @@
                         "const": "seek"
                       }
                     }
+                  },
+                  {
+                    "required": [
+                      "audioTrackId",
+                      "positionSeconds",
+                      "capabilities"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "select-audio-track"
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "subtitleTrackId",
+                      "streamBasePositionSeconds"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "select-subtitle-track"
+                      }
+                    }
                   }
                 ]
               }
@@ -17996,7 +18039,7 @@
         },
         "responses": {
           "200": {
-            "description": "Existing MediaSession result: ended for stop, ready with normalized playback/index/seek state for seek or playback-status.",
+            "description": "Existing MediaSession result, normalized playback and track state, subtitle off JSON, or WebVTT for supported browser-text subtitles.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18032,10 +18075,21 @@
                         },
                         "playbackContract": {
                           "type": "object"
+                        },
+                        "tracks": {
+                          "type": "object"
+                        },
+                        "subtitleTrackId": {
+                          "type": "string"
                         }
                       }
                     }
                   }
+                }
+              },
+              "text/vtt": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }

@@ -82,7 +82,8 @@ class RecordingMediaSessionRequestParser
 {
 public:
     RecordingMediaSessionRequest parse(
-        const std::string& body) const;
+        const std::string& body,
+        bool requireRecordingId = true) const;
 
     RecordingMediaSessionStopRequest parseStop(
         const std::string& body) const;
@@ -97,7 +98,8 @@ public:
         const std::string& body) const;
 
     RecordingMediaSessionAudioTrackSelectionRequest parseAudioTrackSelection(
-        const std::string& body) const;
+        const std::string& body,
+        bool requireRecordingId = true) const;
 
     RecordingMediaSessionSubtitleTrackSelectionRequest parseSubtitleTrackSelection(
         const std::string& body) const;

@@ -155,7 +155,7 @@ function flush(count = 10) {
     VdrSuiteBrowserSession: {csrfHeaders() { return {'X-CSRF-Token': 'csrf-lifecycle'}; }},
     VdrSuiteClientApi: {
       requestJson(requestPath, options) {
-        assert.strictEqual(requestPath, '/api/media/sessions');
+        assert.strictEqual(requestPath, '/api/v1/browser/recording-playback-sessions/control');
         const body = JSON.parse(options.body);
         requests.push(body);
         assert.strictEqual(body.operation, 'track-status');

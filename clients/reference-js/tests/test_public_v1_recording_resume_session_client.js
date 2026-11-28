@@ -127,6 +127,17 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
   const browser = createClient({baseUrl:'https://example.invalid',credentials:'same-origin',
     fetch: async (url, init) => {
       browserRequests.push({url, ...init});
+      const body = JSON.parse(init.body);
+      if (body.operation === 'select-subtitle-track') {
+        const off = body.subtitleTrackId === 'off';
+        return {
+          ok:true,status:200,
+          headers:{get: () => off ? 'application/json' : 'text/vtt; charset=utf-8'},
+          text:async () => off
+            ? JSON.stringify({mediaSession:{id:sessionId,subtitleTrackId:'off'}})
+            : 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nTest'
+        };
+      }
       return response(201,{mediaSession:{id:sessionId,recordingId}});
     }});
   await browser.createBrowserRecordingPlaybackSession({
@@ -161,5 +172,28 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
   ]);
   assert.throws(() => browser.seekBrowserRecordingPlaybackSession({...browserControl,positionSeconds:-1}));
   assert.strictEqual(browserRequests.length,4);
-  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control client PASS');
+  await browser.getBrowserRecordingPlaybackTracks(browserControl);
+  await browser.selectBrowserRecordingAudioTrack({...browserControl,
+    audioTrackId:'audio-2',positionSeconds:42,capabilities});
+  const subtitle = await browser.selectBrowserRecordingSubtitle({...browserControl,
+    subtitleTrackId:'subtitle-1',streamBasePositionSeconds:0});
+  assert(subtitle.text.startsWith('WEBVTT'));
+  const off = await browser.selectBrowserRecordingSubtitle({...browserControl,
+    subtitleTrackId:'off',streamBasePositionSeconds:0});
+  assert.strictEqual(off.data.mediaSession.subtitleTrackId,'off');
+  const trackRequests = browserRequests.slice(4);
+  assert.strictEqual(trackRequests.length,4);
+  assert(trackRequests.every(entry => new URL(entry.url).pathname === '/api/v1/browser/recording-playback-sessions/control'));
+  assert(trackRequests.every(entry => entry.credentials === 'same-origin' &&
+    entry.headers['X-CSRF-Token'] === 'browser-fixture'));
+  assert.deepStrictEqual(trackRequests.map(entry => JSON.parse(entry.body)),[
+    {operation:'track-status',backendId:identity.backendId,sessionId},
+    {operation:'select-audio-track',backendId:identity.backendId,sessionId,
+      positionSeconds:42,audioTrackId:'audio-2',capabilities},
+    {operation:'select-subtitle-track',backendId:identity.backendId,sessionId,
+      subtitleTrackId:'subtitle-1',streamBasePositionSeconds:0},
+    {operation:'select-subtitle-track',backendId:identity.backendId,sessionId,
+      subtitleTrackId:'off',streamBasePositionSeconds:0}
+  ]);
+  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control/tracks client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});

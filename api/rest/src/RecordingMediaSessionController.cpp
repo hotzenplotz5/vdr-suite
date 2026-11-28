@@ -298,6 +298,33 @@ ApiResponse RecordingMediaSessionController::handleBrowserControl(
 {
     if (actorId.empty()) return jsonError(401, "media_actor_required");
     const RecordingMediaSessionRequestParser parser;
+    const auto tracks = parser.parseTrackStatus(body);
+    if (tracks.valid) {
+        if (tracks.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return trackStatus(body, actorId, true);
+    }
+    if (tracks.reasonCode != "media_session_track_status_not_requested")
+        return jsonError(400, tracks.reasonCode);
+
+    const auto audio = parser.parseAudioTrackSelection(body, false);
+    if (audio.valid) {
+        if (audio.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return selectAudioTrack(body, actorId, true);
+    }
+    if (audio.reasonCode != "media_session_audio_track_selection_not_requested")
+        return jsonError(400, audio.reasonCode);
+
+    const auto subtitle = parser.parseSubtitleTrackSelection(body);
+    if (subtitle.valid) {
+        if (subtitle.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return selectSubtitleTrack(body, actorId);
+    }
+    if (subtitle.reasonCode != "media_session_subtitle_track_selection_not_requested")
+        return jsonError(400, subtitle.reasonCode);
+
     const auto status = parser.parsePlaybackStatus(body);
     if (status.valid) {
         if (status.backendId != authorizedBackendId)
@@ -322,7 +349,7 @@ ApiResponse RecordingMediaSessionController::handleBrowserControl(
             return jsonError(403, "backend_scope_denied");
         return stopSession(body, actorId, true);
     }
-    // This route is not CREATE, Live-TV, or a track mutation.
+    // This route is not CREATE or Live-TV.
     return jsonError(400, stop.reasonCode == "media_session_stop_not_requested"
         ? "invalid_media_session_operation" : stop.reasonCode);
 }

@@ -118,11 +118,13 @@ private:
 
     ApiResponse trackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse selectAudioTrack(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse selectSubtitleTrack(
         const std::string& body,

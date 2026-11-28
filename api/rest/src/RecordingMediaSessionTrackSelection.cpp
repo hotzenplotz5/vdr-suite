@@ -118,7 +118,8 @@ std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
 ApiResponse trackResponse(
     const StoredMediaSession& stored,
     bool growing,
-    const std::string& tracksJson)
+    const std::string& tracksJson,
+    bool publicResponse)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -130,7 +131,8 @@ ApiResponse trackResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"" + jsonEscape(stored.presentationProfileId) + "\"," +
         "\"growing\":" + std::string(growing ? "true" : "false") + "," +
         "\"tracks\":" + tracksJson + "}}";
@@ -140,7 +142,8 @@ ApiResponse trackResponse(
 ApiResponse selectedResponse(
     const StoredMediaSession& stored,
     const RecordingMediaSessionAudioTrackSelectionResult& selected,
-    const std::string& tracksJson)
+    const std::string& tracksJson,
+    bool publicResponse)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -154,7 +157,8 @@ ApiResponse selectedResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"progressive-fmp4\"," +
         "\"mediaPath\":\"/api/media/sessions/" + jsonEscape(stored.sessionId) + "/recording/stream.mp4\"," +
         "\"playback\":{" 
@@ -229,7 +233,8 @@ bool hlsRestartTimelineReady(
 
 ApiResponse RecordingMediaSessionController::trackStatus(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionTrackStatusRequest request =
         RecordingMediaSessionRequestParser().parseTrackStatus(body);
@@ -310,22 +315,25 @@ ApiResponse RecordingMediaSessionController::trackStatus(
         adaptedProfile,
         adaptedProfile ? (selectedSubtitleStreamIndex < 0 ? 1 : 0) : -1,
         selectedSubtitleStreamIndex);
-    return trackResponse(*stored, source.growing, tracks);
+    return trackResponse(*stored, source.growing, tracks, publicResponse);
 }
 
 ApiResponse RecordingMediaSessionController::selectAudioTrack(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionAudioTrackSelectionRequest request =
-        RecordingMediaSessionRequestParser().parseAudioTrackSelection(body);
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(body, !publicResponse);
     if (!request.valid)
         return jsonError(400, request.reasonCode.empty()
             ? "invalid_recording_audio_track_selection_request" : request.reasonCode);
 
     const auto stored = mediaSessionRepository_.findSession(request.sessionId);
+    // The Public-v1 session already binds the Recording. Legacy clients
+    // retain their original native recordingId consistency check.
     if (!stored.has_value() || stored->backendId != request.backendId ||
-        stored->resourceId != request.recordingId)
+        (!publicResponse && stored->resourceId != request.recordingId))
         return jsonError(404, "media_session_not_found");
     if (stored->actorId != actorId) return jsonError(403, "media_session_not_owned");
     if (stored->resourceKind != "recording" || stored->presentationProfileId != "progressive-fmp4")
@@ -405,7 +413,7 @@ ApiResponse RecordingMediaSessionController::selectAudioTrack(
         true,
         selectedSubtitleStreamIndex < 0 ? 1 : 0,
         selectedSubtitleStreamIndex);
-    return selectedResponse(*stored, selected, tracks);
+    return selectedResponse(*stored, selected, tracks, publicResponse);
 }
 
 ApiResponse RecordingMediaSessionController::selectSubtitleTrack(
