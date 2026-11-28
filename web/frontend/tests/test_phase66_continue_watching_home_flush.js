@@ -99,7 +99,7 @@ function flushMicrotasks(count = 8) {
     setTimeout(callback, delay) { scheduled.push({callback, delay}); return scheduled.length; },
     clearTimeout() {},
     fetch: async function (requestPath, options) {
-      if (requestPath === '/api/media/continue-watching') {
+      if (requestPath === '/api/v1/browser/recording-playback-sessions/progress') {
         continueLists += 1;
         const body = JSON.parse(options.body);
         assert.strictEqual(body.operation, 'list');

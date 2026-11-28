@@ -22,7 +22,7 @@
   }
 
   const doc = global.document;
-  const ENDPOINT = '/api/media/continue-watching';
+  const ENDPOINT = '/api/v1/browser/recording-playback-sessions/progress';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   let refreshGeneration = 0;
   let liveSource = null;
@@ -47,7 +47,7 @@
   }
   function recordingSynopsis(recording) {
     const metadata = recording && recording.metadata;
-    if (!metadata || typeof metadata !== 'object') return '';
+    if (!metadata || typeof metadata !== 'object') return text(recording && recording.description).trim();
     const presentation = metadata.presentation && typeof metadata.presentation === 'object'
       ? metadata.presentation : {};
     const provider = metadata.provider && typeof metadata.provider === 'object'

@@ -18125,7 +18125,7 @@
         ],
         "operationId": "controlBrowserRecordingProgress",
         "summary": "Read or update Browser Recording progress",
-        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Read revision once for the playback owner; progress and clear use the existing CAS fence and SSE notification semantics. No automatic retry after a revision conflict.",
+        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Read revision once for the playback owner; progress and clear use the existing CAS fence and SSE notification semantics. No automatic retry after a revision conflict. The list operation projects the existing Browser Home history with canonical recording IDs, current selected title and artwork, observed positions and revision/evidence fields; no native identity.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
@@ -18145,7 +18145,6 @@
                 "type": "object",
                 "required": [
                   "backendId",
-                  "recordingId",
                   "operation"
                 ],
                 "properties": {
@@ -18174,7 +18173,8 @@
                     "enum": [
                       "revision",
                       "progress",
-                      "clear"
+                      "clear",
+                      "list"
                     ]
                   },
                   "resumeSupported": {
@@ -18194,13 +18194,17 @@
                       "operation": {
                         "const": "revision"
                       }
-                    }
+                    },
+                    "required": [
+                      "recordingId"
+                    ]
                   },
                   {
                     "required": [
                       "operationId",
                       "expectedRevision",
-                      "positionSeconds"
+                      "positionSeconds",
+                      "recordingId"
                     ],
                     "properties": {
                       "operation": {
@@ -18211,11 +18215,19 @@
                   {
                     "required": [
                       "operationId",
-                      "expectedRevision"
+                      "expectedRevision",
+                      "recordingId"
                     ],
                     "properties": {
                       "operation": {
                         "const": "clear"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operation": {
+                        "const": "list"
                       }
                     }
                   }
@@ -18226,7 +18238,7 @@
         },
         "responses": {
           "200": {
-            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement.",
+            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement. List returns items with canonical Recording and Home history fields.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18241,6 +18253,107 @@
                     },
                     "replayed": {
                       "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "backendId",
+                          "recordingId",
+                          "recording",
+                          "title",
+                          "posterUrl"
+                        ],
+                        "properties": {
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "recording": {
+                            "type": "object",
+                            "required": [
+                              "recordingId",
+                              "backendId",
+                              "recordedAt",
+                              "title"
+                            ],
+                            "properties": {
+                              "recordingId": {
+                                "type": "string",
+                                "pattern": "^rec_[0-9a-f]{32}$"
+                              },
+                              "backendId": {
+                                "type": "string"
+                              },
+                              "recordedAt": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "subtitle": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "preferredArtworkId": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{32}$"
+                              }
+                            }
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "posterUrl": {
+                            "type": "string"
+                          },
+                          "resumePositionSeconds": {
+                            "type": "integer"
+                          },
+                          "progressRevision": {
+                            "type": "integer"
+                          },
+                          "durationKnown": {
+                            "type": "boolean"
+                          },
+                          "durationSeconds": {
+                            "type": "integer"
+                          },
+                          "positionKnown": {
+                            "type": "boolean"
+                          },
+                          "positionSeconds": {
+                            "type": "integer"
+                          },
+                          "completionKnown": {
+                            "type": "boolean"
+                          },
+                          "completed": {
+                            "type": "boolean"
+                          },
+                          "resumeRelevanceKnown": {
+                            "type": "boolean"
+                          },
+                          "resumeRelevant": {
+                            "type": "boolean"
+                          },
+                          "sourceEvidence": {
+                            "type": "string"
+                          },
+                          "lastActivityAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -18275,7 +18388,7 @@
         ],
         "operationId": "recordBrowserRecordingActivity",
         "summary": "Record observed Browser playback activity",
-        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Retains position, resume and completion evidence and existing SSE invalidation.",
+        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Retains position, resume and completion evidence and existing SSE invalidation. The list operation projects the existing Browser Home history with canonical recording IDs, current selected title and artwork, observed positions and revision/evidence fields; no native identity.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
@@ -18295,9 +18408,7 @@
                 "type": "object",
                 "required": [
                   "backendId",
-                  "recordingId",
-                  "operation",
-                  "operationId"
+                  "operation"
                 ],
                 "properties": {
                   "backendId": {
@@ -18323,7 +18434,8 @@
                   "operation": {
                     "type": "string",
                     "enum": [
-                      "activity"
+                      "activity",
+                      "list"
                     ]
                   },
                   "resumeSupported": {
@@ -18335,14 +18447,34 @@
                   "ended": {
                     "type": "boolean"
                   }
-                }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "recordingId",
+                      "operationId"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "activity"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operation": {
+                        "const": "list"
+                      }
+                    }
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement.",
+            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement. List returns items with canonical Recording and Home history fields.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18357,6 +18489,107 @@
                     },
                     "replayed": {
                       "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "backendId",
+                          "recordingId",
+                          "recording",
+                          "title",
+                          "posterUrl"
+                        ],
+                        "properties": {
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "recording": {
+                            "type": "object",
+                            "required": [
+                              "recordingId",
+                              "backendId",
+                              "recordedAt",
+                              "title"
+                            ],
+                            "properties": {
+                              "recordingId": {
+                                "type": "string",
+                                "pattern": "^rec_[0-9a-f]{32}$"
+                              },
+                              "backendId": {
+                                "type": "string"
+                              },
+                              "recordedAt": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "subtitle": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "preferredArtworkId": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{32}$"
+                              }
+                            }
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "posterUrl": {
+                            "type": "string"
+                          },
+                          "resumePositionSeconds": {
+                            "type": "integer"
+                          },
+                          "progressRevision": {
+                            "type": "integer"
+                          },
+                          "durationKnown": {
+                            "type": "boolean"
+                          },
+                          "durationSeconds": {
+                            "type": "integer"
+                          },
+                          "positionKnown": {
+                            "type": "boolean"
+                          },
+                          "positionSeconds": {
+                            "type": "integer"
+                          },
+                          "completionKnown": {
+                            "type": "boolean"
+                          },
+                          "completed": {
+                            "type": "boolean"
+                          },
+                          "resumeRelevanceKnown": {
+                            "type": "boolean"
+                          },
+                          "resumeRelevant": {
+                            "type": "boolean"
+                          },
+                          "sourceEvidence": {
+                            "type": "string"
+                          },
+                          "lastActivityAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }

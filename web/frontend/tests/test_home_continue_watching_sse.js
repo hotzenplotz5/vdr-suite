@@ -130,7 +130,7 @@ const window = {
   setTimeout(callback) { timers.push(callback); return timers.length; },
   clearTimeout() {},
   fetch(url, options) {
-    assert.strictEqual(url, '/api/media/continue-watching');
+    assert.strictEqual(url, '/api/v1/browser/recording-playback-sessions/progress');
     assert.strictEqual(options.credentials, 'same-origin');
     assert.strictEqual(options.headers['X-VDR-Suite-CSRF'], 'session-proof');
     const body = JSON.parse(options.body);

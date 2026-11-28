@@ -64,7 +64,7 @@
   }
   function post(body) {
     const fetcher = global.fetch || fetch;
-    return fetcher('/api/media/recently-watched', {
+    return fetcher('/api/v1/browser/recording-playback-sessions/activity', {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -115,7 +115,7 @@
     ) || 'Aufnahme';
   }
   function subtitle(item) {
-    return text(presentation(item.recording).subtitle);
+    return text(presentation(item.recording).subtitle || item.recording.subtitle);
   }
   function posterUrl(item) {
     const metadata = recordingMetadata(item.recording);

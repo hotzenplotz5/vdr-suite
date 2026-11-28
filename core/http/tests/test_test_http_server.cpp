@@ -173,6 +173,8 @@ int main()
                 assert(backend == "default");
                 assert(native == "/video/history-r1.rec");
                 return std::string("rec_0123456789abcdef0123456789abcdef");
+            }, [](const VdrRecording&, const ManualRecordingMetadataAssignment&) {
+                return std::string("0123456789abcdef0123456789abcdef");
             }));
         ApiResponse history;
         const std::string actor = "history-actor";
@@ -239,6 +241,17 @@ int main()
         assert(history.statusCode == 200);
         assert(runtime.tryHandlePost(rw, list, actor, history));
         assert(history.body.find("\"positionSeconds\":240") != std::string::npos);
+        for (const auto& route : {progress, activity}) {
+            assert(runtime.tryHandlePost(route, list, actor, history, "default", resolve));
+            assert(history.statusCode == 200);
+            assert(history.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("\"preferredArtworkId\":\"0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork/0123456789abcdef0123456789abcdef?backendId=default") != std::string::npos);
+            assert(history.body.find("\"backendNativeId\"") == std::string::npos);
+            assert(history.body.find("history-r1") == std::string::npos);
+            assert(runtime.tryHandlePost(route, list, "other-actor", history, "default", resolve));
+            assert(history.statusCode == 200 && history.body == "{\"items\":[]}");
+        }
         runtime.reset();
     }
     {

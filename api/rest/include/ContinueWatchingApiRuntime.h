@@ -19,6 +19,7 @@ class RecentlyWatchedRepository;
 class RecentlyWatchedService;
 class VdrRecordingCacheRepository;
 struct VdrRecording;
+struct ManualRecordingMetadataAssignment;
 
 // Parsed but not authorized; the caller must verify the live Device credential,
 // exact backend play grant and public rec_ identity before any persistence access.
@@ -41,8 +42,12 @@ public:
     using PublicRecordingIdLookup = std::function<std::string(
         const std::string& backendId, const std::string& backendNativeId)>;
 
+    using PublicHistoryArtworkLookup = std::function<std::string(
+        const VdrRecording&, const ManualRecordingMetadataAssignment&)>;
+
     bool configure(Database& database, VdrRecordingCacheRepository& recordings,
-                   PublicRecordingIdLookup publicRecordingIdLookup = {});
+                   PublicRecordingIdLookup publicRecordingIdLookup = {},
+                   PublicHistoryArtworkLookup publicHistoryArtworkLookup = {});
     void reset();
     // Read-once SSE invalidation hints; persistent progress stays in the repository.
     std::vector<std::string> takePendingProgressBackends();
@@ -89,5 +94,6 @@ private:
     std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
     PublicRecordingIdLookup publicRecordingIdLookup_;
+    PublicHistoryArtworkLookup publicHistoryArtworkLookup_;
     mutable std::set<std::string> pendingProgressBackends_;
 };

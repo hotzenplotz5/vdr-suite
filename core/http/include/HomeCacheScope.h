@@ -252,7 +252,9 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
         backend = canonicalHomeCacheBackend(request.path.substr(at + 1));
         if (backend.empty()) return;
         epg = true;
-    } else if (request.method == "POST" && path == "/api/media/continue-watching" &&
+    } else if (request.method == "POST" &&
+               (path == "/api/media/continue-watching" ||
+                path == "/api/v1/browser/recording-playback-sessions/progress") &&
                at == std::string::npos) {
         backend = authorizedBackend;
         // Only the existing first-party list read, never a mutation response.

@@ -7,7 +7,7 @@
     'genres': '/api/metadata/genres',
     'folders': '/api/vdr/recordings/folder',
     'recent-movies': '/api/vdr/recordings/query',
-    'continue-watching': '/api/media/continue-watching'
+    'continue-watching': '/api/v1/browser/recording-playback-sessions/progress'
   });
   const PUBLIC_GENRE_ROUTE = '/api/v1/genres';
   const PUBLIC_RECORDING_ROUTE = '/api/v1/recordings';

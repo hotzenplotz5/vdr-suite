@@ -21,7 +21,7 @@ const continueServiceSource = fs.readFileSync(path.join(repositoryRoot, 'core', 
 
 // Architectural fences: server/actor truth, canonical existing playback owner,
 // preview release before ownership transfer, and no browser-local cross-client truth.
-assert(source.includes('/api/media/continue-watching'));
+assert(source.includes('/api/v1/browser/recording-playback-sessions/progress'));
 assert(syncSource.includes('/api/media/continue-watching'));
 assert(!source.includes('localStorage'));
 assert(!syncSource.includes('localStorage'));
@@ -402,7 +402,7 @@ function flush(count = 8) {
     };
     await api._test.post({operation: 'list', backendId: 'default'});
     assert.strictEqual(homeRequests.length, 1);
-    assert.strictEqual(homeRequests[0].path, '/api/media/continue-watching');
+    assert.strictEqual(homeRequests[0].path, '/api/v1/browser/recording-playback-sessions/progress');
     assert.strictEqual(homeRequests[0].options.credentials, 'same-origin');
     assert.strictEqual(homeRequests[0].options.headers['Content-Type'], 'application/json');
     assert.strictEqual(homeRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-home-csrf');

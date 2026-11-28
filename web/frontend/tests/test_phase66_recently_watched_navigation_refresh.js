@@ -108,7 +108,7 @@ moduleObserver.callback([{target: overviewTab, attributeName: 'class'}]);
 
 assert.strictEqual(requests.length, 1,
   'Programmatic return to the canonical Home module must refresh Recently Watched');
-assert.strictEqual(requests[0].path, '/api/media/recently-watched');
+assert.strictEqual(requests[0].path, '/api/v1/browser/recording-playback-sessions/activity');
 assert.strictEqual(requests[0].options.credentials, 'same-origin');
 assert.strictEqual(requests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-history-navigation');
 assert.deepStrictEqual(JSON.parse(requests[0].options.body), {

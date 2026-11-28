@@ -124,7 +124,7 @@ function pendingResponse() {
     1,
     'authenticated Home resume must start Continue Watching immediately'
   );
-  assert.strictEqual(requests[0].url, '/api/media/continue-watching');
+  assert.strictEqual(requests[0].url, '/api/v1/browser/recording-playback-sessions/progress');
 }());
 
 (function verifyHistoryAndRecentMoviesGate() {
@@ -230,7 +230,7 @@ function pendingResponse() {
     1,
     'authenticated Home resume must start actor-scoped history immediately'
   );
-  assert.strictEqual(historyRequests[0].url, '/api/media/recently-watched');
+  assert.strictEqual(historyRequests[0].url, '/api/v1/browser/recording-playback-sessions/activity');
   assert.strictEqual(
     recordingRequests.length,
     1,

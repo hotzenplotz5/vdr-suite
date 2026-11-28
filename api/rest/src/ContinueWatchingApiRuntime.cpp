@@ -286,10 +286,50 @@ std::string serializeRecording(const VdrRecording& recording,
     return out.str();
 }
 
+bool canonicalHistoryId(const std::string& value, std::size_t prefixLength)
+{
+    if (value.size() != prefixLength + 32U ||
+        (prefixLength != 0U && value.compare(0, prefixLength, "rec_") != 0))
+        return false;
+    return std::all_of(value.begin() + prefixLength, value.end(), [](unsigned char ch) {
+        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+    });
+}
+
+// The list retains the same title/subtitle/history selection as the legacy
+// Home rail, but its nested Recording contains only public display facts.
+std::string serializePublicHistoryRecording(
+    const VdrRecording& recording, const std::string& publicId,
+    const std::string& title, const std::string& subtitle,
+    const std::string& artworkId, const ManualRecordingMetadataAssignment* manual)
+{
+    const auto& native = recording.metadata.native;
+    const auto& provider = recording.metadata.provider;
+    const std::string description = manual && manual->relationshipLocked && !manual->overview.empty()
+        ? manual->overview : (!provider.overview.empty() ? provider.overview :
+            (!native.description.empty() ? native.description : native.shortText));
+    std::ostringstream out;
+    out << "{\"recordingId\":\"" << jsonEscape(publicId)
+        << "\",\"backendId\":\"" << jsonEscape(recording.backendId)
+        << "\",\"title\":\"" << jsonEscape(title)
+        << "\",\"subtitle\":\"" << jsonEscape(subtitle)
+        << "\",\"recordedAt\":\"" << jsonEscape(recording.startTime)
+        << "\",\"description\":\"" << jsonEscape(description)
+        << "\",\"durationSeconds\":" << std::max(0, recording.durationSeconds)
+        << ",\"durationKnown\":" << (recording.recordingDurationKnown ? "true" : "false")
+        << ",\"sizeMb\":" << std::max(0LL, recording.sizeMb);
+    if (!artworkId.empty())
+        out << ",\"preferredArtworkId\":\"" << jsonEscape(artworkId) << "\"";
+    out << "}";
+    return out.str();
+}
+
 std::string serializeContinueWatching(
     const std::vector<ContinueWatchingItem>& items,
     const std::vector<VdrRecording>& recordings,
-    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup)
+    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup,
+    bool publicBrowser,
+    const ContinueWatchingApiRuntime::PublicHistoryArtworkLookup& artworkLookup)
 {
     const std::string backendId =
         !recordings.empty()
@@ -340,7 +380,7 @@ std::string serializeContinueWatching(
                     *manual)
                 : std::string{};
 
-        const std::string projectedPoster =
+        std::string projectedPoster =
             !manualPoster.empty()
                 ? manualPoster
                 : (!currentPoster.empty()
@@ -352,21 +392,41 @@ std::string serializeContinueWatching(
                 ? currentSubtitle
                 : item.recording.subtitle;
 
+        std::string publicId;
+        std::string artworkId;
+        if (publicBrowser) {
+            if (!publicRecordingIdLookup) return {};
+            publicId = publicRecordingIdLookup(currentRecording->backendId, currentRecording->backendNativeId);
+            if (!canonicalHistoryId(publicId, 4U)) return {};
+            if (artworkLookup)
+                artworkId = artworkLookup(*currentRecording,
+                    manual ? *manual : ManualRecordingMetadataAssignment{});
+            if (!canonicalHistoryId(artworkId, 0U)) artworkId.clear();
+            projectedPoster = artworkId.empty() ? std::string{} :
+                "/api/v1/recordings/" + publicId + "/artwork/" + artworkId +
+                "?backendId=" + manualMetadataUrlEncode(currentRecording->backendId);
+        }
+
         if (!first) out << ',';
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
-            << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
-            << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
-            << "\",\"title\":\"" << jsonEscape(projectedTitle)
+            << "\",\"recordingId\":\"" << jsonEscape(publicBrowser ? publicId : item.recording.recordingId);
+        if (!publicBrowser)
+            out << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId);
+        out << "\",\"title\":\"" << jsonEscape(projectedTitle)
             << "\",\"subtitle\":\"" << jsonEscape(projectedSubtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"progressRevision\":" << item.revision
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
-            << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
-            << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup)
-            << "}";
+            << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt);
+        if (publicBrowser)
+            out << "\",\"recording\":" << serializePublicHistoryRecording(
+                *currentRecording, publicId, projectedTitle, projectedSubtitle, artworkId, manual);
+        else
+            out << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup);
+        out << "}";
     }
     out << "]}";
     return out.str();
@@ -375,7 +435,9 @@ std::string serializeContinueWatching(
 std::string serializeRecentlyWatched(
     const std::vector<RecentlyWatchedItem>& items,
     const std::vector<VdrRecording>& recordings,
-    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup)
+    const ContinueWatchingApiRuntime::PublicRecordingIdLookup& publicRecordingIdLookup,
+    bool publicBrowser,
+    const ContinueWatchingApiRuntime::PublicHistoryArtworkLookup& artworkLookup)
 {
     const std::string backendId =
         !recordings.empty()
@@ -426,7 +488,7 @@ std::string serializeRecentlyWatched(
                     *manual)
                 : std::string{};
 
-        const std::string projectedPoster =
+        std::string projectedPoster =
             !manualPoster.empty()
                 ? manualPoster
                 : (!currentPoster.empty()
@@ -438,12 +500,28 @@ std::string serializeRecentlyWatched(
                 ? currentSubtitle
                 : item.recording.subtitle;
 
+        std::string publicId;
+        std::string artworkId;
+        if (publicBrowser) {
+            if (!publicRecordingIdLookup) return {};
+            publicId = publicRecordingIdLookup(currentRecording->backendId, currentRecording->backendNativeId);
+            if (!canonicalHistoryId(publicId, 4U)) return {};
+            if (artworkLookup)
+                artworkId = artworkLookup(*currentRecording,
+                    manual ? *manual : ManualRecordingMetadataAssignment{});
+            if (!canonicalHistoryId(artworkId, 0U)) artworkId.clear();
+            projectedPoster = artworkId.empty() ? std::string{} :
+                "/api/v1/recordings/" + publicId + "/artwork/" + artworkId +
+                "?backendId=" + manualMetadataUrlEncode(currentRecording->backendId);
+        }
+
         if (!first) out << ',';
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
-            << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
-            << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
-            << "\",\"title\":\"" << jsonEscape(projectedTitle)
+            << "\",\"recordingId\":\"" << jsonEscape(publicBrowser ? publicId : item.recording.recordingId);
+        if (!publicBrowser)
+            out << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId);
+        out << "\",\"title\":\"" << jsonEscape(projectedTitle)
             << "\",\"subtitle\":\"" << jsonEscape(projectedSubtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"positionKnown\":" << (item.positionKnown ? "true" : "false")
@@ -453,9 +531,13 @@ std::string serializeRecentlyWatched(
             << ",\"resumeRelevanceKnown\":" << (item.resumeRelevanceKnown ? "true" : "false")
             << ",\"resumeRelevant\":" << (item.resumeRelevant ? "true" : "false")
             << ",\"sourceEvidence\":\"" << jsonEscape(item.sourceEvidence)
-            << "\",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
-            << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup)
-            << "}";
+            << "\",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt);
+        if (publicBrowser)
+            out << "\",\"recording\":" << serializePublicHistoryRecording(
+                *currentRecording, publicId, projectedTitle, projectedSubtitle, artworkId, manual);
+        else
+            out << "\",\"recording\":" << serializeRecording(*currentRecording, publicRecordingIdLookup);
+        out << "}";
     }
     out << "]}";
     return out.str();
@@ -471,11 +553,13 @@ ContinueWatchingApiRuntime& ContinueWatchingApiRuntime::instance()
 bool ContinueWatchingApiRuntime::configure(
     Database& database,
     VdrRecordingCacheRepository& recordings,
-    PublicRecordingIdLookup publicRecordingIdLookup)
+    PublicRecordingIdLookup publicRecordingIdLookup,
+    PublicHistoryArtworkLookup publicHistoryArtworkLookup)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     pendingProgressBackends_.clear();
     publicRecordingIdLookup_ = {};
+    publicHistoryArtworkLookup_ = {};
     repository_ = std::make_unique<ContinueWatchingRepository>(database);
     recentlyWatchedRepository_ = std::make_unique<RecentlyWatchedRepository>(database);
     if (!repository_->ensureSchema() || !recentlyWatchedRepository_->ensureSchema()) {
@@ -560,6 +644,7 @@ bool ContinueWatchingApiRuntime::configure(
         });
     recordings_ = &recordings;
     publicRecordingIdLookup_ = std::move(publicRecordingIdLookup);
+    publicHistoryArtworkLookup_ = std::move(publicHistoryArtworkLookup);
     return true;
 }
 
@@ -572,6 +657,7 @@ void ContinueWatchingApiRuntime::reset()
     repository_.reset();
     recordings_ = nullptr;
     publicRecordingIdLookup_ = {};
+    publicHistoryArtworkLookup_ = {};
     pendingProgressBackends_.clear();
 }
 
@@ -848,32 +934,31 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response = errorResponse(403, "backend_scope_denied");
             return true;
         }
-        if ((recentlyWatched && operation != "activity") ||
+        if (operation != "list" && ((recentlyWatched && operation != "activity") ||
             (!recentlyWatched && operation != "revision" &&
-                operation != "progress" && operation != "clear")) {
+                operation != "progress" && operation != "clear"))) {
             response = errorResponse(400, "invalid_browser_history_operation");
             return true;
         }
-        if (recordingId.size() != 36U || recordingId.compare(0, 4, "rec_") != 0 ||
-            !std::all_of(recordingId.begin() + 4, recordingId.end(), [](unsigned char ch) {
-                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
-            })) {
-            response = errorResponse(400, "invalid_recording_id");
-            return true;
+        if (operation != "list") {
+            if (!canonicalHistoryId(recordingId, 4U)) {
+                response = errorResponse(400, "invalid_recording_id");
+                return true;
+            }
+            if (!resolvePublicRecording) {
+                response = errorResponse(503, "recording_identity_unavailable");
+                return true;
+            }
+            if (!resolvePublicRecording(backendId, recordingId, admittedRecording) ||
+                admittedRecording.backendId != backendId || admittedRecording.id.empty() ||
+                admittedRecording.backendNativeId.empty()) {
+                response = errorResponse(404, "recording_not_found");
+                return true;
+            }
+            // All persistence operations continue to use the existing media ID.
+            // No client-provided native identity participates in this resolution.
+            recordingId = admittedRecording.id;
         }
-        if (!resolvePublicRecording) {
-            response = errorResponse(503, "recording_identity_unavailable");
-            return true;
-        }
-        if (!resolvePublicRecording(backendId, recordingId, admittedRecording) ||
-            admittedRecording.backendId != backendId || admittedRecording.id.empty() ||
-            admittedRecording.backendNativeId.empty()) {
-            response = errorResponse(404, "recording_not_found");
-            return true;
-        }
-        // All persistence operations continue to use the existing media ID.
-        // No client-provided native identity participates in this resolution.
-        recordingId = admittedRecording.id;
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -891,7 +976,10 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response.statusCode = 200;
             response.contentType = "application/json";
             response.headers["Cache-Control"] = "no-store";
-            response.body = serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_);
+            response.body = serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_,
+                publicBrowser, publicHistoryArtworkLookup_);
+            if (response.body.empty())
+                response = errorResponse(503, "recording_identity_unavailable");
             return true;
         }
         if (operation != "activity") {
@@ -966,7 +1054,10 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
         response.statusCode = 200;
         response.contentType = "application/json";
         response.headers["Cache-Control"] = "no-store";
-        response.body = serializeContinueWatching(items, currentRecordings, publicRecordingIdLookup_);
+        response.body = serializeContinueWatching(items, currentRecordings, publicRecordingIdLookup_,
+                publicBrowser, publicHistoryArtworkLookup_);
+            if (response.body.empty())
+                response = errorResponse(503, "recording_identity_unavailable");
         return true;
     }
 

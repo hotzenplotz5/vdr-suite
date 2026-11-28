@@ -2368,6 +2368,12 @@
       return {backendId: input.backendId, recordingId: input.recordingId};
     }
 
+    function listBrowserRecordingHistory(input, activity) {
+      const backendId = playbackBackend(input);
+      const path = activity ? '/api/v1/browser/recording-playback-sessions/activity' : '/api/v1/browser/recording-playback-sessions/progress';
+      return playbackPost(path, {operation:'list', backendId}, input).then(parseJsonBody);
+    }
+
     function browserRecordingHistory(input, operation) {
       const identity = recordingProgressIdentity(input);
       const body = {operation, ...identity};
@@ -2765,6 +2771,12 @@
       },
       selectBrowserRecordingSubtitle(options) {
         return selectRecordingSubtitle(options, true);
+      },
+      getBrowserContinueWatching(options) {
+        return listBrowserRecordingHistory(options, false);
+      },
+      getBrowserRecentlyWatched(options) {
+        return listBrowserRecordingHistory(options, true);
       },
       getBrowserRecordingProgress(options) {
         return browserRecordingHistory(options, 'revision');

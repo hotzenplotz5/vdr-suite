@@ -14,7 +14,7 @@ const apiSource = fs.readFileSync(path.join(repositoryRoot, 'api', 'rest', 'src'
 const historyHeader = fs.readFileSync(path.join(repositoryRoot, 'core', 'media', 'include', 'RecentlyWatched.h'), 'utf8');
 const securitySource = fs.readFileSync(path.join(repositoryRoot, 'core', 'security', 'include', 'ContinueWatchingSecurityRequest.h'), 'utf8');
 
-assert(homeSource.includes('/api/media/recently-watched'));
+assert(homeSource.includes('/api/v1/browser/recording-playback-sessions/activity'));
 assert(syncSource.includes("const HISTORY_ENDPOINT = '/api/media/recently-watched'"));
 assert(syncSource.includes('snapshotActive(latestSnapshot)'));
 assert(syncSource.includes('owner.subscribe(lifecycleChanged)'));
@@ -158,7 +158,7 @@ assert(sync && sync.__test);
   };
   await home._test.post({operation: 'list', backendId: 'default'});
   assert.strictEqual(historyRequests.length, 1);
-  assert.strictEqual(historyRequests[0].path, '/api/media/recently-watched');
+  assert.strictEqual(historyRequests[0].path, '/api/v1/browser/recording-playback-sessions/activity');
   assert.strictEqual(historyRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-history-home');
 
   assert.strictEqual(await home._test.openItem(normalized), true);

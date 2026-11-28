@@ -10,7 +10,7 @@ for (const name of ['home-persistence', 'home-cache-runtime'])
 const A = 'vsr-' + 'a'.repeat(64), epoch = 'sse_' + '1'.repeat(32) + ':';
 const epoch2 = 'sse_' + '2'.repeat(32) + ':';
 const paths = {'newly-recorded':'/api/vdr/recordings/query', 'series':'/api/metadata/genres/recordings',
-  'genres':'/api/metadata/genres', 'continue-watching':'/api/media/continue-watching'};
+  'genres':'/api/metadata/genres', 'continue-watching':'/api/v1/browser/recording-playback-sessions/progress'};
 const scope = backendId => ({accountId:A, backendId, permissionRevision:A});
 const cards = [{id:'one', title:'One'}];
 const snap = revision => ({complete:true, revision, items:cards});

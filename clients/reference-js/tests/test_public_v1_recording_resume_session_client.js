@@ -221,5 +221,13 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
   assert.throws(()=>browser.updateBrowserRecordingProgress({...browserHistory,
     positionSeconds:42,operationId:'missing-revision'}));
   assert.strictEqual(browserRequests.length,12);
+  await browser.getBrowserContinueWatching(browserHistory);
+  await browser.getBrowserRecentlyWatched(browserHistory);
+  const browserLists = browserRequests.slice(12);
+  assert.deepStrictEqual(browserLists.map(entry=>new URL(entry.url).pathname),
+    ['/api/v1/browser/recording-playback-sessions/progress', '/api/v1/browser/recording-playback-sessions/activity']);
+  assert(browserLists.every(entry=>JSON.parse(entry.body).operation==='list' &&
+    JSON.parse(entry.body).backendId===identity.backendId &&
+    !Object.prototype.hasOwnProperty.call(JSON.parse(entry.body),'recordingId')));
   console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control/tracks/history client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});
