@@ -43,6 +43,8 @@ EXPECTED_RUNTIME_OWNERS = {
 }
 
 EXPECTED_ROUTE_LITERALS = {
+    "/api/v1/browser/recording-playback-sessions/activity",
+    "/api/v1/browser/recording-playback-sessions/progress",
     "/api/v1/recordings",
     "/api/v1/recordings/actions/validate",
     "/api/v1/recordings/actions/execute",
@@ -201,6 +203,8 @@ EXPECTED_ROUTE_LITERALS = {
 }
 
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
+    "/api/v1/browser/recording-playback-sessions/activity",
+    "/api/v1/browser/recording-playback-sessions/progress",
     "/api/v1/recordings",
     "/api/v1/recordings/actions/validate",
     "/api/v1/recordings/actions/execute",
