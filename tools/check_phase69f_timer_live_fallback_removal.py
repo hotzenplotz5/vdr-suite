@@ -23,7 +23,10 @@ timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerCon
 require("function requestJsonWithFallback(path, fallbackPath, options)" not in client_api, "retired single-path catch-all fallback helper returned")
 require("function requestJsonWithFallbacks(paths, options)" not in client_api, "retired multi-path catch-all fallback helper returned")
 require("publicNativeTimerClient().getLiveNativeTimers(" in timer_body and "'default'" in timer_body and "/api/vdr/timers/live" not in timer_body, "fetchClientTimers must always use the scoped public live reader")
-conflict_body = function_body(client_api, "fetchClientTimerConflicts", "publicNativeTimerClient")
+conflict_start = client_api.find("function fetchClientTimerConflicts(options)")
+conflict_end = client_api.find("function publicNativeTimerClient()", conflict_start)
+require(conflict_start >= 0 and conflict_end > conflict_start, "cannot bound Timer conflict reader")
+conflict_body = client_api[conflict_start:conflict_end]
 require("publicNativeTimerClient().getNativeTimerConflicts(" in conflict_body and "/api/vdr/timers/conflicts/live" not in conflict_body, "Timer conflicts must always use the scoped public live reader")
 require("requestJsonWithFallback" not in timer_body and "'/api/vdr/timers'" not in timer_body, "fetchClientTimers must not retry the snapshot Timer route")
 

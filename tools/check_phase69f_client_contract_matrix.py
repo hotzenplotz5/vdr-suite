@@ -91,6 +91,12 @@ for source_name, source in (
         require(source.count(draft_route) == 1,
                 "browser SearchTimer draft preview GET must be exact")
         source = source.replace(draft_route, "'approved-searchtimer-draft-preview'")
+        refresh_route = "'/api/v1/search-timers/preview-cache/refresh'"
+        require(source.count(refresh_route) == 1 and
+                "return requestJson(" + refresh_route in source and
+                "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))" in source,
+                "reviewed SearchTimer cache refresh POST drifted")
+        source = source.replace(refresh_route, "'approved-searchtimer-cache-refresh'")
         operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
         require(source.count(operation_route) == 1,
                 "browser SearchTimer Operation GET must be exact")
@@ -348,7 +354,7 @@ timer_start = base_client.find("function fetchClientTimers(options)")
 timer_end = base_client.find("function fetchClientTimerConflicts(options)", timer_start)
 timer_body = base_client[timer_start:timer_end]
 require(
-    "if (!input.backendId) return requestJson('/api/vdr/timers/live', options)" in timer_body
+    "/api/vdr/timers/live" not in timer_body
     and "publicNativeTimerClient().getLiveNativeTimers(" in timer_body,
     "Timer live route drifted after dedicated successor",
 )

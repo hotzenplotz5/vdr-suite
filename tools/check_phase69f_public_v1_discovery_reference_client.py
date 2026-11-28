@@ -87,6 +87,12 @@ require("return requestJson(" + draft_preview_route + ", {" in browser_client,
         "browser SearchTimer draft preview must use the reviewed request")
 browser_client = browser_client.replace(draft_preview_route,
                                         "'approved-searchtimer-draft-preview'")
+refresh_route = "'/api/v1/search-timers/preview-cache/refresh'"
+require(browser_client.count(refresh_route) == 1 and
+        "return requestJson(" + refresh_route in browser_client and
+        "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))" in browser_client,
+        "reviewed SearchTimer cache refresh POST drifted")
+browser_client = browser_client.replace(refresh_route, "'approved-searchtimer-cache-refresh'")
 operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
 require(browser_client.count(operation_route) == 1,
         "reviewed Browser SearchTimer Operation GET missing or duplicated")

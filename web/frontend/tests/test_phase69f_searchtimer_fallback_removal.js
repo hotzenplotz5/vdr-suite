@@ -77,7 +77,7 @@ async function verifyOneShot(functionName, expectedPath, expectedMethod, options
   assert.strictEqual(emitted[0].options.method, expectedMethod);
 
   if (options && options.backendId) {
-    assert.strictEqual(parsed.searchParams.get('backend'), options.backendId);
+    assert.strictEqual(parsed.searchParams.get(expectedPath === '/api/v1/search-timers/preview-cache/refresh' ? 'backendId' : 'backend'), options.backendId);
   }
 }
 
@@ -123,7 +123,7 @@ async function run() {
   assert.strictEqual(draft.options.credentials,'same-origin');
   await verifyOneShot(
     'fetchClientSearchTimerPreviewCacheRefresh',
-    '/api/vdr/searchtimers/preview/cache/refresh',
+    '/api/v1/search-timers/preview-cache/refresh',
     'POST',
     {backendId: 'living-room'}
   );

@@ -52,7 +52,8 @@ timer_body = function_body(
     "fetchClientTimerConflicts",
 )
 require(
-    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "publicNativeTimerClient().getLiveNativeTimers(" in timer_body
+    and "/api/vdr/timers/live" not in timer_body,
     "Timer successor must keep the live route",
 )
 require(
@@ -65,7 +66,7 @@ searchtimer_contracts = (
     ("fetchClientSearchTimers", "fetchClientSearchTimerDiscovery", "/api/vdr/searchtimers", "/api/searchtimers"),
     ("fetchClientSearchTimerDiscovery", "fetchClientSearchTimerPreview", "/api/vdr/searchtimers/discovery", "/api/searchtimers/discovery"),
     ("fetchClientSearchTimerPreview", "fetchClientSearchTimerPreviewCacheRefresh", "/api/vdr/searchtimers/preview", "/api/searchtimers/preview"),
-    ("fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerPlan", "/api/vdr/searchtimers/preview/cache/refresh", "/api/searchtimers/preview/cache/refresh"),
+    ("fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerPlan", "/api/v1/search-timers/preview-cache/refresh", "/api/vdr/searchtimers/preview/cache/refresh"),
     ("fetchClientSearchTimerPlan", "fetchClientSearchTimerValidate", "/api/vdr/searchtimers/plan", "/api/searchtimers/plan"),
     ("fetchClientSearchTimerValidate", "fetchClientSearchTimerExecute", "/api/vdr/searchtimers/validate", "/api/searchtimers/validate"),
     ("fetchClientSearchTimerExecute", "fetchClientSearchTimerRealTest", "/api/vdr/searchtimers/execute", "/api/searchtimers/execute"),
@@ -173,7 +174,7 @@ cache_test = read("web/frontend/tests/test_query_cache_refresh_security_runtime.
 for token in (
     "assert.strictEqual(failedRequests.length, 1)",
     "api.isClientError(previewFailure)",
-    "/api/vdr/searchtimers/preview/cache/refresh",
+    "/api/v1/search-timers/preview-cache/refresh",
 ):
     require(token in cache_test, "query-cache one-shot regression drifted: " + token)
 require(

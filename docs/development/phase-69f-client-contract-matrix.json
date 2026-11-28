@@ -96,7 +96,7 @@
         "fetchClientTimerUpdateAction",
         "fetchClientTimerDeleteAction"
       ],
-      "note": "Legacy/native Timer browser semantics are not equivalent to public TimerAssignment resources."
+      "note": "Native Timer browser semantics are not equivalent to TimerAssignment resources. The active editor and live/conflict readers now use Public-v1 native Timer contracts, while retained legacy mutation wrappers await final caller inventory and removal."
     },
     {
       "domain": "channels",
@@ -256,7 +256,7 @@
       "exports": [
         "fetchClientSearchTimerPreviewCacheRefresh"
       ],
-      "note": "Preview-cache refresh is first-party cache maintenance, not a public client contract."
+      "note": "Historical first-party cache maintenance classification. The active Browser wrapper now uses POST /api/v1/search-timers/preview-cache/refresh with the existing permission and cache service; legacy server aliases remain transition surfaces. Final acceptance pending."
     },
     {
       "domain": "genre-extension",

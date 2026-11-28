@@ -83,6 +83,7 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/v1/search-timers",
     "/api/v1/search-timers/",
     "/api/v1/search-timers/draft-preview",
+    "/api/v1/search-timers/preview-cache/refresh",
     "/api/backends",
     "/api/backends/",
     "/api/backends/default",
@@ -244,6 +245,7 @@ EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/search-timers",
     "/api/v1/search-timers/",
     "/api/v1/search-timers/draft-preview",
+    "/api/v1/search-timers/preview-cache/refresh",
 }
 
 # Phase 69.E retained pre-v1 compatibility classification.

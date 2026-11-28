@@ -32,7 +32,8 @@ require(
 
 timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerConflicts")
 require(
-    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "publicNativeTimerClient().getLiveNativeTimers(" in timer_body
+    and "/api/vdr/timers/live" not in timer_body,
     "Timer successor must preserve the live route",
 )
 require(
