@@ -298,6 +298,7 @@ function publicDetail(member, title, absent) {
   const openedRecordings = [];
   const recordingMetadataCalls = [];
   const recordingOpenCalls = [];
+  let wrongDetailScope = false;
   const membershipCalls = [];
   let activeMetadataCalls = 0;
   let maximumActiveMetadataCalls = 0;
@@ -382,19 +383,14 @@ function publicDetail(member, title, absent) {
       recordingMetadataCalls.push(publicMembers[index].recordingId);
       activeMetadataCalls += 1;
       maximumActiveMetadataCalls = Math.max(maximumActiveMetadataCalls, activeMetadataCalls);
-      return Promise.resolve(publicDetail(publicMembers[index],
-        item.title.replace(/^[^/]+\//, ''), item.backendNativeId === 'native-no-match'))
-        .finally(() => { activeMetadataCalls -= 1; });
+      const detail = publicDetail(publicMembers[index],
+        item.title.replace(/^[^/]+\//, ''), item.backendNativeId === 'native-no-match');
+      if (wrongDetailScope) detail.backendId = 'other';
+      return Promise.resolve(detail).finally(() => { activeMetadataCalls -= 1; });
     },
     fetchClientRecordingForPublicId(options) {
-      assert.strictEqual(options.backendId, 'default');
-      const index = publicMembers.findIndex(item => item.recordingId === options.recordingId);
-      assert(index >= 0, 'private detail must use the exact public member identity');
       recordingOpenCalls.push(options.recordingId);
-      return Promise.resolve({
-        publicRecordingId:options.recordingId,
-        recording:Object.assign({}, genreRecordings[index], {publicRecordingId:options.recordingId})
-      });
+      throw new Error('private recording detail must not be called');
     },
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
@@ -536,18 +532,20 @@ function publicDetail(member, title, absent) {
   await flush();
   await flush();
   assert.strictEqual(openedRecordings.length, 1);
-  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length);
-  assert.deepStrictEqual(recordingOpenCalls, [publicMembers[0].recordingId]);
-  assert.strictEqual(openedRecordings[0].item.publicRecordingId, publicMembers[0].recordingId);
-  assert.strictEqual(
-    openedRecordings[0].item.path,
-    genreRecordings[0].path,
-    'genre card click must hand the original recording to Recordings 2'
-  );
-  assert.strictEqual(
-    openedRecordings[0].item.backendNativeId,
-    'native-largo'
-  );
+  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length + 1);
+  assert.strictEqual(recordingMetadataCalls.at(-1), publicMembers[0].recordingId);
+  assert.deepStrictEqual(recordingOpenCalls, []);
+  assert.strictEqual(openedRecordings[0].item.recordingId, publicMembers[0].recordingId);
+  assert.strictEqual(openedRecordings[0].item.backendId, 'default');
+  assert.strictEqual(openedRecordings[0].item.path, undefined);
+  assert.strictEqual(openedRecordings[0].item.backendNativeId, undefined);
+  wrongDetailScope = true;
+  largoCard.card.dispatch('click');
+  await flush();
+  await flush();
+  assert.strictEqual(openedRecordings.length, 1, 'mismatched backend must not open a different recording');
+  assert.deepStrictEqual(recordingOpenCalls, []);
+  wrongDetailScope = false;
 
   const epgButton = findButton(mount, 'EPG', false);
   assert(epgButton, 'EPG scope button was not rendered');

@@ -446,13 +446,18 @@
       state.detailError = new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
       return render();
     }
-    // Re-resolve at the point of opening, so a moved or deleted recording
-    // cannot silently be replaced by an unrelated native list entry.
-    return Promise.resolve().then(() => api().fetchClientRecordingForPublicId({
-      backendId, recordingId:recordingPublicId(recording)
-    })).then(detail => {
+    // Re-read the current public identity at the point of opening.
+    // Keep the same detail owner without reconstructing a native path.
+    const recordingId = recordingPublicId(recording);
+    return Promise.resolve().then(() => api().requestJson(
+      '/api/v1/recordings/' + encodeURIComponent(recordingId), {
+        query:{backendId}, cache:'no-store', credentials:'same-origin'
+      }
+    )).then(detail => {
       if (!current()) return;
-      owner.openRecording(detail.recording, {
+      if (!detail || detail.recordingId !== recordingId || detail.backendId !== backendId)
+        throw new Error('Aufnahmeidentität konnte nicht eindeutig zugeordnet werden.');
+      owner.openRecording(Object.assign({}, recording, detail), {
         backendId,
         backLabel:closeLabel(),
         onClose:changed => {
