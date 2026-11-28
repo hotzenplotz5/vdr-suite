@@ -50,6 +50,11 @@ unversionierten Wrapper bleiben bis zur vollständigen Aufrufer-Inventur
 bestehen; alte Daemons ohne Direct-Action-Contract sind keine
 Public-v1-Paritätskandidaten. CI und echte VDR-Abnahme sind separat offen.
 
+**Timer-Lesewege:** Auch bisher ungescopte Timerlisten-/Konfliktaufrufe
+verwenden ausschließlich Public v1 mit explizitem bisherigen Default-Backend.
+Die produktiven Home-/EPG-/Timer-Aufrufer liefern bereits die ausgewählte
+Backend-ID. Keine Legacy-Ausweichabfrage bei Transportfehlern.
+
 **Suchtimer-Preview-Cache (28.11.2026):** Aktiver Browser-Refresh
 über Public v1, derselbe Controller/Cache und vorhandene Scope-/CSRF-
 Autorisierung. 14-Tage-/96-pro-Kanal-Parameter bleiben erhalten.

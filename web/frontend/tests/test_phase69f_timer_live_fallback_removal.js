@@ -65,9 +65,13 @@ const context = {
         return Promise.resolve(response(202, {operation: {operationId: id, state: 'accepted'}},
           null, '/api/v1/operations/' + id));
       }
-      if (target.includes('backendId=offline')) return Promise.resolve(response(503, {
-        error: {code: 'backend_unavailable', message: 'Native timer unavailable'}
+      if (target.includes('backendId=offline') ||
+          target.endsWith('/live/list?backendId=default')) return Promise.resolve(response(503, {
+        code: 'backend_unavailable', detail: 'Native timer unavailable',
+        requestId: 'req-phase69f-timer-live'
       }));
+      if (target.includes('/conflicts/live?'))
+        return Promise.resolve(response(200, {available:true,count:0,conflicts:[]}));
       if (target.includes('/live/list?')) {
         return Promise.resolve(response(200, {timers:[
           {timerId:'9',title:'Weekly',subtitle:'Subtitle',aux:'<epgsearch/>',weekdays:'M-W-F--',active:false,vps:true},
@@ -128,18 +132,19 @@ async function run() {
   assert.ok(start >= 0 && end > start, 'cannot bound fetchClientTimers');
   const body = source.slice(start, end);
 
-  assert.ok(body.includes("requestJson('/api/vdr/timers/live', options)"));
+  assert.ok(body.includes('publicNativeTimerClient().getLiveNativeTimers('));
+  assert.ok(!body.includes('/api/vdr/timers/live'));
   assert.ok(!body.includes("'/api/vdr/timers'"));
   assert.ok(!body.includes('requestJsonWithFallback'));
   assert.ok(!source.includes('function requestJsonWithFallback(path, fallbackPath, options)'));
 
   const failure = await captureFailure(() => api.fetchClientTimers({cache: 'no-store'}));
-  assert.strictEqual(api.isClientError(failure), true);
+  assert.strictEqual(failure.name, 'VdrSuitePublicClientError');
   assert.strictEqual(failure.status, 503);
   assert.strictEqual(failure.code, 'backend_unavailable');
   assert.strictEqual(failure.requestId, 'req-phase69f-timer-live');
   assert.strictEqual(requests.length, 1);
-  assert.strictEqual(requests[0].url, '/api/vdr/timers/live');
+  assert.strictEqual(requests[0].url, 'https://suite.example/api/v1/native-timers/live/list?backendId=default');
   assert.strictEqual(requests[0].options.method, 'GET');
   assert.strictEqual(requests[0].options.cache, 'no-store');
 
@@ -188,7 +193,7 @@ async function run() {
   assert.strictEqual(publicFailure.status, 503);
   assert.strictEqual(requests.length, 5, 'Public-v1 503 is not followed by a legacy retry');
   assert.strictEqual(requests[4].url.includes('backendId=offline'), true);
-  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 0);
   assert.throws(() => api.fetchPublicNativeTimerDetail({
     backendId: 'living-room', timerId: '../private'
   }));
@@ -240,7 +245,7 @@ async function run() {
     idempotencyKey: 'idem-invalid'
   }));
   assert.strictEqual(requests.length, 8, 'invalid IDs must not dispatch');
-  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 0);
   const operation = await api.fetchPublicNativeTimerOperation({
     operationId: 'op_modify_f55'
   });
@@ -261,7 +266,7 @@ async function run() {
   assert.strictEqual(requests[9].options.headers['If-None-Match'], operation.etag);
   assert.throws(() => api.fetchPublicNativeTimerOperation({operationId: '../invalid'}));
   assert.strictEqual(requests.length, 10, 'invalid operation ID must not dispatch');
-  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 1);
+  assert.strictEqual(requests.filter(r => r.url === '/api/vdr/timers/live').length, 0);
   // F5.6 manual browser adapter: no EPG If-Match and no Legacy CREATE.
   const manualPayload = {
     backendId: 'living-room', channelId: 'C-1-2-3',
@@ -315,7 +320,7 @@ async function run() {
   const liveFailure=await captureFailure(()=>api.fetchClientTimers({backendId:'offline'}));
   assert.strictEqual(liveFailure.status,503);
   assert.strictEqual(requests.length,14);
-  assert.strictEqual(requests.filter(r=>r.url==='/api/vdr/timers/live').length,1);
+  assert.strictEqual(requests.filter(r=>r.url==='/api/vdr/timers/live').length,0);
   // Compact catalog is shared by timer editors, sorter and EPG sender lookup.
   const beforeCatalog = requests.length;
   const catalog = await api.fetchClientChannels({
@@ -344,6 +349,16 @@ async function run() {
   }));
   assert.strictEqual(offline.status, 503);
   assert.strictEqual(requests.length, beforeOffline + 1, 'provider failure must not retry privately');
+  const beforeConflicts = requests.length;
+  const defaultConflicts = await api.fetchClientTimerConflicts({});
+  assert.strictEqual(defaultConflicts.available,true);
+  assert.strictEqual(requests[beforeConflicts].url,
+    'https://suite.example/api/v1/native-timers/conflicts/live?backendId=default');
+  await api.fetchClientTimerConflicts({query:{backend:'living-room'}});
+  assert.strictEqual(requests[beforeConflicts+1].url,
+    'https://suite.example/api/v1/native-timers/conflicts/live?backendId=living-room');
+  assert.strictEqual(requests.length,beforeConflicts+2);
+  assert.strictEqual(requests.filter(r=>r.url.startsWith('/api/vdr/timers')).length,0);
   console.log('test_phase69f_timer_live_fallback_removal F5 closeout and compact catalog passed');
 }
 

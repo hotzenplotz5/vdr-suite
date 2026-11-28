@@ -398,20 +398,20 @@
 
   function fetchClientTimers(options) {
     const input = normalizeOptions(options);
-    // Compatibility for older callers without a backend scope. All
-    // production browser calls supply the selected backend explicitly.
-    if (!input.backendId) return requestJson('/api/vdr/timers/live', options);
+    // The historical unscoped reader selected default. Keep that scope
+    // explicit on Public-v1, also for callers using the older query option.
+    const backendId = input.backendId || (input.query && (input.query.backendId || input.query.backend)) || 'default';
     return publicNativeTimerClient().getLiveNativeTimers({
-      backendId: input.backendId, credentials: 'same-origin',
+      backendId, credentials: 'same-origin',
       cache: 'no-store', signal: input.signal
     });
   }
 
   function fetchClientTimerConflicts(options) {
     const input = normalizeOptions(options);
-    if (!input.backendId) return requestJson('/api/vdr/timers/conflicts/live', options);
+    const backendId = input.backendId || (input.query && (input.query.backendId || input.query.backend)) || 'default';
     return publicNativeTimerClient().getNativeTimerConflicts({
-      backendId: input.backendId, credentials: 'same-origin',
+      backendId, credentials: 'same-origin',
       cache: 'no-store', signal: input.signal
     });
   }
