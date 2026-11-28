@@ -268,6 +268,22 @@ bool publicMediaImportCapabilityPath(
         backendId.find('%') == std::string::npos;
 }
 
+bool publicSeriesHierarchyPath(const std::string& path)
+{
+    static const std::string prefix = "/api/v1/backends/";
+    static const std::string suffix = "/recordings/series-hierarchy";
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    const auto backend = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return backend.size() <= 128U &&
+        std::all_of(backend.begin(), backend.end(), [](unsigned char ch) {
+            return std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.';
+        });
+}
+
 bool publicMetadataResolvePath(
     const std::string& path, std::string& backendId)
 {
@@ -10639,7 +10655,7 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
-    if (path == PublicManualTimerIntentPath)
+    if (path == PublicManualTimerIntentPath || publicSeriesHierarchyPath(path))
     {
         response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
         return true;
@@ -14354,7 +14370,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     }
 
     std::string mediaImportBackend;
-    if (publicMediaImportCollectionPath(path, mediaImportBackend))
+    if (publicSeriesHierarchyPath(path) || publicMediaImportCollectionPath(path, mediaImportBackend))
     {
         response = methodNotAllowedProblem(
             path, requestId, correlationId, "POST");

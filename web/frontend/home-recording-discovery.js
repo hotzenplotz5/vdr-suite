@@ -2104,7 +2104,8 @@
       ? {recordingId: publicId} : {resourceKey: resourceKey});
 
     return client.requestJson(
-      '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +
+      (publicId ? '/api/v1/backends/' : '/api/backends/') +
+        encodeURIComponent(text(backendId) || 'default') +
         '/recordings/series-hierarchy',
       {
         method: 'POST',

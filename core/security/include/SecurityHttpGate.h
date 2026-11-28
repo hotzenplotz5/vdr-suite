@@ -3735,7 +3735,9 @@ private:
     {
         backendId.clear();
 
-        const std::string prefix = "/api/backends/";
+        const std::string publicPrefix = "/api/v1/backends/";
+        const std::string prefix = path.compare(0, publicPrefix.size(), publicPrefix) == 0
+            ? publicPrefix : "/api/backends/";
         const std::string suffix =
             "/recordings/series-hierarchy";
 

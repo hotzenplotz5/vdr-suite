@@ -683,7 +683,9 @@ public:
                 requestTarget,
                 body,
                 actorRef,
-                response))
+                response,
+                authorizedBackendRef,
+                contentType))
         {
             return response;
         }

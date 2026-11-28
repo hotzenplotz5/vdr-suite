@@ -26,7 +26,9 @@ public:
         const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& authorizedBackendId = "",
+        const std::string& contentType = "") const;
 
 private:
     RecordingSeriesHierarchyApiRuntime() = default;

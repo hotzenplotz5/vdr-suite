@@ -1968,6 +1968,15 @@ int main()
         "\"action\":\"DELETE\"}");
     assert(wrongBackend.statusCode == 404);
 
+    // The real client router must reach the existing hierarchy owner rather
+    // than the generic Public-v1 fallback.
+    const auto hierarchyUnavailable = router.handleClientPost(
+        "/api/v1/backends/router-backend/recordings/series-hierarchy",
+        R"json({"recordingId":"rec_0123456789abcdef0123456789abcdef","operation":"clear"})json",
+        "test-actor", "", "", "", "", "", "application/json", "router-backend");
+    assert(hierarchyUnavailable.statusCode == 503);
+    assert(hierarchyUnavailable.body.find("series_hierarchy_runtime_unavailable") != std::string::npos);
+
     const std::string timerCreateBody =
         "{"
         "\"backendId\":\"router-backend\","

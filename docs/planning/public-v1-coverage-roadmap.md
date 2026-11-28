@@ -32,6 +32,13 @@ Der neue Bestandsread hat im normalen Public-Pfad dieselbe Anzahl HTTP-Aufrufe,
 aber seine Laufzeit wurde nicht auf realer Hardware verglichen. Die
 bereits vorhandene ältere Folder-Kompatibilität bleibt vorläufig erhalten.
 
+**Serien-Hierarchie:** Public-v1 POST für kanonische Karten nutzt die
+bestehende Hierarchie-Repository- und Identitätsauflösung sowie
+`metadata.recording.assign` und vorhandenes CSRF. Keine zweite Mutation,
+kein Polling; native-only Karten behalten vorerst ihren bisherigen
+Kompatibilitätspfad. OpenAPI, Referenzclient und fokussierte Regressionen
+ergänzt; finaler CI-/Hardware-Nachweis offen.
+
 **Nachweisbare Restlücken:**
 
 - `GET /api/v1/backends` liefert laut Backend-Discovery-Vertrag bewusst nur

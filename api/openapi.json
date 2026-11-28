@@ -6654,6 +6654,171 @@
         }
       }
     },
+    "/api/v1/backends/{backendId}/recordings/series-hierarchy": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "publicRecordingSeriesHierarchySet",
+        "summary": "Set or clear a recording series hierarchy override",
+        "description": "Presentation-only override; uses the existing series hierarchy repository and revision. The rec_ identity is resolved within the admitted backend. No native resource key or VDR recording change.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "recordingId",
+                  "operation"
+                ],
+                "properties": {
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "set",
+                      "clear"
+                    ]
+                  },
+                  "groupType": {
+                    "type": "string",
+                    "enum": [
+                      "season",
+                      "special",
+                      "custom"
+                    ]
+                  },
+                  "groupLabel": {
+                    "type": "string"
+                  },
+                  "seasonNumber": {
+                    "type": "integer"
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "episodeStart": {
+                    "type": "integer"
+                  },
+                  "episodeEnd": {
+                    "type": "integer"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current saved override or available=false after clear.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recordingId",
+                    "backendId",
+                    "available"
+                  ],
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "groupType": {
+                      "type": "string"
+                    },
+                    "groupLabel": {
+                      "type": "string"
+                    },
+                    "seasonNumber": {
+                      "type": "integer"
+                    },
+                    "sortOrder": {
+                      "type": "integer"
+                    },
+                    "episodeStart": {
+                      "type": "integer"
+                    },
+                    "episodeEnd": {
+                      "type": "integer"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hierarchy or recording identity"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Existing metadata.recording.assign backend permission or CSRF denied"
+          },
+          "404": {
+            "description": "Unknown recording identity"
+          },
+          "409": {
+            "description": "Hierarchy revision conflict"
+          },
+          "415": {
+            "description": "Expected application/json"
+          },
+          "503": {
+            "description": "Existing metadata or recording identity service unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          },
+          {
+            "deviceCredential": []
+          },
+          {
+            "managedBasic": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "actorWrite",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Existing metadata.recording.assign@backendId permission and Browser CSRF; no new grant."
+        }
+      }
+    },
     "/api/v1/backends/{backendId}/recordings/metadata/assign": {
       "post": {
         "tags": [

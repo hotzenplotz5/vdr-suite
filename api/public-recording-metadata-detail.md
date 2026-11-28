@@ -159,6 +159,25 @@ image ID does not resolve to a different image. Trailer identity and Web
 read-adapter migration remain separate work; this extension alone does not
 establish full Web parity.
 
+## Series hierarchy correction (public recording cards)
+
+`POST /api/v1/backends/{backendId}/recordings/series-hierarchy` uses the
+existing hierarchy override repository and its revision semantics. Send an
+opaque `recordingId`, `operation: set` or `clear`, optional
+`expectedRevision` (defaults to 0), and for set the existing group/season,
+label, sort order and episode-range fields. A clear restores the native
+hierarchy; no recording is split or moved. The same
+`metadata.recording.assign` backend grant and Browser CSRF apply. Public
+responses identify the recording by `recordingId`, never its internal key.
+The existing metadata error envelope is retained. The browser uses this
+route for canonical public cards; old native-only cached cards retain their
+existing compatibility path until their identity migration is complete.
+Public readback is the existing collection's `seriesHierarchyOverride`
+projection; no per-recording polling or extra read endpoint is introduced.
+Reference JS: `setRecordingSeriesHierarchy({backendId, payload, headers})`.
+Source tests cover set, clear, revision conflict, legacy readback and grant
+scope. Real yaVDR/TV and final CI are separate acceptance levels.
+
 ## On-demand trailer read
 
 `GET /api/v1/backends/{backendId}/recordings/metadata/trailer?recordingId=rec_...`

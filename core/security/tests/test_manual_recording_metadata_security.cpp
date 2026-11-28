@@ -160,6 +160,27 @@ int main()
         assert(!reader.gate.evaluate(request).allowed);
     }
 
+    // Hierarchy uses the same existing scoped grant and CSRF in both transports.
+    {
+        auto publicHierarchy = hierarchyRequestFor(fixture, "living-room", true);
+        publicHierarchy.path.insert(4, "/v1");
+        const auto admitted = fixture.gate.evaluate(publicHierarchy);
+        assert(admitted.allowed && admitted.protectedMutation);
+        assert(admitted.authorizationDecision.permission == "metadata.recording.assign");
+        assert(admitted.authorizationDecision.backendId == "living-room");
+        assert(admitted.authorizationDecision.action == "metadata.recording.hierarchy");
+        auto denied = hierarchyRequestFor(fixture, "bedroom", true);
+        denied.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(denied).allowed);
+        auto noCsrf = hierarchyRequestFor(fixture, "living-room", false);
+        noCsrf.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(noCsrf).allowed);
+        SecurityHttpGateBrowserTestFixture noGrant;
+        auto noPermission = hierarchyRequestFor(noGrant, "living-room", true);
+        noPermission.path.insert(4, "/v1");
+        assert(!noGrant.gate.evaluate(noPermission).allowed);
+    }
+
     // The public variants use the exact same scoped permission and CSRF.
     for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {

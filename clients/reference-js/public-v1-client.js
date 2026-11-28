@@ -2862,6 +2862,17 @@
       assignRecordingMetadata(options) {
         return postRecordingMetadata(options,'assign',true);
       },
+      setRecordingSeriesHierarchy(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const body = input.payload;
+        if (!body || typeof body !== 'object' || Array.isArray(body) ||
+            !/^rec_[0-9a-f]{32}$/.test(body.recordingId || '') ||
+            (body.operation !== 'set' && body.operation !== 'clear') ||
+            Object.prototype.hasOwnProperty.call(body, 'resourceKey'))
+          throw new Error('Series hierarchy requires canonical rec_ ID and set or clear');
+        return requestPublicJsonPost(mediaImportPath(input,'recordings/series-hierarchy'),input,body)
+          .then(result => result.data);
+      },
       withdrawRecordingMetadata(options) {
         return postRecordingMetadata(options,'withdraw',true);
       },

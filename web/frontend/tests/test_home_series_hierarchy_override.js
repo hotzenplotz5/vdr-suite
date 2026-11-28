@@ -448,6 +448,8 @@ const client = {
   await api._test.requestSeriesHierarchyOverride(client, 'default',
     {recordingId: opaqueId, recordedAt: '2026-11-20T12:00:00Z'},
     {operation: 'set', groupType: 'season', seasonNumber: 3});
+  assert.strictEqual(mutationCalls[1].route,
+    '/api/v1/backends/default/recordings/series-hierarchy');
   const opaqueMutation = JSON.parse(mutationCalls[1].options.body);
   assert.strictEqual(opaqueMutation.recordingId, opaqueId);
   assert.strictEqual(Object.hasOwn(opaqueMutation, 'resourceKey'), false);

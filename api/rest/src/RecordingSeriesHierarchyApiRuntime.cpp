@@ -14,6 +14,8 @@ namespace
 constexpr const char* RoutePrefix =
     "/api/backends/";
 
+constexpr const char* PublicRoutePrefix = "/api/v1/backends/";
+
 constexpr const char* RouteSuffix =
     "/recordings/series-hierarchy";
 
@@ -54,14 +56,15 @@ std::string requestPath(
 
 bool parseBackendId(
     const std::string& target,
-    std::string& backendId)
+    std::string& backendId,
+    bool publicApi = false)
 {
     backendId.clear();
 
     const std::string path =
         requestPath(target);
 
-    const std::string prefix(RoutePrefix);
+    const std::string prefix(publicApi ? PublicRoutePrefix : RoutePrefix);
     const std::string suffix(RouteSuffix);
 
     if (path.compare(
@@ -311,7 +314,9 @@ ApiResponse errorResponse(
 }
 
 ApiResponse valueResponse(
-    const RecordingSeriesHierarchyOverride& value)
+    const RecordingSeriesHierarchyOverride& value,
+    const std::string& publicId = "",
+    const std::string& publicBackend = "")
 {
     ApiResponse response;
 
@@ -325,7 +330,9 @@ ApiResponse valueResponse(
     if (!value.available)
     {
         response.body =
-            "{\"available\":false}";
+            publicId.empty() ? "{\"available\":false}" :
+                "{\"available\":false,\"recordingId\":\"" + jsonEscape(publicId) +
+                "\",\"backendId\":\"" + jsonEscape(publicBackend) + "\"}";
 
         return response;
     }
@@ -334,9 +341,9 @@ ApiResponse valueResponse(
         "{\"available\":true"
         ",\"backendId\":\"" +
         jsonEscape(value.backendId) +
-        "\""
-        ",\"recordingKey\":\"" +
-        jsonEscape(value.recordingKey) +
+        "\"" +
+        (publicId.empty() ? ",\"recordingKey\":\"" : ",\"recordingId\":\"") +
+        jsonEscape(publicId.empty() ? value.recordingKey : publicId) +
         "\""
         ",\"groupType\":\"" +
         jsonEscape(value.groupType) +
@@ -794,13 +801,17 @@ tryHandlePost(
     const std::string& requestTarget,
     const std::string& body,
     const std::string& actorRef,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& authorizedBackendId,
+    const std::string& contentType) const
 {
     std::string backendId;
+    const bool publicApi = requestTarget.compare(0, std::string(PublicRoutePrefix).size(),
+        PublicRoutePrefix) == 0;
 
     if (!parseBackendId(
             requestTarget,
-            backendId))
+            backendId, publicApi))
     {
         return false;
     }
@@ -847,6 +858,52 @@ tryHandlePost(
             "Series hierarchy request payload is invalid");
 
         return true;
+    }
+
+    // Preserve the existing admitted backend and domain revision.
+    // Only the server resolves native recording keys on Public-v1.
+    if (publicApi)
+    {
+        if (authorizedBackendId != backendId)
+        {
+            response = errorResponse(403, "backend_scope_denied",
+                "The requested backend is not authorized");
+            return true;
+        }
+        if (requestTarget != requestPath(requestTarget))
+        {
+            response = errorResponse(400, "invalid_series_hierarchy_request",
+                "Public hierarchy POST accepts no query parameters");
+            return true;
+        }
+        std::string media = contentType.substr(0, contentType.find(';'));
+        while (!media.empty() && std::isspace(static_cast<unsigned char>(media.back())))
+            media.pop_back();
+        std::transform(media.begin(), media.end(), media.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (media != "application/json")
+        {
+            response = errorResponse(415, "unsupported_media_type",
+                "Public hierarchy requires application/json");
+            return true;
+        }
+        const auto allowedString = [](const auto& entry) {
+            return entry.first == "recordingId" || entry.first == "operation" ||
+                entry.first == "groupType" || entry.first == "groupLabel";
+        };
+        const auto allowedInteger = [](const auto& entry) {
+            return entry.first == "seasonNumber" || entry.first == "sortOrder" ||
+                entry.first == "episodeStart" || entry.first == "episodeEnd" ||
+                entry.first == "expectedRevision";
+        };
+        if (!strings.count("recordingId") ||
+            !std::all_of(strings.begin(), strings.end(), allowedString) ||
+            !std::all_of(integers.begin(), integers.end(), allowedInteger))
+        {
+            response = errorResponse(400, "invalid_series_hierarchy_request",
+                "Unknown or incorrectly typed public hierarchy field");
+            return true;
+        }
     }
 
     const std::string operation =
@@ -910,7 +967,7 @@ tryHandlePost(
         }
 
         response =
-            valueResponse({});
+            valueResponse({}, publicApi ? publicId : "", backendId);
 
         return true;
     }
@@ -989,7 +1046,7 @@ tryHandlePost(
 
     auto value = result.value;
     if (!publicId.empty()) value.recordingKey = publicId;
-    response = valueResponse(value);
+    response = valueResponse(value, publicApi ? publicId : "", backendId);
 
     return true;
 }
