@@ -195,7 +195,7 @@
   function openRecording(recording) {
     rememberScroll();
     closeDialog(false);
-    ensureDetailRuntimes().then(function () {
+    return ensureDetailRuntimes().then(function () {
       const owner = global.VdrSuiteRecordings2;
       if (!owner || typeof owner.openRecording !== 'function') {
         throw new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
@@ -209,16 +209,20 @@
         onClose: openDialog,
         onHome: returnHome
       });
-      // Same exact identity bridge as the Genre module. It retains all
-      // existing detail/playback/actions while the list contains only rec_ IDs.
-      if (/^rec_[0-9a-f]{32}$/.test(String(recording.recordingId || '')) &&
-          !recording.backendNativeId) {
+      // Re-read the current public identity without reconstructing a native
+      // path. The established Recording owner handles detail and playback.
+      if (/^rec_[0-9a-f]{32}$/.test(String(recording.recordingId || ''))) {
         const api = global.VdrSuiteClientApi;
-        if (!api || typeof api.fetchClientRecordingForPublicId !== 'function')
+        const recordingId = recording.recordingId;
+        if (!api || typeof api.requestJson !== 'function')
           throw new Error('Aufnahmeidentität konnte nicht aufgelöst werden.');
-        return api.fetchClientRecordingForPublicId({
-          backendId, recordingId:recording.recordingId
-        }).then(detail => open(detail.recording));
+        return api.requestJson('/api/v1/recordings/' + encodeURIComponent(recordingId), {
+          query:{backendId}, cache:'no-store', credentials:'same-origin'
+        }).then(detail => {
+          if (!detail || detail.recordingId !== recordingId || detail.backendId !== backendId)
+            throw new Error('Aufnahmeidentität konnte nicht eindeutig zugeordnet werden.');
+          return open(Object.assign({}, recording, detail));
+        });
       }
       return open(recording);
     }).catch(showNavigationError);
@@ -597,6 +601,7 @@
       debounceMs: DEBOUNCE_MS,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
       returnHome: returnHome,
+      openRecording: openRecording,
       state: state
     })
   });

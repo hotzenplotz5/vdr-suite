@@ -199,6 +199,35 @@ assert.strictEqual(missing,1);
   assert.strictEqual(actual.recordings[0].metadata.subtitle,'Folge');
   assert.strictEqual(actual.recordings[0].preferredArtworkId,artworkId);
   assert.strictEqual(actual.recordings[0].backendNativeId,undefined);
+  // Open through the real public HTTP adapter and existing detail owner.
+  const opened = [];
+  window.VdrSuiteClientApi = api;
+  window.VdrSuiteRecordings2 = {openRecording(value, options) {
+    opened.push({value, options});
+  }};
+  requests.length = 0;
+  replies = [{status:200,data:{
+    recordingId:recId, backendId:'living-room', title:'Aktueller Titel',
+    recordedAt:'2026-10-09T17:00:00Z', durationSeconds:3600,
+    metadata:{state:'absent',source:'none',contentKind:'unknown'}
+  }}];
+  await testApi.openRecording(actual.recordings[0]);
+  assert.strictEqual(requests.length,1);
+  assert.strictEqual(requests[0].url.split('?')[0],'/api/v1/recordings/'+recId);
+  assert.strictEqual(new URL(requests[0].url,'https://vdr-suite.test').searchParams.get('backendId'),'living-room');
+  assert.strictEqual(opened.length,1);
+  assert.strictEqual(opened[0].value.recordingId,recId);
+  assert.strictEqual(opened[0].value.backendNativeId,undefined);
+  assert.strictEqual(opened[0].value.path,undefined);
+  assert.strictEqual(opened[0].value.title,'Aktueller Titel');
+  assert.strictEqual(opened[0].options.backLabel,'← Zurück zur Suche');
+  assert.strictEqual(opened[0].options.focusNavigation,true);
+  // Older legacy search results keep their already established handoff.
+  requests.length = 0;
+  const oldCard = {id:'old',backendId:'living-room',backendNativeId:'/video/old.rec'};
+  await testApi.openRecording(oldCard);
+  assert.strictEqual(requests.length,0);
+  assert.strictEqual(opened[1].value,oldCard);
   assert.strictEqual(actual.epg[0].id,'12');
   assert(testApi.epgArtworkSources(actual.epg[0]).length === 1);
   assert.strictEqual(actual.people.length,2);
