@@ -155,6 +155,76 @@ inline void addEpgArtworkScope(const HttpServerRequest& request,
     response.headers["Vary"] = "Cookie, Authorization";
 }
 
+// Only successful, already authorized Public-v1 Home image reads may join
+// the existing Browser cache partition. The final byte decorator remains
+// responsible for the validator and size limit. No public detail image or
+// failed request becomes cacheable.
+inline void addPublicHomeArtworkScope(const HttpServerRequest& request,
+    HttpServerResponse& response, const RequestSecurityContext& context,
+    bool browserAuthenticated, const std::vector<std::string>& authorizedBackends)
+{
+    if (request.method != "GET" || response.statusCode != 200 ||
+        !browserAuthenticated || authorizedBackends.size() != 1U ||
+        request.path.size() > 4096U) return;
+    const auto at = request.path.find('?');
+    if (at == std::string::npos) return;
+    const auto path = request.path.substr(0, at);
+    if (path != "/api/v1/epg/artwork" && path != "/api/v1/epg/preferred-artwork" &&
+        path.rfind("/api/v1/recordings/rec_", 0) != 0) return;
+    const auto raw = request.path.substr(at + 1);
+    const auto query = RestQueryParameters::parse(raw);
+    const auto backend = canonicalHomeCacheBackend(raw, true);
+    if (backend.empty() || backend != authorizedBackends.front() ||
+        backend.size() > 128U || backend == "." || backend == ".." ||
+        !std::all_of(backend.begin(), backend.end(), [](unsigned char c) {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        }) || query.get("variant") != "home") return;
+
+    std::string permission;
+    if (path == "/api/v1/epg/artwork" || path == "/api/v1/epg/preferred-artwork") {
+        std::set<std::string> keys;
+        if (raw.empty() || raw.back() == '&') return;
+        for (std::size_t start = 0; start < raw.size();) {
+            const auto end = raw.find('&', start);
+            const auto item = raw.substr(start, end == std::string::npos ? end : end - start);
+            const auto eq = item.find('=');
+            const auto key = item.substr(0, eq);
+            if (eq == std::string::npos || eq + 1 == item.size() ||
+                (key != "backendId" && key != "channelId" && key != "eventId" &&
+                 key != "variant") || !keys.insert(key).second) return;
+            if (end == std::string::npos) break;
+            start = end + 1;
+        }
+        if (keys.size() != 4U || query.get("channelId").empty() ||
+            query.get("eventId").empty()) return;
+        permission = "epg.view";
+    } else {
+        const std::string prefix = "/api/v1/recordings/rec_";
+        const std::string marker = "/artwork/";
+        if (path.compare(0, prefix.size(), prefix) != 0 ||
+            path.size() != prefix.size() + 32U + marker.size() + 32U ||
+            path.compare(prefix.size() + 32U, marker.size(), marker) != 0) return;
+        const auto hex = [](unsigned char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        };
+        const auto recording = path.substr(prefix.size(), 32U);
+        const auto image = path.substr(prefix.size() + 32U + marker.size());
+        if (!std::all_of(recording.begin(), recording.end(), hex) ||
+            !std::all_of(image.begin(), image.end(), hex)) return;
+        if (raw != "backendId=" + backend + "&variant=home" &&
+            raw != "variant=home&backendId=" + backend) return;
+        permission = "recordings.view";
+    }
+    if (!AuthorizationService{}.authorize(context,
+        {permission, backend, permission}).allowed) return;
+    const auto partition = browserHomeCacheScope(context, backend);
+    if (partition.empty()) return;
+    response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
+    response.headers["Cache-Control"] = "private, no-cache";
+    response.headers["Vary"] = "Cookie, Authorization";
+}
+
 // Cache-only grammar matching the selected cover URL emitted by the series
 // service and the Home preview helper. Never change legacy route admission.
 inline std::string seriesHomeArtworkBackend(const std::string& target,

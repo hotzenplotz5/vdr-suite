@@ -315,6 +315,25 @@ int main()
     assert(scoped.statusCode == 200 && scoped.headers.at("Cache-Control") == "private, no-cache");
     const auto scopedTag = scoped.headers.at("ETag");
 
+    // Public binary previews use the final-byte validator too. The delegate
+    // models the already authorized production scope; no source tag survives.
+    for (const std::string& url : {
+        std::string("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?backendId=default&variant=home"),
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=C1&eventId=42&variant=home"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=C1&eventId=42&variant=home")})
+    {
+        HttpServerRequest publicRequest = authorized;
+        publicRequest.path = url;
+        const auto preview = server.handleRequest(publicRequest);
+        assert(preview.statusCode == 200 && preview.body == prewarmed);
+        assert(preview.headers.at("X-VDR-Suite-Artwork-Scope") == scopeA);
+        assert(preview.headers.at("Cache-Control") == "private, no-cache");
+        assert(preview.headers.at("X-VDR-Suite-Artwork-Bytes") == std::to_string(preview.body.size()));
+        publicRequest.headers["If-None-Match"] = preview.headers.at("ETag");
+        const auto unchanged = server.handleRequest(publicRequest);
+        assert(unchanged.statusCode == 304 && unchanged.body.empty());
+    }
+
     // The real listener opts into deferred conversion only after the normal
     // delegate and security route have produced authorized original bytes.
     HttpServerRequest deferred = authorized;

@@ -542,7 +542,29 @@ async function run(prefix) {
   recordingAuthorized=false;
   await proof('public-denied',publicRoot+'recordings?backendId=default&view=new');
   assert.notEqual((await image(publicProofImage,'public-denied')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
-  console.log('Public-v1 Home cache proof parity PASS');
+  // The public binary URLs participate in the same cache, not a second store.
+  recordingAuthorized=true; epgAuthorized=true;
+  await proof('public-images');
+  const publicPoster = publicRoot+'recordings/rec_'+'a'.repeat(32)+'/artwork/'+'b'.repeat(32)+'?backendId=default&variant=home';
+  const publicEpg = publicRoot+'epg/artwork?backendId=default&channelId=C-1&eventId=42&variant=home';
+  const publicPreferred = publicEpg.replace('/artwork?', '/preferred-artwork?');
+  for (const address of [publicPoster, publicEpg, publicPreferred]) {
+    await image(address,'public-images');
+    const readsBefore=imageReads;
+    assert.equal((await image(address,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+    assert.equal(imageReads,readsBefore,'warm public image does not require another HTTP read');
+    for (const invalid of [address+'&backendId=other',address+'&variant=home',
+        address+'&unknown=1',address.replace('&variant=home','')]) {
+      const req=new Request(invalid,{credentials:'same-origin'});
+      Object.defineProperty(req,'destination',{value:'image'});
+      assert.equal(invoke('artworkRequest',[req]),false);
+    }
+  }
+  recordingAuthorized=false; epgAuthorized=true;
+  await proof('public-images');
+  assert.notEqual((await image(publicPoster,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await image(publicEpg,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  console.log('Public-v1 Home cache proof and image parity PASS');
   console.log('PWA.15.20 proof readback and candidate lookup phases PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

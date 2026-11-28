@@ -2135,9 +2135,11 @@ HttpServerResponse TestHttpServer::handleRequest(
         response.headers["Cache-Control"] = response.statusCode == 200
             ? "private, max-age=300" : "no-store";
         response.headers["X-Content-Type-Options"] = "nosniff";
-        return finalizeResponse(gate.context,
-            mapApiResponse(response.statusCode, response.contentType,
-                response.body, response.headers));
+        auto mapped = mapApiResponse(response.statusCode, response.contentType,
+            response.body, response.headers);
+        vdrsuite::http::addPublicHomeArtworkScope(request, mapped, gate.context,
+            gate.browserAuthenticated, gate.authorizedBackendIds);
+        return finalizeResponse(gate.context, std::move(mapped));
     }
 
     // Reuse the same actor-owned Public-v1 Operation GET as the read gate.
@@ -2509,6 +2511,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         gate.context, gate.browserAuthenticated);
     vdrsuite::http::addEpgArtworkScope(request, response,
         gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addPublicHomeArtworkScope(request, response, gate.context,
+        gate.browserAuthenticated, gate.authorizedBackendIds);
     // A successful browser-authorized canonical Home preview may be revalidated
     // after the decorator has selected the exact served representation.
     // No cache admission is based on browser hints about identity or grants.

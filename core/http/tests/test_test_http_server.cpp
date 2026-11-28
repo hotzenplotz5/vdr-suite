@@ -423,6 +423,45 @@ int main()
             assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
         }
 
+        // Public previews reuse the same exact domain and session partition.
+        const std::string publicRecording =
+            "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork/0123456789abcdef0123456789abcdef?backendId=default&variant=home";
+        const std::string publicEpg =
+            "/api/v1/epg/artwork?backendId=default&channelId=C-1&eventId=42&variant=home";
+        const std::string publicPreferred =
+            "/api/v1/epg/preferred-artwork?backendId=default&channelId=C-1&eventId=42&variant=home";
+        for (const auto& target : {publicRecording, publicEpg, publicPreferred}) {
+            const bool recordingImage = target == publicRecording;
+            const std::string permission = recordingImage ? "recordings.view" : "epg.view";
+            request.path = target;
+            context.grants = {{permission, "default"}};
+            response = HttpServerResponse{};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+                vdrsuite::http::browserHomeCacheScope(context, "default"));
+            assert(response.headers.at("Cache-Control") == "private, no-cache");
+            for (const auto& invalid : {target + "&backendId=other", target + "&variant=home",
+                    target + "&unknown=1", target.substr(0, target.find("&variant=home"))}) {
+                request.path = invalid;
+                response = HttpServerResponse{};
+                vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+                assert(response.headers.empty());
+            }
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"other"});
+            assert(response.headers.empty());
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, false, {"default"});
+            assert(response.headers.empty());
+            response.statusCode = 404;
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.empty());
+            response = HttpServerResponse{};
+            context.grants = {{recordingImage ? "epg.view" : "recordings.view", "default"}};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.empty());
+        }
+
         const std::string seriesTarget =
             "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home";
         context.grants = {{"recordings.view", "default"}};

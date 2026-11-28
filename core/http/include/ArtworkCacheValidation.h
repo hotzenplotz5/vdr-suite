@@ -47,7 +47,9 @@ inline void revalidateScopedArtwork(const HttpServerRequest& request, HttpServer
     // Preserve the original CSS Hero bytes; leave the recording cap alone.
     const std::size_t maxBytes =
         request.path.rfind("/api/epg/cache/artwork?", 0) == 0 ||
-        request.path.rfind("/api/epg/cache/metadata/image?", 0) == 0
+        request.path.rfind("/api/epg/cache/metadata/image?", 0) == 0 ||
+        request.path.rfind("/api/v1/epg/artwork?", 0) == 0 ||
+        request.path.rfind("/api/v1/epg/preferred-artwork?", 0) == 0
             ? 1024U * 1024U : 256U * 1024U;
     if (response.statusCode != 200 || type == response.headers.end() ||
         (type->second != "image/jpeg" && type->second != "image/png" && type->second != "image/webp") ||

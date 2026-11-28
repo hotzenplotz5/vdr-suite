@@ -299,9 +299,11 @@ function epgArtworkBackend(url) {
   if (url.origin !== scope.origin || url.href.length > 4096 ||
       !url.pathname.startsWith(installationPath + '/api/')) return '';
   const path = url.pathname.slice(installationPath.length);
-  if (!epgArtworkRoutes.has(path)) return '';
+  const publicRoute = path === '/api/v1/epg/artwork' || path === '/api/v1/epg/preferred-artwork';
+  if (!publicRoute && !epgArtworkRoutes.has(path)) return '';
   const metadata = path === '/api/epg/cache/metadata/image';
-  const params = new Set(['backend', 'channelId', 'eventId', 'variant']);
+  const backendKey = publicRoute ? 'backendId' : 'backend';
+  const params = new Set([backendKey, 'channelId', 'eventId', 'variant']);
   if (metadata) { params.add('kind'); params.add('index'); }
   const seen = new Set();
   for (const part of url.search.slice(1).split('&')) {
@@ -309,7 +311,8 @@ function epgArtworkBackend(url) {
     if (at < 1 || at === part.length - 1 || !params.has(key) || seen.has(key)) return '';
     seen.add(key);
   }
-  const q = url.searchParams, backend = q.get('backend') || '';
+  const q = url.searchParams, backend = q.get(backendKey) || '';
+  if (publicRoute && q.get('variant') !== 'home') return '';
   if (!/^[A-Za-z0-9_.-]{1,128}$/.test(backend) || backend === '.' || backend === '..' ||
       !q.get('channelId') || !q.get('eventId') ||
       (q.has('variant') && q.get('variant') !== 'home') ||
@@ -320,8 +323,19 @@ function artworkByteLimit(request) {
   return epgArtworkBackend(new URL(request.url)) ? epgArtworkBytes : artworkBytes;
 }
 
+function publicRecordingArtworkBackend(url) {
+  if (url.origin !== scope.origin || url.href.length > 4096 ||
+      !url.pathname.startsWith(installationPath + '/api/v1/recordings/')) return '';
+  const path = url.pathname.slice(installationPath.length);
+  if (!/^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}$/.test(path)) return '';
+  const backend = url.searchParams.get('backendId') || '';
+  if (!/^[A-Za-z0-9_.-]{1,128}$/.test(backend) || backend === '.' || backend === '..') return '';
+  return url.search === '?backendId=' + backend + '&variant=home' ||
+    url.search === '?variant=home&backendId=' + backend ? backend : '';
+}
+
 function recordingArtworkBackend(url) {
-  return directArtworkBackend(url) || seriesArtworkBackend(url) ||
+  return directArtworkBackend(url) || seriesArtworkBackend(url) || publicRecordingArtworkBackend(url) ||
     (url.origin === scope.origin && url.pathname.startsWith(installationPath + '/api/') &&
       recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))
       ? url.searchParams.get('backend') : '');
@@ -405,7 +419,8 @@ function currentArtworkProof(event) {
 function artworkRequest(request) {
   if (request.method !== 'GET' || request.destination !== 'image' || request.credentials === 'omit' || request.headers.has('Range') || request.headers.has('Authorization')) return false;
   const url = new URL(request.url);
-  if (directArtworkBackend(url) || seriesArtworkBackend(url) || epgArtworkBackend(url)) return true;
+  if (directArtworkBackend(url) || seriesArtworkBackend(url) ||
+      publicRecordingArtworkBackend(url) || epgArtworkBackend(url)) return true;
   if (url.origin !== scope.origin || !artworkRoutes.has(url.pathname.slice(installationPath.length)) || !url.pathname.startsWith(installationPath + '/api/')) return false;
   if (url.searchParams.get('variant') !== 'home' || !url.searchParams.get('backend') || url.href.length > 4096) return false;
   const seen = new Set();
