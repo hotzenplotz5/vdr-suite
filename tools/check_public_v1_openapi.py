@@ -289,6 +289,14 @@ RECORDING_NATIVE_ROUTER = ROOT / "api/rest/include/ApiRouter.h"
 RECORDING_NATIVE_MARKS = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
 RECORDING_NATIVE_CUT = ROOT / "api/rest/src/RecordingCutApiRuntime.cpp"
 
+# Browser CREATE uses the existing Browser media owner, not the Device registry.
+BROWSER_PLAYBACK_AUDITED = {
+    "/api/v1/browser/recording-playback-sessions": {
+        "post": ("handleBrowserRecordingPlayback(",
+                 "isPublicBrowserRecordingSessionCreate"),
+    },
+}
+
 DEVICE_AUDITED = {
     "/api/v1/recording-playback-sessions/recently-watched": {
         "get": ('const std::string historyPath = collection + "/recently-watched";',
@@ -505,7 +513,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED) | set(ADDON_ADMIN_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED) | set(ADDON_ADMIN_AUDITED) | set(BROWSER_PLAYBACK_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -539,11 +547,13 @@ def validate(
     # Registration plus cleanup are expected: cleanup alone is NOT a live route.
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
+    if device_source.count('apiRouter.setBrowserRecordingPlaybackHandler(') != 2:
+        errors.append("Browser Recording playback composition handler disappeared")
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
         **RECORDING_NATIVE_EDITING_AUDITED,
         **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
-        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED
+        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED, **BROWSER_PLAYBACK_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -670,6 +680,21 @@ def validate(
                     native_router_source.index(router_marker) >
                     native_router_source.index(public_dispatch)):
                     errors.append(f"{where}: native Recording owner must precede v1 fallback")
+            elif path in BROWSER_PLAYBACK_AUDITED:
+                http_marker, gate_marker = marker
+                if (path not in epg_artwork_http_source or
+                    http_marker not in epg_artwork_http_source or
+                    "gate.authorizationDecision.backendId" not in epg_artwork_http_source or
+                    path not in security_source or gate_marker not in security_source or
+                    'requestToAuthorize.permission = "media.recording.play"' not in security_source or
+                    'targetResolver.resolve(authorizedBackendId, request.recordingId)' not in device_source or
+                    'authorizedBackendId != request.backendId' not in device_source or
+                    'recordingMediaSessionController.createBrowserSession(' not in device_source):
+                    errors.append(f"{where}: Browser playback route/owner/scope anchor missing")
+                if data.get(method, {}).get("security") != [
+                    {"browserSession": [], "browserCsrf": []}
+                ]:
+                    errors.append(f"{where}: Browser Session/CSRF contract drifted")
             elif path in DEVICE_AUDITED:
                 device_marker, gate_marker = marker
                 if device_marker not in device_source:
@@ -764,7 +789,7 @@ def main() -> int:
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
              **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
-             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED}
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED, **BROWSER_PLAYBACK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

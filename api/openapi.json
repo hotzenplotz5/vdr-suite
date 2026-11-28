@@ -72,6 +72,10 @@
       "description": "Read-only per-channel cached EPG now/next; not a live refresh"
     },
     {
+      "name": "Browser Recording playback",
+      "description": "Canonical recording playback for the existing Browser MediaSession owner."
+    },
+    {
       "name": "Device Recording playback",
       "description": "Source-merged R2 Device-owned Recording session control/status/tracks/subtitles. Not included in Phase-69.F compatibility acceptance; deployed Hisense/yaVDR acceptance remains separate."
     },
