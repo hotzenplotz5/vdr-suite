@@ -3616,7 +3616,9 @@ public:
                 503,
                 "accountability_unavailable",
                 "Security accountability persistence is unavailable",
-                gate.context);
+                gate.context,
+                false,
+                isPublicSearchTimerPreviewCacheRefresh);
             return gate;
         }
 
@@ -3631,7 +3633,8 @@ public:
                 decision.reasonCode,
                 messageForReason(decision.reasonCode),
                 gate.context,
-                false);
+                false,
+                isPublicSearchTimerPreviewCacheRefresh);
             return gate;
         }
 
