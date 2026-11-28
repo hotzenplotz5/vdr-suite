@@ -128,6 +128,7 @@ const context = vm.createContext({
   setTimeout,
   clearTimeout
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(source, context, {filename: 'recording-fallback-controls.js'});
 
 let creates = 0;
@@ -164,7 +165,7 @@ window.VdrSuiteRecordings2Playback = {
 
 (async function () {
   const playback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-cloverfield'},
+    {id: 'rec_33333333333333333333333333333333'},
     'default'
   );
   assert.ok(playback);

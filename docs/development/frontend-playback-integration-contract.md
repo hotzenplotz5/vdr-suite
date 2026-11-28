@@ -229,3 +229,7 @@ The `list` operation on the versioned progress/activity routes uses the existing
 ## Public-v1 Browser media transport (source stage)
 
 Canonical Browser Recording CREATE emits `/api/v1/media/sessions/{sessionId}/...` (progressive-fMP4 and HLS) and a cookie scoped to that exact versioned path. The existing nginx cookie rewrite applies the configured base path once. The existing active Recording session stores its transport marker, removed on stop/reap; the existing Gateway still authenticates the bound media grant and active lease before checking that owner. Device registry and revocation checks remain unchanged; legacy sessions retain their own media paths, including on versioned control responses. No new session owner, database schema, permission, polling or proxy rule. Real Browser picture/sound/seek/stop and reverse-proxy cookie acceptance remain required.
+
+## Browser CREATE identity cleanup
+
+All three recording CREATE entry points (progressive, initial HLS and HLS restart/audio replacement) now use only the canonical Public-v1 Browser endpoint. Current cards use their server-supplied rec_ immediately. An old card without that ID first uses the existing exact-backend Recording ID resolver; a failed resolution or failed Public-v1 request is never retried as a native-ID CREATE. The shared resolver is the remaining compatibility read and will be removed only when its older card producers have been migrated. No new playback owner, permission or request timer.

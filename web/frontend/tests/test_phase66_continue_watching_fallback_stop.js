@@ -222,7 +222,7 @@ const window = {
       const body = JSON.parse(options.body);
       mediaRequests.push({path: requestPath, body});
       if (body.operation === 'stop') return Promise.resolve({ok: true});
-      if (body.recordingId === 'late-closed-player') {
+      if (body.recordingId === 'rec_88888888888888888888888888888888') {
         return new Promise(resolve => {
           releaseLateRecordingSession = () => resolve({mediaSession: {
             id: 'late-closed-session',
@@ -255,7 +255,7 @@ const window = {
 
       const protocols = body.capabilities && body.capabilities.protocols || [];
       if (protocols.indexOf('progressive') >= 0) {
-        if (body.recordingId === '1917') {
+        if (body.recordingId === 'rec_77777777777777777777777777777777') {
           return Promise.resolve({mediaSession: {
             id: 'fast-1917',
             state: 'ready',
@@ -326,6 +326,7 @@ const context = vm.createContext({
 // Production composition order: persistent Fast owner first, HLS fallback
 // controls decorate the later legacy factory assignment, Continue Watching then
 // observes the final canonical owner exposed by the same descriptor chain.
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(sessionSource, context, {filename: 'session-frontend-sync.js'});
 vm.runInContext(fallbackSource, context, {filename: 'recording-fallback-controls.js'});
 vm.runInContext(continueSource, context, {filename: 'continue-watching-sync.js'});
@@ -377,7 +378,7 @@ function progressWrite(recordingId) {
 
 (async function () {
   const factory = window.VdrSuiteRecordings2Playback;
-  const malkovich = factory.createPanel({id: 'being-john-malkovich'}, 'default');
+  const malkovich = factory.createPanel({id: 'rec_66666666666666666666666666666666'}, 'default');
   assert.ok(malkovich && typeof malkovich.subscribe === 'function');
   assert.strictEqual(await malkovich.start(), 'hls-malkovich-1');
   await flush();
@@ -396,7 +397,7 @@ function progressWrite(recordingId) {
   stopButton.click();
   await flush(40);
 
-  const stoppedWrite = progressWrite('being-john-malkovich');
+  const stoppedWrite = progressWrite('rec_66666666666666666666666666666666');
   assert.ok(stoppedWrite, 'partially watched HLS fallback recording must persist Continue Watching on Stop');
   assert.strictEqual(stoppedWrite.body.positionSeconds, 125);
   assert.strictEqual(stoppedWrite.body.resumeSupported, true);
@@ -405,7 +406,7 @@ function progressWrite(recordingId) {
 
   const historyWrites = suiteWrites.filter(entry =>
     entry.path === '/api/media/recently-watched' &&
-    entry.body.recordingId === 'being-john-malkovich'
+    entry.body.recordingId === 'rec_66666666666666666666666666666666'
   );
   assert.ok(historyWrites.length >= 1, 'History remains independently persisted');
   const stoppedHistory = historyWrites[historyWrites.length - 1].body;
@@ -414,7 +415,7 @@ function progressWrite(recordingId) {
   assert.strictEqual(stoppedHistory.ended, false);
 
   // Countercase for an already-working progressive recording such as 1917.
-  const progressive = factory.createPanel({id: '1917'}, 'default');
+  const progressive = factory.createPanel({id: 'rec_77777777777777777777777777777777'}, 'default');
   assert.strictEqual(await progressive.start(), 'fast-1917');
   await flush();
   const progressiveVideo = findLatest(value =>
@@ -425,7 +426,7 @@ function progressWrite(recordingId) {
   progressiveVideo.dispatch('timeupdate');
   await progressive.stop();
   await flush(40);
-  const progressiveWrite = progressWrite('1917');
+  const progressiveWrite = progressWrite('rec_77777777777777777777777777777777');
   assert.ok(progressiveWrite, 'existing progressive Continue Watching path must remain intact');
   assert.strictEqual(progressiveWrite.body.positionSeconds, 94);
   assert.strictEqual(progressiveWrite.body.resumeSupported, true);
@@ -433,7 +434,7 @@ function progressWrite(recordingId) {
   // Navigation back to Details invokes Stop on the canonical (fast)
   // owner even after the transport switched to its HLS child. Persist the
   // final fallback position before destroying the nested video.
-  const navigating = factory.createPanel({id: 'being-john-malkovich'}, 'default');
+  const navigating = factory.createPanel({id: 'rec_66666666666666666666666666666666'}, 'default');
   assert.strictEqual(await navigating.start(), 'hls-malkovich-2');
   await flush();
   const navigationVideo = findLatest(value => value.tagName === 'VIDEO');
@@ -445,7 +446,7 @@ function progressWrite(recordingId) {
     'canonical Stop must delegate to the HLS child on navigation');
   navigating.destroy();
   await flush(40);
-  const navigationWrite = progressWrite('being-john-malkovich');
+  const navigationWrite = progressWrite('rec_66666666666666666666666666666666');
   assert.ok(navigationWrite, 'navigation must persist the final HLS progress');
   assert.strictEqual(navigationWrite.body.positionSeconds, 4800);
   assert.strictEqual(navigating.position(), 4800,
@@ -453,7 +454,7 @@ function progressWrite(recordingId) {
 
   // The previously fast Progressive path must remain fast when a fresh
   // Recording owner opens after returning to Details and Stop cleanup.
-  const fastAgain = factory.createPanel({id: '1917'}, 'default');
+  const fastAgain = factory.createPanel({id: 'rec_77777777777777777777777777777777'}, 'default');
   assert.strictEqual(await fastAgain.start(), 'fast-1917');
   await flush();
   const resumedFastVideo = findLatest(value =>
@@ -464,12 +465,12 @@ function progressWrite(recordingId) {
   assert.strictEqual(await fastAgain.stop(), true);
   fastAgain.destroy();
   await flush(40);
-  assert.strictEqual(progressWrite('1917').body.positionSeconds, 215,
+  assert.strictEqual(progressWrite('rec_77777777777777777777777777777777').body.positionSeconds, 215,
     'navigation back from fast playback must retain its final position');
 
   // A browser media "ended" event at 55% of the actual Recording must not
   // clear the resumable position or classify the Recording as completed.
-  const prematureFast = factory.createPanel({id: '1917'}, 'default');
+  const prematureFast = factory.createPanel({id: 'rec_77777777777777777777777777777777'}, 'default');
   assert.strictEqual(await prematureFast.start(), 'fast-1917');
   await flush();
   const prematureFastVideo = findLatest(value =>
@@ -481,19 +482,19 @@ function progressWrite(recordingId) {
   assert.strictEqual(prematureFast.position(), 4459);
   assert.strictEqual(prematureFast.canResume(), true,
     'premature progressive EOF must keep Recording resume capability');
-  assert.strictEqual(progressWrite('1917').body.positionSeconds, 4459,
+  assert.strictEqual(progressWrite('rec_77777777777777777777777777777777').body.positionSeconds, 4459,
     'premature progressive EOF must persist the final partial checkpoint');
   assert.strictEqual(suiteWrites.some(entry =>
     entry.path === '/api/media/continue-watching' &&
-    entry.body.recordingId === '1917' && entry.body.operation === 'clear'), false,
+    entry.body.recordingId === 'rec_77777777777777777777777777777777' && entry.body.operation === 'clear'), false,
     'premature progressive EOF must never clear Continue Watching');
   const prematureFastHistory = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' && entry.body.recordingId === '1917'
+    entry.path === '/api/media/recently-watched' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
   ).pop();
   assert.ok(prematureFastHistory);
   assert.strictEqual(prematureFastHistory.body.ended, false);
 
-  const prematureHls = factory.createPanel({id: 'being-john-malkovich'}, 'default');
+  const prematureHls = factory.createPanel({id: 'rec_66666666666666666666666666666666'}, 'default');
   assert.strictEqual(await prematureHls.start(), 'hls-malkovich-3');
   await flush();
   const prematureHlsVideo = findLatest(value => value.tagName === 'VIDEO');
@@ -504,20 +505,20 @@ function progressWrite(recordingId) {
   assert.strictEqual(prematureHls.position(), 4459);
   assert.strictEqual(prematureHls.canResume(), true,
     'premature HLS EOF must preserve canonical resume truth');
-  assert.strictEqual(progressWrite('being-john-malkovich').body.positionSeconds, 4459);
+  assert.strictEqual(progressWrite('rec_66666666666666666666666666666666').body.positionSeconds, 4459);
   assert.strictEqual(suiteWrites.some(entry =>
     entry.path === '/api/media/continue-watching' &&
-    entry.body.recordingId === 'being-john-malkovich' && entry.body.operation === 'clear'), false,
+    entry.body.recordingId === 'rec_66666666666666666666666666666666' && entry.body.operation === 'clear'), false,
     'premature HLS EOF must never clear Continue Watching');
   const prematureHlsHistory = suiteWrites.filter(entry =>
     entry.path === '/api/media/recently-watched' &&
-    entry.body.recordingId === 'being-john-malkovich'
+    entry.body.recordingId === 'rec_66666666666666666666666666666666'
   ).pop();
   assert.ok(prematureHlsHistory);
   assert.strictEqual(prematureHlsHistory.body.ended, false);
 
   // A genuine EOF at the canonical duration still clears Continue Watching.
-  const completedFast = factory.createPanel({id: '1917'}, 'default');
+  const completedFast = factory.createPanel({id: 'rec_77777777777777777777777777777777'}, 'default');
   assert.strictEqual(await completedFast.start(), 'fast-1917');
   await flush();
   const completedVideo = findLatest(value =>
@@ -528,10 +529,10 @@ function progressWrite(recordingId) {
   assert.strictEqual(completedFast.canResume(), false);
   assert.strictEqual(suiteWrites.some(entry =>
     entry.path === '/api/media/continue-watching' &&
-    entry.body.recordingId === '1917' && entry.body.operation === 'clear'), true,
+    entry.body.recordingId === 'rec_77777777777777777777777777777777' && entry.body.operation === 'clear'), true,
     'full Recording completion must still clear Continue Watching');
   const completedHistory = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' && entry.body.recordingId === '1917'
+    entry.path === '/api/media/recently-watched' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
   ).pop();
   assert.ok(completedHistory);
   assert.strictEqual(completedHistory.body.ended, true);
@@ -543,7 +544,7 @@ function progressWrite(recordingId) {
 
   // Leaving playback while MediaSession creation is pending must stop the
   // late server session, not discard its ID and leave an orphaned stream.
-  const closing = factory.createPanel({id: 'late-closed-player'}, 'default');
+  const closing = factory.createPanel({id: 'rec_88888888888888888888888888888888'}, 'default');
   const startedAfterClose = closing.start();
   await flush(20);
   assert.equal(typeof releaseLateRecordingSession, 'function');

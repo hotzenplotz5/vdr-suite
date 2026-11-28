@@ -258,7 +258,7 @@ function flush(rounds) {
           return Promise.resolve({mediaSession: {
             id: body.sessionId,
             state: 'ready',
-            recordingId: 'recording-backpressure',
+            recordingId: 'rec_22222222222222222222222222222222',
             presentationProfileId: 'progressive-fmp4',
             mediaPath: '/api/media/sessions/' + body.sessionId + '/recording/stream.mp4',
             playback: {
@@ -314,10 +314,11 @@ function flush(rounds) {
     setTimeout,
     clearTimeout
   });
+  vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), context);
   vm.runInContext(source, context, {filename: sourcePath});
 
   const playback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-backpressure', title: 'MSE Backpressure'},
+    {id: 'rec_22222222222222222222222222222222', title: 'MSE Backpressure'},
     'default'
   );
   assert.strictEqual(await playback.start(), 'recording_backpressure_session');

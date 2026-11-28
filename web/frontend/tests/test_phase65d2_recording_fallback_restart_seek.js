@@ -209,6 +209,7 @@ Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
 const context = vm.createContext({
   window, document, MutationObserver, console, Object, Number, String, Math, Promise, Error, Array
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(restartSeekSource, context, {filename: 'recording-fallback-restart-seek.js'});
 vm.runInContext(fallbackSource, context, {filename: 'recording-fallback-controls.js'});
 
@@ -252,7 +253,7 @@ window.VdrSuiteRecordings2Playback = {
 (async function () {
   const factory = window.VdrSuiteRecordings2Playback;
   assert.strictEqual(factory.__vdrSuiteFallbackRestartSeekDecorated, true);
-  const playback = factory.createPanel({id: 'recording-42'}, 'default');
+  const playback = factory.createPanel({id: 'rec_11111111111111111111111111111111'}, 'default');
   assert.ok(playback && playback.element);
   assert.strictEqual(typeof playback.seekAbsolute, 'function');
   assert.strictEqual(typeof playback.seekRelative, 'function');
@@ -365,7 +366,7 @@ window.VdrSuiteRecordings2Playback = {
   // Real browser regression: restart-seek may be requested while the active
   // HLS video still reports local currentTime 0. Recording resume capability
   // comes from the indexed Recording contract and must survive stop().
-  const zeroPlayback = factory.createPanel({id: 'recording-zero-position'}, 'default');
+  const zeroPlayback = factory.createPanel({id: 'rec_55555555555555555555555555555555'}, 'default');
   assert.ok(zeroPlayback && zeroPlayback.element);
   assert.strictEqual(await zeroPlayback.start({autoPlay: false}), 'hls-session-6');
   await flush();

@@ -474,7 +474,7 @@ function createRuntime(options) {
 
   const unsupported = createRuntime({seekSupported: false});
   const unsupportedPlayback = unsupported.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-no-seek'},
+    {id: 'rec_99999999999999999999999999999999'},
     'living-room'
   );
   await unsupportedPlayback.start();
@@ -496,7 +496,7 @@ function createRuntime(options) {
   });
   const unavailableIndexPlayback =
     unavailableIndex.window.VdrSuiteRecordings2Playback.createPanel(
-      {id: 'recording-index-unavailable'},
+      {id: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},
       'living-room'
     );
   await unavailableIndexPlayback.start();
@@ -534,7 +534,7 @@ function createRuntime(options) {
 
   const preparing = createRuntime({indexPreparing: true, immediateTimers: true});
   const preparingPlayback = preparing.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-missing-index'},
+    {id: 'rec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'},
     'living-room'
   );
   const preparingId = await preparingPlayback.start();
@@ -562,7 +562,7 @@ function createRuntime(options) {
 
   const startupFailure = createRuntime();
   const startupPlayback = startupFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-startup-failure'},
+    {id: 'rec_cccccccccccccccccccccccccccccccc'},
     'living-room'
   );
   await startupPlayback.start();
@@ -579,7 +579,7 @@ function createRuntime(options) {
 
   const lateFailure = createRuntime();
   const latePlayback = lateFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-late-failure'},
+    {id: 'rec_dddddddddddddddddddddddddddddddd'},
     'living-room'
   );
   const lateId = await latePlayback.start();
@@ -626,7 +626,7 @@ function createRuntime(options) {
     seekFailureCode: 'media_session_not_active'
   });
   const shortPlayback = workerEnded.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-hevc-short'}, 'living-room'
+    {id: 'rec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'}, 'living-room'
   );
   await shortPlayback.start();
   workerEnded.videos[0].dispatch('playing');
@@ -648,7 +648,7 @@ function createRuntime(options) {
   // Other seek errors must not trigger a hidden stream/profile replacement.
   const otherFailure = createRuntime({seekFailureCode: 'recording_seek_outside_window'});
   const rejectedPlayback = otherFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-bad-seek'}, 'living-room'
+    {id: 'rec_ffffffffffffffffffffffffffffffff'}, 'living-room'
   );
   await rejectedPlayback.start();
   otherFailure.videos[0].dispatch('playing');
@@ -658,7 +658,7 @@ function createRuntime(options) {
 
   const seekFailure = createRuntime();
   const seekFailurePlayback = seekFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-seek-stream-failure'},
+    {id: 'rec_00000000000000000000000000000000'},
     'living-room'
   );
   const seekFailureId = await seekFailurePlayback.start();

@@ -122,6 +122,17 @@
     return page(0);
   }
 
+  // Keep a single canonical admission path for progressive, initial HLS
+  // and HLS replacement. Current cards need no extra read; only an old card
+  // uses the existing exact-backend refresh before a Public-v1 CREATE.
+  function withPublicRecordingId(recording, backendId, api, action) {
+    const backend = String(backendId || 'default');
+    const id = publicRecordingId(recording);
+    if (id && (!recording.backendId || recording.backendId === backend))
+      return action(id);
+    return resolvePublicRecordingId(recording, backend, api).then(action);
+  }
+
   function normalizePath(value) {
     return text(value)
       .replace(/^\/+|\/+$/g, '')
@@ -364,6 +375,7 @@
     normalizePath,
     publicRecordingId,
     resolvePublicRecordingId,
+    withPublicRecordingId,
     decodeDisplayText,
     folderList,
     recordingList,

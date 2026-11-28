@@ -212,12 +212,12 @@ function createRuntime(options) {
           return Promise.resolve(recordingSession(
             body.sessionId,
             body.backendId,
-            'recording-42',
+            'rec_11111111111111111111111111111111',
             body.positionSeconds
           ));
         }
         if (body.operation === 'playback-status') {
-          return Promise.resolve(recordingSession(body.sessionId, body.backendId, 'recording-42', 0));
+          return Promise.resolve(recordingSession(body.sessionId, body.backendId, 'rec_11111111111111111111111111111111', 0));
         }
         createAttempts += 1;
         if (settings.failRecoveryCreate && createAttempts === 2) {
@@ -267,6 +267,7 @@ function createRuntime(options) {
     clearTimeout
   });
 
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
   vm.runInContext(guardSource, context, {filename: 'recording-network-recovery-guard.js'});
   vm.runInContext(lifecycleSource, context, {filename: 'playback-owner-lifecycle.js'});
   vm.runInContext(failureSource, context, {filename: 'playback-failure-classification.js'});
@@ -294,7 +295,7 @@ function createRuntime(options) {
 async function successfulRecovery(lateLegacyAssignment) {
   const runtime = createRuntime({lateLegacyAssignment});
   const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Network Recovery'},
+    {id: 'rec_11111111111111111111111111111111', title: 'Network Recovery'},
     'living-room'
   );
   const firstSessionId = await panel.start();
@@ -347,7 +348,7 @@ async function successfulRecovery(lateLegacyAssignment) {
 
 async function decoderRemainsTerminal() {
   const runtime = createRuntime();
-  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'recording-42'}, 'living-room');
+  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'rec_11111111111111111111111111111111'}, 'living-room');
   await panel.start();
   const video = runtime.videos[0];
   video.dispatch('playing');
@@ -371,7 +372,7 @@ async function decoderRemainsTerminal() {
 
 async function startupFallbackRemainsAvailable() {
   const runtime = createRuntime();
-  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'recording-42'}, 'living-room');
+  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'rec_11111111111111111111111111111111'}, 'living-room');
   await panel.start();
   const video = runtime.videos[0];
   video.error = {code: 3, message: 'decode before first media'};
@@ -384,7 +385,7 @@ async function startupFallbackRemainsAvailable() {
 
 async function failedRecoveryDoesNotFallback() {
   const runtime = createRuntime({failRecoveryCreate: true});
-  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'recording-42'}, 'living-room');
+  const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel({id: 'rec_11111111111111111111111111111111'}, 'living-room');
   await panel.start();
   const video = runtime.videos[0];
   video.dispatch('playing');

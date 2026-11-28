@@ -136,11 +136,6 @@
     return text(channel.channelId || channel.id || channel.nativeId).trim();
   }
 
-  function recordingId(recording) {
-    if (!recording || typeof recording !== 'object') return '';
-    return text(recording.recordingId || recording.id).trim();
-  }
-
   function safeLiveMediaPath(value) {
     const path = text(value).trim();
     if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
@@ -765,30 +760,26 @@
   function createRecordingSession(backendId, recording) {
     const api = global.VdrSuiteClientApi;
     const shared = global.VdrSuiteRecordings2Shared;
-    const canonicalId = shared && typeof shared.publicRecordingId === 'function'
-      ? shared.publicRecordingId(recording) : '';
-    // Only pre-existing cards without a public identity keep the old CREATE.
-    // Never retry a failed Public-v1 mutation via the legacy route.
-    const id = canonicalId || recordingId(recording);
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!id) {
-      return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+    if (!shared || typeof shared.withPublicRecordingId !== 'function') {
+      return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
     }
 
     return afterBrowserSessionRestore(function () {
-      return api.requestJson(canonicalId
-        ? '/api/v1/browser/recording-playback-sessions' : '/api/media/sessions', {
-        method: 'POST',
-        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-        body: JSON.stringify({
-          backendId: text(backendId || 'default'),
-          recordingId: id,
-          capabilities: recordingCapabilities()
-        }),
-        cache: 'no-store',
-        credentials: 'same-origin'
+      return shared.withPublicRecordingId(recording, backendId, api, function (id) {
+        return api.requestJson('/api/v1/browser/recording-playback-sessions', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+          body: JSON.stringify({
+            backendId: text(backendId || 'default'),
+            recordingId: id,
+            capabilities: recordingCapabilities()
+          }),
+          cache: 'no-store',
+          credentials: 'same-origin'
+        });
       });
     });
   }

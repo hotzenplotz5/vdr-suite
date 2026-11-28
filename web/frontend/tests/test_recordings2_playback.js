@@ -245,9 +245,10 @@ assert.strictEqual(
 );
 
 (async function () {
-  await test.createSession('default', {recordingId: 'rec_public'});
+  const directId = 'rec_' + 'b'.repeat(32);
+  await test.createSession('default', {recordingId: directId});
   assert.ok(request);
-  assert.strictEqual(request.path, '/api/media/sessions');
+  assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
   assert.strictEqual(request.options.method, 'POST');
   assert.strictEqual(request.options.credentials, 'same-origin');
   assert.strictEqual(request.options.cache, 'no-store');
@@ -256,7 +257,7 @@ assert.strictEqual(
 
   const body = JSON.parse(request.options.body);
   assert.strictEqual(body.backendId, 'default');
-  assert.strictEqual(body.recordingId, 'rec_public');
+  assert.strictEqual(body.recordingId, directId);
   assert.deepStrictEqual(body.capabilities.protocols, ['hls']);
   assert.deepStrictEqual(body.capabilities.containers, ['fmp4']);
   assert.deepStrictEqual(body.capabilities.videoCodecs, ['h264']);
@@ -271,6 +272,34 @@ assert.strictEqual(
   assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
   assert.strictEqual(JSON.parse(request.options.body).recordingId, canonicalId);
   assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
+
+  // An old card can refresh its exact native identity before CREATE, but
+  // cannot use a private mutation or substitute a title match.
+  let refreshes = 0;
+  window.VdrSuiteClientApi.fetchClientRecordings = async options => {
+    refreshes += 1;
+    assert.strictEqual(options.query.backend, 'default');
+    return {totalCount: 1, recordings:[{backendId:'default', backendNativeId:'/old.rec',
+      publicRecordingId:canonicalId}]};
+  };
+  await test.createSession('default', {id:'old-id', backendNativeId:'/old.rec'});
+  assert.strictEqual(refreshes, 1);
+  assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
+  assert.strictEqual(JSON.parse(request.options.body).recordingId, canonicalId);
+  const lastRequest = request;
+  await assert.rejects(test.createSession('default', {id:'unresolved-native'}));
+  await assert.rejects(test.createSession('other', {backendId:'default', recordingId:canonicalId}));
+  assert.strictEqual(request, lastRequest);
+  const requestJson = window.VdrSuiteClientApi.requestJson;
+  let rejectedCreates = 0;
+  window.VdrSuiteClientApi.requestJson = async route => {
+    assert.strictEqual(route, '/api/v1/browser/recording-playback-sessions');
+    rejectedCreates += 1;
+    throw new Error('CREATE failed');
+  };
+  await assert.rejects(test.createSession('default', {recordingId:canonicalId}));
+  assert.strictEqual(rejectedCreates, 1);
+  window.VdrSuiteClientApi.requestJson = requestJson;
 
   await test.stopSession('default', 'mediasess_test');
   assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions/control');

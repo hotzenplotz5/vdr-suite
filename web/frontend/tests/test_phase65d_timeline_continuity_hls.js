@@ -205,6 +205,7 @@ const context = vm.createContext({
   Array,
   Set
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(lifecycleSource, context, {filename: 'playback-owner-lifecycle.js'});
 vm.runInContext(restartSeekSource, context, {filename: 'recording-fallback-restart-seek.js'});
 vm.runInContext(fallbackSource, context, {filename: 'recording-fallback-controls.js'});
@@ -238,7 +239,7 @@ window.VdrSuiteRecordings2Playback = {
 
 (async function () {
   const playback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42'},
+    {id: 'rec_11111111111111111111111111111111'},
     'default'
   );
   assert.strictEqual(playback.__vdrSuitePlaybackTimelineContinuityDecorated, true);

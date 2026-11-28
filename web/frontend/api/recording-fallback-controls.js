@@ -17,11 +17,6 @@
     return value === undefined || value === null ? '' : String(value);
   }
 
-  function recordingId(recording) {
-    if (!recording || typeof recording !== 'object') return '';
-    return text(recording.recordingId || recording.id).trim();
-  }
-
   function safeSessionId(value) {
     const id = text(value).trim();
     return id && id.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(id) ? id : '';
@@ -65,35 +60,33 @@
   function createSession(backendId, recording, startPositionSeconds, audioTrackId) {
     const api = global.VdrSuiteClientApi;
     const shared = global.VdrSuiteRecordings2Shared;
-    const canonicalId = shared && typeof shared.publicRecordingId === 'function'
-      ? shared.publicRecordingId(recording) : '';
-    // Only pre-existing cards without a public identity keep the old CREATE.
-    // Never retry a failed Public-v1 mutation via the legacy route.
-    const id = canonicalId || recordingId(recording);
     const start = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
     const selectedAudioTrackId = safeAudioTrackId(audioTrackId);
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!id) return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+    if (!shared || typeof shared.withPublicRecordingId !== 'function') {
+      return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
+    }
     if (audioTrackId && !selectedAudioTrackId) {
       return Promise.reject(new Error('Ungültige normalisierte Tonspur-ID.'));
     }
 
-    const body = {
-      backendId: text(backendId || 'default'),
-      recordingId: id,
-      capabilities: capabilities()
-    };
-    if (start > 0) body.startPositionSeconds = start;
-    if (selectedAudioTrackId) body.audioTrackId = selectedAudioTrackId;
-    return api.requestJson(canonicalId
-        ? '/api/v1/browser/recording-playback-sessions' : '/api/media/sessions', {
-      method: 'POST',
-      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-      body: JSON.stringify(body),
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return shared.withPublicRecordingId(recording, backendId, api, function (id) {
+      const body = {
+        backendId: text(backendId || 'default'),
+        recordingId: id,
+        capabilities: capabilities()
+      };
+      if (start > 0) body.startPositionSeconds = start;
+      if (selectedAudioTrackId) body.audioTrackId = selectedAudioTrackId;
+      return api.requestJson('/api/v1/browser/recording-playback-sessions', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
     });
   }
 
