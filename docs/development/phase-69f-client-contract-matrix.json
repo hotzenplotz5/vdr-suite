@@ -188,13 +188,13 @@
     {
       "domain": "metadata-persons",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientMetadata",
         "fetchClientPersons",
         "fetchClientRecordingPersons"
       ],
-      "note": "Metadata and people reads remain pre-v1 until stable resource identity and representation are defined."
+      "note": "Recording and EPG cast-related Recording search now use GET /api/v1/search/recordings with match=person, the existing recordings.view backend scope and opaque artwork/Recording IDs. General metadata and persons reads remain pre-v1."
     },
     {
       "domain": "recordings",

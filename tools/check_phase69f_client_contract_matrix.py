@@ -118,6 +118,13 @@ for source_name, source in (
         ):
             require(source.count(route) == 1, "reviewed search route drifted: " + route)
             source = source.replace(route, "'approved-global-search-route'")
+        # Cast search uses the same reviewed Recording search resource.
+        person_route = "'/api/v1/search/recordings'"
+        require(source.count(person_route) == 1,
+                "browser person search route must be exact")
+        require("match:'person'" in source,
+                "browser cast search must select only person matches")
+        source = source.replace(person_route, "'approved-recording-person-search'")
         # Reviewed Home offset reads: exactly one dispatch for each view;
         # the fourth literal is the cache proof restriction, not a dispatch.
         home_route = "'/api/v1/recordings'"
