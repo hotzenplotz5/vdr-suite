@@ -215,6 +215,37 @@ int main()
     }
 
     {
+        // Existing wildcard Human permissions must have the same effect
+        // on the public editor as on the legacy owner. Device exact grants
+        // remain separate; this fixture is an authenticated Browser Session.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "*", "default"));
+        auto legacyUpdate = fixture.mutationRequest(
+            "/api/vdr/timers/actions/update", "default");
+        fixture.addBrowserAuthentication(legacyUpdate, true);
+        assertAllowed(fixture.gate.evaluate(legacyUpdate), "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(browserRequest(fixture, "POST", modify)),
+            "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(browserRequest(fixture, "POST", directUpdate)),
+            "timers.modify", true);
+        assertAllowed(fixture.gate.evaluate(browserRequest(fixture, "DELETE", detail)),
+            "timers.delete", true);
+        assertAllowed(fixture.gate.evaluate(browserRequest(fixture, "POST", directDelete)),
+            "timers.delete", true);
+        auto create = browserRequest(fixture, "POST", directCreate);
+        create.body = R"json({"backendId":"default"})json";
+        assertAllowed(fixture.gate.evaluate(create), "timers.create", true);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "POST", modify, false)), 403);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "POST",
+            Timer + "/direct-update?backendId=foreign")), 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, "role.read-only", "default"));
+        assertDenied(fixture.gate.evaluate(legacyUpdate), 403);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "POST", modify)), 403);
+        assertDenied(fixture.gate.evaluate(browserRequest(fixture, "POST", directDelete)), 403);
+        assertDenied(fixture.gate.evaluate(create), 403);
+    }
+
+    {
         // A Human with timers.create may use public manual CREATE;
         // browser CSRF and backend scope still apply.
         SecurityHttpGateBrowserTestFixture fixture;

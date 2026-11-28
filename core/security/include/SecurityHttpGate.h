@@ -2378,18 +2378,13 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
             const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&scopes](const PermissionGrant& grant) {
-                        return (grant.permission == "role.admin" ||
-                                grant.permission == "timers.modify") &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == scopes.front());
-                    });
+                gate.context.session.has_value();
             if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
@@ -2489,18 +2484,13 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
             const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&scopes](const PermissionGrant& grant) {
-                        return (grant.permission == "role.admin" ||
-                                grant.permission == "timers.delete") &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == scopes.front());
-                    });
+                gate.context.session.has_value();
             if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
@@ -2862,18 +2852,13 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
             const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&publicEpgTimerBackendId](const PermissionGrant& grant) {
-                        return (grant.permission == "role.admin" ||
-                                grant.permission == "timers.create") &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == publicEpgTimerBackendId);
-                    });
+                gate.context.session.has_value();
             if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
