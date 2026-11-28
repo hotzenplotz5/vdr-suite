@@ -75,6 +75,28 @@ const bounded = summarizeResources(many, base);
 assert.equal(bounded.recordingApiDetails.length, 1);
 assert.equal(bounded.recordingApiDetails[0].count, 1000);
 assert.ok(!JSON.stringify(bounded).includes(secret));
+// Migrated routes must remain visible to the existing diagnostic owner.
+const publicId = 'rec_' + 'a'.repeat(32);
+const publicArtworkId = 'b'.repeat(32);
+const publicArtworkPath = '/api/v1/recordings/' + publicId + '/artwork/' + publicArtworkId;
+const publicEntries = [
+  entry('/vdr-suite/api/v1/recordings?backendId=default&view=folders&limit=1', 200, 600),
+  entry('/api/v1/recordings/' + publicId + '?backendId=default', 200, 2000),
+  entry('/api/v1/search/recordings?query=' + secret, 200, 1000),
+  entry('/api/v1/backends/default/recordings/metadata/manual?recordingId=' + publicId, 200, 500),
+  entry('/vdr-suite' + publicArtworkPath + '?backendId=default&variant=home', 200, 10000, 'img')
+];
+const publicReport = summarizeResources(publicEntries, base);
+for (const category of ['public-folder-read', 'public-recording-detail', 'public-recording-search', 'public-manual-metadata-workflow'])
+  assert.equal(find(publicReport.recordingApiDetails, category)[0].count, 1, category);
+assert.equal(find(publicReport.rows, 'recordings-api')[0].count, 4);
+assert.equal(publicReport.artworkVariantDetails.length, 1);
+assert.equal(publicReport.artworkVariantDetails[0].category, 'recording-artwork');
+assert.equal(publicReport.artworkVariantDetails[0].previewVariant, 'home');
+assert.equal(publicReport.recordingApiDetails.reduce((n,row) => n + row.count, 0), 4);
+for (const hidden of [publicId, publicArtworkId, secret, 'backendId='])
+  assert.ok(!JSON.stringify(publicReport).includes(hidden));
+
 const ctx = {window: {document: {}, performance: {}, location: {href: base}}, URL, Map, Set, Number, Array, Object, String, JSON};
 vm.runInNewContext(source, ctx, {filename: 'browser-artwork-probe.js'});
 assert.equal(typeof ctx.window.VdrSuiteArtworkProbe.start, 'function');
@@ -95,8 +117,14 @@ class MutationObserverMock extends Observer {
     assert.equal(options.subtree, true);
   }
 }
+const publicCover = {
+  currentSrc: publicEntries[4].name, src: publicEntries[4].name,
+  complete: true, naturalWidth: 100, loading: 'lazy',
+  getBoundingClientRect() { return {left:10, top:10, right:110, bottom:160, width:100, height:150}; }
+};
 const env = {
-  document: {documentElement: {}, querySelectorAll() { return []; }},
+  innerWidth: 800, innerHeight: 600,
+  document: {documentElement: {}, querySelectorAll(selector) { return selector === 'img' ? [publicCover] : []; }},
   performance: {now() { return now; }}, PerformanceObserver: Observer,
   MutationObserver: MutationObserverMock, location: {href: base, origin: 'https://example.test'},
   fetch() { throw new Error('Unexpected network request'); }
@@ -111,6 +139,8 @@ const capture = probe.stop();
 assert.equal(capture.metrics.resourceDiagnostics.recordingApiDetails.length, recording.length);
 assert.equal(capture.metrics.resourceDiagnostics.artworkVariantDetails.length, artwork.length);
 assert.equal(capture.metrics.mutations, 1);
+assert.equal(capture.visibleArtwork.visibleAtStop, 1);
+assert.equal(capture.visibleArtwork.loadedAtStop, 1);
 assert.ok(observers.every(observer => observer.disconnected));
 assert.ok(!JSON.stringify(probe.report()).includes(secret));
 console.log('browser recording resource details, production lifecycle, bounded aggregation and privacy ok');
