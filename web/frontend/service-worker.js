@@ -164,6 +164,7 @@ async function handleLogo(event) {
 }
 const recordingArtworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
 const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/recordings/folder', '/api/metadata/genres', '/api/metadata/genres/recordings']);
+const publicRecordingProofRoutes = new Set(['/api/v1/recordings', '/api/v1/genres', '/api/v1/genres/recordings']);
 const epgProofRoutes = new Set(['/api/epg/cache/now-next-artwork', '/api/epg/cache/now-next', '/api/epg/cache/window', '/api/epg/cache/metadata']);
 // Artwork-only window starts on receipt of existing server authorization.
 // Expiry falls back to the original network path, not a new UI gate.
@@ -240,6 +241,21 @@ function proofBackend(request) {
   const path = url.pathname.slice(installationPath.length);
   const snapshot = /^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/snapshot$/.exec(path);
   if (snapshot && !url.search) return snapshot[1];
+  // Match the existing server-side HomeCacheScope projections. Only the
+  // returned authenticated scope header, never the URL alone, admits reuse.
+  if (publicRecordingProofRoutes.has(path)) {
+    const q = url.searchParams;
+    const ids = q.getAll('backendId');
+    if (ids.length !== 1 || q.has('backend') ||
+        !/^[A-Za-z0-9_.-]{1,128}$/.test(ids[0]) ||
+        ids[0] === '.' || ids[0] === '..' ||
+        url.search.slice(1).split('&').some(part => part.split('=')[0].includes('%'))) return '';
+    if (path === '/api/v1/recordings' &&
+        (q.getAll('view').length !== 1 || !['movies', 'new', 'folders'].includes(q.get('view')))) return '';
+    if (path === '/api/v1/genres/recordings' &&
+        (q.getAll('genreId').length !== 1 || q.get('genreId') !== 'series')) return '';
+    return ids[0];
+  }
   if ((!recordingProofRoutes.has(path) && !epgProofRoutes.has(path)) ||
       (path === '/api/metadata/genres' && url.searchParams.get('scope') !== 'recordings')) return '';
   const backend = url.searchParams.get('backend') || '';
