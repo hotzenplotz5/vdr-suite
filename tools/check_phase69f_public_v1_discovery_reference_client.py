@@ -115,6 +115,11 @@ for route in (
     require(browser_client.count(route) == 1,
             "reviewed Browser search route missing or duplicated: " + route)
     browser_client = browser_client.replace(route, "'reviewed-global-search-route'")
+# Reviewed recording-person search: one exact public route, person-only mode.
+person_route = "'/api/v1/search/recordings'"
+require(browser_client.count(person_route) == 1 and "match:'person'" in browser_client,
+        "reviewed Browser recording-person search route or mode drifted")
+browser_client = browser_client.replace(person_route, "'reviewed-recording-person-search'")
 # Reviewed Home movie/new offset reads and their shared cache-evidence path.
 home_route = "'/api/v1/recordings'"
 require(browser_client.count(home_route) == 4,
