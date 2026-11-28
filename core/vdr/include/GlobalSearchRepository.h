@@ -21,7 +21,7 @@ public:
         std::int64_t epgFrom,
         std::int64_t epgUntil,
         int limit,
-        int offset) const;
+        int offset, bool personOnly = false) const;
 
     static std::string normalizeBackendId(const std::string& backendId);
     static std::string foldText(const std::string& value);
@@ -31,6 +31,6 @@ private:
 
     bool registerFoldFunction() const;
     bool backfillEpgPeople() const;
-    void searchRecordings(GlobalSearchResult& result) const;
+    void searchRecordings(GlobalSearchResult& result, bool personOnly) const;
     void searchEpg(GlobalSearchResult& result) const;
 };

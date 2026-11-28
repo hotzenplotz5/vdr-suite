@@ -19690,7 +19690,7 @@
         ],
         "operationId": "searchPublicRecordings",
         "summary": "Search authorized recordings through the shared Web search index",
-        "description": "Requires recordings.view@backendId; single authorized backend; strict bounded pagination and no native recording paths. EPG index defaults to last 6 h and next 14 days. Unavailable backend/index returns HTTP 503, not an empty result.",
+        "description": "Requires recordings.view@backendId; single authorized backend; strict bounded pagination and no native recording paths. EPG index defaults to last 6 h and next 14 days. Unavailable backend/index returns HTTP 503, not an empty result. Optional match=person applies the existing effective cast relationship filter before pagination and excludes title-only hits and EPG lookup.",
         "parameters": [
           {
             "name": "backendId",
@@ -19711,6 +19711,18 @@
               "type": "string",
               "minLength": 2,
               "maxLength": 240
+            }
+          },
+          {
+            "name": "match",
+            "in": "query",
+            "required": false,
+            "description": "Person-only matches from the same persistent native/manual index.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "person"
+              ]
             }
           },
           {
@@ -19827,6 +19839,10 @@
                           "recordingId": {
                             "type": "string",
                             "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Recording synopsis in person-only mode."
                           }
                         },
                         "required": [

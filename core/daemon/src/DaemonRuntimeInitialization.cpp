@@ -3374,7 +3374,7 @@ bool DaemonRuntime::initialize()
                 request.backendId, request.query,
                 now - 6 * 3600, now + 14 * 24 * 3600,
                 static_cast<int>(request.limit),
-                static_cast<int>(request.offset), !request.epg);
+                static_cast<int>(request.offset), !request.epg, request.personOnly);
             if (!searched || searched->status != "ready")
             {
                 std::cerr << "Public-v1 search unavailable: shared search"

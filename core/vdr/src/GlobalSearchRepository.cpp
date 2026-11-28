@@ -145,6 +145,7 @@ std::string recordingBaseSql(bool manualAvailable)
             "COALESCE(m.preferred_artwork_width,0) AS selected_artwork_width,"
             "COALESCE(m.preferred_artwork_height,0) AS selected_artwork_height,"
             "0 AS selected_artwork_revision,0 AS manual_artwork_selected,"
+            "'' AS selected_overview,"
             "CASE WHEN " + automaticTitlePredicate() +
             " THEN 1 ELSE 0 END AS title_hit,"
             "COALESCE(np.name,'') AS matched_person,"
@@ -168,7 +169,7 @@ std::string recordingBaseSql(bool manualAvailable)
     return
         " WITH active_manual AS ("
         "SELECT v.backend_id,v.resource_key,v.metadata_assignment_id,v.media_type,"
-        "v.title,v.original_title,v.poster_reference,v.revision "
+        "v.title,v.original_title,v.poster_reference,v.revision,v.overview "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
         "ON a.metadata_assignment_id=v.metadata_assignment_id "
@@ -203,6 +204,7 @@ std::string recordingBaseSql(bool manualAvailable)
         "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN 0 ELSE COALESCE(m.preferred_artwork_height,0) END AS selected_artwork_height,"
         "COALESCE(am.revision,0) AS selected_artwork_revision,"
         "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN 1 ELSE 0 END AS manual_artwork_selected,"
+        "COALESCE(am.overview,'') AS selected_overview,"
         "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN CASE WHEN " +
         manualTitlePredicate + " THEN 1 ELSE 0 END "
         "ELSE CASE WHEN " + automaticTitlePredicate() +
@@ -416,7 +418,7 @@ GlobalSearchResult GlobalSearchRepository::search(
     std::int64_t epgFrom,
     std::int64_t epgUntil,
     int limit,
-    int offset) const
+    int offset, bool personOnly) const
 {
     GlobalSearchResult result;
     result.query = query;
@@ -432,8 +434,8 @@ GlobalSearchResult GlobalSearchRepository::search(
         return result;
     }
 
-    searchRecordings(result);
-    searchEpg(result);
+    searchRecordings(result, personOnly);
+    if (!personOnly) searchEpg(result);
 
     std::map<std::string, GlobalSearchPersonSummary> summaries;
     for (auto& recording : result.recordings)
@@ -458,7 +460,7 @@ GlobalSearchResult GlobalSearchRepository::search(
     return result;
 }
 
-void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
+void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result, bool personOnly) const
 {
     const std::string foldedQuery = foldText(result.query);
     const bool manualAvailable =
@@ -467,10 +469,13 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
         database_.tableExists("suite_metadata_person_values") &&
         database_.tableExists("suite_metadata_assignments");
     const std::string base = recordingBaseSql(manualAvailable);
-
+    // Same native/manual relationship projection, with the title branch
+    // disabled before counting and pagination for the cast-related view.
+    const std::string predicate = personOnly
+        ? "matched_person<>''" : "(title_hit=1 OR matched_person<>'')";
     sqlite3_stmt* count = nullptr;
     const std::string countSql = base +
-        "SELECT COUNT(*) FROM search_base WHERE title_hit=1 OR matched_person<>'';";
+        "SELECT COUNT(*) FROM search_base WHERE " + predicate + ";";
     if (!prepare(database_.handle(), countSql, &count)) return;
     bindNamedText(count, ":backend", result.backendId);
     bindNamedText(count, ":q", foldedQuery);
@@ -484,12 +489,12 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
         "SELECT recording_id,backend_id,backend_native_id,title,path,start_time,"
         "duration_seconds,size_mb,metadata_payload,episode_name,preferred_artwork_path,"
         "matched_person,matched_role,title_hit,selected_artwork_path,"
-        "selected_artwork_width,selected_artwork_height,selected_artwork_revision,manual_artwork_selected "
-        "FROM search_base WHERE title_hit=1 OR matched_person<>'' "
-        "ORDER BY CASE "
-        "WHEN vdr_suite_fold(title)=:q THEN 0 "
+        "selected_artwork_width,selected_artwork_height,selected_artwork_revision,manual_artwork_selected,selected_overview "
+        "FROM search_base WHERE " + predicate + " ORDER BY " +
+        (personOnly ? std::string("vdr_suite_fold(matched_person) ASC,") :
+        std::string("CASE WHEN vdr_suite_fold(title)=:q THEN 0 "
         "WHEN vdr_suite_fold(title) LIKE :q||'%' THEN 1 "
-        "WHEN title_hit=1 THEN 2 ELSE 3 END ASC,"
+        "WHEN title_hit=1 THEN 2 ELSE 3 END ASC,")) +
         "CAST(start_time AS INTEGER) DESC,vdr_suite_fold(title) ASC,backend_native_id ASC "
         "LIMIT :limit OFFSET :offset;";
     sqlite3_stmt* statement = nullptr;
@@ -530,7 +535,11 @@ void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
         item.preferredArtworkHeight = sqlite3_column_int(statement, 16);
         item.preferredArtworkManualRevision = sqlite3_column_int(statement, 17);
         item.manualArtworkSelected = sqlite3_column_int(statement, 18) != 0;
-        const bool titleHit = sqlite3_column_int(statement, 13) != 0;
+        item.description = columnText(statement, 19);
+        if (item.description.empty()) item.description = metadata.provider.overview;
+        if (item.description.empty()) item.description = metadata.native.description;
+        if (item.description.empty()) item.description = metadata.native.shortText;
+        const bool titleHit = !personOnly && sqlite3_column_int(statement, 13) != 0;
         item.matchReason = titleHit
             ? (item.matchedPerson.empty() ? "title" : "title-and-person")
             : "person";

@@ -115,6 +115,7 @@ inline PublicSearchResult projectPage(
             item.edited = display.edited;
             item.startTime = recording.startTime;
             item.subtitle = recording.subtitle;
+            item.description = recording.description;
             item.durationSeconds = std::max(0, recording.durationSeconds);
             item.sizeMb = std::max<std::int64_t>(0, recording.sizeMb);
             item.artworkAvailable = recording.artworkAvailable;

@@ -1096,6 +1096,7 @@ bool parsePublicRecordingCollectionQuery(
 struct PublicSearchQuery {
     std::string backendId, query;
     std::size_t limit = 30U, offset = 0U;
+    bool personOnly = false;
 };
 bool decodePublicSearchText(const std::string& raw, std::string& text,
     std::size_t minimum = 2U, std::size_t maximum = 240U,
@@ -1288,6 +1289,9 @@ bool parsePublicSearchQuery(const std::string& target, PublicSearchQuery& out)
         } else if (key == "query") {
             if (query || !decodePublicSearchText(value, out.query)) return false;
             query = true;
+        } else if (key == "match") {
+            if (out.personOnly || value != "person") return false;
+            out.personOnly = true;
         } else if (key == "limit") {
             if (limit || !decimalSize(value, out.limit) ||
                 out.limit == 0U || out.limit > 30U) return false;
@@ -8343,6 +8347,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         }
         PublicSearchQuery query;
         if (!parsePublicSearchQuery(requestTarget, query) ||
+            (query.personOnly && path != PublicSearchRecordingPath) ||
             authorizedBackendIds.size() != 1U ||
             authorizedBackendIds.front() != query.backendId)
         {
@@ -8356,6 +8361,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         request.query = query.query;
         request.epg = path == PublicSearchEpgPath;
         request.combined = path == PublicSearchCombinedPath;
+        request.personOnly = query.personOnly;
         request.limit = query.limit;
         request.offset = query.offset;
         const auto result = lookupSearch(request);
@@ -8419,6 +8425,8 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                 if (epg)
                     body += ",\"channelName\":\"" + jsonEscape(item.channelName) +
                         "\",\"description\":\"" + jsonEscape(item.description) + "\"";
+                if (!epg && request.personOnly)
+                    body += ",\"description\":\"" + jsonEscape(item.description) + "\"";
                 body += ",\"matchedPerson\":\"" + jsonEscape(item.matchedPerson) +
                     "\",\"matchedRole\":\"" + jsonEscape(item.matchedRole) +
                     "\",\"matchReason\":\"" + jsonEscape(item.matchReason) +

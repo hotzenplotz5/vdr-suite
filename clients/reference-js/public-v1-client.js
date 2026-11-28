@@ -377,10 +377,11 @@
     return '?' + fields.join('&');
   }
 
-  function f3SearchQuery(query) {
+  function f3SearchQuery(query, allowPersonOnly = false) {
     if (!query || typeof query !== 'object' || Array.isArray(query))
       throw new Error('Public search query must be an object');
     const allowed = ['backendId', 'query', 'limit', 'offset'];
+    if (allowPersonOnly) allowed.push('match');
     Object.keys(query).forEach(function (key) {
       if (!allowed.includes(key))
         throw new Error('unsupported Public search field: ' + key);
@@ -393,6 +394,10 @@
       'backendId=' + encodeURIComponent(backend),
       'query=' + encodeURIComponent(query.query)
     ];
+    if (query.match !== undefined) {
+      if (!allowPersonOnly || query.match !== 'person') throw new Error('Invalid recording search match');
+      params.push('match=person');
+    }
     if (query.limit !== undefined) {
       if (!Number.isInteger(query.limit) ||
           query.limit < 1 || query.limit > 30)
@@ -2955,7 +2960,7 @@
       },
       searchRecordings(options) {
         const input = options && typeof options === 'object' ? options : {};
-        return request('/api/v1/search/recordings' + f3SearchQuery(input.query), input);
+        return request('/api/v1/search/recordings' + f3SearchQuery(input.query, true), input);
       },
       getSearchTimers(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

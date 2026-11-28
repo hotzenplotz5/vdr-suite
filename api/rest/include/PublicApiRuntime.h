@@ -553,6 +553,7 @@ struct PublicSearchRequest {
     bool epg = false;
     std::size_t limit = 30U, offset = 0U;
     bool combined = false;
+    bool personOnly = false;
 };
 struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;

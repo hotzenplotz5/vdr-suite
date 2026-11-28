@@ -18,7 +18,7 @@ public:
         std::int64_t epgFrom,
         std::int64_t epgUntil,
         int limit,
-        int offset) const;
+        int offset, bool personOnly = false) const;
 
 private:
     GlobalSearchRepository& repository_;

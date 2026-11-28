@@ -171,12 +171,12 @@ bool GlobalSearchApiRuntime::tryHandleGet(
 std::optional<GlobalSearchResult> GlobalSearchApiRuntime::searchPublic(
     const std::string& backendId, const std::string& query,
     std::int64_t from, std::int64_t until,
-    int limit, int offset, bool includeRecordingPortraits) const
+    int limit, int offset, bool includeRecordingPortraits, bool personOnly) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!service_ || limit < 1 || limit > 30 ||
         offset < 0 || offset > 1000000) return std::nullopt;
-    auto result = service_->search(backendId, query, from, until, limit, offset);
+    auto result = service_->search(backendId, query, from, until, limit, offset, personOnly);
     // Recording and combined search callers use the existing bulk portrait
     // owner. EPG-only authorization never requests recording image references.
     if (includeRecordingPortraits && result.status == "ready" &&

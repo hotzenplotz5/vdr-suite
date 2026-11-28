@@ -296,9 +296,11 @@ int main()
     runtime.resetRecordingCollectionLookup();
     runtime.resetSearchLookup();
     int combinedLookups = 0;
-    runtime.registerSearchLookup([&combinedLookups](const PublicSearchRequest& request) {
+    int personLookups = 0;
+    runtime.registerSearchLookup([&combinedLookups, &personLookups](const PublicSearchRequest& request) {
         PublicSearchResult result;
         if (request.combined) ++combinedLookups;
+        if (request.personOnly) ++personLookups;
         result.status = PublicSearchStatus::ok;
         result.totalCount = 1U;
         if (request.offset == 0U) {
@@ -314,6 +316,11 @@ int main()
                 item.artworkAvailable = true;
             } else {
                 item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+                if (request.personOnly) {
+                    item.matchedPerson = "Ian McKellen";
+                    item.matchReason = "person";
+                    item.description = "A recording synopsis";
+                }
                 item.personPortraitRecordingId = item.recordingId;
                 item.personPortraitArtworkId = "0123456789abcdef0123456789abcdef";
                 item.preferredArtworkId = "abcdef0123456789abcdef0123456789";
@@ -355,6 +362,19 @@ int main()
     assert(searchRecording.body.find("\"personPortrait\":{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\",\"artworkId\":\"0123456789abcdef0123456789abcdef\"}") != std::string::npos);
     assert(searchRecording.body.find("\"preferredArtworkId\":\"abcdef0123456789abcdef0123456789\"") != std::string::npos);
     assert(searchRecording.headers.at("Cache-Control") == "no-store");
+    ApiResponse personSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Ian%20McKellen&match=person",
+        "actor:tv", "search-person", "", personSearch, "", "", {"backend-a"}));
+    assert(personSearch.statusCode == 200 && personLookups == 1);
+    assert(personSearch.body.find("A recording synopsis") != std::string::npos);
+    assert(personSearch.body.find("Ian McKellen") != std::string::npos);
+    assert(personSearch.body.find("backendNativeId") == std::string::npos);
+    ApiResponse badPersonScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Ian%20McKellen&match=person",
+        "actor:tv", "search-person-epg", "", badPersonScope, "", "", {"backend-a"}));
+    assert(badPersonScope.statusCode == 400 && personLookups == 1);
     ApiResponse searchEpg;
     assert(runtime.tryHandleGet(
         "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
@@ -386,6 +406,8 @@ int main()
         "backendId=backend-a&query=a",
         "backendId=backend-a&query=Hobbit&limit=31",
         "backendId=backend-a&query=Hobbit&query=duplicate",
+        "backendId=backend-a&query=Hobbit&match=title",
+        "backendId=backend-a&query=Hobbit&match=person&match=person",
         "backendId=backend-a&query=Hobbit&offset=1000001"})
     {
         ApiResponse response;

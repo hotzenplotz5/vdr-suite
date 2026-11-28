@@ -69,3 +69,7 @@ Do not alter permissions or SQLite grants directly during the parity test.
 
 Kodi/Plex comparison and deployed yaVDR/Hisense behavior are not verified by
 these source tests. Do not promote this candidate on that basis.
+
+## Cast-related Recording search
+
+The Recording-only public search accepts `match=person` in addition to the existing query and paging parameters. The same GlobalSearchRepository count/page query and effective native/manual cast relations are used; title-only hits are excluded before paging and no EPG query is issued. The response contains the existing opaque recording/artwork references and synopsis. General search ordering/contract and other paths remain unchanged. Related results contain one hit per recording, sorted by matched name and recording recency, rather than a duplicated row per cast relation. Legacy person-search interfaces remain for old clients. Browser consumers will be switched after the shared backend mode is verified.

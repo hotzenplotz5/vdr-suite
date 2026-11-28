@@ -200,6 +200,22 @@ int main()
     assert(manualPerson.people.size() == 1U);
     assert(manualPerson.people[0].recordingCount == 1);
 
+    const auto titleOnly = repository.search(
+        "default", "Forrest Gump", 1785000000, 1785400000, 20, 0, true);
+    assert(titleOnly.recordingTotal == 0 && titleOnly.recordings.empty());
+    const auto castOnly = repository.search(
+        "default", "TOM HANKS", 1785000000, 1785400000, 20, 0, true);
+    assert(castOnly.recordingTotal == 1 && castOnly.recordings.size() == 1U);
+    assert(castOnly.recordings.front().title == "Forrest Gump");
+    assert(castOnly.recordings.front().matchReason == "person");
+    assert(castOnly.epg.empty() && castOnly.epgTotal == 0);
+    assert(repository.search("default", "John Travolta", 1785000000,
+        1785400000, 20, 0, true).recordingTotal == 0);
+    assert(repository.search("second", "John Travolta", 1785000000,
+        1785400000, 20, 0, true).recordingTotal == 1);
+    assert(repository.search("default", "Tom Hanks", 1785000000,
+        1785400000, 20, 1, true).recordings.empty());
+
     const GlobalSearchResult suppressedAutomaticPerson = repository.search(
         "default", "John Travolta", 1785000000, 1785400000, 20, 0);
     assert(suppressedAutomaticPerson.recordingTotal == 0);

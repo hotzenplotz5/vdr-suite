@@ -26,6 +26,7 @@ struct GlobalSearchRecording
     std::string matchedRole;
     std::string matchReason;
     std::string personKey;
+    std::string description;
 };
 
 struct GlobalSearchEpgEvent

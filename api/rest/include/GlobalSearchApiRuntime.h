@@ -36,7 +36,8 @@ public:
     std::optional<GlobalSearchResult> searchPublic(
         const std::string& backendId, const std::string& query,
         std::int64_t from, std::int64_t until,
-        int limit, int offset, bool includeRecordingPortraits = false) const;
+        int limit, int offset, bool includeRecordingPortraits = false,
+        bool personOnly = false) const;
     bool configured() const;
     void reset();
 
