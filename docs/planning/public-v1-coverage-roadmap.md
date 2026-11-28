@@ -1,5 +1,57 @@
 # Public API v1 coverage and client migration roadmap
 
+## Browser-Migration – Recording/Home-Restabgleich (28.11.2026)
+
+Repository `hotzenplotz5/vdr-suite`, Branch
+`work/api-v1-finalisierung-f2-f8`, Draft PR #563. Source-Kandidaten,
+keine Release-/Hardwarefreigabe. Diese Ergänzung aktualisiert den historischen
+F3-/F4-Paritätsbefund, ohne die darunter dokumentierten früheren Stände zu ändern.
+
+| Source-Commit | Web-Pfad und Regression |
+| --- | --- |
+| `bc4f24f217a0fd113902f955e5fc5a50d074b371` | Home-Serien-Metadatenkorrektur: Public-v1 manual/assign mit `rec_` und exaktem Backend, vorhandene Identitätsauflösung für alte Karten. `test_media_tools_metadata_backfill.js`, isolierte V8-Ausführung PASS |
+| `b577bffbf0a09a79c001b311c05d03aa294d1362` / `7bb63a96b527b641c70b647641e7041534a2c833` | Genre-Detailaufruf: Public-v1 Recording-Detail statt nativer Folder-Brücke; bestehender Detail-Owner. `test_genres_runtime.js`, isolierte V8-Ausführung PASS; Architekturvertrag aktualisiert |
+| `d4216d99ca58e751fbe808a9804aaf52a44eab32` | Home-Inline-Genre: öffentliche Membership und Detailmetadaten, unveränderte Artwork-/Paging-Owner; `test_phase66_home_inline_discovery.js`, isolierte V8-Ausführung PASS |
+| `32555af33ca2990f259680bd4e300d013c1d67a4` | Globale Suche: Public-v1 Recording-Detail ohne native Brücke für öffentliche Karten; Legacy-Suchtreffer vorläufig unverändert. Fokussierter V8-Navigationstest PASS |
+| `a19dbc1c032cb663e1ed6680496e2d02ce6a530f` | Home-Initialisierung und SSE-Reconciliation funktionieren auch ohne private Client-Methoden; `test_phase66_recording_discovery_progressive.js`, isolierte V8-Ausführung PASS |
+| `11f6cb8f14e4ab04a4742528fd574fc6374beb04` | Home-Bestandszahl: vorhandener Public-v1 Folder-Browse mit `limit=1` und globalem `catalogTotalCount` statt separatem privaten Cache-Status-Read. Kalter/unverfügbarer Bestand ist nicht null. `test_phase69f_client_error_mutation_fallback.js` (vier fokussierte Transportfälle in isoliertem V8 PASS) und `test_phase66_home_shell_composition.js` erweitert |
+
+**CI:** Auf `a19dbc1c032cb663e1ed6680496e2d02ce6a530f` alle sieben
+Workflows bestätigt erfolgreich: [Haupt-CI #13469](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382044),
+[Acceptance #375](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381978),
+[Recording/Genre #3033](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381979),
+[R2 #2992](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382012),
+[VIDAA #3014](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381994),
+[Native Timer #722](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381969),
+[SuiteBridge #1610](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382026).
+Für `11f6cb8f14e4ab04a4742528fd574fc6374beb04` ist die
+[Haupt-CI #13470](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46157148508)
+noch separat abzunehmen. Keine installierte Daemon-Version oder neue
+VIDAA-Buildnummer verifiziert; reale yaVDR-/Hisense-Abnahme: **PENDING**.
+Der neue Bestandsread hat im normalen Public-Pfad dieselbe Anzahl HTTP-Aufrufe,
+aber seine Laufzeit wurde nicht auf realer Hardware verglichen. Die
+bereits vorhandene ältere Folder-Kompatibilität bleibt vorläufig erhalten.
+
+**Nachweisbare Restlücken:**
+
+- `GET /api/v1/backends` liefert laut Backend-Discovery-Vertrag bewusst nur
+  Identität, Namen, enabled und online. Bestehende Browser-Selector-/Access-
+  und Schreibstatus-Anzeigen sowie Default-Auswahl nicht durch erfundene
+  Felder, falsche Negativanzeigen oder neue Grants ersetzen.
+- Backend-Snapshot für Speicher-/Kanal-/Timerdaten hat noch keinen
+  gleichwertigen öffentlichen Read-Vertrag.
+- `GET /api/v1/events` ist laut OpenAPI und Device-Live-Events-Vertrag
+  derzeit Device-only. Browser-SSE weiter benutzen, bis bestehender
+  Browser-Session-/Grant-Kontext und Ereignisparität nachgewiesen sind;
+  kein Polling und keine zweite Eventquelle hinzufügen.
+- Private Serien-Metadaten-/Artwork-Kompatibilität, native ID-Adapter und
+  Legacy-Fallbacks sind nicht vollständig entfernt. Produktive Aufrufer
+  einschließlich Live-TV, EPG, Kanalbearbeitung, HbbTV, Teletext und Addons
+  vollständig auditieren; interne Browser-/Betriebsrouten fachlich trennen.
+
+Keine Änderung an bestehender Security-Policy, kein neuer Branch, keine
+Installation und kein Merge. F8 bleibt offen.
+
 ## API.V1.F5 – Abschließender Restabgleich (24.11.2026)
 
 Ausgangsstand `2688e36fb026`: alle 35 CI-Jobs / sieben Workflows PASS.
