@@ -1,5 +1,34 @@
 # Public API v1 coverage and client migration roadmap
 
+## Browser-Migration – CI und PWA-Cache-Restabgleich (28.11.2026)
+
+Draft PR #563, bestehender Branch `work/api-v1-finalisierung-f2-f8`.
+Kein Merge, keine Installation, keine Hardwarefreigabe.
+
+| Source-Commit | Änderung / Nachweis |
+| --- | --- |
+| `51dc6098e5e6413553d80b9d377abc5cf40a7afd` | Public-v1 SearchTimer-Preview-Refresh: standardisierte Problem Details und exakte interne Security-Audit-Assertions. Der folgende Fast-CI-Lauf erreichte den API-Router-Linkschritt; kein vollständiger Fast-CI-PASS. |
+| `a808c332a91133180db671071dca34c1df41a33c` | Service Worker erkennt bestehende serverseitige Home-Cache-Scope-Header auf öffentlichen Movie/New/Folder- und Genre-Reads. Haupt-CI [46167349143](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46167349143): Frontend, Packaging, Architektur, Docs und Make-Audit PASS; Fast-CI FAIL. Fünf von sieben Workflows erfolgreich. |
+| `a4eab3a34b125a40376bea97e2c77ae5f1365354` | Nachgewiesener Linkerfehler von `test-api-router`: bestehende RecentlyWatched-Implementierungen im Ziel ergänzen, analog zum HTTP-Server-Test. Keine Produktcodeänderung, kein abgeschwächter Test. |
+| `6f7ef01b101d3fa1c62bb1db9a2ee98bfe2001f2` | Public-v1 Recording-, EPG- und Preferred-Artwork-Home-Previews verwenden bestehenden Browser-Session-/Backend-Scope und Final-byte-Validator. Worker, HTTP-Scope- und Preview-Regressionen ergänzt. Keine zweite Cache-Implementierung, kein Polling, keine neue Berechtigung. |
+
+Finaler C++-/CI- und Real-VDR-Nachweis für die letzten beiden Kandidaten
+steht aus. Public-v1-Bild-Caching betrifft nur explizite `variant=home`
+und erfolgreiche, autorisierte Bild-Reads. Original-/Genre-Bilder und
+bestehende Device-Zugriffe bleiben unverändert; die bisherige getrennte
+Recording-/EPG-Cache-Isolation gilt weiter. Keine gemessene
+Hardware-Performance behauptet.
+
+**P1 Kanal-Editoren:** Die produktiven Timer- und Suchtimer-Editoren
+verwenden bereits den kompakten Public-Channel-Katalog mit nativem
+Kanalnummern-Sortiervertrag. Der private Kompatibilitätspfad ist noch
+nicht entfernt: der bisherige Legacy-Read verlangt Authentifizierung,
+während Public Channel `channels.view` bzw. `media.live.play` im
+Backend-Scope verlangt und nicht alle bisherigen Editor-Berechtigungen
+abbildet. Eine ersatzlose Entfernung wäre keine nachgewiesene Parität.
+Die vollständige Migration der produktiven Aufrufer bleibt offen.
+
+
 ## Browser-Migration – Recording/Home-Restabgleich (28.11.2026)
 
 Repository `hotzenplotz5/vdr-suite`, Branch
