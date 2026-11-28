@@ -793,8 +793,13 @@
       if (typeof onSnapshot === 'function') onSnapshot(snapshot);
       return snapshot;
     });
-    const recordingStatusRequest = fetchClientRecordingCacheStatus(
-      Object.assign({}, normalizeOptions(options), {backendId: id})
+    // A bounded root page already exposes the global catalog count, not
+    // just the number of visible root cards. Reuse the canonical browse
+    // adapter rather than the private cache-status transport.
+    const recordingStatusRequest = fetchPublicRecordingFolder(
+      Object.assign({}, normalizeOptions(options), {
+        backendId: id, query: {limit: 1, offset: 0}
+      })
     ).catch(function () {
       return null;
     });
@@ -804,18 +809,19 @@
         const snapshot = results[0];
         const recordingStatus = results[1];
 
-        if (!snapshot || typeof snapshot !== 'object' ||
-            !recordingStatus || typeof recordingStatus !== 'object') {
-          return snapshot;
-        }
-
-        const recordingCount = Number(recordingStatus.totalCount);
-        if (!Number.isFinite(recordingCount) || recordingCount < 0) {
-          return snapshot;
+        if (!snapshot || typeof snapshot !== 'object') return snapshot;
+        const recordingCount = recordingStatus && recordingStatus.totalCount;
+        if (!Number.isSafeInteger(recordingCount) || recordingCount < 0 ||
+            !recordingStatus || (recordingStatus.backendId && recordingStatus.backendId !== id) ||
+            (recordingStatus.cacheState !== 'ready' && recordingCount === 0)) {
+          // The lightweight snapshot is not authoritative for Recording
+          // inventory. A failed or cold read is not an empty catalog.
+          return Object.assign({}, snapshot, {recordingCountUnavailable: true});
         }
 
         return Object.assign({}, snapshot, {
-          recordingCount: recordingCount
+          recordingCount: recordingCount,
+          recordingCountUnavailable: false
         });
       });
   }

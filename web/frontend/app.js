@@ -744,7 +744,8 @@ function renderSnapshotMetrics(data) {
     : (data ? '–' : '…');
   detailDataElement.appendChild(createMetric('Freier Aufnahmespeicher', free));
   const recordingMetric = createMetric('Aufnahmen',
-    !data || data.recordingCountPending ? '…' : count('recordingCount'));
+    !data || data.recordingCountPending ? '…' :
+      data.recordingCountUnavailable ? '–' : count('recordingCount'));
   recordingMetric.id = 'home-recording-count';
   detailDataElement.appendChild(recordingMetric);
   detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
@@ -4654,7 +4655,8 @@ function loadBackendDetails(backend) {
         currentSnapshot = data;
         const metric = selectedModule === 'overview' && document.getElementById('home-recording-count');
         if (metric && metric.firstElementChild)
-          metric.firstElementChild.textContent = String(valueOrZero(data.recordingCount));
+          metric.firstElementChild.textContent = data.recordingCountUnavailable
+            ? '–' : String(valueOrZero(data.recordingCount));
       }
       markHomeStartup('recording-count-settled');
     })

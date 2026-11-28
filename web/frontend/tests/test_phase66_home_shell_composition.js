@@ -90,6 +90,10 @@ checkMetrics({snapshotAvailable: true, channelCount: 42, eventCount: 100,
   timerCount: 3, recordingCount: 0, diskFreeMb:0},
   [['Freier Aufnahmespeicher', '0 GiB'], ['Aufnahmen', 0],
   ['Kanäle', 42], ['Timer', 3], clockMetric]);
+checkMetrics({snapshotAvailable: true, channelCount: 42, timerCount: 3,
+  recordingCount: 0, recordingCountUnavailable: true, diskFreeMb:0},
+  [['Freier Aufnahmespeicher', '0 GiB'], ['Aufnahmen', '–'],
+  ['Kanäle', 42], ['Timer', 3], clockMetric]);
 checkMetrics({channelCount: 42, timerCount: 3, recordingCount: 9},
   [['Freier Aufnahmespeicher', '–'], ['Aufnahmen', 9], ['Kanäle', 42], ['Timer', 3], clockMetric]);
 
