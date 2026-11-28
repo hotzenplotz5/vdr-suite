@@ -72,6 +72,25 @@ function jsonResponse(status, payload) {
   };
 }
 
+// A single root card can represent many recordings. Exercise the real
+// Public-v1 folder projection, not the retired private cache-status mock.
+function publicRootUrl(backendId) {
+  return '/api/v1/recordings?backendId=' + backendId + '&view=folders&limit=1&offset=0';
+}
+
+function publicRootResponse(total) {
+  const items = total ? [{kind: 'folder', folderId: 'fld1_' + 'a'.repeat(32),
+    name: 'Recordings', recordingCount: total}] : [];
+  return jsonResponse(200, {
+    items,
+    page: {limit: 1, offset: 0, totalCount: items.length, hasMore: false},
+    meta: {partial: false},
+    folderContext: {folderId: '', parentFolderId: '', breadcrumbs: [],
+      folderCount: items.length, recordingCount: 0, catalogTotalCount: total,
+      cacheState: 'ready', cacheReady: true}
+  });
+}
+
 const backendNativeId = '/srv/vdr/video/Deferred/2026-08-30.07.00.00-0.rec';
 const item = {
   backendId: 'default',
@@ -251,14 +270,7 @@ const item = {
         recordingCount: 0
       });
     }
-    if (url === '/api/vdr/recordings/cache/status?backend=default') {
-      return jsonResponse(200, {
-        backendId: 'default',
-        state: 'ready',
-        cacheReady: true,
-        totalCount: 39
-      });
-    }
+    if (url === publicRootUrl('default')) return publicRootResponse(39);
     return jsonResponse(404, {error: 'unexpected request ' + url});
   });
 
@@ -268,15 +280,15 @@ const item = {
   assert.strictEqual(
     composedSnapshot.recordingCount,
     39,
-    'Media Home snapshot adapter must project the authoritative recording-cache total'
+    'Media Home snapshot adapter must project the public catalog total, not the root card count'
   );
   assert.deepStrictEqual(
     composed.requests.map(request => request.url),
     [
       '/api/backends/default/snapshot',
-      '/api/vdr/recordings/cache/status?backend=default'
+      publicRootUrl('default')
     ],
-    'Home snapshot adapter must read the matching backend cache truth without another VDR live read'
+    'Home snapshot adapter must read the matching public catalog with one bounded request'
   );
 
   const fallback = clientApiRuntime(async url => {
@@ -286,8 +298,8 @@ const item = {
         recordingCount: 0
       });
     }
-    if (url === '/api/vdr/recordings/cache/status?backend=default') {
-      return jsonResponse(503, {error: 'recording cache unavailable'});
+    if (url === publicRootUrl('default')) {
+      return jsonResponse(503, {error: 'recording catalog unavailable'});
     }
     return jsonResponse(404, {error: 'unexpected request ' + url});
   });
@@ -298,8 +310,11 @@ const item = {
   assert.strictEqual(
     fallbackSnapshot.recordingCount,
     0,
-    'recording-cache status failure must not make the existing backend snapshot unreadable'
+    'public catalog failure must not make the existing backend snapshot unreadable'
   );
+  assert.strictEqual(composedSnapshot.recordingCountUnavailable, false);
+  assert.strictEqual(fallbackSnapshot.recordingCountUnavailable, true,
+    'an unavailable catalog must not be displayed as an empty catalog');
 
   // Exercise the actual App snapshot owner with the actual Client API wrapper.
   {
@@ -313,7 +328,8 @@ const item = {
     const metric = {firstElementChild: {textContent: ''}};
     const slow = clientApiRuntime(async url => {
       if (url.includes('/snapshot')) return new Promise(resolve => snapshots.push(resolve));
-      if (url.includes('/recordings/cache/status')) return new Promise((resolve, reject) => statusReplies.push({resolve, reject}));
+      if (url.startsWith('/api/v1/recordings?')) return new Promise((resolve, reject) =>
+        statusReplies.push({resolve, reject, url}));
       throw Error('unexpected request');
     });
     const ctx = {
@@ -340,6 +356,7 @@ const item = {
     const first = ctx.loadBackendDetails({backendId:'default'});
     assert.deepStrictEqual(galleryEvents, ['reset','default']);
     assert.equal(statusReplies.length, 1);
+    assert.equal(statusReplies[0].url, publicRootUrl('default'));
     assert.deepStrictEqual(events[0], ['home', 1], 'snapshot starts before Home-resume discovery');
     assert.equal(ctx.refreshDetailButton.disabled, false);
     assert.ok(marks.has('vdr-suite:startup:home-navigation-ready'));
@@ -353,7 +370,7 @@ const item = {
     assert.ok(!marks.has('vdr-suite:startup:recording-count-settled'));
     frames.shift()(); frames.shift()();
     assert.ok(marks.has('vdr-suite:startup:home-frame'));
-    statusReplies.shift().resolve(jsonResponse(200, {totalCount:39}));
+    statusReplies.shift().resolve(publicRootResponse(39));
     await first;
     assert.equal(ctx.currentSnapshot.recordingCount, 39);
     assert.equal(metric.firstElementChild.textContent, '39');
@@ -362,15 +379,17 @@ const item = {
     snapshots.shift()(jsonResponse(200, {recordingCount:7}));
     await flush();
     ctx.selectedModule = 'epg';
-    statusReplies.shift().reject(Error('cache unavailable'));
+    assert.equal(statusReplies[0].url, publicRootUrl('other'));
+    statusReplies.shift().reject(Error('catalog unavailable'));
     await second;
     assert.equal(ctx.currentSnapshot.recordingCount, 7);
+    assert.equal(ctx.currentSnapshot.recordingCountUnavailable, true);
     assert.equal(renders.length, 2);
     assert.equal(metric.firstElementChild.textContent, '39');
     const old = ctx.loadBackendDetails({backendId:'old'});
     const newest = ctx.loadBackendDetails({backendId:'new'});
     snapshots.shift()(jsonResponse(200, {recordingCount:123}));
-    statusReplies.shift().resolve(jsonResponse(200, {totalCount:456}));
+    statusReplies.shift().resolve(publicRootResponse(456));
     await old;
     assert.equal(renders.length, 2);
     snapshots.shift()(jsonResponse(200, {recordingCount:9}));
@@ -378,14 +397,14 @@ const item = {
     assert.equal(renders.length, 3);
     ctx.browserSessionFrontendActive = false;
     ctx.currentSnapshot = null;
-    statusReplies.shift().resolve(jsonResponse(200, {totalCount:999}));
+    statusReplies.shift().resolve(publicRootResponse(999));
     await newest;
     assert.equal(ctx.currentSnapshot, null);
     ctx.browserSessionFrontendActive = true;
     const fail = ctx.loadBackendDetails({backendId:'failed'});
     ctx.selectedModule = 'recordings';
     snapshots.shift()(jsonResponse(503, {error:'snapshot unavailable'}));
-    statusReplies.shift().resolve(jsonResponse(200, {totalCount:5}));
+    statusReplies.shift().resolve(publicRootResponse(5));
     await fail;
     assert.equal(ctx.selectedModule, 'recordings');
     assert.equal(ctx.refreshDetailButton.disabled, false);
@@ -393,7 +412,7 @@ const item = {
     const late = ctx.loadBackendDetails({backendId:'late'});
     ctx.selectedModule = 'channels';
     snapshots.shift()(jsonResponse(200, {recordingCount:8}));
-    statusReplies.shift().resolve(jsonResponse(200, {totalCount:19}));
+    statusReplies.shift().resolve(publicRootResponse(19));
     await late;
     assert.equal(ctx.currentSnapshot.recordingCount, 19);
     assert.equal(renders.length, 3, 'late snapshot must not rebuild another module');
