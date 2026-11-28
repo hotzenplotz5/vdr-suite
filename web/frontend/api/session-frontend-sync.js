@@ -763,12 +763,12 @@
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!shared || typeof shared.withPublicRecordingId !== 'function') {
+    if (!shared || typeof shared.resolvePublicRecordingId !== 'function') {
       return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
     }
 
     return afterBrowserSessionRestore(function () {
-      return shared.withPublicRecordingId(recording, backendId, api, function (id) {
+      return shared.resolvePublicRecordingId(recording, backendId, api, function (id) {
         return api.requestJson('/api/v1/browser/recording-playback-sessions', {
           method: 'POST',
           headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),

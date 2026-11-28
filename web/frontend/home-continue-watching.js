@@ -263,8 +263,8 @@
       const clear = function (id) {
         return sync.clear(item.backendId, id, item.progressRevision);
       };
-      if (shared && typeof shared.withPublicRecordingId === 'function')
-        return shared.withPublicRecordingId(item.recording, item.backendId, null, clear);
+      if (shared && typeof shared.resolvePublicRecordingId === 'function')
+        return shared.resolvePublicRecordingId(item.recording, item.backendId, null, clear);
       return /^rec_[0-9a-f]{32}$/.test(item.recordingId)
         ? clear(item.recordingId) : false;
     }).then(function (cleared) {

@@ -80,41 +80,26 @@
     return fallback;
   }
 
-  // Canonical identities come from the server, never from title, timestamp
-  // or a recycled VDR list position. Older browser-cached cards are refreshed
-  // through the existing exact-backend recording query before a public write.
-  // Only remembers the successful exact mapping of this existing card
-  // object. It is not a second catalog or durable identity store.
+  // Remember successful old-card admission only for playback history.
   const refreshedRecordingIds = new WeakMap();
-
-  function publicRecordingId(recording) {
-    for (const value of [recording && recording.publicRecordingId,
-      recording && recording.recordingId, recording && recording.id]) {
-      if (/^rec_[0-9a-f]{32}$/.test(String(value || ''))) return String(value);
-    }
-    return '';
+  function publicRecordingId(recording, playbackBackend) {
+    const id = [recording?.publicRecordingId, recording?.recordingId, recording?.id]
+      .find(value => /^rec_[0-9a-f]{32}$/.test(String(value || '')));
+    if (id) return String(id);
+    const mapping = recording && playbackBackend && refreshedRecordingIds.get(recording);
+    const native = String(recording?.backendNativeId || recording?.nativePath || '');
+    return mapping && mapping.backend === playbackBackend && mapping.native === native
+      ? mapping.id : '';
   }
 
-  function playbackPublicRecordingId(recording, backendId) {
-    const direct = publicRecordingId(recording);
-    if (direct) return direct;
-    if (recording && typeof recording === 'object') {
-      const refreshed = refreshedRecordingIds.get(recording);
-      const backend = String(backendId || recording.backendId || '');
-      const native = String(recording.backendNativeId || recording.nativePath || '');
-      if (refreshed && refreshed.backend === backend && refreshed.native === native)
-        return refreshed.id;
-    }
-    return '';
-  }
-
-  function resolvePublicRecordingId(recording, backendId, api) {
-    const backend = String(backendId || '');
+  // Ordinary actions always resolve fresh; only admission supplies a consumer.
+  function resolvePublicRecordingId(recording, backendId, api, action) {
+    const backend = String(backendId || (action ? 'default' : ''));
     const unavailable = () => new Error('Kanonische Aufnahme-ID nicht verfügbar. Bitte Aufnahme aktualisieren.');
     if (!recording || !backend || (recording.backendId && recording.backendId !== backend))
       return Promise.reject(unavailable());
     const direct = publicRecordingId(recording);
-    if (direct) return Promise.resolve(direct);
+    if (direct) return action ? action(direct) : Promise.resolve(direct);
     const native = String(recording.backendNativeId || recording.nativePath || '');
     const client = api || clientApi();
     if (!native || !client || typeof client.fetchClientRecordings !== 'function')
@@ -136,26 +121,12 @@
         return page(offset + rows.length);
       });
     }
-    return page(0);
-  }
-
-  // Keep a single canonical admission path for progressive, initial HLS
-  // and HLS replacement. Current cards need no extra read; only an old card
-  // uses the existing exact-backend refresh before a Public-v1 CREATE.
-  function withPublicRecordingId(recording, backendId, api, action) {
-    const backend = String(backendId || 'default');
-    const id = publicRecordingId(recording);
-    if (id && (!recording.backendId || recording.backendId === backend))
-      return action(id);
-    // A new admission still revalidates an old card; destructive actions
-    // never consume the playback observer's previous identity mapping.
-    const native = String(recording && (recording.backendNativeId || recording.nativePath) || '');
-    return resolvePublicRecordingId(recording, backend, api).then(function (resolved) {
-      return Promise.resolve(action(resolved)).then(function (result) {
-        refreshedRecordingIds.set(recording, {backend, native, id:resolved});
-        return result;
-      });
-    });
+    const resolved = page(0);
+    if (!action) return resolved;
+    return resolved.then(id => Promise.resolve(action(id)).then(result => {
+      refreshedRecordingIds.set(recording, {backend, native, id});
+      return result;
+    }));
   }
 
   function normalizePath(value) {
@@ -399,9 +370,7 @@
     first,
     normalizePath,
     publicRecordingId,
-    playbackPublicRecordingId,
     resolvePublicRecordingId,
-    withPublicRecordingId,
     decodeDisplayText,
     folderList,
     recordingList,

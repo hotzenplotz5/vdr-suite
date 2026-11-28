@@ -65,14 +65,14 @@
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!shared || typeof shared.withPublicRecordingId !== 'function') {
+    if (!shared || typeof shared.resolvePublicRecordingId !== 'function') {
       return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
     }
     if (audioTrackId && !selectedAudioTrackId) {
       return Promise.reject(new Error('Ungültige normalisierte Tonspur-ID.'));
     }
 
-    return shared.withPublicRecordingId(recording, backendId, api, function (id) {
+    return shared.resolvePublicRecordingId(recording, backendId, api, function (id) {
       const body = {
         backendId: text(backendId || 'default'),
         recordingId: id,

@@ -24,8 +24,8 @@
   function persistenceRecordingId(recording, backendId) {
     if (recording && recording.backendId && recording.backendId !== backendId) return '';
     const shared = global.VdrSuiteRecordings2Shared;
-    const canonical = shared && typeof shared.playbackPublicRecordingId === 'function'
-      ? shared.playbackPublicRecordingId(recording, backendId) : recordingId(recording);
+    const canonical = shared && typeof shared.publicRecordingId === 'function'
+      ? shared.publicRecordingId(recording, backendId) : recordingId(recording);
     return canonicalId(canonical) ? canonical : '';
   }
   function nextOperationId(prefix) {

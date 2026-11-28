@@ -285,13 +285,13 @@ assert.strictEqual(
   const oldCard = {id:'old-id', backendNativeId:'/old.rec'};
   await test.createSession('default', oldCard);
   assert.strictEqual(refreshes, 1);
-  assert.strictEqual(window.VdrSuiteRecordings2Shared.playbackPublicRecordingId(oldCard, 'default'), canonicalId);
-  assert.strictEqual(window.VdrSuiteRecordings2Shared.playbackPublicRecordingId(oldCard, 'other'), '');
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(oldCard, 'default'), canonicalId);
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(oldCard, 'other'), '');
   await test.createSession('default', oldCard);
   assert.strictEqual(refreshes, 2, 'a new CREATE revalidates the old card');
   assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(oldCard), '',
     'ordinary actions must not reuse a previous playback mapping');
-  assert.strictEqual(window.VdrSuiteRecordings2Shared.playbackPublicRecordingId(
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(
     {...oldCard}, 'default'), '', 'no catalog-wide native identity cache');
   assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
   assert.strictEqual(JSON.parse(request.options.body).recordingId, canonicalId);
