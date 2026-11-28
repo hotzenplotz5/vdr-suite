@@ -23,7 +23,8 @@ public:
 
     bool configure(
         Database& database,
-        BackendRegistryService& backendRegistryService);
+        BackendRegistryService& backendRegistryService,
+        GlobalSearchController::PublicRecordingIdLookup publicRecordingIdLookup = {});
 
     void setPersonPortraitLookup(
         GlobalSearchController::PersonPortraitLookup personPortraitLookup);
@@ -35,7 +36,8 @@ public:
     std::optional<GlobalSearchResult> searchPublic(
         const std::string& backendId, const std::string& query,
         std::int64_t from, std::int64_t until,
-        int limit, int offset) const;
+        int limit, int offset, bool includeRecordingPortraits = false,
+        bool personOnly = false) const;
     bool configured() const;
     void reset();
 

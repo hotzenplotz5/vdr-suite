@@ -28,8 +28,13 @@ def main() -> int:
         require(frontend, f"'{operation}'", "Recordings 2 assignment runtime")
     require(frontend, "VdrSuiteBrowserSession", "Recordings 2 assignment runtime")
     genre_frontend = read("web/frontend/recordings2-metadata-genre.js")
-    require(genre_frontend, "'/recordings/metadata/genre'", "Recordings 2 Genre runtime")
-    require(genre_frontend, "VdrSuiteBrowserSession", "Recordings 2 Genre runtime")
+    require(frontend, "'/api/v1/backends/'", "Recordings 2 Public-v1 assignment runtime")
+    require(frontend, "shared.resolvePublicRecordingId", "Recording identity resolution")
+    require(genre_frontend, "assignment().publicBackendPath", "Recordings 2 Genre runtime")
+    require(genre_frontend, "assignment().postRecording", "Shared authenticated Genre mutation")
+    require(genre_frontend, "assignment().resolveRecordingIdentity", "Shared Genre identity resolution")
+    forbid(frontend, "'/api/backends/'", "Recordings 2 assignment runtime")
+    forbid(genre_frontend, "resourceKey", "Recordings 2 Genre runtime")
     require(genre_frontend, "Manuelles Genre entfernen", "Recordings 2 Genre runtime")
     for forbidden in (
         "api.themoviedb.org",

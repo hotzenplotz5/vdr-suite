@@ -42,9 +42,23 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
+    // Versioned Browser control: same recording owner and operation parsers.
+    ApiResponse handleBrowserControl(
+        const std::string& body,
+        const std::string& actorId,
+        const std::string& authorizedBackendId) const;
+
     ApiResponse createSession(
         const std::string& body,
         const std::string& actorId) const;
+
+    // Browser CREATE uses the same controller and scoped media credential,
+    // with versioned byte URLs after backend-scoped public ID resolution.
+    ApiResponse createBrowserSession(
+        const std::string& body,
+        const std::string& actorId,
+        const VdrRecording& authorizedRecording,
+        const std::string& publicRecordingId) const;
 
     // Only after live Device authentication, grant verification, and
     // canonical public-ID admission. No native identity reaches the response.
@@ -59,6 +73,7 @@ public:
         const DeviceMediaCapabilityProfile* storedVerifiedProfile = nullptr,
         const DeviceMediaProfileKey* authenticatedPlayer = nullptr) const;
 
+    bool usesPublicBrowserTransport(const std::string& sessionId) const;
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
@@ -89,23 +104,28 @@ private:
 
     ApiResponse stopSession(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse seekSession(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse playbackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse trackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse selectAudioTrack(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool publicResponse = false) const;
 
     ApiResponse selectSubtitleTrack(
         const std::string& body,

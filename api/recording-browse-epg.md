@@ -55,6 +55,133 @@ Both require `recordings.view@home`; `genreId` is **required** only on the membe
 
 `GET /genres` items carry `genreId`, `label`, `labelDe`, `labelEn`, `count`. `GET /genres/recordings` items carry `recordingId`, `backendId`, `title`, `recordedAt`, `durationSeconds`, `durationKnown`. Both responses have `items`, `page:{limit,offset,totalCount,hasMore}`, `meta:{partial:false}`. The count is a facet membership count, not evidence that an item can be played with the current Device grants.
 
+### Browser migration: recording genre overview
+
+The facet root additionally returns `totalItems` (distinct indexed recordings)
+and `assignmentCount` for the entire backend, including on subsequent pages.
+Each facet adds `known`, `activeCount`, `staleCount`, `conflictCount` and
+`displayOrder` (zero-based position in the canonical Web index order).
+The existing genreId page ordering, membership response and authorization are
+unchanged. Counts and display order come from the existing Genre index, not a
+second service or a client-side sum of facets.
+
+The facet root reads the existing persisted index of a registered, enabled
+backend even when its live VDR is offline or no VDR snapshot is available.
+The counts are cached index data, not proof of current backend availability.
+The membership route retains its existing online, snapshot and recording
+identity requirements. Unknown or disabled backends remain unavailable.
+
+The maintainer confirmed that recording Genre visibility follows the existing
+recordings.view grant, without a separate Genre permission. The browser
+recording overview (Home and Genres module) now uses `GET /api/v1/genres`
+with the same grant as external clients. This deliberately replaces the
+legacy authenticated-only overview admission for these browser callers.
+The existing Public-v1 enabled-backend requirement remains; the legacy
+endpoint itself is unchanged. EPG and membership callers are not migrated
+by this change.
+
+The HTTP response decorator supplies the existing session/backend/grant Home
+recording-cache proof for successful browser-authenticated pages, only for
+the already admitted backend. The browser Client API reads all pages,
+restores the canonical Web display order and passes each original response
+to the existing cache ticket. An aggregate object is never a substitute
+for page proofs. Missing cache proof does not block online reads. No Device
+cache proof, new grant, administrator requirement or fallback on 403.
+
+### Browser migration: recording membership cards
+
+Membership now adds `sizeMb`, `genreIds` and optional `cardMetadata`
+(`mediaType`, `title`, `episodeName`, `seasonNumber`, `episodeNumber`)
+from the same page-scoped Genre index that the Web cards use. The existing
+locked manual/native metadata precedence is preserved. No provider ID,
+native recording path, resource key or artwork path is exposed. The current
+opaque recording identity and membership ordering remain unchanged.
+
+The membership page optionally includes `preferredArtworkId` from the
+existing Recording Artwork identity owner. A selected locked manual poster
+takes precedence; absent manual artwork does not fall back to an older
+native image. Otherwise the existing cached preferred-artwork selection
+is used. Clients can request the existing authenticated binary route
+`/api/v1/recordings/{recordingId}/artwork/{preferredArtworkId}?backendId=...`
+without a separate artwork-list HTTP request for each card. The read-only
+manual selection is checked per member using the existing metadata owner;
+no images are loaded or provider requests made by the page.
+
+The optional `seriesHierarchyOverride` object uses the same page-batched
+SQLite projection as Web. It preserves the existing `groupType`
+(season, special, custom), `seasonNumber`, `groupLabel`, `sortOrder`,
+`episodeStart`, `episodeEnd` and `revision`, independently of the native
+season and episode numbers in cardMetadata. No per-recording hierarchy
+lookup, schema or additional identifier is introduced.
+
+Series membership adds optional `seriesGrouping` from the same embedded
+Genre page facts: an opaque backend-scoped `groupKey`, the folder's display
+leaf `folderTitle`, and `nativeMetadataAvailable` for the existing native
+metadata priority. The initial Web grouping uses the Serien/<series> root
+across seasons or the immediate parent elsewhere, then native series identity
+or a title fallback. The grouping seed is never returned; the existing daemon
+SHA-256 implementation derives a non-persistent sg1_ key. No additional index
+or metadata lookup is introduced. Case normalization of the seed is ASCII;
+Unicode case-variant folders and rich/enriched grouping parity require
+verification before switching the browser.
+
+The existing authenticated Series artwork settings response now adds a
+`publicGroupKey` alias for each stored legacy cover key, computed by the
+same owner as the Genre member group. The browser resolves both keys to
+the same cover and uses the original persisted key when changing or
+clearing an existing assignment. No settings rows, image URLs or revisions
+are migrated. This is compatibility for matching group seeds, not proof
+of equivalence for all enriched/Unicode group variants.
+
+Series members additionally carry `seriesGrouping.ancestorFolderIds`
+using the existing Recording cache folder hierarchy and public folder ID
+calculation. The legacy Web folder response adds the same IDs to the
+current page and child entries. Home's folder Series projection can use
+exact IDs instead of native descendant paths for Public-v1 members; the
+existing partial-root/full-direct-folder rules and original-folder escape
+remain unchanged. The same Series group and selected cover are reused on
+both surfaces. No new browse database, lookup or folder ID scheme is used.
+
+The standalone Web Genres module now reads membership from
+`GET /api/v1/genres/recordings` in pages of 30. The existing rich card
+presentation is retained during migration by bounded, four-at-a-time private
+Web detail reads keyed by the public member identity. The existing private
+folder endpoint accepts `backend` and `recordingId` for one exact recording:
+it resolves the backend-scoped public ID using the existing identity
+repository, verifies the cached native recording, and returns the established
+Browser-only recording/metadata model. On selection the module resolves that
+identity again before handing the recording to the existing detail/action
+owner; no title-based lookup or native ID substitution. Native paths are not
+added to Public-v1 responses. The private Web authorization and all action
+contracts are unchanged. A failed optional enrichment leaves the public card
+visible; a failed detail resolution is shown locally without selecting a
+different recording.
+
+Recording RENAME/DELETE now use the existing Public-v1 action contract
+when a public recording identity is present; MOVE remains private until
+new-folder creation is represented. Candidate search, seasons and episodes,
+plus manual assignment/withdrawal with a public identity, now use
+`POST /api/v1/backends/{backendId}/recordings/metadata/{operation}`.
+These calls reuse the existing scoped `metadata.recording.assign`
+permission, Browser CSRF, controller, revision and presentation-change
+notification. Assignment/withdrawal accept only an opaque recordingId
+and resolve the current backend-native key server-side. The existing
+candidate DTO and provider-relative poster reference are preserved.
+The separate read-only automatic metadata resolve endpoint is unchanged.
+Legacy-only recording entry points still use their existing write routes.
+Manual recording Genre selection now supports GET and POST on
+`/api/v1/backends/{backendId}/recordings/metadata/genre`. GET accepts
+exactly one opaque `recordingId` query value and uses the existing
+`recordings.view` grant; POST accepts `recordingId` and an explicit
+`genreId` (empty clears the manual selection), using the existing
+`metadata.recording.assign` grant and Browser CSRF. The canonical genre
+list, automatic genres and presentation-change notification are preserved.
+The browser uses these operations whenever it has a public identity.
+Full rich metadata detail and series hierarchy editing remain private
+pending migration. Home Series membership,
+new cover writes from opaque-only clients, and enriched/Unicode grouping
+parity remain separate work; the existing Web cover workflow is unchanged.
+
 ## Recording titles and edited cuts: public presentation parity
 
 Public-v1 projects Recording names using the established Web
@@ -122,4 +249,6 @@ These HTTP reads cannot create Timer assignments, start playback or select track
 
 ### Home discovery views
 
-`GET /api/v1/recordings?backendId=...&view=new&limit=12&offset=0` uses the same newest-recording query as Web Home. `view=movies` requires `movieReleaseYearFrom` and `movieReleaseYearTo` (inclusive) and reuses the Web owner's release-date order and manual metadata overlay. Both return the existing offset browse response with recording-only items and optional subtitle; no native path or extra permission. The legacy keyset and folder views remain unchanged.
+`GET /api/v1/recordings?backendId=...&view=new&limit=12&offset=0` uses the same newest-recording query as Web Home. `view=movies` requires `movieReleaseYearFrom` and `movieReleaseYearTo` (inclusive) and reuses the Web owner's release-date order and manual metadata overlay. Both return the existing offset browse response with recording-only items and optional subtitle. Movie items additionally expose the effective `releaseDate` from the same native/manual query selection. Home cards optionally carry the existing opaque `preferredArtworkId`; a locked manual assignment takes precedence over cached artwork, with no fallback to old artwork when the selected manual poster is absent. No native path or extra permission. The legacy keyset and folder views remain unchanged.
+
+The Web recent-movies rail uses `view=movies`, passes original response pages to its existing Home cache ticket, and preserves its year labels, release-date order, load-more/prefetch, and the existing recording detail owner. Only missing older-route support or a first page lacking the additive release date uses the established legacy query; HTTP authorization and provider failures never trigger fallback. Poster requests use the existing `variant=home` preview. The optional persisted card cache admits only scoped, authenticated page evidence; its public artwork URLs are backend-bound, not credentials. Public artwork byte responses remain subject to the existing preview cache policy.

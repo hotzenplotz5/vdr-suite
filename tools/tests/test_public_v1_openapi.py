@@ -38,10 +38,100 @@ class OpenApiDriftTests(unittest.TestCase):
     def test_current_audited_contract_and_handlers(self):
         self.assertEqual([], self.errors_for())
 
+    def test_media_import_contract_and_idempotency(self):
+        path = "/api/v1/backends/{backendId}/media-imports"
+        changed = copy.deepcopy(self.document)
+        changed["paths"][path]["post"]["parameters"] = [
+            p for p in changed["paths"][path]["post"]["parameters"]
+            if p["name"] != "Idempotency-Key"
+        ]
+        self.assert_rejected(changed, reason="Idempotency-Key requirement drifted")
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_media_processing_contract_and_security(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/media-checks/{checkId}"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace("isPublicMediaShrinkStageCreate", "obsoleteStageCreate")
+        self.assert_rejected(security_source=changed_security,
+                             reason="Media Tools route/owner/security anchor missing")
+
+    def test_media_transport_does_not_use_control_plane_authentication(self):
+        changed = copy.deepcopy(self.document)
+        path = "/api/v1/media/sessions/{sessionId}/hls/{artifact}"
+        changed["paths"][path]["get"]["security"] = [{"deviceCredential": []}]
+        self.assert_rejected(changed, reason="session-bound media authentication drifted")
+
+    def test_addon_admin_existing_browser_csrf_boundary(self):
+        changed = copy.deepcopy(self.document)
+        path = "/api/v1/addons/rectools/activation"
+        changed["paths"][path]["post"]["security"] = [{"browserSession": []}]
+        self.assert_rejected(changed, reason="existing administrator Browser authentication drifted")
+
     def test_missing_path(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends"]
         self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_manual_metadata_public_route_inventory(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/assign"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_public_preview_cache_refresh_contract_and_existing_grant(self):
+        path = guard.SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH
+        changed = copy.deepcopy(self.document)
+        del changed["paths"][path]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            "isPublicSearchTimerPreviewCacheRefresh", "obsoleteRefresh")
+        self.assert_rejected(security_source=changed_security,
+                             reason="preview cache refresh owner or existing grant missing")
+
+    def test_public_series_hierarchy_contract_and_existing_grant(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"][guard.SERIES_HIERARCHY_PATH]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            'requestToAuthorize.action = "metadata.recording.hierarchy"',
+            'requestToAuthorize.action = "obsolete.hierarchy"')
+        self.assert_rejected(security_source=changed_security,
+                             reason="existing series hierarchy authorization missing")
+        changed = copy.deepcopy(self.document)
+        changed["paths"][guard.SERIES_HIERARCHY_PATH]["post"]["security"] = [
+            {"browserSession": []}]
+        self.assert_rejected(changed, reason="series hierarchy actor/CSRF contract drifted")
+
+    def test_public_trailer_contract_and_read_scope(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/trailer"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            ' || manualMetadataOperation == "trailer"', "", 1)
+        self.assert_rejected(security_source=changed_security,
+                             reason="public metadata read scope or routing missing")
+
+    def test_missing_native_timer_aux_contract(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/native-timers/{timerId}/aux"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_missing_native_timer_aux_dispatch(self):
+        # Only the public GET dispatcher proves routing to the dedicated
+        # read owner; removing that route must invalidate the audit.
+        marker = "publicNativeTimerAuxPath(path, nativeTimerId))"
+        start = self.source.index("bool PublicApiRuntime::tryHandleGet(")
+        end = self.source.index("bool PublicApiRuntime::tryHandlePost(", start)
+        dispatch = self.source[start:end]
+        self.assertIn(marker, dispatch)
+        changed_source = (self.source[:start] +
+            dispatch.replace(marker,
+                "obsoleteNativeTimerAuxPath(path, nativeTimerId))", 1) +
+            self.source[end:])
+        self.assert_rejected(source=changed_source,
+            reason="source route handler anchor disappeared")
 
     def test_missing_post(self):
         changed = copy.deepcopy(self.document)

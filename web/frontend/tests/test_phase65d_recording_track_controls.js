@@ -289,6 +289,7 @@ function createRuntime(options) {
 
   const statusRequests = runtime.requests.filter(entry => entry.body.operation === 'track-status');
   assert.strictEqual(statusRequests.length, 1);
+  assert.strictEqual(statusRequests[0].path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(statusRequests[0].body.sessionId, id);
 
   select.value = 'audio-2';
@@ -298,7 +299,8 @@ function createRuntime(options) {
   const selections = runtime.requests.filter(entry => entry.body.operation === 'select-audio-track');
   assert.strictEqual(selections.length, 1);
   assert.strictEqual(selections[0].body.sessionId, id);
-  assert.strictEqual(selections[0].body.recordingId, 'recording-42');
+  assert.strictEqual(selections[0].path, '/api/v1/browser/recording-playback-sessions/control');
+  assert(!Object.prototype.hasOwnProperty.call(selections[0].body, 'recordingId'));
   assert.strictEqual(selections[0].body.audioTrackId, 'audio-2');
   assert.strictEqual(selections[0].body.positionSeconds, 125);
   assert.deepStrictEqual(selections[0].body.capabilities.protocols, ['progressive']);

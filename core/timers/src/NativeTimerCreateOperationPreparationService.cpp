@@ -149,6 +149,7 @@ NativeTimerCreateOperationPreparationService::prepareImpl(
     createPayload.backendId = assignment.backendId;
     createPayload.backendGeneration = assignment.backendGeneration;
     createPayload.expectedSpecification = request.expectedSpecification;
+    createPayload.aux = request.aux;
 
     const std::string serialized =
         serializeNativeTimerCreateOperationPayload(createPayload);

@@ -45,11 +45,10 @@
     const state = deps.state;
     const validate = deps.validate;
     const execute = deps.execute;
-    const moveReadback = deps.moveReadback;
     if (!shared || typeof editor !== 'function' || typeof textInput !== 'function' ||
         typeof renderFolderBrowser !== 'function' || typeof setStatus !== 'function' ||
         typeof state !== 'function' || typeof validate !== 'function' ||
-        typeof execute !== 'function' || typeof moveReadback !== 'function') {
+        typeof execute !== 'function') {
       throw new Error('Recordings 2 Move-Editor-Abhängigkeiten sind nicht verfügbar.');
     }
 
@@ -80,7 +79,11 @@
     });
 
     function resolvePendingTarget() {
-      const targetPath = resolveMoveTarget(input.value, newFolder.value, state().path);
+      const current = state();
+      const base = typeof current.folderId === 'string'
+        ? normalizeFolderPath(recording.path).split('/').slice(0, (current.breadcrumbs || []).length).join('/')
+        : current.path;
+      const targetPath = resolveMoveTarget(input.value, newFolder.value, base);
       if (!targetPath) return '';
       if (String(newFolder.value || '').trim()) {
         input.value = targetPath;
@@ -139,7 +142,6 @@
         {targetPath: targetPath},
         status,
         apply,
-        moveReadback(recording, targetPath),
         'Verschieben abgeschlossen.'
       ).catch(function () {});
     });

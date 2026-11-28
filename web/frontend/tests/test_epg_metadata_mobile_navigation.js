@@ -154,23 +154,10 @@ const metadata = {
   ]
 };
 const recording = {
-  id: 'rec-1',
-  backendId: 'default',
-  title: 'Technischer Titel',
-  path: 'Filme/Testfilm',
-  startTime: '1780000000',
-  durationSeconds: 5400,
-  sizeMb: 4096,
-  metadata: {
-    presentation: {
-      title: 'Testfilm',
-      subtitle: 'Untertitel',
-      summary: 'Beschreibung der Aufnahme.',
-      posterUrl: '/recording-artwork/default/0123456789abcdef0123456789abcdef'
-    },
-    provider: {},
-    artwork: {}
-  }
+  recordingId: 'rec_' + 'a'.repeat(32), backendId: 'default',
+  title: 'Testfilm', recordedAt: '1780000000', startTime: '1780000000',
+  durationSeconds: 5400, sizeMb: 4096, subtitle:'Untertitel',
+  description:'Beschreibung der Aufnahme.', preferredArtworkId:'b'.repeat(32)
 };
 
 const window = {
@@ -272,7 +259,8 @@ async function run() {
   const posterImage = result.querySelector('.epg-person-recording-poster').querySelector('img');
   const recordingDetails = result.querySelector('.epg-person-recording-details');
   assert.ok(recordingCard);
-  assert.strictEqual(posterImage.src, recording.metadata.presentation.posterUrl);
+  assert.strictEqual(posterImage.src, '/api/v1/recordings/' + recording.recordingId +
+    '/artwork/' + recording.preferredArtworkId + '?backendId=default');
   assert.strictEqual(recordingDetails.hidden, true);
 
   recordingCard.click();

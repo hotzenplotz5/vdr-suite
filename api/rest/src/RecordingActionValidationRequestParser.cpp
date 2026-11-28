@@ -292,7 +292,7 @@ bool RecordingActionValidationRequestParser::parsePublic(
         if (item.first != "backendId" && item.first != "recordingId" &&
             item.first != "action" && item.first != "dryRun" &&
             item.first != "newName" && item.first != "targetFolderId" &&
-            item.first != "confirmDelete")
+            item.first != "confirmDelete" && item.first != "targetFolder")
             return false;
     }
 
@@ -332,22 +332,57 @@ bool RecordingActionValidationRequestParser::parsePublic(
     if (!newName.empty())
         request.parameters["newName"] = newName;
 
-    // R3: only opaque folder identities from the existing Recording browse
-    // hierarchy are accepted. Client targetPath is never a Public-v1 field.
+    // MOVE accepts either an existing opaque folder ID or a logical
+    // display folder, including not-yet-existing folders. Never accept
+    // a native filesystem targetPath from the client.
     const std::string folderId = getValue(values, "targetFolderId");
+    const std::string folder = getValue(values, "targetFolder");
+    const bool hasId = values.count("targetFolderId") != 0U;
+    const bool hasFolder = values.count("targetFolder") != 0U;
     if (action == "MOVE")
     {
-        if (folderId.size() != 37U ||
-            folderId.compare(0, 5U, "fld1_") != 0 ||
-            !std::all_of(folderId.begin() + 5, folderId.end(),
-                [](unsigned char c) {
-                    return (c >= '0' && c <= '9') ||
-                           (c >= 'a' && c <= 'f');
-                }))
-            return false;
-        request.parameters["publicTargetFolderId"] = folderId;
+        if (hasId == hasFolder) return false;
+        if (hasId)
+        {
+            if (folderId.size() != 37U ||
+                folderId.compare(0, 5U, "fld1_") != 0 ||
+                !std::all_of(folderId.begin() + 5, folderId.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    }))
+                return false;
+            request.parameters["publicTargetFolderId"] = folderId;
+        }
+        else
+        {
+            if (folder.empty() || folder.size() > 2048U) return false;
+            if (folder != "/")
+            {
+                if (folder.front() == '/' || folder.back() == '/' ||
+                    folder.find('\\') != std::string::npos ||
+                    folder.find('~') != std::string::npos ||
+                    std::any_of(folder.begin(), folder.end(),
+                        [](unsigned char c) { return c < 0x20 || c == 0x7f; }))
+                    return false;
+                std::size_t offset = 0;
+                while (offset < folder.size())
+                {
+                    const auto end = folder.find('/', offset);
+                    const auto component = folder.substr(offset,
+                        end == std::string::npos ? end : end - offset);
+                    if (component.empty() || component.size() > 255U ||
+                        component == "." || component == ".." ||
+                        trim(component) != component)
+                        return false;
+                    if (end == std::string::npos) break;
+                    offset = end + 1U;
+                }
+            }
+            request.parameters["publicTargetFolder"] = folder;
+        }
     }
-    else if (!folderId.empty())
+    else if (hasId || hasFolder)
     {
         return false;
     }

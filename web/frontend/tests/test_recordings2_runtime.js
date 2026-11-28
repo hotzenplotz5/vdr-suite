@@ -118,7 +118,8 @@ const context = vm.createContext({
   'web/frontend/recordings2-shared.js',
   'web/frontend/recordings2-folder-artwork.js',
   'web/frontend/recordings2-actions.js',
-  'web/frontend/recordings2-folder-refresh.js',
+  'web/frontend/recordings2-folder-page.js',
+    'web/frontend/recordings2-folder-refresh.js',
   'web/frontend/recordings2-browser-cards.js',
   'web/frontend/recordings2-folder-dom-cache.js',
   'web/frontend/recordings2-browser-view.js',
@@ -256,6 +257,57 @@ async function run() {
     poster.children[0].src,
     '/vdr-suite/api/recordings/artwork?id=poster'
   );
+
+  // Exercise the actual shared card DOM owner with an opaque Public-v1
+  // member rather than reconstructing a native path for display.
+  const publicMember = {
+    recordingId: 'rec_' + 'a'.repeat(32),
+    backendId: 'backend-a',
+    title: 'Original/Title_#20',
+    recordedAt: '2026-10-20T20:15:00Z',
+    durationKnown: false,
+    durationSeconds: 3600,
+    sizeMb: 1536,
+    cardMetadata: {mediaType: 'series', title: 'Face/Off', episodeName: 'Der Fall'},
+    preferredArtworkId: 'b'.repeat(32)
+  };
+  const expectedArtwork = '/api/v1/recordings/' + publicMember.recordingId +
+    '/artwork/' + publicMember.preferredArtworkId + '?backendId=backend-a';
+  assert.strictEqual(shared.recordingTitle(publicMember), 'Face/Off');
+  assert.strictEqual(shared.recordingSubtitle(publicMember), 'Der Fall');
+  assert.strictEqual(shared.recordingPosterUrl(publicMember), expectedArtwork);
+  const publicCard = window.VdrSuiteRecordings2Cards.createRecordingCard(publicMember);
+  assert.strictEqual(publicCard.children[0].children[0].src, '/vdr-suite' + expectedArtwork);
+  assert.strictEqual(publicCard.children[1].children[0].textContent, 'Face/Off');
+  assert.strictEqual(publicCard.children[1].children[1].textContent, 'Der Fall');
+  assert.strictEqual(publicCard.children[1].children[2].textContent,
+    shared.formatStart(Date.parse(publicMember.recordedAt) / 1000) +
+      ' · Dauer unbekannt · 1.5 GB');
+  const noArtwork = Object.assign({}, publicMember, {cardMetadata: undefined, preferredArtworkId: undefined});
+  assert.strictEqual(shared.recordingTitle(noArtwork), 'Original/Title_#20');
+  assert.strictEqual(shared.createPoster(noArtwork).textContent, '▶');
+  assert.strictEqual(publicMember.backendNativeId, undefined);
+
+  // Exercise the actual folder selection owner with a client that has no
+  // private detail bridge. Public metadata is requested by the detail owner,
+  // not by the folder or by speculative per-card requests.
+  const selectionState = {backendId:'backend-a', requestSequence:0, loadingMore:true};
+  let detailRenders = 0, detailSchedules = 0;
+  const pageOwner = window.VdrSuiteRecordings2FolderPage.create({
+    getState: () => selectionState, shared,
+    normalizeRecording: test.normalizeRecording,
+    render: () => { detailRenders++; }
+  }, {schedule: () => { detailSchedules++; }});
+  pageOwner.selectRecording({...publicMember, folderCard:true});
+  assert.strictEqual(selectionState.selectedRecording.recordingId, publicMember.recordingId);
+  assert.strictEqual(selectionState.selectedRecording.backendNativeId, undefined);
+  assert.strictEqual(selectionState.selectedRecording.path, undefined);
+  assert.strictEqual(selectionState.loadingMore, false);
+  assert.strictEqual(detailRenders, 1);
+  assert.strictEqual(detailSchedules, 1);
+  pageOwner.selectRecording({...publicMember, folderCard:true, backendId:'other'});
+  assert(selectionState.error);
+  assert.strictEqual(detailSchedules, 1);
 
   const manualRecording = {
     title: 'Technischer_Titel',

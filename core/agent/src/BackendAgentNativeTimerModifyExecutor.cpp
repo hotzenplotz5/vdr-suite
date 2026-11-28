@@ -26,6 +26,9 @@ bool sameCommand(
         left.backendNativeTimerId == right.backendNativeTimerId &&
         left.expectedCurrentFingerprint == right.expectedCurrentFingerprint &&
         left.expectedSpecificationFingerprint == right.expectedSpecificationFingerprint &&
+        left.modifyAux == right.modifyAux &&
+        left.expectedAuxFingerprint == right.expectedAuxFingerprint &&
+        left.desiredAux == right.desiredAux &&
         left.jobId == right.jobId &&
         left.attemptId == right.attemptId &&
         left.claimEpoch == right.claimEpoch &&

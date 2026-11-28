@@ -772,6 +772,22 @@ RecordingMediaSessionSeekResult RecordingMediaSessionRuntime::seekStream(
     return result;
 }
 
+bool RecordingMediaSessionRuntime::markPublicBrowserTransport(const std::string& sessionId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto found = active_.find(sessionId);
+    if (found == active_.end()) return false;
+    found->second.publicBrowserTransport = true;
+    return true;
+}
+
+bool RecordingMediaSessionRuntime::usesPublicBrowserTransport(const std::string& sessionId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto found = active_.find(sessionId);
+    return found != active_.end() && found->second.publicBrowserTransport;
+}
+
 bool RecordingMediaSessionRuntime::stop(
     const std::string& sessionId,
     const std::string& reasonCode)

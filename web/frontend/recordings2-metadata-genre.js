@@ -18,51 +18,30 @@
     document.head.appendChild(style);
   }
 
+  function assignment() {
+    return global.VdrSuiteRecordings2MetadataAssignment;
+  }
+
   function backendPath(backendId) {
-    return '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +
-      '/recordings/metadata/genre';
-  }
-
-  function csrfHeaders() {
-    const session = global.VdrSuiteBrowserSession;
-    if (!session || typeof session.csrfHeaders !== 'function') return {};
-    const headers = session.csrfHeaders();
-    return headers && typeof headers === 'object' ? headers : {};
-  }
-
-  function api() {
-    const client = global.VdrSuiteClientApi;
-    if (!client || typeof client.requestJson !== 'function') {
-      throw new Error('Client API für manuelle Genres ist nicht verfügbar.');
-    }
-    return client;
+    return assignment().publicBackendPath(backendId, 'genre');
   }
 
   function genrePayload(recording, genreId) {
-    return {
-      resourceKey: text(recording && recording.backendNativeId),
-      genreId: text(genreId)
-    };
+    return Object.assign(assignment().recordingIdentity(recording), {genreId: text(genreId)});
   }
 
-  function post(backendId, payload) {
-    return api().requestJson(backendPath(backendId), {
-      method: 'POST',
-      headers: Object.assign({
-        'Content-Type': 'application/json'
-      }, csrfHeaders()),
-      body: JSON.stringify(payload || {}),
-      cache: 'no-store',
-      credentials: 'same-origin'
+  function post(backendId, recording, genreId) {
+    return assignment().postRecording(backendId, 'genre', recording, {
+      genreId: text(genreId)
     });
   }
 
   function get(backendId, recording) {
-    return api().requestJson(
-      backendPath(backendId) + '?resourceKey=' +
-        encodeURIComponent(text(recording && recording.backendNativeId)),
-      {method: 'GET', cache: 'no-store', credentials: 'same-origin'}
-    );
+    return assignment().resolveRecordingIdentity(recording, backendId).then(function (identity) {
+      const route = backendPath(backendId) + '?recordingId=' + encodeURIComponent(identity.recordingId);
+      return global.VdrSuiteClientApi.requestJson(route,
+        {method: 'GET', cache: 'no-store', credentials: 'same-origin'});
+    });
   }
 
   function mount(section, recording, backendId, dependencies) {
@@ -94,7 +73,7 @@
     const saveGenreButton = button('Genre speichern', function () {
       saveGenreButton.disabled = true;
       setStatus('Genre wird gespeichert …', false);
-      post(backendId, genrePayload(recording, genreSelect.value)).then(function (result) {
+      post(backendId, recording, genreSelect.value).then(function (result) {
         const selected = text(result && result.selectedGenreId);
         genreSelect.value = selected;
         clearGenreButton.disabled = !selected;
@@ -114,7 +93,7 @@
       clearGenreButton.disabled = true;
       saveGenreButton.disabled = true;
       setStatus('Manuelles Genre wird entfernt …', false);
-      post(backendId, genrePayload(recording, '')).then(function () {
+      post(backendId, recording, '').then(function () {
         genreSelect.value = '';
         clearGenreButton.disabled = true;
         saveGenreButton.disabled = false;
@@ -165,6 +144,6 @@
 
   global.VdrSuiteRecordings2MetadataGenre = Object.freeze({
     mount: mount,
-    __test: Object.freeze({backendPath: backendPath, genrePayload: genrePayload})
+    __test: Object.freeze({backendPath: backendPath, genrePayload: genrePayload, get: get, post: post})
   });
 }(window));

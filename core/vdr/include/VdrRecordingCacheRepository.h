@@ -45,6 +45,7 @@ struct VdrRecordingFolderPage
     int offset = 0;
     std::vector<VdrRecordingFolderEntry> folders;
     std::vector<VdrRecording> recordings;
+    int singleRecordingLeafCount = 0;
 };
 
 class VdrRecordingCacheRepository
@@ -107,9 +108,16 @@ public:
     // Public API SecurityHttpGate, not by knowing an ID.
     static std::string publicFolderId(
         const std::string& backendId, const std::string& folderPath);
+    // Same ancestor membership as the existing folder browse hierarchy.
+    static std::vector<std::string> publicFolderAncestors(
+        const std::string& backendId, const VdrRecording& recording);
     bool folderPageForBackendByPublicId(
         const std::string& backendId, const std::string& folderId,
-        int limit, int offset, VdrRecordingFolderPage& page) const;
+        int limit, int offset, VdrRecordingFolderPage& page,
+        bool homeCards = false) const;
+
+    // Existing canonical storage identity, resolved server-side only.
+    static std::string cacheKeyForRecording(const VdrRecording& recording);
 
 private:
     struct BrowseFolderSnapshot
@@ -119,6 +127,7 @@ private:
         // Path of the first direct recording in this subtree, computed once.
         std::string representativeFolderPath;
         bool hasRepresentative = false;
+        int singleRecordingLeafCount = 0;
     };
 
     struct BrowseBackendSnapshot
@@ -139,9 +148,6 @@ private:
 
     static std::string parentFolderPath(
         const std::string& folderPath);
-
-    static std::string cacheKeyForRecording(
-        const VdrRecording& recording);
 
     static std::string folderPathForRecording(
         const VdrRecording& recording);

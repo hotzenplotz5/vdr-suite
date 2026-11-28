@@ -64,7 +64,7 @@
   }
   function post(body) {
     const fetcher = global.fetch || fetch;
-    return fetcher('/api/media/recently-watched', {
+    return fetcher('/api/v1/browser/recording-playback-sessions/activity', {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -115,7 +115,7 @@
     ) || 'Aufnahme';
   }
   function subtitle(item) {
-    return text(presentation(item.recording).subtitle);
+    return text(presentation(item.recording).subtitle || item.recording.subtitle);
   }
   function posterUrl(item) {
     const metadata = recordingMetadata(item.recording);
@@ -479,7 +479,7 @@
   }
 
   function releaseYear(recording) {
-    const value = text(provider(recording).releaseDate);
+    const value = text(publicMovie(recording) ? recording.releaseDate : provider(recording).releaseDate);
     const match = value.match(/^(\d{4})(?:-(\d{2})-(\d{2}))?$/);
     if (!match) return 0;
     const year = Number(match[1]);
@@ -494,8 +494,14 @@
     return year;
   }
 
+  function publicMovie(recording) {
+    return Boolean(recording && recording.kind === 'recording' &&
+      /^rec_[0-9a-f]{32}$/.test(text(recording.recordingId)) &&
+      typeof recording.recordedAt === 'string' && typeof recording.releaseDate === 'string');
+  }
+
   function recentMovie(recording, currentYear) {
-    if (text(provider(recording).contentKind) !== 'movie') return false;
+    if (!publicMovie(recording) && text(provider(recording).contentKind) !== 'movie') return false;
     const year = releaseYear(recording);
     const nowYear = Number(currentYear);
     return Number.isInteger(nowYear) &&
@@ -540,7 +546,10 @@
 
   function fetchMoviePage(client, backendId, generation, currentYear, offset, limit, cache) {
     const owner = discoveryTestApi();
-    return Promise.resolve(client.fetchClientRecordings({
+    const read = typeof client.fetchPublicHomeMovies === 'function'
+      ? client.fetchPublicHomeMovies : client.fetchClientRecordings;
+    let receivedPage = false;
+    return Promise.resolve(read.call(client, {
       query: {
         backend: backendId,
         limit: limit,
@@ -551,14 +560,18 @@
         movieReleaseYearTo: currentYear
       },
       cache: 'no-store',
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      onPage: function (page) {
+        receivedPage = true;
+        if (cache) cache.accept(page);
+      }
     })).then(function (payload) {
       if (!currentLoad(backendId, generation)) return null;
       const rawPage = list(payload, 'recordings');
       const nextOffset = offset + rawPage.length;
       const total = pageTotal(payload, nextOffset);
       if (!rawPage.length && nextOffset < total) throw new Error('Incomplete movie page');
-      if (cache) cache.accept(payload);
+      if (cache && !receivedPage) cache.accept(payload);
       const seen = new Set();
       const movies = owner.canonicalRecordings(payload, backendId).filter(function (recording) {
         const id = recordingId(recording);

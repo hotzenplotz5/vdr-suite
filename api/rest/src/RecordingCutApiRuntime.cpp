@@ -1,6 +1,7 @@
 #include "RecordingCutApiRuntime.h"
 
 #include "VdrRecordingNativeIdentity.h"
+#include "PublicRecordingEditRoute.h"
 
 #include <algorithm>
 #include <cctype>
@@ -121,7 +122,15 @@ struct Request
 {
     std::string backendId;
     std::string recordingId;
+    std::string publicRecordingId;
+    std::string expectedNativeId;
 };
+
+std::string responseRecordingId(const Request& request)
+{
+    return request.publicRecordingId.empty()
+        ? request.recordingId : request.publicRecordingId;
+}
 
 bool parseRequest(const std::string& target, Request& request)
 {
@@ -399,19 +408,56 @@ const VdrRecording* exactEditedRecording(
     return matches == 1U ? match : nullptr;
 }
 
+std::string publicEditedIdForRecording(
+    const std::string& backendId,
+    const VdrRecording* editedRecording,
+    const RecordingCutApiRuntime::PublicEditedRecordingIdResolver& resolver)
+{
+    if (editedRecording == nullptr || !resolver) return {};
+    const std::string id =
+        resolver(backendId, editedRecording->backendNativeId);
+    return PublicRecordingEditRoute::validRecordingId(id)
+        ? id : std::string();
+}
+
+std::string publicEditedIdForKey(
+    const std::string& backendId,
+    const std::string& editedKey,
+    const RecordingCutApiRuntime::RecordingLookup& recordingLookup,
+    const RecordingCutApiRuntime::PublicEditedRecordingIdResolver& resolver)
+{
+    if (!recordingLookup || !resolver ||
+        !VdrRecordingNativeIdentity::isValidKey(editedKey)) return {};
+    VdrRecordingNativeCutState state;
+    state.editedRecordingFound = true;
+    state.editedRecordingKey = editedKey;
+    const std::vector<VdrRecording> recordings = recordingLookup(backendId);
+    return publicEditedIdForRecording(
+        backendId, exactEditedRecording(recordings, backendId, state),
+        resolver);
+}
+
 void appendRecordingProjection(
     std::ostringstream& json,
-    const VdrRecording& recording)
+    const VdrRecording& recording,
+    const std::string& publicEditedId)
 {
-    json << "{\"id\":\"" << jsonEscape(recording.id)
-         << "\",\"recordingId\":\"" << jsonEscape(recording.id)
+    const std::string& id = publicEditedId.empty()
+        ? recording.id : publicEditedId;
+    json << "{\"id\":\"" << jsonEscape(id)
+         << "\",\"recordingId\":\"" << jsonEscape(id)
          << "\",\"backendId\":\"" << jsonEscape(recording.backendId)
-         << "\",\"title\":\"" << jsonEscape(recording.title)
-         << "\",\"path\":\"" << jsonEscape(recording.path)
-         << "\",\"recordingPath\":\"" << jsonEscape(recording.path)
-         << "\",\"backendNativeId\":\""
-         << jsonEscape(recording.backendNativeId)
-         << "\",\"startTime\":\"" << jsonEscape(recording.startTime)
+         << "\",\"title\":\"" << jsonEscape(recording.title) << "\"";
+    if (publicEditedId.empty())
+    {
+        // Preserve the legacy Webfrontend response unchanged. Public-v1
+        // exposes neither native IDs/paths nor the internal cut key.
+        json << ",\"path\":\"" << jsonEscape(recording.path)
+             << "\",\"recordingPath\":\"" << jsonEscape(recording.path)
+             << "\",\"backendNativeId\":\""
+             << jsonEscape(recording.backendNativeId) << "\"";
+    }
+    json << ",\"startTime\":\"" << jsonEscape(recording.startTime)
          << "\",\"durationSeconds\":" << recording.durationSeconds
          << ",\"sizeMb\":" << recording.sizeMb
          << "}";
@@ -429,11 +475,12 @@ ApiResponse serializeAvailable(
     const Request& request,
     const VdrRecordingNativeCutState& state,
     const VdrRecording* editedRecording,
+    const std::string& publicEditedId,
     const std::string& operationState)
 {
     std::ostringstream json;
     json << "{\"backendId\":\"" << jsonEscape(request.backendId)
-         << "\",\"recordingId\":\"" << jsonEscape(request.recordingId)
+         << "\",\"recordingId\":\"" << jsonEscape(responseRecordingId(request))
          << "\",\"availability\":\"available\""
          << ",\"ready\":" << (state.ready ? "true" : "false")
          << ",\"reason\":\"" << jsonEscape(state.reason) << "\""
@@ -455,15 +502,16 @@ ApiResponse serializeAvailable(
          << (cutOperationPending(operationState) ? "true" : "false")
          << ",\"operationVerified\":"
          << (operationState == "verified" ? "true" : "false");
-    if (state.editedRecordingFound)
+    if (state.editedRecordingFound && request.publicRecordingId.empty())
     {
         json << ",\"editedRecordingKey\":\""
              << jsonEscape(state.editedRecordingKey) << "\"";
     }
-    if (editedRecording != nullptr)
+    if (editedRecording != nullptr &&
+        (request.publicRecordingId.empty() || !publicEditedId.empty()))
     {
         json << ",\"editedRecording\":";
-        appendRecordingProjection(json, *editedRecording);
+        appendRecordingProjection(json, *editedRecording, publicEditedId);
     }
     json << "}";
 
@@ -477,7 +525,8 @@ ApiResponse serializeAvailable(
 
 ApiResponse serializeAssigned(
     const StartBody& request,
-    const RecordingCutDispatchResult& dispatch)
+    const RecordingCutDispatchResult& dispatch,
+    const std::string& publicEditedId)
 {
     ApiResponse response;
     response.statusCode = dispatch.verified ? 200 : 202;
@@ -485,7 +534,7 @@ ApiResponse serializeAssigned(
     response.headers["Cache-Control"] = "no-store";
     response.body =
         "{\"backendId\":\"" + jsonEscape(request.request.backendId) +
-        "\",\"recordingId\":\"" + jsonEscape(request.request.recordingId) +
+        "\",\"recordingId\":\"" + jsonEscape(responseRecordingId(request.request)) +
         "\",\"operationId\":\"" + jsonEscape(request.start.operationId) +
         "\",\"accepted\":true,\"replayed\":" +
         std::string(dispatch.replayed ? "true" : "false") +
@@ -496,9 +545,13 @@ ApiResponse serializeAssigned(
         ",\"commandId\":\"" + jsonEscape(dispatch.commandId) +
         "\",\"requestFingerprint\":\"" +
         jsonEscape(dispatch.requestFingerprint) + "\"" +
-        (dispatch.verified
+        (dispatch.verified && request.request.publicRecordingId.empty()
             ? ",\"editedRecordingKey\":\"" +
                 jsonEscape(dispatch.editedRecordingKey) + "\""
+            : std::string()) +
+        (!publicEditedId.empty()
+            ? ",\"editedRecordingId\":\"" +
+                jsonEscape(publicEditedId) + "\""
             : std::string()) +
         "}";
     return response;
@@ -511,6 +564,30 @@ int dispatchFailureStatus(const std::string& reason)
         return 409;
     if (reason == "invalid_recording_cut_assignment_request") return 400;
     return 503;
+}
+
+bool bindPublicRecordingIdentity(
+    Request& request,
+    const RecordingCutApiRuntime::PublicRecordingResolver& resolver,
+    ApiResponse& response)
+{
+    if (request.publicRecordingId.empty()) return true;
+    if (!resolver)
+    {
+        response = errorResponse(503, "public_recording_identity_unavailable");
+        return false;
+    }
+    VdrRecording found;
+    if (!resolver(request.backendId, request.publicRecordingId, found) ||
+        found.backendId != request.backendId ||
+        found.id.empty() || found.backendNativeId.empty())
+    {
+        response = errorResponse(404, "recording_not_found");
+        return false;
+    }
+    request.recordingId = found.id;
+    request.expectedNativeId = found.backendNativeId;
+    return true;
 }
 
 bool resolveNativeIdentity(
@@ -541,6 +618,12 @@ bool resolveNativeIdentity(
     if (matches != 1U)
     {
         response = errorResponse(409, "recording_identity_ambiguous");
+        return false;
+    }
+    if (!request.expectedNativeId.empty() &&
+        selected->backendNativeId != request.expectedNativeId)
+    {
+        response = errorResponse(409, "recording_identity_stale");
         return false;
     }
     if (selected->backendNativeId.empty() ||
@@ -655,10 +738,25 @@ void RecordingCutApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     recordingLookup_ = {};
+    publicRecordingResolver_ = {};
+    publicEditedRecordingIdResolver_ = {};
     backendResolver_ = {};
     backendWritePolicy_ = {};
     startDispatcher_ = {};
     operationStateResolver_ = {};
+}
+
+void RecordingCutApiRuntime::setPublicRecordingResolver(PublicRecordingResolver resolver)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingResolver_ = std::move(resolver);
+}
+
+void RecordingCutApiRuntime::setPublicEditedRecordingIdResolver(
+    PublicEditedRecordingIdResolver resolver)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicEditedRecordingIdResolver_ = std::move(resolver);
 }
 
 bool RecordingCutApiRuntime::configured() const
@@ -681,21 +779,44 @@ bool RecordingCutApiRuntime::tryHandleGet(
     const std::string& requestTarget,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingCutRoute) return false;
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/cut", publicRecordingId);
+    if (!publicV1 && path != RecordingCutRoute) return false;
+
+    std::string translated = requestTarget;
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId))
+        {
+            response = errorResponse(400, "recording_cut_request_invalid");
+            return true;
+        }
+        translated = std::string(RecordingCutRoute) +
+            "?backend=" + backendId + "&recordingId=" + publicRecordingId;
+    }
 
     Request request;
-    if (!parseRequest(requestTarget, request))
+    if (!parseRequest(translated, request))
     {
         response = errorResponse(400, "recording_cut_request_invalid");
         return true;
     }
 
     RecordingLookup recordingLookup;
+    PublicRecordingResolver publicRecordingResolver;
+    PublicEditedRecordingIdResolver publicEditedRecordingIdResolver;
     BackendResolver backendResolver;
     OperationStateResolver operationStateResolver;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         recordingLookup = recordingLookup_;
+        publicRecordingResolver = publicRecordingResolver_;
+        publicEditedRecordingIdResolver = publicEditedRecordingIdResolver_;
         backendResolver = backendResolver_;
         operationStateResolver = operationStateResolver_;
     }
@@ -704,6 +825,14 @@ bool RecordingCutApiRuntime::tryHandleGet(
     {
         response = errorResponse(503, "recording_cut_runtime_unavailable");
         return true;
+    }
+
+    if (publicV1)
+    {
+        request.publicRecordingId = publicRecordingId;
+        if (!bindPublicRecordingIdentity(
+                request, publicRecordingResolver, response))
+            return true;
     }
 
     std::string recordingKey;
@@ -733,10 +862,15 @@ bool RecordingCutApiRuntime::tryHandleGet(
         ? operationStateResolver(request.backendId, recordingKey)
         : "none";
 
+    const std::string publicEditedId = publicV1
+        ? publicEditedIdForRecording(
+            request.backendId, editedRecording, publicEditedRecordingIdResolver)
+        : std::string();
     response = serializeAvailable(
         request,
         state,
         editedRecording,
+        publicEditedId,
         operationState);
     return true;
 }
@@ -746,8 +880,12 @@ bool RecordingCutApiRuntime::tryHandlePost(
     const std::string& body,
     ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != RecordingCutRoute) return false;
-    if (requestTarget != RecordingCutRoute)
+    const std::string path = requestPath(requestTarget);
+    std::string publicRecordingId;
+    const bool publicV1 = PublicRecordingEditRoute::matchPath(
+        path, "/cut", publicRecordingId);
+    if (!publicV1 && path != RecordingCutRoute) return false;
+    if (!publicV1 && requestTarget != RecordingCutRoute)
     {
         response = errorResponse(400, "recording_cut_start_request_invalid");
         return true;
@@ -760,13 +898,31 @@ bool RecordingCutApiRuntime::tryHandlePost(
         return true;
     }
 
+    if (publicV1)
+    {
+        std::string backendId;
+        if (!PublicRecordingEditRoute::validRecordingId(publicRecordingId) ||
+            !PublicRecordingEditRoute::backendFromTarget(
+                requestTarget, backendId) ||
+            request.request.recordingId != publicRecordingId ||
+            request.request.backendId != backendId)
+        {
+            response = errorResponse(400, "recording_cut_start_request_invalid");
+            return true;
+        }
+    }
+
     RecordingLookup recordingLookup;
+    PublicRecordingResolver publicRecordingResolver;
+    PublicEditedRecordingIdResolver publicEditedRecordingIdResolver;
     BackendResolver backendResolver;
     BackendWritePolicy backendWritePolicy;
     StartDispatcher startDispatcher;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         recordingLookup = recordingLookup_;
+        publicRecordingResolver = publicRecordingResolver_;
+        publicEditedRecordingIdResolver = publicEditedRecordingIdResolver_;
         backendResolver = backendResolver_;
         backendWritePolicy = backendWritePolicy_;
         startDispatcher = startDispatcher_;
@@ -793,6 +949,14 @@ bool RecordingCutApiRuntime::tryHandlePost(
                 ? "recording_cut_backend_write_unavailable"
                 : writeAccess.reasonCode);
         return true;
+    }
+
+    if (publicV1)
+    {
+        request.request.publicRecordingId = publicRecordingId;
+        if (!bindPublicRecordingIdentity(
+                request.request, publicRecordingResolver, response))
+            return true;
     }
 
     std::string recordingKey;
@@ -827,7 +991,13 @@ bool RecordingCutApiRuntime::tryHandlePost(
                     502, "recording_cut_replay_probe_invalid");
                 return true;
             }
-            response = serializeAssigned(request, replay);
+            const std::string publicEditedId =
+                publicV1 && replay.verified
+                ? publicEditedIdForKey(
+                    request.request.backendId, replay.editedRecordingKey,
+                    recordingLookup, publicEditedRecordingIdResolver)
+                : std::string();
+            response = serializeAssigned(request, replay, publicEditedId);
             return true;
         }
 
@@ -865,6 +1035,12 @@ bool RecordingCutApiRuntime::tryHandlePost(
         return true;
     }
 
-    response = serializeAssigned(request, dispatch);
+    const std::string publicEditedId =
+        publicV1 && dispatch.verified
+        ? publicEditedIdForKey(
+            request.request.backendId, dispatch.editedRecordingKey,
+            recordingLookup, publicEditedRecordingIdResolver)
+        : std::string();
+    response = serializeAssigned(request, dispatch, publicEditedId);
     return true;
 }

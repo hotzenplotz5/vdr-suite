@@ -76,6 +76,8 @@ user confirmation; a 412 forces a read-only refresh, never an automatic
 mutation retry. `timers.create` and `searchtimers.create` cannot be
 granted to `*`.
 
+**F6 Device-Berechtigung (22.11.2026):** `recordings.edit` kann für ein gekoppeltes Gerät ausschließlich mit einem konkreten Backend durch einen Administrator zugewiesen werden. Das schließt native Schnittmarken und Schneiden ein, aber es wird **nie** durch Pairing, reines Ansehen oder Wiedergabe automatisch vergeben. Web- und Reference-JS-Clients verweigern `recordings.edit@*` vor dem POST.
+
 **Webfrontend-Aktualisierung (PR #539):** Unter `Einstellungen` werden
 `Wartende Geräte` und `Gekoppelte Geräte (TV & Apps)` beim Öffnen
 und danach alle zehn Sekunden automatisch lesend abgefragt, solange
@@ -120,6 +122,7 @@ The supported Device grants are the following reviewed permissions:
 
 - `channels.view`
 - `recordings.view` (read-only Public-v1 recording search)
+- `recordings.edit` (explicitly approved, exact-backend Recording editor: view, rename, move, delete, native marks and cut; no automatic grant or wildcard)
 - `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
 - `timers.create` (EPG-selected native Timer intent)

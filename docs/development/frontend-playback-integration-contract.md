@@ -193,3 +193,53 @@ For browser-local Volume/Mute, real acceptance additionally verifies audible vol
 For classified failure work, acceptance must prove the detailed reason remains available, the normalized class is truthful and classification does not itself trigger silent provider/profile/session recovery.
 
 This contract stays inside Phase 65.D. It does not authorize Phase 66, Live-TV timeshift or unrelated media work.
+
+## Public-v1 Browser Recording CREATE (source stage)
+
+`POST /api/v1/browser/recording-playback-sessions` accepts the existing Browser capability/start/audio-preference body with a canonical `rec_` identity. The existing Browser Session, CSRF and backend-scoped `media.recording.play` permission apply. The daemon resolves the ID through the existing PublicRecordingPlaybackTargetResolver and passes the authorized recording into the same RecordingMediaSessionController. The Browser response retains the established presentation contract and scoped cookie while returning the public identity. Device CREATE, Device registry, Browser media byte routes and existing session operations remain unchanged. This is the first source stage, not proof of full Browser migration or real playback acceptance.
+
+The production progressive owner in `session-frontend-sync.js`, HLS base owner and HLS restart/resume decorator select this CREATE when the existing shared Recording identity helper supplies a canonical ID. Older cached cards lacking a canonical ID retain the legacy CREATE until their identity migration; there is no retry on the legacy route after a Public-v1 CREATE failure. Playback controls, status, stop, progress and media byte migration remain separate. The reference client exposes `createBrowserRecordingPlaybackSession` and the existing Device method is unchanged.
+
+## Public-v1 Browser Recording control (source stage)
+
+`POST /api/v1/browser/recording-playback-sessions/control` uses the same Browser Session, CSRF, exact backend playback grant and Recording MediaSession owner as the existing browser operations. It accepts `stop`, `seek` and `playback-status` with the existing session identity and absolute seek position. The control route never creates a session or dispatches a Device/Live-TV operation. Its response preserves the existing playback contract, media paths, normalized position, state and cookie cleanup; the old native `recordingId` is omitted from Public-v1 controls because the active session already binds the recording. Existing legacy requests and responses remain unchanged. No new status cadence or polling is introduced.
+
+| Browser baseline | Public-v1 parity assertion |
+| --- | --- |
+| User stop and teardown keepalive | Same owner and session, same stop result and cookie cleanup |
+| Progressive seek, including pause | Same absolute position, session identity, and transport continuity |
+| HLS resume/restart | Existing replacement owner and CREATE path; status migrates without a new restart path |
+| Pending index and failure status | Existing index completion/readback and reason semantics |
+| Session ownership and grant errors | Existing Browser CSRF, backend-scoped playback grant and stored owner |
+
+Kodi/Plex provide familiar stop, seek and resume interactions; no current competitor runtime test is available for this migration. The proven VDR-Suite browser behavior is the acceptance baseline. Track operations and media bytes remain separate. These are source/test assertions, not real-VDR acceptance.
+
+## Public-v1 Browser Recording track controls (source stage)
+
+The existing track decorator now sends `track-status`, `select-audio-track` and `select-subtitle-track` to the same versioned Browser control route. Progressive audio selection uses the owned MediaSession as its recording binding; the previous native Recording ID in the request was redundant with that stored owner. Legacy parser/recording consistency validation is unchanged. Track status and audio selection omit native Recording identity in Public-v1 responses. Subtitle delivery retains WebVTT and OFF JSON, including the existing absolute stream base. HLS audio replacement continues to use the existing replacement owner and canonical CREATE. No new status cadence or playback owner is introduced. Existing production-style lifecycle, audio and subtitle tests cover the versioned requests; real-VDR acceptance remains separate. Media bytes and history are still separate migration slices.
+
+## Public-v1 Browser progress and activity (source stage)
+
+Browser checkpoint revision, progress and clear use `POST /api/v1/browser/recording-playback-sessions/progress`; observed recent activity uses `POST /api/v1/browser/recording-playback-sessions/activity`. Both resolve a canonical rec_ on the already authorized backend through the existing daemon resolver and call the existing ContinueWatchingApiRuntime. Revision/CAS, operation replay, resume evidence, actor scope, pause/stop completion and SSE notification cadence are unchanged. Legacy cards without canonical identity still use the existing endpoints until the identity bridge is removed; a failed Public-v1 request is never retried through legacy. The Home list reads are intentionally still on their previous routes in this slice to preserve artwork, cached card data and revision fields until their public projection is migrated. No new service, permission, timer or polling is introduced. Real VDR acceptance remains separate.
+
+## Public-v1 Browser history list (source stage)
+
+The `list` operation on the versioned progress/activity routes uses the existing actor/backend history list, revision, metadata precedence and cache. The public nested Recording carries canonical rec_ identity, display fields and the canonical preferred-artwork identity from the existing image owner; no native path or old metadata image URL is emitted. Home continues to render its existing rails and SSE invalidation; the authenticated Home cache scope is transferred to the versioned list. A selected manual assignment uses its canonical poster when available, not a stale alternative provider poster. Legacy list clients retain their original shape. No new service or permission. Actual artwork and playback behavior still need the final VDR acceptance.
+
+## Public-v1 Browser media transport (source stage)
+
+Canonical Browser Recording CREATE emits `/api/v1/media/sessions/{sessionId}/...` (progressive-fMP4 and HLS) and a cookie scoped to that exact versioned path. The existing nginx cookie rewrite applies the configured base path once. The existing active Recording session stores its transport marker, removed on stop/reap; the existing Gateway still authenticates the bound media grant and active lease before checking that owner. Device registry and revocation checks remain unchanged; legacy sessions retain their own media paths, including on versioned control responses. No new session owner, database schema, permission, polling or proxy rule. Real Browser picture/sound/seek/stop and reverse-proxy cookie acceptance remain required.
+
+## Browser CREATE identity cleanup
+
+All three recording CREATE entry points (progressive, initial HLS and HLS restart/audio replacement) now use only the canonical Public-v1 Browser endpoint. Current cards use their server-supplied rec_ immediately. An old card without that ID first uses the existing exact-backend Recording ID resolver; a failed resolution or failed Public-v1 request is never retried as a native-ID CREATE. The shared resolver is the remaining compatibility read and will be removed only when its older card producers have been migrated. No new playback owner, permission or request timer.
+
+## Browser history identity cleanup
+
+The existing playback observer and Home restart now use Public-v1 progress/activity only. The shared Recording resolver remembers a successful exact old-card mapping only for that card object, backend and native ID so a successful canonical CREATE and its history observer agree without another catalog read. A later admission and all other Recording actions still revalidate an old card rather than consuming the previous playback mapping. Current cards already provide the rec_ identity. The existing CAS baseline, explicit Home revision, mutation queues and SSE notifications are unchanged. No private history mutation, second durable identity store or new polling. Legacy server interfaces stay available to old external clients. Final cleanup of old card producers remains separate.
+
+The compatibility identity admission is part of the existing shared resolver rather than a separate playback helper. Its optional admission consumer records only a successful old-card identity; ordinary actions still call the same resolver without that consumer. The existing modular-runtime size limit remains unchanged.
+
+## Public folder selection
+
+A public folder member opens the existing Recording detail/Playback owner directly using its canonical rec_ and admitted backend. The existing metadata detail owner reads API-v1 on demand, without a private native detail projection or speculative per-card read. Detail display uses recordedAt and the visible breadcrumb; related-recording comparisons recognize canonical IDs and do not equate missing paths. Legacy folder producers are not yet removed.

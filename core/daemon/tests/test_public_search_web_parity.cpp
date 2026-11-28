@@ -25,6 +25,9 @@ GlobalSearchRecording recording(
     item.matchReason = "person";
     item.subtitle = "Episode";
     item.startTime = "1760000000";
+    item.durationSeconds = 5400;
+    item.sizeMb = 4096;
+    item.artworkAvailable = true;
     return item;
 }
 
@@ -83,12 +86,58 @@ int main()
         assert(page.items[index].personKey == "bruce willis\nactor");
         assert(page.items[index].matchReason == "person");
         assert(page.items[index].subtitle == "Episode");
+        assert(page.items[index].startTime == web.recordings[index].startTime);
+        assert(page.items[index].durationSeconds == web.recordings[index].durationSeconds);
+        assert(page.items[index].sizeMb == web.recordings[index].sizeMb);
+        assert(page.items[index].artworkAvailable);
         assert(page.items[index].recordingId.rfind("rec_", 0U) == 0U);
         assert(page.items[index].channelId.empty());
         assert(page.items[index].eventId.empty());
         assert(page.items[index].recordingId.find("private") == std::string::npos);
     }
     assert(page.items.front().title != snapshot.front().title);
+
+    // A single cached portrait from the same Web portrait owner is
+    // reused for all matching records, without extra profile queries.
+    GlobalSearchPersonPortrait portrait;
+    portrait.name = "Bruce Willis";
+    portrait.role = "actor";
+    portrait.personKey = "bruce willis\nactor";
+    portrait.backendNativeId = "b";
+    portrait.index = 3;
+    portrait.assignmentRevision = 7;
+    portrait.localPath = "/private/portrait.jpg";
+    web.portraits.push_back(portrait);
+    int portraitLookups = 0;
+    const auto portraitPage = PublicSearchProjection::project(
+        request, web, snapshot, lookup,
+        [&portraitLookups](const VdrRecording& owner,
+                          const GlobalSearchPersonPortrait& source) {
+            ++portraitLookups;
+            assert(owner.backendNativeId == "b");
+            assert(source.index == 3 && source.assignmentRevision == 7);
+            return std::string("0123456789abcdef0123456789abcdef");
+        },
+        [](const VdrRecording& owner, const GlobalSearchRecording& hit) {
+            assert(owner.backendNativeId == hit.backendNativeId);
+            return std::string("abcdef0123456789abcdef0123456789");
+        });
+    assert(portraitPage.items.size() == 3U && portraitLookups == 1);
+    for (const auto& item : portraitPage.items)
+    {
+        assert(item.preferredArtworkId == "abcdef0123456789abcdef0123456789");
+        assert(item.personPortraitRecordingId == SecondId);
+        assert(item.personPortraitArtworkId == "0123456789abcdef0123456789abcdef");
+    }
+    web.portraits.front().backendNativeId = "deleted";
+    const auto missingPortrait = PublicSearchProjection::project(
+        request, web, snapshot, lookup,
+        [](const VdrRecording&, const GlobalSearchPersonPortrait&) {
+            assert(false);
+            return std::string{};
+        });
+    assert(missingPortrait.items.size() == 3U);
+    assert(missingPortrait.items.front().personPortraitArtworkId.empty());
 
     // An indexed, already deleted recording is not leaked and must not
     // cause HTTP 503 for the still-current Hobbit results.
@@ -127,6 +176,8 @@ int main()
         event.subtitle = "Hobbits und die Wissenschaftspause";
         event.startTime = "1792000000";
         event.endTime = "1792001800";
+        event.durationSeconds = 1800;
+        event.artworkAvailable = true;
         epg.epg.push_back(event);
     }
     request.epg = true;
@@ -141,6 +192,35 @@ int main()
     assert(epgPage.items.front().matchedPerson == "Ewan McGregor");
     assert(epgPage.items.front().personKey == "ewan mcgregor\nactor");
     assert(epgPage.items.front().channelName == "Test channel");
+    assert(epgPage.items.front().durationSeconds == 1800);
+    assert(epgPage.items.front().artworkAvailable);
+
+    // A person may match only the EPG page while the Web portrait owner
+    // already knows an image from another currently resolved recording.
+    portrait.name = "Ewan McGregor";
+    portrait.personKey = "ewan mcgregor\nactor";
+    portrait.backendNativeId = "b";
+    epg.portraits.push_back(portrait);
+    const auto portraitId = [](const VdrRecording& owner,
+        const GlobalSearchPersonPortrait& source) {
+        assert(owner.backendNativeId == "b");
+        assert(source.personKey == "ewan mcgregor\nactor");
+        return std::string("0123456789abcdef0123456789abcdef");
+    };
+    const auto epgOnly = PublicSearchProjection::project(
+        request, epg, snapshot, lookup, portraitId);
+    assert(epgOnly.items.front().personPortraitArtworkId.empty());
+    request.epg = false;
+    request.combined = true;
+    const auto combined = PublicSearchProjection::project(
+        request, epg, snapshot, lookup, portraitId);
+    assert(combined.status == PublicSearchStatus::ok);
+    assert(combined.items.empty() && combined.totalCount == 0U);
+    assert(combined.epgItems.size() == 2U && combined.epgTotalCount == 2U);
+    assert(combined.epgItems.front().personPortraitRecordingId == SecondId);
+    assert(combined.epgItems.front().personPortraitArtworkId ==
+        "0123456789abcdef0123456789abcdef");
+    request.combined = false;
 
     // Never allow an item from another backend through the public adapter.
     web.status = "ready";

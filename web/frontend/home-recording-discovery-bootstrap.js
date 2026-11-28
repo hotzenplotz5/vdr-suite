@@ -445,10 +445,6 @@
     return text(recording && recording.backendId) || text(fallback);
   }
 
-  function recordingBackendNativeId(recording) {
-    return text(recording && recording.backendNativeId);
-  }
-
   function recordingMetadata(recording) {
     return recording && recording.metadata && typeof recording.metadata === 'object'
       ? recording.metadata
@@ -463,6 +459,9 @@
     const provider = metadata.provider && typeof metadata.provider === 'object'
       ? metadata.provider
       : {};
+    const card = recording && recording.cardMetadata;
+    if (/^rec_[0-9a-f]{32}$/.test(recordingId(recording)))
+      return text(card && card.title) || text(recording.title) || 'Aufnahme';
     return text(
       presentation.title ||
       provider.seriesTitle ||
@@ -479,6 +478,9 @@
     const provider = metadata.provider && typeof metadata.provider === 'object'
       ? metadata.provider
       : {};
+    const card = recording && recording.cardMetadata;
+    if (/^rec_[0-9a-f]{32}$/.test(recordingId(recording)))
+      return text(card && card.episodeName) || text(recording.subtitle);
     return text(presentation.subtitle || provider.episodeTitle);
   }
 
@@ -490,6 +492,11 @@
     const artwork = metadata.artwork && typeof metadata.artwork === 'object'
       ? metadata.artwork
       : {};
+    const id = recordingId(recording);
+    const artworkId = text(recording && recording.preferredArtworkId);
+    const backendId = recordingBackendId(recording);
+    if (/^rec_[0-9a-f]{32}$/.test(id) && /^[0-9a-f]{32}$/.test(artworkId) && backendId)
+      return '/api/v1/recordings/' + id + '/artwork/' + artworkId + '?backendId=' + encodeURIComponent(backendId);
     return text(presentation.posterUrl || artwork.preferredUrl);
   }
 
@@ -502,6 +509,24 @@
   function recordingMetadataProjection(recording, richMetadata) {
     if (!recording) return recording;
     const rich = richMetadata && richMetadata.available === true ? richMetadata : {};
+    const id = recordingId(recording);
+    if (/^rec_[0-9a-f]{32}$/.test(id)) {
+      if (rich.available !== true) return recording;
+      const card = recording.cardMetadata || {};
+      const poster = recordingMetadataPosterUrl(rich);
+      const prefix = '/api/v1/recordings/' + id + '/artwork/';
+      const suffix = '?backendId=' + encodeURIComponent(recordingBackendId(recording));
+      const artworkId = poster.startsWith(prefix) && poster.endsWith(suffix)
+        ? poster.slice(prefix.length, -suffix.length) : '';
+      return Object.assign({}, recording, {
+        cardMetadata:Object.assign({}, card, {
+          title:text(rich.title) || text(card.title) || text(recording.title),
+          episodeName:text(rich.episodeName) || text(card.episodeName)
+        }),
+        preferredArtworkId:/^[0-9a-f]{32}$/.test(artworkId)
+          ? artworkId : recording.preferredArtworkId
+      });
+    }
     const sourceMetadata = recordingMetadata(recording);
     const sourcePresentation = sourceMetadata.presentation &&
       typeof sourceMetadata.presentation === 'object'
@@ -677,7 +702,7 @@
   }
 
   function folderPath(entry) {
-    return text(entry && (entry.path || entry.folderPath || entry.name));
+    return text(entry && (entry.path || entry.folderPath || entry.folderId || entry.name));
   }
 
   function folderLabel(entry) {
@@ -699,7 +724,7 @@
     const series = discovery && typeof discovery.folderSeriesCard === 'function'
       ? discovery.folderSeriesCard(entry, backendId) : null;
     const artwork = createInlineArtwork({title: series ? series.title : folderLabel(entry),
-      metadata:{presentation:{posterUrl: series ? series.posterUrl : text(entry.representativePosterUrl)}}});
+      metadata:{presentation:{posterUrl: series ? series.posterUrl : text(entry.representativePosterUrl) || recordingPosterUrl(entry.representativeRecording)}}});
     card.appendChild(artwork);
 
     const copy = doc.createElement('span');
@@ -814,7 +839,7 @@
     }
     expansion.__appendFolderArtwork = function (added) {
       if (!live()) return;
-      added = added.filter(item => !item.sharedSeries && typeof item.entry.representativePosterUrl !== 'string');
+      added = added.filter(item => !item.sharedSeries && !/^fld1_[0-9a-f]{32}$/.test(folderPath(item.entry)) && typeof item.entry.representativePosterUrl !== 'string');
       if (observer) {
         added.forEach(item => { items.set(item.card, item); observer.observe(item.card); });
       } else {
@@ -851,7 +876,7 @@
     const recordings = [];
 
     function page(offset) {
-      return Promise.resolve(client.fetchClientGenreRecordings({
+      return Promise.resolve(client.fetchPublicGenreRecordings({
         backendId: backendId,
         genreId: genreId,
         limit: INLINE_PAGE_LIMIT,
@@ -925,10 +950,6 @@
     }
 
     const settled = new Array(recordings.length);
-    recordings.forEach(function (recording, index) {
-      const cardMetadata = recording.nativeCardMetadata;
-      if (cardMetadata && cardMetadata.available === true) settled[index] = cardMetadata;
-    });
     let cursor = 0;
     let published = 0;
 
@@ -957,21 +978,22 @@
       cursor += 1;
       if (index >= recordings.length) return Promise.resolve();
       const recording = recordings[index];
-      const nativeId = recordingBackendNativeId(recording);
-      if (!nativeId) {
+      const id = recordingId(recording);
+      if (!/^rec_[0-9a-f]{32}$/.test(id)) {
         settled[index] = null;
         publishReady();
         return worker();
       }
-      return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-        query: {
-          backend: backendId,
-          backendNativeId: nativeId
-        },
+      return Promise.resolve(client.requestJson('/api/v1/recordings/' + encodeURIComponent(id), {
+        query: {backendId: backendId},
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (value) {
-        settled[index] = value && value.available === true ? value : null;
+        if (value && value.recordingId === id && value.backendId === backendId) {
+          settled[index] = global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value);
+        } else {
+          settled[index] = null;
+        }
       }).catch(function () {
         settled[index] = null;
       }).then(function () {
@@ -1003,7 +1025,7 @@
     }
 
     const client = clientApi();
-    if (!client || typeof client.fetchClientGenreRecordings !== 'function') return Promise.resolve(false);
+    if (!client || typeof client.fetchPublicGenreRecordings !== 'function') return Promise.resolve(false);
 
     const state = inline.genre;
     state.request += 1;
@@ -1097,21 +1119,29 @@
 
   function fetchHomeFolderPage(paging, limit) {
     const offset = paging.offset;
-    return Promise.resolve(paging.client.fetchClientRecordingFolder({
+    const publicId = /^fld1_[0-9a-f]{32}$/.test(paging.path) ? paging.path : '';
+    const fetch = publicId ? paging.client.fetchPublicRecordingFolder : paging.client.fetchClientRecordingFolder;
+    let observedPage = false;
+    return Promise.resolve(fetch.call(paging.client, {
       backendId: paging.backendId,
-      query: {path: paging.path, limit: limit, offset: offset, homeCards: 1},
+      query: publicId ? {folderId: publicId, limit: limit, offset: offset}
+        : {path: paging.path, limit: limit, offset: offset, homeCards: 1},
       cache: 'no-store',
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      onPage: function (page) {
+        observedPage = true;
+        if (offset === 0 && paging.ticket) paging.ticket.accept(page);
+      }
     })).then(function (payload) {
       if (!folderPageCurrent(paging)) return null;
-      if (payload && payload.recordingFolder === true && payload.homeCardPage !== true && offset === 0)
+      if (payload && payload.recordingFolder === true && payload.homeCardPage !== true && payload.publicFolder !== true && offset === 0)
         return {legacy: true};
       const returned = list(payload, 'folders').length + list(payload, 'recordings').length;
-      if (!payload || payload.homeCardPage !== true || Number(payload.offset) !== offset ||
+      if (!payload || (payload.homeCardPage !== true && payload.publicFolder !== true) || Number(payload.offset) !== offset ||
           Number(payload.returnedCards) !== returned || returned > limit ||
           typeof payload.hasMore !== 'boolean' || (!returned && payload.hasMore))
         throw new Error('invalid Home folder card page');
-      if (offset === 0 && paging.ticket) paging.ticket.accept(payload);
+      if (offset === 0 && paging.ticket && !observedPage) paging.ticket.accept(payload);
       const projected = projectFolderEntries(payload, paging.backendId);
       return {folders: projected.folders,
         recordings: projected.recordings.concat(canonicalRecordings(payload, paging.backendId)),
@@ -1316,11 +1346,26 @@
     const card = state.card;
     const rootPath = state.rootPath;
     const nextPath = text(path);
-    if (!client || typeof client.fetchClientRecordingFolder !== 'function' ||
+    const publicFolder = /^fld1_[0-9a-f]{32}$/.test(nextPath);
+    if (!client || typeof client[publicFolder ? 'fetchPublicRecordingFolder' : 'fetchClientRecordingFolder'] !== 'function' ||
         !backendId || !section || !card || !rootPath || !nextPath) {
       return Promise.resolve(false);
     }
 
+    const previousPath = state.path;
+    if (entry && publicFolder && state.entries && !state.entries.has(nextPath)) {
+      state.entries.set(nextPath, entry);
+      state.parents.set(nextPath, previousPath);
+    }
+    const selectedEntry = nextPath === rootPath ? card.__vdrSuiteFolderEntry
+      : entry || (state.entries && state.entries.get(nextPath));
+    const parent = publicFolder ? (state.parents && state.parents.get(nextPath)) || rootPath
+      : parentPath(nextPath) || rootPath;
+    const label = publicFolder ? folderLabel(selectedEntry) : pathLeaf(nextPath);
+    const parentLabel = publicFolder ? folderLabel(state.entries && state.entries.get(parent)) : pathLeaf(parent);
+    // Display hierarchy is for Series classification only, never a legacy API path.
+    const seriesPath = publicFolder ? folderLabel(card.__vdrSuiteFolderEntry) +
+      (nextPath === rootPath ? '' : '/' + label) : nextPath;
     state.request += 1;
     const request = state.request;
     state.path = nextPath;
@@ -1329,12 +1374,12 @@
       section,
       'folder',
       card,
-      pathLeaf(nextPath),
-      nextPath !== rootPath ? '← ' + pathLeaf(parentPath(nextPath) || rootPath) : '',
-      nextPath !== rootPath ? function () { openFolderPathInline(parentPath(nextPath) || rootPath); } : null
+      label,
+      nextPath !== rootPath ? '← ' + parentLabel : '',
+      nextPath !== rootPath ? function () { openFolderPathInline(parent); } : null
     );
     const discovery = global.VdrSuiteHomeRecordingDiscovery;
-    const currentEntry = nextPath === rootPath ? () => card.__vdrSuiteFolderEntry : () => entry;
+    const currentEntry = () => selectedEntry;
     const count = () => {
       const value = currentEntry();
       return Number(value && (value.totalCount || value.count || value.recordingCount) || 0);
@@ -1346,15 +1391,16 @@
         global.VdrSuiteBrowserSession.isAuthenticated())) &&
       (!platform() || typeof platform().getSelectedModule !== 'function' || platform().getSelectedModule() === 'overview');
     if (!generic && discovery && typeof discovery.mountFolderSeries === 'function' &&
-        discovery.mountFolderSeries(expansion, nextPath, backendId, {
+        discovery.mountFolderSeries(expansion, seriesPath, backendId, {
           count, current:stillCurrent, direct:nextPath !== rootPath,
-          back:() => openFolderPathInline(parentPath(nextPath) || rootPath),
+          folderId:text(currentEntry() && currentEntry().folderId),
+          back:() => openFolderPathInline(parent),
           fallback:() => { if (stillCurrent()) openFolderPathInline(nextPath, entry, true); }
         })) {
       releaseFolderHeight(expansion);
       return Promise.resolve(true);
     }
-    if (generic && nextPath === rootPath && /^(?:serien|serie|series)$/i.test(nextPath)) {
+    if (generic && nextPath === rootPath && /^(?:serien|serie|series)$/i.test(seriesPath)) {
       const seriesButton = doc.createElement('button');
       seriesButton.type = 'button';
       seriesButton.className = 'media-home-inline-back';
@@ -1364,7 +1410,7 @@
       });
       expansion.appendChild(seriesButton);
     }
-    if (state.paged) return openPagedFolder(client, backendId, nextPath, request, expansion);
+    if (state.paged || publicFolder) return openPagedFolder(client, backendId, nextPath, request, expansion);
     renderInlineState(expansion, 'Ordnerinhalt wird geladen …', false);
 
     return fetchFolderContents(client, backendId, nextPath).then(function (result) {
@@ -1399,6 +1445,8 @@
     state.section = section;
     state.card = card;
     state.paged = paged;
+    state.entries = new Map([[path, card.__vdrSuiteFolderEntry]]);
+    state.parents = new Map();
     return openFolderPathInline(path);
   }
 

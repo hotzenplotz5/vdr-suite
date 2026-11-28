@@ -73,6 +73,18 @@ int main()
     assert(json.find("\"artworkPrepared\":true") != std::string::npos);
     assert(json.find("private-poster.jpg") == std::string::npos);
 
+    const auto publicJson = serializer.serialize(result, {},
+        [](const VdrRecording& recording)
+        {
+            return recording.id == "1"
+                ? std::string("rec_0123456789abcdef0123456789abcdef")
+                : std::string("invalid-id");
+        });
+    assert(publicJson.find("\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+    assert(publicJson.find("invalid-id") == std::string::npos);
+    assert(publicJson.find("\"recordingId\":\"1\"") != std::string::npos);
+    assert(publicJson.find("\"returnedCount\":2") != std::string::npos);
+
     VdrRecordingQueryResult empty =
         VdrRecordingQueryResult::empty(
             50,

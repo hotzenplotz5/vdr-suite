@@ -8,6 +8,8 @@
   }
 
   const PAGE_SIZE = 48;
+  const RECORDING_PAGE_SIZE = 30;
+  let detailRequest = 0;
   const RECORDING_METADATA_CONCURRENCY = 4;
   const state = {
     active:false,
@@ -23,8 +25,9 @@
     loading:false,
     loadingMore:false,
     error:null,
+    detailError:null,
     requestSequence:0,
-    recordingMetadataByNativeId:new Map()
+    recordingDetailsById:new Map()
   };
 
   const text = (value, fallback) => String(
@@ -145,6 +148,8 @@
   }
 
   function persistentEpgArtworkUrl(event) {
+    if (event && event.artwork && event.artwork.fallbackUrl)
+      return event.artwork.fallbackUrl;
     const backend = text(event && event.backendId, state.backendId || 'default') || 'default';
     const channelId = text(event && event.channelId);
     const eventId = text(event && (event.eventId || event.id));
@@ -193,8 +198,8 @@
     return {from:now, until:now + 172800};
   }
 
-  function recordingNativeId(recording) {
-    return text(recording && recording.backendNativeId);
+  function recordingPublicId(recording) {
+    return text(recording && recording.recordingId);
   }
 
   function recordingMetadataPosterUrl(value) {
@@ -208,42 +213,22 @@
     if (!recording || !richMetadata || richMetadata.available !== true) {
       return recording;
     }
-
-    const sourceMetadata = recording.metadata &&
-      typeof recording.metadata === 'object'
-      ? recording.metadata
-      : {};
-    const sourcePresentation = sourceMetadata.presentation &&
-      typeof sourceMetadata.presentation === 'object'
-      ? sourceMetadata.presentation
-      : {};
-    const sourceArtwork = sourceMetadata.artwork &&
-      typeof sourceMetadata.artwork === 'object'
-      ? sourceMetadata.artwork
-      : {};
-    const title = text(richMetadata.title) ||
-      text(sourcePresentation.title) ||
-      text(recording.title);
-    const posterUrl = recordingMetadataPosterUrl(richMetadata) ||
-      text(sourcePresentation.posterUrl) ||
-      text(sourceArtwork.preferredUrl);
-    const presentation = Object.assign({}, sourcePresentation, {
-      title:title,
-      subtitle:text(richMetadata.episodeName) || text(sourcePresentation.subtitle),
-      summary:text(richMetadata.overview) || text(sourcePresentation.summary),
-      posterUrl:posterUrl
-    });
-    const artwork = Object.assign({}, sourceArtwork, {
-      preferredUrl:posterUrl
-    });
-
+    const card = recording.cardMetadata || {};
+    const posterUrl = recordingMetadataPosterUrl(richMetadata);
+    const prefix = '/api/v1/recordings/' + recordingPublicId(recording) + '/artwork/';
+    const suffix = '?backendId=' + encodeURIComponent(recording.backendId);
+    const artworkId = posterUrl.startsWith(prefix) && posterUrl.endsWith(suffix)
+      ? posterUrl.slice(prefix.length, -suffix.length) : '';
     return Object.assign({}, recording, {
-      path:'',
-      title:title,
-      metadata:Object.assign({}, sourceMetadata, {
-        presentation:presentation,
-        artwork:artwork
-      })
+      cardMetadata:Object.assign({}, card, {
+        title:text(richMetadata.title) || text(card.title) || text(recording.title),
+        episodeName:text(richMetadata.episodeName) || text(card.episodeName)
+      }),
+      metadata:Object.assign({}, recording.metadata, {
+        overview:text(richMetadata.overview) || text(recording.description)
+      }),
+      preferredArtworkId:/^[0-9a-f]{32}$/.test(artworkId)
+        ? artworkId : recording.preferredArtworkId
     });
   }
 
@@ -256,44 +241,40 @@
 
   function enrichRecordingItems(recordings, sequence, requestedScope, requestedBackend) {
     if (requestedScope !== 'recordings') return Promise.resolve();
-    const owner = global.VdrSuiteRecordings2MetadataDetail;
-    if (!owner || typeof owner.fetchMetadata !== 'function') return Promise.resolve();
-
+    const client = api();
+    // Preserve the established rich card presentation during the migration.
+    // Public membership and metadata detail use the same opaque identity.
+    // Preserve the existing four-read concurrency and stale-response checks.
     const queue = (Array.isArray(recordings) ? recordings : []).filter(recording => {
-      const nativeId = recordingNativeId(recording);
-      return nativeId && !state.recordingMetadataByNativeId.has(nativeId);
+      const id = recordingPublicId(recording);
+      return id && !state.recordingDetailsById.has(id);
     });
     let cursor = 0;
 
     function worker() {
-      const index = cursor;
-      cursor += 1;
-      if (index >= queue.length) return Promise.resolve();
-      const recording = queue[index];
-      const nativeId = recordingNativeId(recording);
-      return Promise.resolve(owner.fetchMetadata(recording, requestedBackend))
-        .then(value => {
-          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
-            state.recordingMetadataByNativeId.set(
-              nativeId,
-              value && value.available === true ? value : null
-            );
-          }
-        })
-        .catch(() => {
-          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
-            state.recordingMetadataByNativeId.set(nativeId, null);
-          }
-        })
-        .then(worker);
+      const index = cursor++;
+      if (index >= queue.length ||
+          !currentRecordingRequest(sequence, requestedScope, requestedBackend))
+        return Promise.resolve();
+      const recordingId = recordingPublicId(queue[index]);
+      return Promise.resolve().then(() => client.requestJson(
+        '/api/v1/recordings/' + encodeURIComponent(recordingId), {
+          query:{backendId:requestedBackend}, cache:'no-store', credentials:'same-origin'
+        }
+      )).then(value => {
+        if (currentRecordingRequest(sequence, requestedScope, requestedBackend) &&
+            value && value.recordingId === recordingId && value.backendId === requestedBackend) {
+          state.recordingDetailsById.set(recordingId,
+            global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value));
+        }
+      }).catch(() => {
+        // A failed optional card enrichment does not hide a public member.
+        // The click always resolves the selected recording again.
+      }).then(worker);
     }
 
-    const workers = [];
-    const workerCount = Math.min(RECORDING_METADATA_CONCURRENCY, queue.length);
-    for (let index = 0; index < workerCount; index += 1) {
-      workers.push(worker());
-    }
-    return Promise.all(workers).then(() => undefined);
+    return Promise.all(Array.from({length: Math.min(RECORDING_METADATA_CONCURRENCY, queue.length)}, worker))
+      .then(() => undefined);
   }
 
   function synchronizeSelectedCount(total) {
@@ -325,7 +306,8 @@
     state.total = 0;
     state.hasMore = false;
     state.loadingMore = false;
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
   }
 
   function renderHeader(root) {
@@ -454,19 +436,40 @@
 
   function openRecording(recording) {
     const owner = global.VdrSuiteRecordings2;
+    const request = ++detailRequest;
+    const sequence = state.requestSequence;
+    const backendId = state.backendId;
+    const current = () => request === detailRequest &&
+      currentRecordingRequest(sequence, 'recordings', backendId);
+    state.detailError = null;
     if (!owner || typeof owner.openRecording !== 'function') {
-      state.error = new Error(
-        'Recordings 2 Detail-Owner ist nicht verfügbar.'
-      );
+      state.detailError = new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
       return render();
     }
-    owner.openRecording(recording, {
-      backendId:state.backendId,
-      backLabel:closeLabel(),
-      onClose:() => {
-        state.active = true;
-        render();
+    // Re-read the current public identity at the point of opening.
+    // Keep the same detail owner without reconstructing a native path.
+    const recordingId = recordingPublicId(recording);
+    return Promise.resolve().then(() => api().requestJson(
+      '/api/v1/recordings/' + encodeURIComponent(recordingId), {
+        query:{backendId}, cache:'no-store', credentials:'same-origin'
       }
+    )).then(detail => {
+      if (!current()) return;
+      if (!detail || detail.recordingId !== recordingId || detail.backendId !== backendId)
+        throw new Error('Aufnahmeidentität konnte nicht eindeutig zugeordnet werden.');
+      owner.openRecording(Object.assign({}, recording, detail), {
+        backendId,
+        backLabel:closeLabel(),
+        onClose:changed => {
+          state.active = true;
+          if (changed === true) return beginResultLoad();
+          render();
+        }
+      });
+    }).catch(error => {
+      if (!current()) return;
+      state.detailError = error;
+      render();
     });
   }
 
@@ -490,7 +493,8 @@
     state.total = 0;
     state.hasMore = false;
     state.selectedGenre = null;
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
     if (state.scope === 'epg' &&
         state.selectedCategory &&
         state.selectedCategory.id === 'movie') {
@@ -522,6 +526,10 @@
       node('h4', '', resultLabel() + ' · ' + state.total + ' Treffer')
     );
     root.appendChild(header);
+    if (state.detailError) {
+      root.appendChild(node('section', 'genres-status error',
+        state.detailError.message || state.detailError));
+    }
 
     if (!state.items.length) {
       root.appendChild(node(
@@ -541,10 +549,8 @@
       state.items.forEach(recording => {
         if (cardOwner &&
             typeof cardOwner.createRecordingCard === 'function') {
-          const rich = state.recordingMetadataByNativeId.get(
-            recordingNativeId(recording)
-          );
-          const projected = recordingCardProjection(recording, rich);
+          const detail = state.recordingDetailsById.get(recordingPublicId(recording));
+          const projected = recordingCardProjection(recording, detail);
           list.appendChild(
             cardOwner.createRecordingCard(projected, function () {
               openRecording(recording);
@@ -718,13 +724,13 @@
     const options = {
       backendId:state.backendId,
       genreId:text(state.selectedGenre && state.selectedGenre.id),
-      limit:PAGE_SIZE,
+      limit:state.scope === 'recordings' ? RECORDING_PAGE_SIZE : PAGE_SIZE,
       offset:offset,
       cache:'no-store',
       credentials:'same-origin'
     };
     if (state.scope === 'recordings') {
-      return client.fetchClientGenreRecordings(options);
+      return client.fetchPublicGenreRecordings(options);
     }
     const window = epgWindow();
     return client.fetchClientGenreEpg(Object.assign({}, options, {
@@ -746,7 +752,8 @@
 
   function beginResultLoad() {
     state.items = [];
-    state.recordingMetadataByNativeId.clear();
+    state.recordingDetailsById.clear();
+    state.detailError = null;
     state.total = number(
       (state.selectedGenre && state.selectedGenre.count) ||
       (state.selectedCategory && state.selectedCategory.count),

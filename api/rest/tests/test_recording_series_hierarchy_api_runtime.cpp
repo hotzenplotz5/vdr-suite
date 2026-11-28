@@ -32,6 +32,45 @@ int main()
     assert(runtime.configured());
 
     ApiResponse response;
+    const std::string publicId = "rec_0123456789abcdef0123456789abcdef";
+    runtime.registerPublicRecordingKeyLookup([&](const std::string& backend, const std::string& id) {
+        return backend == "default" && id == publicId ? std::string("Series/Opaque") : std::string{};
+    });
+    const std::string mutation = "{\"operation\":\"set\",\"recordingId\":\"" + publicId +
+        "\",\"groupType\":\"season\",\"seasonNumber\":3}";
+    assert(runtime.tryHandlePost("/api/backends/default/recordings/series-hierarchy", mutation, "test-actor", response));
+    assert(response.statusCode == 200);
+    assert(response.body.find(publicId) != std::string::npos);
+    assert(response.body.find("Series/Opaque") == std::string::npos);
+    assert(runtime.tryHandleGet("/api/backends/default/recordings/series-hierarchy?resourceKey=Series%2FOpaque", response));
+    assert(response.statusCode == 200 && response.body.find("\"seasonNumber\":3") != std::string::npos);
+    assert(runtime.tryHandlePost("/api/backends/other/recordings/series-hierarchy", mutation, "test-actor", response));
+    assert(response.statusCode == 404);
+    const std::string publicRoute = "/api/v1/backends/default/recordings/series-hierarchy";
+    const std::string update = "{\"operation\":\"set\",\"recordingId\":\"" + publicId +
+        "\",\"groupType\":\"season\",\"seasonNumber\":4,\"expectedRevision\":1}";
+    assert(runtime.tryHandlePost(publicRoute, update, "test-actor", response, "other", "application/json"));
+    assert(response.statusCode == 403);
+    assert(runtime.tryHandlePost(publicRoute, update, "test-actor", response, "default", "text/plain"));
+    assert(response.statusCode == 415);
+    assert(runtime.tryHandlePost(publicRoute, "{\"operation\":\"clear\",\"resourceKey\":\"Series/Opaque\"}",
+        "test-actor", response, "default", "application/json"));
+    assert(response.statusCode == 400);
+    assert(runtime.tryHandlePost(publicRoute, update, "test-actor", response, "default", "application/json"));
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"recordingId\":\"" + publicId + "\"") != std::string::npos);
+    assert(response.body.find("recordingKey") == std::string::npos);
+    assert(response.body.find("Series/Opaque") == std::string::npos);
+    assert(runtime.tryHandleGet("/api/backends/default/recordings/series-hierarchy?resourceKey=Series%2FOpaque", response));
+    assert(response.statusCode == 200 && response.body.find("\"seasonNumber\":4") != std::string::npos);
+    assert(runtime.tryHandlePost(publicRoute, update, "test-actor", response, "default", "application/json"));
+    assert(response.statusCode == 409);
+    const std::string clear = "{\"operation\":\"clear\",\"recordingId\":\"" + publicId + "\",\"expectedRevision\":2}";
+    assert(runtime.tryHandlePost(publicRoute, clear, "test-actor", response, "default", "application/json"));
+    assert(response.statusCode == 200 && response.body.find("\"available\":false") != std::string::npos);
+    assert(runtime.tryHandleGet("/api/backends/default/recordings/series-hierarchy?resourceKey=Series%2FOpaque", response));
+    assert(response.statusCode == 200 && response.body == "{\"available\":false}");
+    response = {};
 
     assert(runtime.tryHandleGet(
         "/api/backends/default/recordings/"

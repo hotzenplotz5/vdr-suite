@@ -704,6 +704,38 @@ int main()
         assert(provider.trailerCalls == 1);
     }
 
+    {
+        const auto publicId = "rec_0123456789abcdef0123456789abcdef";
+        const std::string route = "/api/v1/backends/living-room/recordings/metadata/trailer?recordingId=" +
+            std::string(publicId);
+        runtime.registerPublicRecordingNativeLookup(
+            [publicId](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == publicId
+                    ? std::string("recording/key") : std::string{};
+            });
+        runtime.registerPublicRecordingTrailerLookup(
+            [](const std::string& backend, const std::string& native) {
+                assert(backend == "living-room" && native == "recording/key");
+                return std::make_pair(std::string("movie"), std::string("13"));
+            });
+        ApiResponse response;
+        assert(runtime.tryHandleGet(route, response, {"other"}));
+        assert(response.statusCode == 403);
+        assert(runtime.tryHandleGet(route + "&externalId=99", response, {"living-room"}));
+        assert(response.statusCode == 400);
+        assert(runtime.tryHandleGet(route, response, {"living-room"}));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"videoId\":\"abcdefghijk\"") != std::string::npos);
+        assert(provider.trailerCalls == 2 && provider.lastTrailerExternalId == "13");
+        runtime.registerPublicRecordingTrailerLookup(
+            [](const std::string&, const std::string&) {
+                return std::pair<std::string, std::string>{};
+            });
+        assert(runtime.tryHandleGet(route, response, {"living-room"}));
+        assert(response.body == "{\"available\":false}");
+        assert(provider.trailerCalls == 2);
+    }
+
     provider.creditError = "provider temporarily unavailable";
     provider.creditProviderAvailable = false;
     {
@@ -1002,6 +1034,104 @@ int main()
             "user:real-admin");
         assert(conflict.statusCode == 409);
         assert(nativeUpdateCalls == beforeWriter + 1);
+    }
+
+    // Public and private variants share the same assignment repository,
+    // revision and presentation-change notification.
+    {
+        const std::string publicId = "rec_0123456789abcdef0123456789abcdef";
+        const std::string prefix = "/api/v1/backends/living-room/recordings/metadata/";
+        runtime.registerPublicRecordingNativeLookup(
+            [&](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == publicId
+                    ? std::string("public-test/key") : std::string{};
+            });
+        const auto publicPost = [&](const std::string& operation,
+            const std::string& body, const std::string& backend = "living-room") {
+            ApiResponse result;
+            assert(runtime.tryHandlePost(prefix + operation, body,
+                "user:real-admin", result, backend, "application/json"));
+            return result;
+        };
+        const auto before = presentationChanges.size();
+        auto body = assignmentBody(publicId);
+        body.replace(body.find("resourceKey"), std::string("resourceKey").size(), "recordingId");
+        assert(publicPost("assign", body, "bedroom").statusCode == 403);
+        assert(publicPost("assign", assignmentBody("public-test/key")).statusCode == 400);
+        assert(publicPost("withdraw",
+            R"({"recordingId":"rec_ffffffffffffffffffffffffffffffff","expectedRevision":1})").statusCode == 404);
+        assert(presentationChanges.size() == before);
+        const auto assigned = publicPost("assign", body);
+        assert(assigned.statusCode == 200);
+        assert(assigned.body.find(publicId) != std::string::npos);
+        assert(assigned.body.find("public-test/key") == std::string::npos);
+        assert(assigned.body.find("\"revision\":1") != std::string::npos);
+        assert(runtime.findSelected("living-room", "public-test/key").found);
+        const auto manualRead = [&](const std::string& query, const std::vector<std::string>& scope) {
+            ApiResponse result;
+            assert(runtime.tryHandleGet(prefix + "manual?" + query, result, scope));
+            return result;
+        };
+        const auto selected = manualRead("recordingId=" + publicId, {"living-room"});
+        assert(selected.statusCode == 200);
+        assert(selected.body.find("\"found\":true") != std::string::npos);
+        assert(selected.body.find("\"revision\":1") != std::string::npos);
+        assert(selected.body.find(publicId) != std::string::npos);
+        assert(selected.body.find("public-test/key") == std::string::npos);
+        assert(manualRead("recordingId=" + publicId, {"bedroom"}).statusCode == 403);
+        assert(manualRead("recordingId=" + publicId + "&recordingId=" + publicId,
+            {"living-room"}).statusCode == 400);
+        assert(manualRead("resourceKey=public-test/key", {"living-room"}).statusCode == 400);
+        const auto removed = publicPost("withdraw",
+            "{\"recordingId\":\"" + publicId + "\",\"expectedRevision\":1}");
+        assert(manualRead("recordingId=" + publicId, {"living-room"}).body.find("\"found\":false") != std::string::npos);
+        assert(removed.statusCode == 200);
+        assert(removed.body.find("\"relationshipLocked\":false") != std::string::npos);
+        assert(presentationChanges.size() == before + 2U);
+        assert(publicPost("search", R"({"query":"Forrest Gump","kind":"movie","limit":5})").statusCode == 200);
+        assert(publicPost("seasons", R"({"seriesExternalId":"19885","limit":20})").statusCode == 200);
+        assert(publicPost("episodes", R"({"seriesExternalId":"19885","seasonNumber":1,"limit":20})").statusCode == 200);
+
+        const std::string genrePublicId = "rec_abcdef0123456789abcdef0123456789";
+        runtime.registerPublicRecordingNativeLookup(
+            [&](const std::string& backend, const std::string& id) {
+                return backend == "living-room" && id == genrePublicId
+                    ? std::string("genre-native") : std::string{};
+            });
+        const auto genreRead = [&](const std::string& query,
+            const std::vector<std::string>& scopes) {
+            ApiResponse result;
+            assert(runtime.tryHandleGet(prefix + "genre" + query, result, scopes));
+            return result;
+        };
+        const auto genreQuery = "?recordingId=" + genrePublicId;
+        assert(genreRead(genreQuery, {}).statusCode == 403);
+        assert(genreRead(genreQuery, {"bedroom"}).statusCode == 403);
+        assert(genreRead("?resourceKey=genre-native", {"living-room"}).statusCode == 400);
+        assert(genreRead(genreQuery + "&recordingId=" + genrePublicId,
+            {"living-room"}).statusCode == 400);
+        assert(genreRead("?recordingId=rec_ffffffffffffffffffffffffffffffff",
+            {"living-room"}).statusCode == 404);
+        const auto availableGenres = genreRead(genreQuery, {"living-room"});
+        assert(availableGenres.statusCode == 200);
+        assert(availableGenres.body.find(genrePublicId) != std::string::npos);
+        assert(availableGenres.body.find("\"resourceKey\"") == std::string::npos);
+        assert(availableGenres.body.find("\"genres\":[") != std::string::npos);
+        const auto genreChanges = presentationChanges.size();
+        const auto identityBody = "{\"recordingId\":\"" + genrePublicId + "\"";
+        assert(publicPost("genre", identityBody + "}").statusCode == 400);
+        assert(publicPost("genre", "{\"resourceKey\":\"genre-native\",\"genreId\":\"crime\"}").statusCode == 400);
+        assert(publicPost("genre", identityBody + ",\"genreId\":\"crime\"}", "bedroom").statusCode == 403);
+        assert(presentationChanges.size() == genreChanges);
+        const auto selectedGenre = publicPost("genre", identityBody + ",\"genreId\":\"crime\"}");
+        assert(selectedGenre.statusCode == 200);
+        assert(selectedGenre.body.find("\"selectedGenreId\":\"crime\"") != std::string::npos);
+        assert(selectedGenre.body.find("\"resourceKey\"") == std::string::npos);
+        assert(genreRead(genreQuery, {"living-room"}).body.find("\"selectedGenreId\":\"crime\"") != std::string::npos);
+        const auto clearedGenre = publicPost("genre", identityBody + ",\"genreId\":\"\"}");
+        assert(clearedGenre.statusCode == 200);
+        assert(clearedGenre.body.find("\"selectedGenreId\":\"\"") != std::string::npos);
+        assert(presentationChanges.size() == genreChanges + 2U);
     }
 
     runtime.reset();

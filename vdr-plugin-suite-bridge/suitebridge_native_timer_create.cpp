@@ -42,7 +42,8 @@ bool safeToken(const std::string &value, std::size_t maximum = 512)
       });
 }
 
-bool unsignedValue(const std::string &value, std::uint64_t &parsed)
+bool unsignedValue(const std::string &value, std::uint64_t &parsed,
+    bool allowZero = false)
 {
   if (value.empty() || value.size() > 19) return false;
   parsed = 0;
@@ -55,7 +56,7 @@ bool unsignedValue(const std::string &value, std::uint64_t &parsed)
     }
     parsed = parsed * 10U + digit;
   }
-  return parsed > 0;
+  return allowZero || parsed > 0;
 }
 
 std::vector<std::string> split(const char *option)
@@ -163,11 +164,16 @@ bool parseExecute(
     SuiteBridgeNativeTimerCreateRequest &request)
 {
   const std::vector<std::string> values = split(option);
-  if (values.size() != 42 || values[0] != "EXEC" ||
+  if ((values.size() != 42 && values.size() != 44) || values[0] != "EXEC" ||
       values[1] != "vdr-suite-native/1" ||
       values[2] != NativeOperation || values[3] != "1") {
     return false;
   }
+
+  if (values.size() == 44 &&
+      (values[42] != "aux" || !hexValue(values[43], request.aux) ||
+       request.aux.empty() || request.aux.find("<vdr-suite-managed-timer") != std::string::npos))
+    return false;
 
   request.commandId = values[4];
   request.requestFingerprint = values[5];
@@ -207,8 +213,8 @@ bool parseExecute(
       hexValue(values[35], request.weekdays) &&
       hexValue(values[36], request.startTime) &&
       hexValue(values[37], request.endTime) &&
-      unsignedValue(values[38], request.priority) &&
-      unsignedValue(values[39], request.lifetime) &&
+      unsignedValue(values[38], request.priority, true) &&
+      unsignedValue(values[39], request.lifetime, true) &&
       booleanValue(values[40], request.enabled) &&
       booleanValue(values[41], request.vps) &&
       safeToken(request.commandId, 192) &&
@@ -284,6 +290,7 @@ std::string canonicalRequest(const SuiteBridgeNativeTimerCreateRequest &request)
   appendCanonical(canonical, request.lifetime);
   appendCanonical(canonical, request.enabled ? 1U : 0U);
   appendCanonical(canonical, request.vps ? 1U : 0U);
+  if (!request.aux.empty()) appendCanonical(canonical, request.aux);
   return canonical.str();
 }
 

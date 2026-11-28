@@ -26,7 +26,7 @@
     const manual = value && value.manualAssignment; const revision = manual && manual.active === true ? Math.max(0, Number(manual.revision) || 0) : 0;
     const artwork = value && value.preferredArtwork; const url = shared.text(artwork && artwork.url);
     if (revision <= 0 || !url || !metadataView.isPublicMetadataImageUrl(url) ||
-        /[?&]assignmentRevision=/.test(url)) return value;
+        url.startsWith('/api/v1/recordings/') || /[?&]assignmentRevision=/.test(url)) return value;
     return Object.assign({}, value, {preferredArtwork: Object.assign({}, artwork, {
       url: url + (url.indexOf('?') >= 0 ? '&' : '?') + 'assignmentRevision=' + String(revision)
     })});
@@ -38,18 +38,14 @@
     if (typeof image.setAttribute === 'function') image.setAttribute('fetchpriority', 'high');
   }
   function fetchMetadata(recording, backendId) {
-    const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
-    if (!backendNativeId) return Promise.reject(
-      new Error('Die Aufnahme besitzt keine stabile Backend-Identität.')
-    );
-    const api = shared.clientApi();
+    const api = shared.clientApi(), backend = shared.text(backendId) || 'default';
     if (!api || typeof api.requestJson !== 'function') return Promise.reject(
-      new Error('Client API für Aufnahme-Metadaten ist nicht verfügbar.')
-    );
-    return api.requestJson('/api/vdr/recordings/metadata', {
-      query: {backend: shared.text(backendId) || 'default', backendNativeId, _: String(Date.now())},
-      cache: 'no-store', credentials: 'same-origin'
-    });
+      new Error('Client API für Aufnahme-Metadaten ist nicht verfügbar.'));
+    return shared.resolvePublicRecordingId(recording, backend, api).then(function (id) {
+      return api.requestJson('/api/v1/recordings/' + id, {
+        query: {backendId: backend}, cache: 'no-store', credentials: 'same-origin'
+      });
+    }).then(global.VdrSuiteFrontendHelpers.publicRecordingMetadataView);
   }
   function loadAssignmentRuntime() {
     if (global.VdrSuiteRecordings2MetadataAssignment) {

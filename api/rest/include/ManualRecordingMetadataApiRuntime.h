@@ -7,6 +7,8 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 class ManualRecordingMetadataApiRuntime
 {
@@ -20,6 +22,12 @@ public:
     void registerController(MetadataController& controller);
     void registerRecordingPresentationChangedCallback(
         RecordingPresentationChangedCallback callback);
+    using PublicRecordingNativeLookup = std::function<std::string(
+        const std::string& backendId, const std::string& recordingId)>;
+    void registerPublicRecordingNativeLookup(PublicRecordingNativeLookup callback);
+    using PublicRecordingTrailerLookup = std::function<std::pair<std::string, std::string>(
+        const std::string& backendId, const std::string& nativeId)>;
+    void registerPublicRecordingTrailerLookup(PublicRecordingTrailerLookup callback);
     void reset();
 
     ManualRecordingMetadataAssignment findSelected(
@@ -44,7 +52,8 @@ public:
 
     bool tryHandleGet(
         const std::string& requestTarget,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::vector<std::string>& authorizedBackendIds = {}) const;
 
     // Public-v1 façade: parse one canonical read-only resolve request.
     bool resolveReadOnly(
@@ -57,7 +66,9 @@ public:
         const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& authorizedBackendId = "",
+        const std::string& contentType = "") const;
 
 private:
     ManualRecordingMetadataApiRuntime() = default;
@@ -71,4 +82,6 @@ private:
     MetadataController* controller_ = nullptr;
     RecordingPresentationChangedCallback
         recordingPresentationChangedCallback_;
+    PublicRecordingNativeLookup publicRecordingNativeLookup_;
+    PublicRecordingTrailerLookup publicRecordingTrailerLookup_;
 };

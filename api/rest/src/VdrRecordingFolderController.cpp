@@ -6,6 +6,7 @@
 #include "VdrRecordingMetadataJsonSerializer.h"
 #include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <limits>
 #include <map>
@@ -117,6 +118,79 @@ bool localManualImage(const std::string& path)
             0,
             std::string("/var/cache/vdr-suite/recording-metadata/posters/").size(),
             "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
+}
+
+struct MetadataArtworkEntry
+{
+    VdrRecordingFolderController::PublicMetadataArtwork item;
+    std::string path;
+};
+
+std::string metadataArtworkId(
+    const VdrRecording& recording, const std::string& kind, int index,
+    int revision, const std::string& path, int width, int height)
+{
+    VdrRecordingArtworkRef reference;
+    reference.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    reference.kind = VdrRecordingArtworkKind::Still;
+    reference.reference = "metadata-image-v1:" + kind + ":" +
+        std::to_string(index) + ":" + std::to_string(revision) + ":" + path;
+    reference.width = std::max(0, width);
+    reference.height = std::max(0, height);
+    return VdrRecordingArtworkIdentity::assetId(recording, reference);
+}
+
+std::vector<MetadataArtworkEntry> metadataArtworkEntries(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    std::vector<MetadataArtworkEntry> entries;
+    if (recording.backendId.empty() || recording.backendNativeId.empty())
+        return entries;
+    const auto add = [&](const std::string& kind, int index,
+                         const std::string& path, const std::string& orientation,
+                         int width, int height, int revision) {
+        if (path.empty()) return;
+        // Use the existing opaque asset identity algorithm with a disjoint
+        // metadata source reference. Bind to the actual selected image, not
+        // merely its mutable ordinal. Never expose the input or use it as URL.
+        const auto id = metadataArtworkId(recording, kind, index, revision,
+            path, width, height);
+        if (!id.empty())
+            entries.push_back({{id, kind, index, orientation,
+                std::max(0, width), std::max(0, height)}, path});
+    };
+    if (manual.found && manual.relationshipLocked &&
+        manual.backendId == recording.backendId)
+    {
+        if (localManualImage(manual.posterReference))
+            add("preferred", 0, manual.posterReference, "portrait", 0, 0,
+                manual.revision);
+        for (std::size_t i = 0; i < manual.people.size(); ++i)
+        {
+            if (localManualImage(manual.people[i].profilePath))
+                add("person", static_cast<int>(i), manual.people[i].profilePath,
+                    "portrait", 0, 0, manual.revision);
+        }
+        return entries;
+    }
+    if (!native.exists() || !native.metadata.found ||
+        native.backendId != recording.backendId ||
+        native.backendNativeId != recording.backendNativeId)
+        return entries;
+    const auto addNative = [&](const std::string& kind, int index,
+                               const VdrRecordingNativeArtwork& image) {
+        if (image.available)
+            add(kind, index, image.path, image.orientation,
+                image.width, image.height, 0);
+    };
+    addNative("preferred", 0, native.metadata.preferredArtwork);
+    for (std::size_t i = 0; i < native.metadata.people.size(); ++i)
+        addNative("person", static_cast<int>(i), native.metadata.people[i].image);
+    for (std::size_t i = 0; i < native.metadata.images.size(); ++i)
+        addNative("gallery", static_cast<int>(i), native.metadata.images[i]);
+    return entries;
 }
 
 std::string percentEncode(const std::string& value)
@@ -358,9 +432,16 @@ void appendRecordingJson(
     std::ostringstream& json,
     const VdrRecording& recording,
     const ManualRecordingMetadataAssignment& manual,
-    const VdrRecordingNativeMetadataRecord& nativeMetadata)
+    const VdrRecordingNativeMetadataRecord& nativeMetadata,
+    const std::string& publicId = {})
 {
     json << "{";
+    if (!publicId.empty())
+    {
+        json << "\"publicRecordingId\":";
+        appendJsonString(json, publicId);
+        json << ",";
+    }
     json << "\"id\":";
     appendJsonString(json, recording.id);
     json << ",\"backendId\":";
@@ -790,6 +871,13 @@ ApiResponse VdrRecordingFolderController::getFolder(
             recording.backendNativeId);
     };
 
+    auto publicIdFor = [this, &page](const VdrRecording& recording)
+    {
+        if (!publicRecordingIdLookup_ || recording.backendNativeId.empty())
+            return std::string{};
+        return publicRecordingIdLookup_(page.backendId, recording.backendNativeId);
+    };
+
     std::ostringstream json;
     json << "{\"recordingFolder\":true,\"backendId\":";
     appendJsonString(json, page.backendId);
@@ -797,6 +885,9 @@ ApiResponse VdrRecordingFolderController::getFolder(
     appendJsonString(json, page.path);
     json << ",\"parentPath\":";
     appendJsonString(json, page.parentPath);
+    json << ",\"folderId\":";
+    appendJsonString(json, page.path.empty() ? std::string{} :
+        VdrRecordingCacheRepository::publicFolderId(page.backendId, page.path));
     json << ",\"cacheState\":";
     appendJsonString(json, page.cacheState);
     json << ",\"cacheReady\":" << (page.cacheReady ? "true" : "false")
@@ -829,6 +920,9 @@ ApiResponse VdrRecordingFolderController::getFolder(
         json << ",\"recordingCount\":" << folder.recordingCount
              << ",\"singleRecordingLeaf\":"
              << (folder.singleRecordingLeaf ? "true" : "false");
+        json << ",\"folderId\":";
+        appendJsonString(json, VdrRecordingCacheRepository::publicFolderId(
+            page.backendId, folder.path));
         if (folder.singleRecordingLeaf)
         {
             json << ",\"singleRecording\":";
@@ -843,7 +937,8 @@ ApiResponse VdrRecordingFolderController::getFolder(
                 json,
                 folder.singleRecording,
                 manual,
-                nativeMetadata);
+                nativeMetadata,
+                publicIdFor(folder.singleRecording));
         }
         else if (homeCards && folder.hasRepresentativeRecording)
         {
@@ -873,9 +968,60 @@ ApiResponse VdrRecordingFolderController::getFolder(
             json,
             recording,
             manual,
-            nativeMetadata);
+            nativeMetadata,
+            publicIdFor(recording));
     }
     json << "]}";
+    return jsonResponse(json.str());
+}
+
+ApiResponse VdrRecordingFolderController::getRecordingForBrowser(
+    const std::string& backendId,
+    const std::string& publicRecordingId) const
+{
+    if (publicRecordingId.size() != 36U ||
+        publicRecordingId.compare(0, 4, "rec_") != 0 ||
+        !std::all_of(publicRecordingId.begin() + 4, publicRecordingId.end(),
+            [](char c) { return (c >= '0' && c <= '9') ||
+                                 (c >= 'a' && c <= 'f'); }))
+        return jsonError(400, "invalid recordingId");
+    if (!publicRecordingNativeLookup_)
+        return jsonError(503, "recording identity unavailable");
+
+    const auto nativeId = publicRecordingNativeLookup_(
+        backendId, publicRecordingId);
+    VdrRecording recording;
+    if (nativeId.empty() ||
+        !repository_.findByBackendNativeId(backendId, nativeId, recording) ||
+        recording.backendId != backendId ||
+        recording.backendNativeId != nativeId)
+        return jsonError(404, "recording not found");
+
+    const auto manual = manualMetadataLookup_
+        ? manualMetadataLookup_(backendId, nativeId)
+        : ManualRecordingMetadataAssignment{};
+    const bool locked = manual.found && manual.relationshipLocked;
+    const auto native = !locked && nativeMetadataLookup_
+        ? nativeMetadataLookup_(backendId, nativeId)
+        : VdrRecordingNativeMetadataRecord{};
+
+    std::ostringstream json;
+    json << "{\"publicRecordingId\":";
+    appendJsonString(json, publicRecordingId);
+    json << ",\"recording\":";
+    appendRecordingJson(json, recording, manual, native, publicRecordingId);
+    json << ",\"metadataDetail\":";
+    if (locked)
+        json << serializeManualMetadata(manual, nativeId);
+    else if (native.exists() && native.metadata.found)
+        json << VdrRecordingNativeMetadataPublicJsonSerializer().serialize(native);
+    else
+    {
+        const auto cached = serializeCachedMetadata(recording);
+        if (!cached.empty()) json << cached;
+        else json << VdrRecordingNativeMetadataPublicJsonSerializer().serialize(native);
+    }
+    json << "}";
     return jsonResponse(json.str());
 }
 
@@ -925,6 +1071,120 @@ ApiResponse VdrRecordingFolderController::getMetadata(
     return jsonResponse(
         VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
             nativeMetadata));
+}
+
+std::vector<VdrRecordingFolderController::PublicMetadataArtwork>
+VdrRecordingFolderController::publicMetadataArtwork(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    std::vector<PublicMetadataArtwork> result;
+    for (const auto& entry : metadataArtworkEntries(recording, manual, native))
+        result.push_back(entry.item);
+    return result;
+}
+
+std::string VdrRecordingFolderController::publicSearchPreferredArtworkId(
+    const VdrRecording& recording, const std::string& localPath,
+    int width, int height, bool manualSelected, int manualRevision)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty()) return {};
+    if (manualSelected)
+    {
+        if (manualRevision <= 0 || !localManualImage(localPath)) return {};
+        return metadataArtworkId(recording, "preferred", 0, manualRevision,
+            localPath, 0, 0);
+    }
+    if (!localPath.empty())
+        return metadataArtworkId(recording, "preferred", 0, 0,
+            localPath, width, height);
+    const auto* cached = VdrRecordingArtworkIdentity::preferredArtwork(recording);
+    return cached ? VdrRecordingArtworkIdentity::assetId(recording, *cached) : std::string{};
+}
+
+std::string VdrRecordingFolderController::publicNativeCardArtworkId(
+    const VdrRecording& recording, const std::string& path,
+    int width, int height, int galleryIndex)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty() || path.empty()) return {};
+    return metadataArtworkId(recording, galleryIndex >= 0 ? "gallery" : "preferred",
+        std::max(0, galleryIndex), 0, path, width, height);
+}
+
+std::string VdrRecordingFolderController::publicManualPortraitArtworkId(
+    const VdrRecording& recording, int index, int revision,
+    const std::string& localPath)
+{
+    if (recording.backendId.empty() || recording.backendNativeId.empty() ||
+        index < 0 || revision <= 0 || !localManualImage(localPath))
+        return {};
+    return metadataArtworkId(recording, "person", index, revision,
+        localPath, 0, 0);
+}
+
+std::optional<ApiResponse> VdrRecordingFolderController::loadPublicMetadataArtwork(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native,
+    const std::string& artworkId) const
+{
+    for (const auto& entry : metadataArtworkEntries(recording, manual, native))
+    {
+        if (entry.item.artworkId == artworkId)
+            return EpgArtworkController::serveValidatedPath(
+                entry.path, metadataImageAllowedRoots_);
+    }
+    return std::nullopt;
+}
+
+std::pair<std::string, std::string>
+VdrRecordingFolderController::metadataTrailerIdentity(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    const auto valid = [](const std::string& id) {
+        return !id.empty() && id.size() <= 16U &&
+            id.front() >= '1' && id.front() <= '9' &&
+            std::all_of(id.begin(), id.end(),
+                [](unsigned char c) { return c >= '0' && c <= '9'; });
+    };
+    if (manual.found && manual.relationshipLocked &&
+        manual.backendId == recording.backendId)
+    {
+        if (manual.providerId == "tmdb" && valid(manual.externalId))
+        {
+            if (manual.externalNamespace == "movie")
+                return {"movie", manual.externalId};
+            if (manual.externalNamespace == "tv")
+                return {"series", manual.externalId};
+        }
+        // A selected episode ID is not a parent series ID.
+        return {};
+    }
+    if (native.exists() && native.metadata.found &&
+        native.backendId == recording.backendId &&
+        native.backendNativeId == recording.backendNativeId)
+    {
+        const auto& value = native.metadata;
+        if (value.provider != "tvscraper" && value.provider != "recording-cache")
+            return {};
+        if (value.providerId <= 0) return {};
+        if (value.mediaType == "movie")
+            return {"movie", std::to_string(value.providerId)};
+        if (value.mediaType == "series" || value.mediaType == "episode")
+            return {"series", std::to_string(value.providerId)};
+        return {};
+    }
+    const auto& provider = recording.metadata.provider;
+    const int id = cachedProviderId(provider);
+    if (id <= 0) return {};
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        return {"movie", std::to_string(id)};
+    if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        return {"series", std::to_string(id)};
+    return {};
 }
 
 ApiResponse VdrRecordingFolderController::getMetadataImage(

@@ -111,7 +111,10 @@ or introduce a second identity or metadata database.
 A selected manual metadata assignment already owns Suite opaque `mdent_`,
 `mdasg_`, and `mdtgt_` identities with a revision. The M1 detail read uses
 `MetadataRepository::getManualRecordingMetadataReadOnly`, which does not create
-metadata schemas or materialize portraits. It requires an active backend-target
+metadata schemas or materialize portraits. It also reads already persisted
+local person-profile references for the selected cast through the same
+profile owner as Web, scoped to that assignment, without writes or provider
+requests. It requires an active backend-target
 binding, selected locked relationship, valid IDs and positive revision. Manual
 selection wins over automatically scraped provider fields, but does not rewrite
 the public Recording title or native EPG fields. The HTTP metadata object
@@ -138,3 +141,57 @@ Recommended remaining M1 slices:
 - M1.4: targeted authorization, malformed-data, manual-override and Web
   comparisons; prepare E1/E2/S1 merge reconciliation without merging them.
 
+
+## Rich detail facts for Web migration
+
+The existing Recording detail optionally includes `firstAired`, `statusText`,
+`collectionName`, `absoluteEpisodeNumber`, `voteAverage`, `voteCount`,
+`genres`, `productionCountries`, `networks`, and `people` (role, name,
+characterName). They use the same persisted native metadata lookup as the
+Web folder controller, with exact backend/native recording binding. A selected
+manual assignment takes precedence, including its own cast. No native keys,
+provider IDs, image paths or credentials are returned. Missing optional data
+does not make the detail unavailable. The detail also returns available preferred artwork, cast portraits and gallery
+references. Each image has an opaque `artworkId` and the existing authenticated
+`/api/v1/recordings/{recordingId}/artwork/{artworkId}?backendId=...` URL. The
+same current metadata evidence resolves the binary image. A stale/replaced
+image ID does not resolve to a different image. Trailer identity and Web
+read-adapter migration remain separate work; this extension alone does not
+establish full Web parity.
+
+## Series hierarchy correction (public recording cards)
+
+`POST /api/v1/backends/{backendId}/recordings/series-hierarchy` uses the
+existing hierarchy override repository and its revision semantics. Send an
+opaque `recordingId`, `operation: set` or `clear`, optional
+`expectedRevision` (defaults to 0), and for set the existing group/season,
+label, sort order and episode-range fields. A clear restores the native
+hierarchy; no recording is split or moved. The same
+`metadata.recording.assign` backend grant and Browser CSRF apply. Public
+responses identify the recording by `recordingId`, never its internal key.
+The existing metadata error envelope is retained. The browser uses this
+route for canonical public cards; old native-only cached cards retain their
+existing compatibility path until their identity migration is complete.
+Public readback is the existing collection's `seriesHierarchyOverride`
+projection; no per-recording polling or extra read endpoint is introduced.
+Reference JS: `setRecordingSeriesHierarchy({backendId, payload, headers})`.
+Source tests cover set, clear, revision conflict, legacy readback and grant
+scope. Real yaVDR/TV and final CI are separate acceptance levels.
+
+## On-demand trailer read
+
+`GET /api/v1/backends/{backendId}/recordings/metadata/trailer?recordingId=rec_...`
+uses the same `recordings.view` grant and the current recording identity. The
+server selects the existing manual or persisted native/cached scraper identity;
+it never accepts the provider identity from the public caller. The optional
+`metadata.trailerLookupAvailable` hint means lookup is supported, not that a
+trailer is already known. No provider request happens merely by opening detail.
+Manual episode IDs are not guessed to be parent series IDs. Web migration and
+full C++/CI acceptance remain pending.
+
+The Web Recordings 2 detail now reads this Public-v1 resource and adapts it to
+its existing visual owner. Trailer requests use the public recording identity.
+Cached artwork is projected when a richer persisted detail is absent. The
+optional public IMDb title identifier is display-only; private TMDb/Scraper
+lookup identities remain server-side. The collection, search and other private
+Web routes still require their own migration and runtime verification.

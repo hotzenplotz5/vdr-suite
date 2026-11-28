@@ -114,7 +114,10 @@ async function run() {
   assert.ok(!source.includes('/api/security/browser-sessions'));
   assert.ok(!source.includes('/api/epg/'));
   assert.ok(!source.includes('requestJsonWithFallback'));
-  assert.ok(!source.includes('retry'));
+  // Retry behavior must be absent in code; comments may discuss it.
+  const executableLines = source.split('\n').filter(line =>
+    !line.trimStart().startsWith('//')).join('\n');
+  assert.ok(!executableLines.includes('retry'));
 
   console.log('test_public_v1_discovery_client passed');
 }

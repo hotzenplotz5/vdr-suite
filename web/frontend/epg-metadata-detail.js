@@ -75,7 +75,8 @@
 
   function isPublicRecordingImageUrl(value) {
     const url = String(value || '').trim();
-    return url.startsWith('/recording-artwork/') ||
+    return /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}\?backendId=[A-Za-z0-9._-]+$/.test(url) ||
+      url.startsWith('/recording-artwork/') ||
       url.startsWith('/api/vdr/recordings/artwork') ||
       url.startsWith('/api/recordings/artwork');
   }
@@ -335,6 +336,7 @@
   }
 
   function recordingSubtitle(recording) {
+    if (recording && recording.recordedAt !== undefined) return String(recording.subtitle || '');
     return String(firstValue(
       recordingPresentation(recording),
       ['subtitle', 'seasonEpisode'],
@@ -343,6 +345,7 @@
   }
 
   function recordingSummary(recording) {
+    if (recording && recording.recordedAt !== undefined) return String(recording.description || '');
     return String(firstValue(
       recordingPresentation(recording),
       ['summary'],
@@ -351,6 +354,13 @@
   }
 
   function recordingPosterUrl(recording) {
+    if (recording && recording.recordedAt !== undefined) {
+      const path = '/api/v1/recordings/' + recording.recordingId + '/artwork/' +
+        recording.preferredArtworkId + '?backendId=' + encodeURIComponent(recording.backendId || '');
+      if (!isPublicRecordingImageUrl(path)) return '';
+      const resolver = global.VdrSuitePublicUrl;
+      return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
+    }
     const url = String(firstValue(
       recordingPresentation(recording),
       ['posterUrl'],
@@ -425,7 +435,7 @@
     copy.appendChild(node(
       'span',
       'epg-person-recording-meta',
-      formatRecordingStart(firstValue(recording, ['startTime'], '')) + ' · ' +
+      formatRecordingStart(firstValue(recording, ['recordedAt', 'startTime'], '')) + ' · ' +
         formatRecordingDuration(firstValue(recording, ['durationSeconds'], 0))
     ));
     button.appendChild(copy);
@@ -436,11 +446,10 @@
     details.setAttribute('aria-label', 'Aufnahmedetails');
     details.appendChild(node('p', 'epg-person-recording-summary', recordingSummary(recording) || 'Keine Beschreibung vorhanden.'));
     const fields = node('div', 'epg-person-recording-fields');
-    appendRecordingField(fields, 'Aufgenommen', formatRecordingStart(firstValue(recording, ['startTime'], '')));
+    appendRecordingField(fields, 'Aufgenommen', formatRecordingStart(firstValue(recording, ['recordedAt', 'startTime'], '')));
     appendRecordingField(fields, 'Dauer', formatRecordingDuration(firstValue(recording, ['durationSeconds'], 0)));
     appendRecordingField(fields, 'Größe', formatRecordingSize(firstValue(recording, ['sizeMb'], 0)));
     appendRecordingField(fields, 'Backend', firstValue(recording, ['backendId'], fallbackBackendId));
-    appendRecordingField(fields, 'Pfad', firstValue(recording, ['path'], ''));
     details.appendChild(fields);
 
     button.addEventListener('click', function () {

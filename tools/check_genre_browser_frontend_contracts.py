@@ -37,7 +37,12 @@ for forbidden in (
     )
 
 require("fetchClientGenres" in genres, "genres module must use the genre Client API")
-require("fetchClientGenreRecordings" in genres, "recording genre query must use the Client API")
+require(
+    "return client.fetchPublicGenreRecordings(options);" in genres
+    and "fetchClientGenreRecordings" not in genres
+    and "base.requestJson('/api/v1/genres/recordings'" in client,
+    "recording genre query must use the scoped Public-v1 Client API without a legacy fallback",
+)
 require("fetchClientGenreEpg" in genres, "EPG genre query must use the Client API")
 require("/api/metadata/genres" not in genres, "route literals belong to the Client API")
 require("/api/metadata/genres" in client, "genre Client API route is missing")
@@ -97,9 +102,15 @@ require(
     "genres must reuse the Recordings 2 card owner while preserving original recording identity",
 )
 require(
-    "VdrSuiteRecordings2MetadataDetail" in genres
-    and "owner.fetchMetadata(recording, requestedBackend)" in genres,
-    "recording genre cards must reuse the existing native metadata detail owner",
+    "client.requestJson(" in genres
+    and "'/api/v1/recordings/' + encodeURIComponent(recordingId)" in genres
+    and "query:{backendId:requestedBackend}" in genres
+    and "value.recordingId === recordingId && value.backendId === requestedBackend" in genres
+    and "global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value)" in genres
+    and "fetchClientRecordingForPublicId(" not in genres
+    and "detail.recordingId !== recordingId || detail.backendId !== backendId" in genres
+    and "owner.openRecording(Object.assign({}, recording, detail)" in genres,
+    "recording genre enrichment and opening must use scoped public detail without private identity resolution",
 )
 require(
     "VdrSuiteFrontendHelpers" in genres
@@ -113,10 +124,15 @@ require(
 )
 require(
     "maximumActiveMetadataCalls <= 4" in runtime_test
-    and "kind=gallery&index=1" in runtime_test
-    and "kind=preferred" in runtime_test
-    and "genre card click must hand the original recording" in runtime_test,
-    "genre runtime test must prove bounded native poster enrichment and identity-preserving handoff",
+    and "legacy membership must not be called" in runtime_test
+    and "largoCard.projected.preferredArtworkId, 'c'.repeat(32)" in runtime_test
+    and "largoCard.projected.backendNativeId, undefined" in runtime_test
+    and "rendering cards must not resolve private paths" in runtime_test
+    and "assert.deepStrictEqual(recordingOpenCalls, [])" in runtime_test
+    and "openedRecordings[0].item.recordingId, publicMembers[0].recordingId" in runtime_test
+    and "openedRecordings[0].item.backendNativeId, undefined" in runtime_test
+    and "mismatched backend must not open a different recording" in runtime_test,
+    "genre runtime test must prove bounded public poster enrichment and identity-preserving handoff",
 )
 require("openRecording" in recordings, "Recordings 2 external detail handoff is missing")
 require("owner.openRecording" in genres, "genre recording clicks must use Recordings 2 detail ownership")

@@ -19,9 +19,11 @@ assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::presentationTitle
 assert(metadataSerializerSource.includes('VdrRecordingArtworkIdentity::publicUrl('),
   'canonical metadata serializer must remain the artwork URL owner');
 assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::serialize(recording)'));
-assert(apiSource.includes('\\",\\\"recording\\\":" << serializeRecording(*currentRecording)'));
+assert(apiSource.includes('\\",\\\"recording\\\":" << serializeRecording(*currentRecording, publicRecordingIdLookup)'));
 assert(apiSource.includes('jsonEscape(item.recording.backendNativeId)'));
 assert(apiSource.includes('truth.backendNativeId = recording.backendNativeId;'));
+assert(apiSource.includes('publicRecordingIdLookup(recording.backendId, recording.backendNativeId)'));
+assert(apiSource.includes('jsonEscape(publicId)'), 'public identity must be serialized from the scoped lookup');
 assert(identitySource.includes('"/recording-artwork/"'));
 
 function element(tagName) {
@@ -115,6 +117,7 @@ const item = api._test.normalizeItem({
   durationSeconds: 7000,
   recording: {
     id: 'recording-1',
+    publicRecordingId: 'rec_' + 'a'.repeat(32),
     backendId: 'default',
     backendNativeId,
     title: 'Ein unmoralisches Angebot',
@@ -136,6 +139,7 @@ const item = api._test.normalizeItem({
 assert(item);
 assert.strictEqual(item.posterUrl, posterUrl);
 assert.strictEqual(item.backendNativeId, backendNativeId);
+assert.strictEqual(item.recording.publicRecordingId, 'rec_' + 'a'.repeat(32));
 assert.strictEqual(item.recording.path, 'Filme/Ein unmoralisches Angebot');
 assert.strictEqual(item.recording.startTime, '2026-08-30T07:00:00Z');
 assert.strictEqual(item.recording.sizeMb, 4096);

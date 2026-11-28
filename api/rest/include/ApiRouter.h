@@ -137,6 +137,12 @@ public:
         std::function<ApiResponse(
             const std::string& body,
             const std::string& actorRef)>;
+    using BrowserRecordingPlaybackHandler =
+        std::function<ApiResponse(
+            const std::string& requestTarget,
+            const std::string& body,
+            const std::string& actorRef,
+            const std::string& authorizedBackendId)>;
     using DeviceRecordingPlaybackHandler =
         std::function<ApiResponse(
             const std::string& requestTarget,
@@ -148,7 +154,20 @@ public:
 
     void setPublicRecordingActionResolver(PublicRecordingActionResolver resolver)
     {
-        publicRecordingActionResolver_ = std::move(resolver);
+        // Reuse one persistent rec_ binding across all Recording owners.
+        publicRecordingActionResolver_ = resolver;
+        RecordingMarksApiRuntime::instance().setPublicRecordingResolver(resolver);
+        RecordingCutApiRuntime::instance().setPublicRecordingResolver(
+            std::move(resolver));
+    }
+
+    // Map a verified native cut result through the existing persistent
+    // public Recording identity repository, not a second result-ID store.
+    void setPublicRecordingEditedResultResolver(
+        RecordingCutApiRuntime::PublicEditedRecordingIdResolver resolver)
+    {
+        RecordingCutApiRuntime::instance().setPublicEditedRecordingIdResolver(
+            std::move(resolver));
     }
 
     using PublicRecordingFolderResolver =
@@ -210,6 +229,27 @@ public:
         RecordingMediaSessionHandler handler)
     {
         recordingMediaSessionHandler_ = std::move(handler);
+    }
+
+    void setBrowserRecordingPlaybackHandler(BrowserRecordingPlaybackHandler handler)
+    {
+        browserRecordingPlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleBrowserRecordingPlayback(
+        const std::string& requestTarget,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& authorizedBackendId)
+    {
+        if (browserRecordingPlaybackHandler_)
+            return browserRecordingPlaybackHandler_(requestTarget, body, actorRef, authorizedBackendId);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"media_session_runtime_unavailable\"}}";
+        return response;
     }
 
     void setDeviceRecordingPlaybackHandler(DeviceRecordingPlaybackHandler handler)
@@ -291,6 +331,20 @@ public:
             backendId, channelId, eventId, "preferred", 0);
     }
 
+    // Genre cards use the same persisted portrait selection as the legacy
+    // Genre controller, not an arbitrary client-supplied image kind/index.
+    ApiResponse getEpgGenreArtwork(
+        const std::string& backendId, const std::string& channelId,
+        const std::string& eventId) const
+    {
+        const auto poster = GenreBrowserApiRuntime::instance().epgPortraitArtwork(
+            backendId, channelId, eventId);
+        if (poster.available && epgCacheController_ != nullptr)
+            return epgCacheController_->getMetadataImage(
+                backendId, channelId, eventId, poster.kind, poster.imageIndex);
+        return getEpgArtwork(backendId, channelId, eventId);
+    }
+
     // Called only after the normal authenticated GET admission.
     std::shared_ptr<BrowserLiveEventSubscription> subscribeBrowserLive(
         const std::string& lastEventId) const;
@@ -335,6 +389,31 @@ public:
             return response;
         }
 
+        // Native Recording edit handlers run before Public-v1's catch-all.
+        if (RecordingCutApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        // The existing metadata owner serves Public-v1 Genre reads before
+        // the general Public-v1 fallback and receives the admitted scope.
+        ManualRecordingMetadataApiRuntime::instance().registerController(
+            metadataController_);
+        if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
+                requestTarget, response, authorizedBackendRefs))
+        {
+            return response;
+        }
+
         if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
@@ -346,20 +425,6 @@ public:
                 authorizedBackendRefs,
                 pairingToken,
                 browserAuthenticated))
-        {
-            return response;
-        }
-
-        if (RecordingCutApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
-        {
-            return response;
-        }
-
-        if (RecordingMarksApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
         {
             return response;
         }
@@ -383,15 +448,6 @@ public:
         }
 
         if (TeletextApiRuntime::instance().tryHandleGet(
-                requestTarget,
-                response))
-        {
-            return response;
-        }
-
-        ManualRecordingMetadataApiRuntime::instance().registerController(
-            metadataController_);
-        if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
         {
@@ -533,6 +589,31 @@ public:
                 return resolved;
             });
 
+        // Reuse the protected, native Marks/Cut runtimes for public paths.
+        if (RecordingCutApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
+        if (RecordingMarksApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
+        if (requestTarget.substr(0, requestTarget.find('?')) ==
+            "/api/v1/search-timers/preview-cache/refresh")
+        {
+            return handlePublicSearchTimerPreviewCacheRefresh(
+                requestTarget, body, actorRef, authorizedBackendRef,
+                requestRef, correlationRef);
+        }
+
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 requestRef,
@@ -571,22 +652,6 @@ public:
             return response;
         }
 
-        if (RecordingCutApiRuntime::instance().tryHandlePost(
-                requestTarget,
-                body,
-                response))
-        {
-            return response;
-        }
-
-        if (RecordingMarksApiRuntime::instance().tryHandlePost(
-                requestTarget,
-                body,
-                response))
-        {
-            return response;
-        }
-
         if (requestTarget == "/api/media/sessions")
         {
             if (!recordingMediaSessionHandler_)
@@ -615,7 +680,9 @@ public:
                 requestTarget,
                 body,
                 actorRef,
-                response))
+                response,
+                authorizedBackendRef,
+                contentType))
         {
             return response;
         }
@@ -624,7 +691,9 @@ public:
                 requestTarget,
                 body,
                 actorRef,
-                response))
+                response,
+                authorizedBackendRef,
+                contentType))
         {
             return response;
         }
@@ -658,6 +727,10 @@ public:
     }
 
 private:
+    ApiResponse handlePublicSearchTimerPreviewCacheRefresh(
+        const std::string& requestTarget, const std::string& body,
+        const std::string& actorRef, const std::string& authorizedBackendId,
+        const std::string& requestId, const std::string& correlationId);
     ApiResponse handlePublicRecordingAction(
         const std::string& body, bool execute,
         const std::string& ifMatch,
@@ -699,6 +772,7 @@ private:
     VdrRecordingFolderController* vdrRecordingFolderController_;
     LocalBackendSetupStatusLookup localBackendSetupStatusLookup_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
+    BrowserRecordingPlaybackHandler browserRecordingPlaybackHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
     DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;
 };

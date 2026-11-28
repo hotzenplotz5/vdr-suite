@@ -187,11 +187,12 @@ const context = vm.createContext({
   Uint8Array,
   Date
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
 (async function () {
   const playback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-restart'},
+    {id: 'rec_44444444444444444444444444444444'},
     'living-room'
   );
   const startButton = find(

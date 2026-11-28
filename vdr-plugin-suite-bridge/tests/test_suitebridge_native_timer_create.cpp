@@ -19,7 +19,8 @@ void appendFingerprintField(
 }
 
 std::string fingerprintToken(
-    const std::string &title = "Tagesschau 20 Uhr")
+    const std::string &title = "Tagesschau 20 Uhr",
+    const std::string &priority = "50", const std::string &lifetime = "99")
 {
   std::string fingerprint = "native-timer-specification/1|";
   appendFingerprintField(fingerprint, "S19.2E-1-1101-28106");
@@ -29,8 +30,8 @@ std::string fingerprintToken(
   appendFingerprintField(fingerprint, "---W---");
   appendFingerprintField(fingerprint, "2000");
   appendFingerprintField(fingerprint, "2030");
-  appendFingerprintField(fingerprint, "50");
-  appendFingerprintField(fingerprint, "99");
+  appendFingerprintField(fingerprint, priority);
+  appendFingerprintField(fingerprint, lifetime);
   appendFingerprintField(fingerprint, "1");
   appendFingerprintField(fingerprint, "0");
   return fingerprint;
@@ -55,7 +56,8 @@ std::string request(
     const std::string &operationId,
     const std::string &pluginEpoch = "pie_1",
     const std::string &expectedSpecificationFingerprint = fingerprintToken(),
-    const std::string &title = "Tagesschau 20 Uhr")
+    const std::string &title = "Tagesschau 20 Uhr",
+    const std::string &priority = "50", const std::string &lifetime = "99")
 {
   return
       "EXEC vdr-suite-native/1 vdr.timer.create 1 " + commandId + " " +
@@ -68,7 +70,8 @@ std::string request(
       hexToken("S19.2E-1-1101-28106") + " " +
       hexToken(title) + " " + hexToken("TV News") + " " +
       hexToken("2026-08-17") + " " + hexToken("---W---") + " " +
-      hexToken("2000") + " " + hexToken("2030") + " 50 99 1 0";
+      hexToken("2000") + " " + hexToken("2030") + " " + priority +
+      " " + lifetime + " 1 0";
 }
 
 class CountingCallback final :
@@ -85,6 +88,8 @@ public:
   SuiteBridgeCommandResult reentrantReply;
   std::string lastExpectedSpecificationFingerprint;
   std::string lastTitle;
+  std::string lastAux;
+  std::uint64_t lastPriority = 0, lastLifetime = 0;
 
   SuiteBridgeNativeTimerCreateMutationResult CreateTimer(
       const SuiteBridgeNativeTimerCreateRequest &request) override
@@ -93,6 +98,9 @@ public:
     lastExpectedSpecificationFingerprint =
         request.expectedSpecificationFingerprint;
     lastTitle = request.title;
+    lastAux = request.aux;
+    lastPriority = request.priority;
+    lastLifetime = request.lifetime;
     if (reenter) {
       assert(service != nullptr);
       reentrantReply = service->Handle("NTCREATE", reentrantRequest.c_str());
@@ -106,6 +114,21 @@ public:
 int main()
 {
   const std::string baseRequest = request("cmd_1", "fp_1", "op_1");
+  {
+    CountingCallback callback;
+    SuiteBridgeNativeTimerCreateService service("pie_1", &callback);
+    const auto zeroRequest = request("cmd_1", "fp_1", "op_1", "pie_1",
+        fingerprintToken("Tagesschau 20 Uhr", "0", "0"), "Tagesschau 20 Uhr", "0", "0");
+    const auto withAux = zeroRequest + " aux " + hexToken("<epgsearch>plugin:data</epgsearch>");
+    const auto first = service.Handle("NTCREATE", withAux.c_str());
+    assert(first.replyCode == 557);
+    assert(callback.lastAux == "<epgsearch>plugin:data</epgsearch>");
+    assert(callback.lastPriority == 0 && callback.lastLifetime == 0);
+    assert(service.Handle("NTCREATE", withAux.c_str()).replyCode == 557);
+    const auto changed = zeroRequest + " aux " + hexToken("changed");
+    assert(service.Handle("NTCREATE", changed.c_str()).replyCode == 559);
+    assert(callback.calls == 1);
+  }
 
   {
     // Deterministic unit test; TZ affects this process only.

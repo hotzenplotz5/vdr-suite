@@ -2,6 +2,7 @@
 
 #include "VdrRecordingMetadataJsonSerializer.h"
 
+#include <algorithm>
 #include <sstream>
 #include <string>
 
@@ -15,7 +16,8 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
 
 std::string VdrRecordingQueryResultJsonSerializer::serialize(
     const VdrRecordingQueryResult& result,
-    const MetadataOverlaySerializer& metadataOverlaySerializer) const
+    const MetadataOverlaySerializer& metadataOverlaySerializer,
+    const PublicRecordingIdLookup& publicRecordingIdLookup) const
 {
     std::ostringstream json;
 
@@ -54,8 +56,20 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
                     recording);
         }
 
+        const std::string publicId = publicRecordingIdLookup
+            ? publicRecordingIdLookup(recording) : std::string{};
+        json << "{";
+        if (publicId.size() == 36 && publicId.compare(0, 4, "rec_") == 0 &&
+            std::all_of(publicId.begin() + 4, publicId.end(), [](char value)
+            {
+                return (value >= '0' && value <= '9') ||
+                       (value >= 'a' && value <= 'f');
+            }))
+        {
+            json << "\"publicRecordingId\":\"" << publicId << "\",";
+        }
+
         json
-            << "{"
             << "\"id\":\"" << recording.id << "\","
             << "\"recordingId\":\"" << recording.id << "\","
             << "\"backendId\":\"" << recording.backendId << "\","

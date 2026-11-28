@@ -126,7 +126,7 @@ def check_canonical_recording_action_client_contract(client_api: str) -> None:
         ),
         (
             "fetchClientRecordingActionExecution",
-            "fetchClientSearchTimers",
+            "fetchClientSearchTimerPreviewCacheRefresh",
             "/api/vdr/recordings/actions/execute",
             "/api/recordings/actions/execute",
         ),

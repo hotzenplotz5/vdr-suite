@@ -34,7 +34,9 @@
     recording = Object.freeze(Object.assign({}, recording));
     installStyles();
     panel.editor = true; options.renderPayload(panel, initial);
-    const identity = {backendId: String(backendId), recordingId: String(recording.recordingId || recording.id)};
+    const identity = {backendId: String(backendId), recordingId: String(initial.recordingId)};
+    const marksPath = '/api/v1/recordings/' + identity.recordingId + '/marks';
+    const cutPath = '/api/v1/recordings/' + identity.recordingId + '/cut';
     const controls = node('div'), positionHint = node('p', ''), selectionHint = node('p', ''), actions = node('div'), confirmation = node('div'), cutStateView = node('div'), status = node('p', '');
     controls.className = 'recordings2-marks-editor'; positionHint.className = 'recordings2-marks-editor-hint'; selectionHint.className = 'recordings2-marks-editor-selection';
     actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; cutStateView.className = 'recordings2-cut-state'; status.className = 'recordings2-marks-editor-status';
@@ -44,12 +46,12 @@
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
     function request(path, body) {
       const api = global.VdrSuiteClientApi; if (!api || typeof api.requestJson !== 'function') return Promise.reject(new Error('client_unavailable'));
-      const config = {cache: 'no-store', credentials: 'same-origin'};
+      const config = {cache: 'no-store', credentials: 'same-origin', query: {backendId: identity.backendId}};
       if (body) {
         const session = global.VdrSuiteBrowserSession; config.method = 'POST';
         config.headers = Object.assign({'Content-Type': 'application/json'}, session && typeof session.csrfHeaders === 'function' ? session.csrfHeaders() : {});
         config.body = JSON.stringify(body);
-      } else config.query = {backend: identity.backendId, recordingId: identity.recordingId};
+      }
       return api.requestJson(path, config);
     }
     function button(label, action, disabled, parent, className) {
@@ -71,7 +73,7 @@
       cutStateView.appendChild(node('strong', 'Schnitt läuft …')); const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress); cutStateView.appendChild(node('p', 'Der gestartete Schnitt für genau diese Aufnahme ist noch nicht verifiziert abgeschlossen. Der native Cutter liefert keinen verlässlichen Prozentwert.'));
     }
     function scheduleCutStatePoll() { clearCutStateTimer(); if (destroyed || !cutStateActive() || typeof global.setTimeout !== 'function') return; cutStateTimer = global.setTimeout(function () { cutStateTimer = null; syncCutState().catch(function () { if (!destroyed) scheduleCutStatePoll(); }); }, 1500); }
-    function syncCutState() { return request('/api/vdr/recordings/cut').then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); if (next.operationState === 'failed' && cutPending()) { pending = null; clearVerificationTimer(); verificationAttempts = 0; setStatus('error', 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.'); } cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
+    function syncCutState() { return request(cutPath).then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); if (next.operationState === 'failed' && cutPending()) { pending = null; clearVerificationTimer(); verificationAttempts = 0; setStatus('error', 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.'); } cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
     function syncOperationState(operation) { if (!operation || !operation.path || !operation.path.endsWith('/cut')) return syncCanonical(operation); return syncCanonical(operation).then(function (next) { syncCutState().catch(function () {}); return next; }); }
     function frame(value) { const number = Number(value); return String(value).trim() && Number.isSafeInteger(number) && number >= 0 && number <= 2147483647 ? number : null; }
     function editable() { return !busy && !pending && payload && payload.availability === 'available' && payload.inUse === false; }
@@ -95,7 +97,7 @@
       options.renderPayload(panel, payload); panel.section.dataset.marksRevision = payload.marksRevision;
       const timeline = global.VdrSuiteRecordings2MarksTimeline; if (timeline) timeline.bind(root, recording, payload);
     }
-    function syncCanonical(operation) { return request('/api/vdr/recordings/marks').then(function (next) { if (destroyed) return null; apply(next, operation); return next; }); }
+    function syncCanonical(operation) { return request(marksPath).then(function (next) { if (destroyed) return null; apply(next, operation); return next; }); }
     function finishBusy() {
       busy = false;
       if (destroyed) return;
@@ -188,7 +190,7 @@
     }
     function previewCut() {
       if (!editable()) return;
-      confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + String(payload.sequenceCount || 0) + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
+      confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + String(payload.sequenceCount || 0) + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit(cutPath); });
     }
     function selectAndSeek(mark) {
       selectedFrame = Number(mark.positionFrame); render(); const active = playback(), state = snapshot();
@@ -218,7 +220,7 @@
           if (destroyed || source === null || target === null) return;
           selectedFrame = source;
           if (target === source) { render(); return; }
-          submit('/api/vdr/recordings/marks', {kind: 'move', sourceFrame: source, targetFrame: target});
+          submit(marksPath, {kind: 'move', sourceFrame: source, targetFrame: target});
         }
       });
       const range = typeof timeline.canonicalTimeline === 'function'
@@ -237,11 +239,11 @@
       const navigation = group('Markennavigation', 'navigation'), previous = navigationTarget(-1), next = navigationTarget(1);
       button('Vorherige Marke', function () { selectAndSeek(previous); }, !active || !previous, navigation); button('Nächste Marke', function () { selectAndSeek(next); }, !active || !next, navigation);
       const editing = group('Schnittmarken bearbeiten', 'editing');
-      button('Marke setzen', function () { const target = currentFrame(); if (target === null) { setStatus('error', 'Keine gültige Wiedergabeposition verfügbar.'); return; } submit('/api/vdr/recordings/marks', {kind: 'add', targetFrame: target}); }, blocked || !activePlayback(), editing, 'primary');
-      button('Auswahl hierher verschieben', function () { const mark = selectedMark(), target = currentFrame(); if (!mark || target === null) { setStatus('error', 'Bitte zuerst eine Schnittmarke auswählen und die Wiedergabeposition festlegen.'); return; } submit('/api/vdr/recordings/marks', {kind: 'move', sourceFrame: mark.positionFrame, targetFrame: target}); }, blocked || !selected || !activePlayback(), editing);
-      button('Auswahl löschen', function () { const mark = selectedMark(); if (mark) submit('/api/vdr/recordings/marks', {kind: 'delete', sourceFrame: mark.positionFrame}); }, blocked || !selected, editing, 'danger');
+      button('Marke setzen', function () { const target = currentFrame(); if (target === null) { setStatus('error', 'Keine gültige Wiedergabeposition verfügbar.'); return; } submit(marksPath, {kind: 'add', targetFrame: target}); }, blocked || !activePlayback(), editing, 'primary');
+      button('Auswahl hierher verschieben', function () { const mark = selectedMark(), target = currentFrame(); if (!mark || target === null) { setStatus('error', 'Bitte zuerst eine Schnittmarke auswählen und die Wiedergabeposition festlegen.'); return; } submit(marksPath, {kind: 'move', sourceFrame: mark.positionFrame, targetFrame: target}); }, blocked || !selected || !activePlayback(), editing);
+      button('Auswahl löschen', function () { const mark = selectedMark(); if (mark) submit(marksPath, {kind: 'delete', sourceFrame: mark.positionFrame}); }, blocked || !selected, editing, 'danger');
       const workflow = group('Weitere Schnittaktionen', 'workflow');
-      button('Alle Marken entfernen', function () { submit('/api/vdr/recordings/marks', {kind: 'reset'}); }, blocked || !marks().length, workflow, 'danger');
+      button('Alle Marken entfernen', function () { submit(marksPath, {kind: 'reset'}); }, blocked || !marks().length, workflow, 'danger');
       button('Schneiden …', previewCut, blocked || !marks().length, workflow);
       const list = node('div'); list.className = 'recordings2-marks-editor-list'; list.setAttribute('role', 'list'); actions.appendChild(list);
       marks().forEach(function (mark, index) {

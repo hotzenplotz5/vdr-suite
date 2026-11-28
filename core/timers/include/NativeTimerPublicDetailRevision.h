@@ -56,7 +56,7 @@ inline NativeTimerPublicDetailRevision nativeTimerPublicDetailRevision(
         binding->backendGeneration != currentGeneration ||
         binding->missingSince != 0 ||
         binding->driftState != NativeTimerBindingDriftState::none ||
-        timer.recording || timer.pending)
+        timer.pending)
         return result;
 
     NativeTimerObservedState observed;

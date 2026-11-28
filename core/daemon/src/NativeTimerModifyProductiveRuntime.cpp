@@ -85,7 +85,8 @@ bool assignAndClaim(
 
     const auto stored = operations.findPayloadByOperationId(op.operationId);
     if (!stored.ok() || stored.payload.payloadType != "native.timer.modify" ||
-        stored.payload.payloadVersion != 1)
+        (stored.payload.payloadVersion != 1 &&
+         stored.payload.payloadVersion != 2))
         return false;
     NativeTimerModifyOperationPayload payload;
     if (!parseNativeTimerModifyOperationPayload(stored.payload.payload, payload) ||
@@ -165,6 +166,9 @@ bool assignAndClaim(
             p.backendNativeTimerId != payload.backendNativeTimerId ||
             p.expectedIntentRevision != payload.expectedIntentRevision ||
             p.expectedAssignmentRevision != payload.expectedAssignmentRevision ||
+            p.modifyAux != payload.modifyAux ||
+            p.expectedAuxFingerprint != payload.expectedAuxFingerprint ||
+            p.desiredAux != payload.desiredAux ||
             previous->backendGeneration != op.backendGeneration ||
             p.controlPlaneClaimedAt != previous->assignedAt)
             return false;
@@ -191,6 +195,9 @@ bool assignAndClaim(
     request.expectedSpecificationFingerprint =
         backendAgentNativeTimerCreateSpecificationFingerprint(specification);
     request.specification = specification;
+    request.modifyAux = payload.modifyAux;
+    request.expectedAuxFingerprint = payload.expectedAuxFingerprint;
+    request.desiredAux = payload.desiredAux;
     request.controlPlaneClaimedAt = assignedAt;
 
     // Persist exactly one Agent assignment before entering dispatching.
@@ -424,8 +431,10 @@ void advanceFamily(
              sameOriginalTimerWithoutEpgId) &&
             !observation->observedState.recording &&
             !observation->observedState.pending &&
-            !nativeTimerObservationMatchesSpecification(
-                payload.expectedSpecification, observation->observedState))
+            (!nativeTimerObservationMatchesSpecification(
+                payload.expectedSpecification, observation->observedState) ||
+             (payload.modifyAux &&
+              observation->observedAux != payload.desiredAux)))
         {
             const auto unchanged = operations.transition(
                 persisted.operationId, persisted.operationRevision,

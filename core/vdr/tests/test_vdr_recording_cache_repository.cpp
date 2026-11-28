@@ -322,12 +322,29 @@ static void test_public_folder_browse_reuses_home_hierarchy()
         "home-vdr", id, 30, 0, children));
     assert(children.folderCount == 2);
     assert(children.folders.size() == 2U);
+    assert(children.singleRecordingLeafCount == 2);
+    VdrRecordingFolderPage mixed;
+    assert(repository.folderPageForBackendByPublicId("home-vdr", id, 1, 1, mixed, true));
+    assert(mixed.folderCount == 2 && mixed.singleRecordingLeafCount == 2);
+    assert(mixed.folders.size() == 1U && mixed.folders.front().name == "Beta");
+    assert(mixed.recordings.empty());
+    assert(repository.folderPageForBackendByPublicId("home-vdr", "", 1, 1, mixed, true));
+    assert(mixed.folders.size() == 1U && mixed.folders.front().name == "Series");
     // VDR title folders with exactly one .rec are recording leaves.
     for (const auto& child : children.folders)
     {
         assert(child.singleRecordingLeaf);
         assert(!child.singleRecording.backendNativeId.empty());
         assert(child.singleRecording.title == child.name);
+        const auto ancestors = VdrRecordingCacheRepository::publicFolderAncestors(
+            "home-vdr", child.singleRecording);
+        assert(ancestors.size() == 2U);
+        assert(ancestors[0] == VdrRecordingCacheRepository::publicFolderId(
+            "home-vdr", child.path));
+        assert(ancestors[1] == id);
+        const auto foreign = VdrRecordingCacheRepository::publicFolderAncestors(
+            "other-backend", child.singleRecording);
+        assert(foreign.size() == ancestors.size() && foreign[1] != id);
     }
     assert(!repository.folderPageForBackendByPublicId(
         "other-backend", id, 30, 0, children));

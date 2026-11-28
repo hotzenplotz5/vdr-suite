@@ -319,8 +319,10 @@ SuiteBridgeSvdrpTransport::executeNativeTimerCreateContract(
         << specification.priority << ' '
         << specification.lifetime << ' '
         << (specification.enabled ? 1 : 0) << ' '
-        << (specification.vps ? 1 : 0)
-        << "\r\n";
+        << (specification.vps ? 1 : 0);
+    if (!specification.aux.empty())
+        wire << " aux " << hexToken(specification.aux);
+    wire << "\r\n";
 
     return executeRequest(wire.str());
 }
@@ -469,10 +471,18 @@ bool SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
     std::string& reasonCode)
 {
     projection = {};
+    const auto canonicalWeekdays = [](const std::string& value) {
+        if (value.size() != 7U) return false;
+        constexpr char kWeekdays[] = "MTWTFSS";
+        for (std::size_t i = 0; i < 7U; ++i)
+            if (value[i] != '-' && value[i] != kWeekdays[i])
+                return false;
+        return true;
+    };
     if (receivedAt <= 0 || start <= 0 || stop <= start ||
         stop - start >= 24 * 3600 ||
         !backendAgentNativeTimerCreateSpecificationValid(specification) ||
-        specification.weekdays != "-------" ||
+        !canonicalWeekdays(specification.weekdays) ||
         !specification.enabled || specification.vps ||
         !backendAgentLocalProviderValidSelection(authorizedSelection) ||
         authorizedSelection.authorityDomain !=
@@ -540,7 +550,8 @@ bool SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
         !backendAgentNativeTimerDeleteFingerprintTokenValid(fields[11]) ||
         !nonnegative(fields[12], timers) || timers > 4096 ||
         !unsignedValue(fields[13], devices) || devices > 64 ||
-        fields[14] != "isolated_clear" ||
+        fields[14] != (specification.weekdays == "-------"
+            ? "isolated_clear" : "isolated_initial_clear") ||
         nativeNow > static_cast<std::uint64_t>(receivedAt) + 5U ||
         static_cast<std::uint64_t>(receivedAt) - 
             (nativeNow > static_cast<std::uint64_t>(receivedAt)
@@ -551,7 +562,10 @@ bool SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
         return false;
     }
 
-    projection.isolatedCandidateClear = true;
+    projection.isolatedCandidateClear =
+        specification.weekdays == "-------";
+    projection.recurringInitialClear =
+        specification.weekdays != "-------";
     projection.proposedStart = start;
     projection.proposedStop = stop;
     projection.nativeObservedAt = static_cast<std::int64_t>(nativeNow);

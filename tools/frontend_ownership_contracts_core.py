@@ -1952,7 +1952,7 @@ def check_recording_loading_client_api_contract(client_api: str) -> None:
         start
     )
     search_timer_boundary = client_api.find(
-        "function fetchClientSearchTimers(options)",
+        "function fetchClientSearchTimerPreviewCacheRefresh(options)",
         start
     )
 
@@ -2193,9 +2193,6 @@ def check_client_api_contract():
     required_exports = [
         "fetchClientTimers",
         "fetchClientTimerConflicts",
-        "fetchClientTimerCreateAction",
-        "fetchClientTimerUpdateAction",
-        "fetchClientTimerDeleteAction",
         "fetchClientChannels",
         "fetchClientChannelMoveAction",
         "fetchClientCapabilities",
@@ -2222,16 +2219,7 @@ def check_client_api_contract():
         "fetchClientRecordings",
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution",
-        "fetchClientSearchTimers",
-        "fetchClientSearchTimerDiscovery",
-        "fetchClientSearchTimerPreview",
-        "fetchClientSearchTimerPlan",
-        "fetchClientSearchTimerValidate",
-        "fetchClientSearchTimerExecute",
-        "fetchClientSearchTimerRealTest",
         "fetchClientSearchTimerCreateAction",
-        "fetchClientSearchTimerUpdateAction",
-        "fetchClientSearchTimerDeleteAction",
     ]
 
     defined_fetch_functions = client_api_fetch_function_names(client_api)
@@ -2269,21 +2257,12 @@ def check_client_api_contract():
         )
 
 
-    require(
-        "function fetchClientTimerCreateAction(options)" in client_api
-        and "/api/vdr/timers/actions/create" in client_api,
-        "fetchClientTimerCreateAction() must own /api/vdr/timers/actions/create access"
-    )
-    require(
-        "function fetchClientTimerUpdateAction(options)" in client_api
-        and "/api/vdr/timers/actions/update" in client_api,
-        "fetchClientTimerUpdateAction() must own /api/vdr/timers/actions/update access"
-    )
-    require(
-        "function fetchClientTimerDeleteAction(options)" in client_api
-        and "/api/vdr/timers/actions/delete" in client_api,
-        "fetchClientTimerDeleteAction() must own /api/vdr/timers/actions/delete access"
-    )
+    for route in ("/api/vdr/timers/actions/", "/api/vdr/searchtimers", "/api/searchtimers"):
+        require(route not in client_api, "retired Browser transport returned: " + route)
+    for name in ("fetchPublicManualTimerCreate", "fetchPublicNativeTimerModify",
+                 "fetchPublicNativeTimerDelete", "fetchPublicNativeTimerDirectCreate",
+                 "fetchPublicNativeTimerDirectUpdate", "fetchPublicNativeTimerDirectDelete"):
+        require(f"{name}: {name}" in client_api, "missing Public-v1 Timer writer: " + name)
     require(
         "function fetchClientChannelMoveAction(options)" in client_api
         and "/api/vdr/channels/move" in client_api
@@ -2381,89 +2360,23 @@ def check_client_api_contract():
         "client-api.js must not probe the non-server SearchTimer live route"
     )
 
-    searchtimer_routes = {
-        "fetchClientSearchTimers": (
-            "fetchClientSearchTimerDiscovery",
-            "/api/vdr/searchtimers",
-            "/api/searchtimers",
-            None,
-        ),
-        "fetchClientSearchTimerDiscovery": (
-            "fetchClientSearchTimerPreview",
-            "/api/vdr/searchtimers/discovery",
-            "/api/searchtimers/discovery",
-            "backendQueryOptions(options)",
-        ),
-        "fetchClientSearchTimerPreview": (
-            "fetchClientSearchTimerPreviewCacheRefresh",
-            "/api/vdr/searchtimers/preview",
-            "/api/searchtimers/preview",
-            "backendQueryOptions(options)",
-        ),
-        "fetchClientSearchTimerPreviewCacheRefresh": (
-            "fetchClientSearchTimerPlan",
-            "/api/vdr/searchtimers/preview/cache/refresh",
-            "/api/searchtimers/preview/cache/refresh",
-            "backendQueryOptions(queryMutationOptions(options))",
-        ),
-        "fetchClientSearchTimerPlan": (
-            "fetchClientSearchTimerValidate",
-            "/api/vdr/searchtimers/plan",
-            "/api/searchtimers/plan",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerValidate": (
-            "fetchClientSearchTimerExecute",
-            "/api/vdr/searchtimers/validate",
-            "/api/searchtimers/validate",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerExecute": (
-            "fetchClientSearchTimerRealTest",
-            "/api/vdr/searchtimers/execute",
-            "/api/searchtimers/execute",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerRealTest": (
-            "fetchClientSearchTimerCreateStaged",
-            "/api/vdr/searchtimers/real-test",
-            "/api/searchtimers/real-test",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerUpdateAction": (
-            "fetchClientSearchTimerDeleteAction",
-            "/api/vdr/searchtimers/update",
-            "/api/searchtimers/update",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerDeleteAction": (
-            None,
-            "/api/vdr/searchtimers/delete",
-            "/api/searchtimers/delete",
-            "jsonPostOptions(options)",
-        ),
-    }
-
-    for function_name, route_contract in searchtimer_routes.items():
-        next_function_name, primary_route, alternate_route, option_marker = route_contract
-        body = client_api_function_body(
-            client_api,
-            function_name,
-            next_function_name,
-        )
-        require(
-            "requestJson(" in body and primary_route in body,
-            function_name + "() must dispatch through its primary SearchTimer route",
-        )
-        require(
-            "requestJsonWithFallback" not in body and alternate_route not in body,
-            function_name + "() must not probe a SearchTimer alias after failure",
-        )
-        if option_marker is not None:
-            require(
-                option_marker in body,
-                function_name + "() request-option contract drifted",
-            )
+    refresh = client_api_function_body(
+        client_api, "fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerCreateStaged",
+    )
+    require(
+        "/api/v1/search-timers/preview-cache/refresh" in refresh
+        and "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))" in refresh
+        and "requestJsonWithFallback" not in refresh,
+        "SearchTimer refresh must remain CSRF-bound and one-shot",
+    )
+    mutation = client_api_function_body(client_api, "mutatePublicSearchTimer")
+    require(
+        "publicSearchTimerPath(normalized, '/mutations')" in mutation
+        and "'Idempotency-Key'" in mutation and "'If-Match'" in mutation
+        and "queryMutationOptions(jsonPostOptions(" in mutation
+        and "requestJsonWithFallback" not in mutation,
+        "SearchTimer Public-v1 mutation must stay version-fenced and one-shot",
+    )
 
     # ST.V1: the Browser CREATE wrapper delegates once to Public API v1;
     # it must never dispatch through the old /api/vdr/searchtimers route.
@@ -2490,7 +2403,7 @@ def check_client_api_contract():
     )
     operation_read = client_api_function_body(
         client_api, "fetchClientSearchTimerOperation",
-        "fetchClientSearchTimerUpdateAction",
+        "fetchPublicSearchTimerPage",
     )
     require(
         "requestJson('/api/v1/operations/' + encodeURIComponent(id)" in operation_read,
@@ -2527,7 +2440,7 @@ def check_client_api_contract():
         "fetchClientMetadata": ("/api/metadata",),
         "fetchClientPersons": ("/api/vdr/persons",),
         "fetchClientRecordingPersons": (
-            "/api/vdr/recordings/persons/search",
+            "/api/v1/search/recordings",
         ),
     }
 
@@ -2544,7 +2457,7 @@ def check_client_api_contract():
 
     require(
         "function fetchClientRecordingTrailer(options)" in client_api
-        and "'/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'" in client_api,
+        and "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'" in client_api,
         "fetchClientRecordingTrailer() must own the backend-scoped Recording trailer route"
     )
 

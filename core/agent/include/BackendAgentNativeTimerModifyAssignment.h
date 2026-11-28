@@ -27,6 +27,9 @@ struct BackendAgentNativeTimerModifyAssignmentRequest
     std::string expectedCurrentFingerprint;
     std::string expectedSpecificationFingerprint;
     BackendAgentNativeTimerCreateSpecification specification;
+    bool modifyAux = false;
+    std::string expectedAuxFingerprint;
+    std::string desiredAux;
     std::int64_t controlPlaneClaimedAt=0;
 };
 struct BackendAgentNativeTimerModifyAssignmentResult

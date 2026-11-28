@@ -56,6 +56,10 @@ class RecordingCutApiRuntime
 public:
     using RecordingLookup =
         std::function<std::vector<VdrRecording>(const std::string& backendId)>;
+    using PublicRecordingResolver =
+        std::function<bool(const std::string&, const std::string&, VdrRecording&)>;
+    using PublicEditedRecordingIdResolver =
+        std::function<std::string(const std::string&, const std::string&)>;
     using BackendResolver =
         std::function<RecordingCutBackendAccess(const std::string& backendId)>;
     using BackendWritePolicy =
@@ -77,6 +81,8 @@ public:
         OperationStateResolver operationStateResolver = {});
 
     void reset();
+    void setPublicRecordingResolver(PublicRecordingResolver resolver);
+    void setPublicEditedRecordingIdResolver(PublicEditedRecordingIdResolver resolver);
     bool configured() const;
     bool mutationConfigured() const;
 
@@ -94,6 +100,8 @@ private:
 
     mutable std::mutex mutex_;
     RecordingLookup recordingLookup_;
+    PublicRecordingResolver publicRecordingResolver_;
+    PublicEditedRecordingIdResolver publicEditedRecordingIdResolver_;
     BackendResolver backendResolver_;
     BackendWritePolicy backendWritePolicy_;
     StartDispatcher startDispatcher_;

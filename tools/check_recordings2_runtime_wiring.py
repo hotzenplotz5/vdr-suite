@@ -9,6 +9,7 @@ runtime_paths = {
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
     'move_editor': ROOT / 'web/frontend/recordings2-move-editor.js',
     'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
+    'folder_page': ROOT / 'web/frontend/recordings2-folder-page.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'folder_dom_cache': ROOT / 'web/frontend/recordings2-folder-dom-cache.js',
     'browser_cards': ROOT / 'web/frontend/recordings2-browser-cards.js',
@@ -66,19 +67,17 @@ required_tokens = {
     ),
     'actions': (
         'global.VdrSuiteRecordings2Actions',
-        'fetchClientRecordingActionValidation',
-        'fetchClientRecordingActionExecution',
+        'fetchPublicRecordingAction',
+        'resolvePublicRecordingId',
         'fetchClientRecordingFolder',
-        "action: String(action || '').toUpperCase()",
-        'findMatchingRecording',
+        'publicActionPayload',
         'requestBrowsableFolder',
-        'isDryRunReady',
+        'publicPreflights',
         'executeDelete',
         'enqueueDelete',
-        'waitForDeleteSettlement',
+        'readbackVerified',
         'DELETE_QUEUE_BY_BACKEND',
         'completeDelete',
-        'READBACK_ATTEMPTS',
     ),
     'move_editor': (
         'global.VdrSuiteRecordings2MoveEditor',
@@ -92,6 +91,14 @@ required_tokens = {
         'sameRecordingIdentity',
         'forgetRecording',
         'updatePresentedFolderState',
+        'applyFolderData',
+        'selectRecording',
+    ),
+    'folder_page': (
+        'global.VdrSuiteRecordings2FolderPage',
+        'recordingFolder !== true',
+        'applyFolderData',
+        'selectRecording',
     ),
     'browser_cards': (
         'global.VdrSuiteRecordings2Cards',
@@ -124,8 +131,9 @@ required_tokens = {
     ),
     'marks_detail': (
         'global.VdrSuiteRecordings2MarksDetail',
-        "'/api/vdr/recordings/marks'",
-        'recordingId: id',
+        "'/api/v1/recordings/'",
+        'resolvePublicRecordingId(recording, backend)',
+        'backendId: backend',
         'Schnitt / Schnittmarken',
         'marksRevision',
         'VdrSuiteRecordings2BrowserView',
@@ -135,7 +143,8 @@ required_tokens = {
     ),
     'marks_editor': (
         'global.VdrSuiteRecordings2MarksEditor',
-        "'/api/vdr/recordings/cut'",
+        "'/api/v1/recordings/'",
+        'const cutPath',
         'operationPending',
         'operationVerified',
         'editedRecordingFound',
@@ -173,7 +182,9 @@ required_tokens = {
     ),
     'metadata_detail': (
         'global.VdrSuiteRecordings2MetadataDetail',
-        "'/api/vdr/recordings/metadata'",
+        "'/api/v1/recordings/'",
+        'resolvePublicRecordingId',
+        'publicRecordingMetadataView',
         'metadataView.mount',
         'assignmentRuntimePath',
         'loadAssignmentRuntime',
@@ -190,15 +201,16 @@ required_tokens = {
     ),
     'metadata_genre': (
         'global.VdrSuiteRecordings2MetadataGenre',
-        "'/recordings/metadata/genre'",
-        'VdrSuiteBrowserSession',
+        'assignment().publicBackendPath',
+        'assignment().postRecording',
+        'assignment().resolveRecordingIdentity',
         'Genre hinzufügen',
         'Manuelles Genre entfernen',
     ),
     'runtime': (
         'global.VdrSuiteRecordings2 = moduleApi;',
         'fetchClientRecordingFolder',
-        'recordingFolder !== true',
+        'applyFolderData',
         'serverRecordings',
         'promotedRecordings',
         'resolveSingleRecordingLeaves',
@@ -273,7 +285,10 @@ line_limits = {
     'metadata_detail': 140,
     'metadata_assignment': 360,
     'metadata_genre': 220,
-    'shared': 320,
+    # One shared presentation owner currently supports native and opaque
+    # Public-v1 identities during the migration. Keep a bounded budget
+    # rather than split that cohesive owner solely to satisfy a line count.
+    'shared': 400,
     'folder_artwork': 220,
     'actions': 620,
     'move_editor': 220,
@@ -304,6 +319,7 @@ for forbidden in (
 
 for owner in (
     'folder_artwork',
+    'folder_page',
     'actions',
     'move_editor',
     'browser_view',
@@ -333,7 +349,7 @@ for forbidden in (
             f'Recordings 2 marks read addon violates read-only public identity boundary: {forbidden}'
         )
 for required in (
-    "query: {\n        backend: backend,\n        recordingId: id\n      }",
+    "query: {backendId: backend}",
     "cache: 'no-store'",
     "credentials: 'same-origin'",
 ):

@@ -36,7 +36,8 @@ PublicRecordingCollectionProjection::PublicRecordingCollectionProjection(
 
 PublicRecordingReadResult PublicRecordingCollectionProjection::project(
     const std::string& authorizedBackendId,
-    const std::vector<VdrRecording>& recordings)
+    const std::vector<VdrRecording>& recordings,
+    bool preserveSourceOrder)
 {
     PublicRecordingReadResult result;
     if (authorizedBackendId.empty() || authorizedBackendId == "*")
@@ -85,14 +86,17 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
         result.items.push_back(std::move(item));
     }
 
-    std::sort(result.items.begin(), result.items.end(),
-        [](const PublicRecordingReadItem& a,
-           const PublicRecordingReadItem& b)
-        {
-            if (a.recordedAt != b.recordedAt)
-                return a.recordedAt > b.recordedAt;
-            return a.recordingId < b.recordingId;
-        });
+    if (!preserveSourceOrder)
+    {
+        std::sort(result.items.begin(), result.items.end(),
+            [](const PublicRecordingReadItem& a,
+               const PublicRecordingReadItem& b)
+            {
+                if (a.recordedAt != b.recordedAt)
+                    return a.recordedAt > b.recordedAt;
+                return a.recordingId < b.recordingId;
+            });
+    }
 
     result.valid = true;
     return result;

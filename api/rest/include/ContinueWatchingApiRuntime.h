@@ -19,6 +19,7 @@ class RecentlyWatchedRepository;
 class RecentlyWatchedService;
 class VdrRecordingCacheRepository;
 struct VdrRecording;
+struct ManualRecordingMetadataAssignment;
 
 // Parsed but not authorized; the caller must verify the live Device credential,
 // exact backend play grant and public rec_ identity before any persistence access.
@@ -38,7 +39,15 @@ class ContinueWatchingApiRuntime
 public:
     static ContinueWatchingApiRuntime& instance();
 
-    bool configure(Database& database, VdrRecordingCacheRepository& recordings);
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+
+    using PublicHistoryArtworkLookup = std::function<std::string(
+        const VdrRecording&, const ManualRecordingMetadataAssignment&)>;
+
+    bool configure(Database& database, VdrRecordingCacheRepository& recordings,
+                   PublicRecordingIdLookup publicRecordingIdLookup = {},
+                   PublicHistoryArtworkLookup publicHistoryArtworkLookup = {});
     void reset();
     // Read-once SSE invalidation hints; persistent progress stays in the repository.
     std::vector<std::string> takePendingProgressBackends();
@@ -62,11 +71,18 @@ public:
         const std::string& publicRecordingId,
         const PublicRecordingProgressRequest& request) const;
 
+    // Uses the already authorized Browser backend and the daemon's canonical
+    // Recording resolver. Legacy callers keep their existing identity contract.
+    using PublicRecordingResolver = std::function<bool(
+        const std::string&, const std::string&, VdrRecording&)>;
+
     bool tryHandlePost(
         const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& authorizedBackendId = {},
+        const PublicRecordingResolver& resolvePublicRecording = {}) const;
 
 private:
     ContinueWatchingApiRuntime() = default;
@@ -77,5 +93,7 @@ private:
     std::unique_ptr<RecentlyWatchedRepository> recentlyWatchedRepository_;
     std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
+    PublicHistoryArtworkLookup publicHistoryArtworkLookup_;
     mutable std::set<std::string> pendingProgressBackends_;
 };

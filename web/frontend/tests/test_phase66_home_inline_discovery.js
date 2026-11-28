@@ -9,10 +9,14 @@ const frontendRoot = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery-bootstrap.js'), 'utf8');
 
 assert(source.includes("const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder'"));
-assert(source.includes('fetchClientGenreRecordings({'));
+assert(source.includes('fetchPublicGenreRecordings({'));
+assert(!source.includes('fetchClientGenreRecordings('));
+assert(source.includes('publicId ? paging.client.fetchPublicRecordingFolder : paging.client.fetchClientRecordingFolder'));
+assert(source.includes('query: publicId ? {folderId: publicId'));
 assert(source.includes('fetchClientRecordingFolder({'));
 assert(source.includes("const INLINE_METADATA_CONCURRENCY = 4"));
-assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
+assert(source.includes("client.requestJson('/api/v1/recordings/'"));
+assert(!source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
 assert(source.includes('recordingMetadataPosterUrl'));
 assert(source.includes('createInlineRecordingCard(projected, backendId, original)'));
 assert(source.includes('recording && recording.nativeMetadata'));
@@ -289,17 +293,40 @@ function richMetadata(nativeId) {
   };
 }
 
-const genreRecordings = [
-  recording('r1', 'Action Eins'),
-  recording('r2', 'Action Zwei'),
-  recording('r3', 'Action Drei'),
-  recording('r4', 'Action Vier'),
-  recording('r5', 'Action Fünf'),
-  Object.assign(recording('r6', 'Action Sechs'), {nativeCardMetadata: richMetadata('native-r6')})
-];
+function genreRecordingId(number) {
+  return 'rec_' + String(number).padStart(32, '0');
+}
+function genreArtworkId(number, variant) {
+  return String(number).padStart(31, '0') + variant;
+}
+function genreArtworkUrl(number, variant) {
+  return '/api/v1/recordings/' + genreRecordingId(number) + '/artwork/' +
+    genreArtworkId(number, variant) + '?backendId=backend-a';
+}
+const genreRecordings = ['Eins', 'Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs'].map((label, index) => ({
+  recordingId:genreRecordingId(index + 1), backendId:'backend-a',
+  recordedAt:'2026-11-28T10:00:00Z', title:'Action ' + label,
+  preferredArtworkId:genreArtworkId(index + 1, 0)
+}));
+function publicGenreDetail(recording) {
+  const number = genreRecordings.indexOf(recording) + 1;
+  return Object.assign({}, recording, {metadata:number === 2 ? {
+    state:'absent', source:'none', contentKind:'unknown'
+  } : {
+    state:'available', source:'restfulapi-scraper-bridge', contentKind:'movie',
+    providerTitle:'Kanonisch R' + number,
+    overview:'Scraper-Zusammenfassung r' + number,
+    images:[
+      {orientation:'landscape',image:{available:true,url:genreArtworkUrl(number,1)}},
+      {orientation:'portrait',image:{available:true,url:genreArtworkUrl(number,2)}}
+    ],
+    preferredArtwork:{available:true,url:genreArtworkUrl(number,0)}
+  }});
+}
 
 const client = {
-  fetchClientGenreRecordings(options) {
+  fetchClientGenreRecordings() { throw new Error('Private genre read'); },
+  fetchPublicGenreRecordings(options) {
     genreCalls.push(options);
     if (options.offset === 0) {
       return Promise.resolve({
@@ -316,15 +343,17 @@ const client = {
   },
 
   requestJson(pathValue, options) {
-    assert.strictEqual(pathValue, '/api/vdr/recordings/metadata');
-    metadataCalls.push(options);
+    assert.strictEqual(options.query.backendId, 'backend-a');
+    assert.strictEqual(options.query.backendNativeId, undefined);
+    const recording = genreRecordings.find(item => pathValue === '/api/v1/recordings/' + item.recordingId);
+    assert(recording, 'metadata must use the exact public member identity');
+    metadataCalls.push({pathValue, options});
     activeMetadata += 1;
     maximumActiveMetadata = Math.max(maximumActiveMetadata, activeMetadata);
-    const nativeId = options.query.backendNativeId;
     return new Promise(resolve => {
       setTimeout(() => {
         activeMetadata -= 1;
-        resolve(richMetadata(nativeId));
+        resolve(publicGenreDetail(recording));
       }, 8);
     });
   },
@@ -467,48 +496,49 @@ function wait(milliseconds) {
   assert.strictEqual(
     genreExpansion.querySelectorAll('.media-home-discovery-card.recording').length,
     0,
-    'raw recording cards must not flash before their native metadata lookup settles'
+    'raw recording cards must not flash before their public metadata lookup settles'
   );
 
   await wait(40);
   genreExpansion = genreSection.querySelector('.media-home-inline-expansion');
   const genreCards = genreExpansion.querySelectorAll('.media-home-discovery-card.recording');
   assert.strictEqual(genreCards.length, genreRecordings.length);
-  assert.strictEqual(metadataCalls.length, genreRecordings.length - 1);
-  assert.strictEqual(maximumActiveMetadata, 4, 'inline native metadata reads must stay bounded to four concurrent requests');
+  assert.strictEqual(metadataCalls.length, genreRecordings.length);
+  assert.strictEqual(maximumActiveMetadata, 4, 'inline public metadata reads must stay bounded to four concurrent requests');
   assert.deepStrictEqual(
-    metadataCalls.map(call => call.query.backendNativeId),
-    genreRecordings.slice(0, -1).map(item => item.backendNativeId),
-    'native metadata must be resolved in canonical genre order'
+    metadataCalls.map(call => call.pathValue),
+    genreRecordings.map(item => '/api/v1/recordings/' + item.recordingId),
+    'public metadata must be resolved in canonical genre order'
   );
 
   assert.strictEqual(genreCards[5].querySelector('strong').textContent, 'Kanonisch R6');
-  assert.strictEqual(genreCards[5].querySelector('img').src, nativeImageUrl('r6', 'gallery', 1) + '&variant=home');
+  assert.strictEqual(genreCards[5].querySelector('img').src, genreArtworkUrl(6, 2) + '&variant=home');
   const firstRecording = genreCards[0];
-  assert.strictEqual(firstRecording.dataset.recordingId, 'r1');
+  assert.strictEqual(firstRecording.dataset.recordingId, genreRecordingId(1));
   assert.strictEqual(firstRecording.querySelector('strong').textContent, 'Kanonisch R1');
   assert.strictEqual(firstRecording.querySelector('img').loading, 'lazy');
   assert.strictEqual(firstRecording.querySelector('img').decoding, 'async');
   assert.strictEqual(
     firstRecording.querySelector('img').src,
-    nativeImageUrl('r1', 'gallery', 1) + '&variant=home'
+    genreArtworkUrl(1, 2) + '&variant=home'
   );
 
   const notFoundRecording = genreCards[1];
-  assert.strictEqual(notFoundRecording.dataset.recordingId, 'r2');
+  assert.strictEqual(notFoundRecording.dataset.recordingId, genreRecordingId(2));
   assert.strictEqual(
     notFoundRecording.querySelector('strong').textContent,
     'Action Zwei',
-    'real native metadata misses must retain the recording leaf title without exposing the genre/folder path'
+    'absent public metadata must retain the recording title'
   );
-  assert.strictEqual(notFoundRecording.querySelector('img').src, '/weak/r2.jpg');
+  assert.strictEqual(notFoundRecording.querySelector('img').src, genreArtworkUrl(2, 0) + '&variant=home');
 
   clickElement(firstRecording);
   await settle();
   assert.deepStrictEqual(moduleSelections, ['recordings2'], 'only choosing an actual recording may enter the canonical recording owner');
   assert.strictEqual(openRecordingCalls.length, 1);
   assert.strictEqual(openRecordingCalls[0].recording, genreRecordings[0], 'presentation projection must never replace the canonical recording handoff');
-  assert.strictEqual(openRecordingCalls[0].recording.path, 'Action/Action Eins');
+  assert.strictEqual(openRecordingCalls[0].recording.path, undefined);
+  assert.strictEqual(openRecordingCalls[0].recording.backendNativeId, undefined);
   assert.strictEqual(openRecordingCalls[0].options.backLabel, '← Zurück zu Home');
 
   clickElement(genreCard);
@@ -734,7 +764,39 @@ function wait(milliseconds) {
   clickElement(seriesCard);
   assert.strictEqual(stopped,1);
   assert.strictEqual(seriesSection.querySelector('.media-home-inline-expansion'),null);
-  console.log('phase66 Home inline genre native metadata, paginated folder and preview contract ok');
+  // Public Home folders use opaque identities, not reconstructed native paths.
+  delete window.VdrSuiteHomeRecordingDiscovery;
+  delete window.VdrSuiteHomeCache;
+  const publicRoot='fld1_'+'a'.repeat(32), publicChild='fld1_'+'b'.repeat(32);
+  const publicRecording='rec_'+'c'.repeat(32), artwork='d'.repeat(32);
+  const publicCalls=[];
+  const publicCard=makeCard('folder',publicRoot,'Public root');
+  publicCard.__vdrSuiteFolderEntry={folderId:publicRoot,name:'Public root',recordingCount:1};
+  const publicSection=makeSection('folders',publicCard);
+  client.fetchClientRecordingFolder=()=>{throw new Error('Unexpected private folder read');};
+  client.fetchPublicRecordingFolder=options=>{
+    publicCalls.push(options);
+    assert(!Object.hasOwn(options.query,'path'));
+    const root=options.query.folderId===publicRoot;
+    assert(root || options.query.folderId===publicChild);
+    return Promise.resolve({publicFolder:true,recordingFolder:true,offset:0,
+      returnedCards:1,nextOffset:1,hasMore:false,
+      folders:root?[{folderId:publicChild,name:'Nested child',recordingCount:1,
+        representativeRecording:{recordingId:publicRecording,backendId:'backend-a',preferredArtworkId:artwork}}]:[],
+      recordings:root?[]:[{recordingId:publicRecording,backendId:'backend-a',title:'Public recording',preferredArtworkId:artwork}]});
+  };
+  clickElement(publicCard); await settle(); await settle();
+  let publicExpansion=publicSection.querySelector('.media-home-inline-expansion');
+  const publicNested=publicExpansion.querySelector('.media-home-inline-folder');
+  assert(publicNested);
+  assert.strictEqual(publicNested.dataset.inlineFolderPath,publicChild);
+  assert.strictEqual(publicNested.querySelector('strong').textContent,'Nested child');
+  clickElement(publicNested); await settle(); await settle();
+  publicExpansion=publicSection.querySelector('.media-home-inline-expansion');
+  assert.strictEqual(publicExpansion.querySelector('.media-home-discovery-card.recording').dataset.recordingId,publicRecording);
+  clickElement(publicExpansion.querySelector('.media-home-inline-back')); await settle(); await settle();
+  assert.deepStrictEqual(publicCalls.map(call=>call.query.folderId),[publicRoot,publicChild,publicRoot]);
+  console.log('phase66 Home inline genre public metadata, paginated folder and preview contract ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;

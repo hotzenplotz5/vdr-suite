@@ -249,6 +249,7 @@
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
     enterPlaybackMode,
+    resolvePublicRecordingId: owner.resolvePublicRecordingId,
     // Do not discard the underlying Hero's resumePosition/showMode helpers.
     // The prewarm wrapper consumes those helpers on its own Play action.
     __test: Object.freeze(Object.assign({}, owner.__test || {}, {

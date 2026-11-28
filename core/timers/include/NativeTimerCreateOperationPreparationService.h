@@ -60,6 +60,7 @@ struct NativeTimerCreateOperationPreparationRequest
 
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
+    std::string aux;
 };
 
 struct NativeTimerCreateOperationPreparationResult

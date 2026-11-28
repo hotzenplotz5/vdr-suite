@@ -100,7 +100,7 @@
     {
       "id": "metadata-artwork",
       "prefixes": [
-        "/api/v1/backends/{backendId}/metadata/resolve",
+        "/api/v1/backends/{backendId}/metadata/resolve", "/api/v1/backends/{backendId}/recordings/metadata",
         "/api/v1/recordings/{recordingId}/artwork",
         "/api/v1/epg/artwork",
         "/api/v1/epg/preferred-artwork"

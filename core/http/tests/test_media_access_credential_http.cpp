@@ -52,10 +52,19 @@ int main()
         "vdr_suite_media=abc; Path=/; HttpOnly; Secure; SameSite=Lax",
         true) == "vdr_suite_media=abc; Path=/; HttpOnly; Secure; SameSite=Lax");
 
-    // The Web/browser credential remains restricted to its legacy path.
-    // Public-v1 media access uses a different, explicitly scoped cookie.
+    // Legacy Web cookies retain their old scope; canonical Browser and
+    // Device media access use the versioned path.
     const std::string publicV1Path =
         "/api/v1/media/sessions/" + sessionId + "/";
+    const std::string versionedBrowserCookie =
+        MediaAccessCredentialHttp::publicV1SessionCookie(sessionId, credential, 21600, {});
+    assert(versionedBrowserCookie == "vdr_suite_media=" + credential +
+        "; Path=" + publicV1Path + "; Max-Age=21600; HttpOnly; Secure; SameSite=Strict");
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(versionedBrowserCookie, true)
+        == "vdr_suite_media=" + credential + "; Path=" + publicV1Path +
+            "; Max-Age=21600; HttpOnly; SameSite=Strict");
+    assert(MediaAccessCredentialHttp::expiredPublicV1SessionCookie(sessionId, {}).find(
+        "; Path=" + publicV1Path + "; Max-Age=0") != std::string::npos);
     const std::string externalPublicV1Path =
         "/vdr-suite" + publicV1Path;
     assert(MediaAccessCredentialHttp::publicV1CookiePath(

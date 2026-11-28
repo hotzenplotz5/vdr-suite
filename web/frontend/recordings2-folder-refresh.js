@@ -1,8 +1,6 @@
 // Canonical recording-folder reads, projection and background refresh lifecycle.
 (function (global) {
   'use strict';
-  const INTERVAL_MS = 30000;
-
   function create(options) {
     const state = options.getState;
     let timer = null;
@@ -58,23 +56,13 @@
       };
     }
 
-    function requestFolder(path, offset, limit, backendId) {
-      return options.fetchClientRecordingFolder({
-        query: {
-          backend: backendId || state().backendId,
-          path: options.normalizePath(path),
-          limit: limit === undefined ? options.pageSize : limit,
-          offset: Math.max(0, options.number(offset, 0)),
-          _: String(Date.now())
-        },
-        cache: 'no-store',
-        credentials: 'same-origin'
-      });
-    }
+    const {requestFolder, applyFolderData, selectRecording} =
+      global.VdrSuiteRecordings2FolderPage.create(options, {signature, updatePresentedFolderState, schedule});
 
     function signature(data) {
       return JSON.stringify([
-        data.path, data.totalCount, data.recordingCount,
+        data.path, data.folderId, data.breadcrumbs, data.folderCount, data.cardCount,
+        data.totalCount, data.recordingCount,
         data.folders, data.recordings
       ]);
     }
@@ -85,7 +73,7 @@
       value.recordings = value.serverRecordings.concat(value.promotedRecordings);
       value.data = Object.assign({}, value.data || {}, {
         folders: folders,
-        folderCount: folders.length,
+        folderCount: value.data && value.data.publicFolder === true ? value.data.folderCount : folders.length,
         recordingCount: value.serverRecordingCount + value.promotedRecordings.length,
         returnedCount: value.serverRecordings.length + value.promotedRecordings.length
       });
@@ -95,6 +83,10 @@
       const candidateBackend = String(candidate.backendId || state().backendId || 'default');
       const recordingBackend = String(recording.backendId || state().backendId || 'default');
       if (candidateBackend !== recordingBackend) return false;
+      if (typeof options.shared.publicRecordingId === 'function') {
+        const a = options.shared.publicRecordingId(candidate), b = options.shared.publicRecordingId(recording);
+        if (a && b) return a === b;
+      }
       const candidateNative = String(options.shared.first(candidate, ['backendNativeId', 'nativePath', 'path'], ''));
       const recordingNative = String(options.shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
       if (candidateNative || recordingNative) return Boolean(candidateNative && recordingNative && candidateNative === recordingNative);
@@ -132,6 +124,7 @@
     }
 
     function resolveLeaves(data, guard) {
+      if (data && data.publicFolder === true) return Promise.resolve();
       const resolver = options.folderArtwork;
       if (!resolver || typeof resolver.resolveLeaves !== 'function') {
         return Promise.resolve();
@@ -168,11 +161,11 @@
       cancelTimer();
       if (!state().active) return;
       subscribe();
-      if (state().selectedRecording) return;
-      timer = global.setTimeout(function () {
-        timer = null;
-        refresh();
-      }, delay === undefined ? (pending ? 0 : INTERVAL_MS) : delay);
+      // SSE hints and explicit lifecycle reads only; no periodic requests.
+      if (delay !== undefined) pending = true;
+      if (!pending || busy || state().loading || state().loadingMore ||
+          state().selectedRecording || (global.document && global.document.hidden)) return;
+      timer = global.setTimeout(function () { timer = null; refresh(); }, 0);
     }
 
     function refresh() {
@@ -180,43 +173,48 @@
       if (!currentState.active) return;
       if (busy || currentState.loading || currentState.loadingMore ||
           currentState.selectedRecording || (global.document && global.document.hidden)) {
-        schedule(INTERVAL_MS);
+        pending = true;
         return;
       }
       if (!currentState.data || currentState.error) {
-        options.loadFolder(currentState.path || '');
+        options.loadFolder(currentState.folderId !== null && currentState.folderId !== undefined
+          ? {folderId:currentState.folderId, legacyPath:currentState.legacyFolderPath} : currentState.path || '');
         return;
       }
       const sequence = currentState.requestSequence;
       const backendId = currentState.backendId;
       const path = currentState.path;
-      const limit = Math.max(options.pageSize, currentState.serverRecordings.length);
+      const folderId = currentState.folderId;
+      const opaque = currentState.data.publicFolder === true;
+      const target = opaque ? {folderId, legacyPath:currentState.legacyFolderPath} : path;
+      const limit = Math.max(options.pageSize, opaque ? currentState.data.nextOffset : currentState.serverRecordings.length);
       const current = function () {
         const value = state();
         return value.active && sequence === value.requestSequence &&
-          value.backendId === backendId && value.path === path &&
+          value.backendId === backendId && value.path === path && value.folderId === folderId &&
           !value.loading && !value.loadingMore && !value.selectedRecording &&
           !(global.document && global.document.hidden);
       };
       busy = true;
       pending = false;
       let applied = false;
-      requestFolder(path, 0, limit, backendId)
+      requestFolder(target, 0, limit, backendId)
         .then(function (data) {
           if (!current()) return null;
           if (!data || data.recordingFolder !== true ||
-              options.normalizePath(data.path) !== path) {
+              (opaque ? data.publicFolder !== true || data.folderId !== folderId :
+                data.publicFolder !== true && options.normalizePath(data.path) !== path)) {
             throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
           }
           if (signature(data) === state().serverSignature) return null;
-          options.applyFolderData(data, false);
+          applyFolderData(data, false);
           applied = true;
           return resolveLeaves(data, current).then(function () {
             if (current()) options.render();
           });
         })
         .catch(function (error) {
-          // Keep the usable folder and retry failed leaf enrichment on the next poll.
+          // Keep the usable folder; retry on the next SSE hint or explicit read.
           if (current() && applied) {
             state().serverSignature = '';
             options.render();
@@ -231,7 +229,7 @@
         });
     }
 
-    return Object.freeze({requestFolder, signature, updatePresentedFolderState,
+    return Object.freeze({requestFolder, signature, applyFolderData, selectRecording, updatePresentedFolderState,
       sameRecordingIdentity, forgetRecording, resolveLeaves, stop, schedule, refresh});
   }
 

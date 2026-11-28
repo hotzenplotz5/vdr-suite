@@ -13,7 +13,7 @@ GlobalSearchResult GlobalSearchService::search(
     std::int64_t epgFrom,
     std::int64_t epgUntil,
     int limit,
-    int offset) const
+    int offset, bool personOnly) const
 {
     return repository_.search(
         backendId,
@@ -21,5 +21,5 @@ GlobalSearchResult GlobalSearchService::search(
         epgFrom,
         epgUntil,
         limit,
-        offset);
+        offset, personOnly);
 }

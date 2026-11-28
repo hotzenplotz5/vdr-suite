@@ -72,6 +72,7 @@ const publicClient = {
         supportedPermissions: [
           'channels.view',
           'recordings.rename',
+          'recordings.edit',
           'role.admin',
           'role.read-only',
           'timers.view'
@@ -81,6 +82,12 @@ const publicClient = {
           {permission: 'role.read-only', presentationKey: 'role.read-only', category: 'role'},
           {permission: 'channels.view', presentationKey: 'channels.view', category: 'permission'},
           {permission: 'recordings.rename', presentationKey: 'recordings.rename', category: 'permission'},
+          {permission: 'recordings.edit', presentationKey: 'recordings.edit', category: 'permission'},
+          {permission: 'recordings.move', presentationKey: 'recordings.move', category: 'permission'},
+          {permission: 'recordings.delete', presentationKey: 'recordings.delete', category: 'permission'},
+          {permission: 'recordings.marks.modify', presentationKey: 'recordings.marks.modify', category: 'permission'},
+          {permission: 'recordings.cut', presentationKey: 'recordings.cut', category: 'permission'},
+          {permission: 'recordings.execute', presentationKey: 'recordings.execute', category: 'permission'},
           {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'},
           {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],
@@ -233,7 +240,7 @@ function setEnsureFields(root, permission, backendId) {
       return child.tagName === 'OPTGROUP'
         ? child.children.map(option => option.value) : [child.value];
     }),
-    ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.rename', 'timers.view']
+    ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.edit', 'timers.view']
   );
   assert(!permissionPicker.children.some(function(item) {
     return item.tagName === 'OPTGROUP' && item.label === 'Add-ons';

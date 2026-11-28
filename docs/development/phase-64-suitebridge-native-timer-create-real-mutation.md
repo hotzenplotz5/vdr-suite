@@ -6,6 +6,8 @@ local `cTimer`, attaches the stable assignment/binding correlation marker,
 obtains a bounded Timer write lock, and performs exactly one `cTimers::Add`
 mutation.
 
+F5.6.5 extends the existing private EXEC command with an optional trailing hex-encoded AUX field. The original command is unchanged when AUX is empty. The callback preserves plugin metadata before the existing marker; the durable payload and readback verification retain those bytes independently from the scheduling fingerprint. Native priority and lifetime also accept zero, as the existing API and Web editor already do.
+
 Callback success is only `AppliedUnverified`. It does not prove persistence,
 binding, or assignment completion. The correlation marker makes the created
 Timer identifiable in the next complete inventory; authoritative readback must

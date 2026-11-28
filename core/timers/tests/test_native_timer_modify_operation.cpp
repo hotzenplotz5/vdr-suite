@@ -200,6 +200,20 @@ int main()
     assert(parsed.expectedSpecification.startTime == "0930");
     assert(!parseNativeTimerModifyOperationPayload(
         serialized.substr(0, serialized.size() - 1), parsed));
+    auto auxCodec = codec;
+    auxCodec.kind = NativeTimerModifyKind::update;
+    auxCodec.modifyAux = true;
+    auxCodec.expectedAuxFingerprint =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    auxCodec.desiredAux = "<tvscraper/>";
+    const auto auxSerialized = serializeNativeTimerModifyOperationPayload(auxCodec);
+    assert(auxSerialized.find("native-timer-modify-operation-payload/2|") == 0);
+    assert(parseNativeTimerModifyOperationPayload(auxSerialized, parsed));
+    assert(parsed.modifyAux &&
+        parsed.expectedAuxFingerprint == auxCodec.expectedAuxFingerprint &&
+        parsed.desiredAux == auxCodec.desiredAux);
+    auxCodec.kind = NativeTimerModifyKind::toggle;
+    assert(serializeNativeTimerModifyOperationPayload(auxCodec).empty());
 
     Database database;
     assert(database.open(":memory:"));
@@ -276,10 +290,16 @@ int main()
         secondIntent, secondAssignment, secondBinding,
         NativeTimerModifyKind::update);
     renamedRequest.expectedSpecification.startTime = "0945";
+    renamedRequest.modifyAux = true;
+    renamedRequest.expectedAuxFingerprint =
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    renamedRequest.desiredAux = "<tvscraper/>";
     NativeTimerModifyOperationPreparationService secondPreparation(
         secondIntents, secondAssignments, secondBindings, secondOperations);
     const auto accepted = secondPreparation.prepare(renamedRequest);
     assert(accepted.ok());
+    assert(accepted.payload.modifyAux);
+    assert(accepted.payload.desiredAux == "<tvscraper/>");
     NativeTimerModifyReadbackExpectation changedExpectation;
     changedExpectation.operationId = renamedRequest.operationId;
     changedExpectation.payload = accepted.payload;
@@ -296,6 +316,9 @@ int main()
     assert(secondDb.execute(
         "UPDATE mutation_operations SET state='executed_unverified' "
         "WHERE operation_id='operation:update:1';"));
+    assert(secondVerification.verify(changedExpectation, newIdentity).status ==
+        NativeTimerModifyReadbackVerificationStatus::reconciliationRequired);
+    newIdentity.observedAux = "<tvscraper/>";
     const auto rekeyed = secondVerification.verify(changedExpectation, newIdentity);
     assert(rekeyed.status == NativeTimerModifyReadbackVerificationStatus::verified);
     assert(rekeyed.binding.nativeTimerBindingId == secondBinding.nativeTimerBindingId);

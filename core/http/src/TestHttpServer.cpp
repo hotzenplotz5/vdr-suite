@@ -2068,6 +2068,7 @@ HttpServerResponse TestHttpServer::handleRequest(
         std::size_t backendCount = 0U;
         std::size_t channelCount = 0U;
         std::size_t eventCount = 0U;
+        std::size_t variantCount = 0U;
         bool canonicalQueryKeys = true;
         for (std::size_t start = 0U; start < rawQuery.size();)
         {
@@ -2081,12 +2082,15 @@ HttpServerResponse TestHttpServer::handleRequest(
             else if (key == "backendId") ++backendCount;
             else if (key == "channelId") ++channelCount;
             else if (key == "eventId") ++eventCount;
+            else if (item == "variant=home" ||
+                (isEpgPreferredArtwork && item == "variant=genre")) ++variantCount;
             else canonicalQueryKeys = false;
             if (end == std::string::npos) break;
             start = end + 1U;
         }
         const bool exactQuery = canonicalQueryKeys &&
-            backendCount == 1U && channelCount == 1U && eventCount == 1U;
+            backendCount == 1U && channelCount == 1U && eventCount == 1U &&
+            variantCount <= 1U;
         const std::string backend = query.get("backendId");
         const std::string channel = query.get("channelId");
         const std::string event = query.get("eventId");
@@ -2114,7 +2118,9 @@ HttpServerResponse TestHttpServer::handleRequest(
         else
         {
             response = isEpgPreferredArtwork
-                ? apiRouter_.getEpgPreferredArtwork(backend, channel, event)
+                ? (query.get("variant") == "genre"
+                    ? apiRouter_.getEpgGenreArtwork(backend, channel, event)
+                    : apiRouter_.getEpgPreferredArtwork(backend, channel, event))
                 : apiRouter_.getEpgArtwork(backend, channel, event);
             if (response.statusCode == 200 &&
                 response.contentType != "image/png" &&
@@ -2129,9 +2135,11 @@ HttpServerResponse TestHttpServer::handleRequest(
         response.headers["Cache-Control"] = response.statusCode == 200
             ? "private, max-age=300" : "no-store";
         response.headers["X-Content-Type-Options"] = "nosniff";
-        return finalizeResponse(gate.context,
-            mapApiResponse(response.statusCode, response.contentType,
-                response.body, response.headers));
+        auto mapped = mapApiResponse(response.statusCode, response.contentType,
+            response.body, response.headers);
+        vdrsuite::http::addPublicHomeArtworkScope(request, mapped, gate.context,
+            gate.browserAuthenticated, gate.authorizedBackendIds);
+        return finalizeResponse(gate.context, std::move(mapped));
     }
 
     // Reuse the same actor-owned Public-v1 Operation GET as the read gate.
@@ -2405,6 +2413,15 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = vdrsuite::mediatools::local_encoding_admin::save(
                 request.body);
         }
+        else if (request.path == "/api/v1/browser/recording-playback-sessions" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/control" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/progress" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/activity")
+        {
+            apiResponse = apiRouter_.handleBrowserRecordingPlayback(
+                request.path, request.body, gate.context.actor.actorId,
+                gate.authorizationDecision.backendId);
+        }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
@@ -2494,6 +2511,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         gate.context, gate.browserAuthenticated);
     vdrsuite::http::addEpgArtworkScope(request, response,
         gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addPublicHomeArtworkScope(request, response, gate.context,
+        gate.browserAuthenticated, gate.authorizedBackendIds);
     // A successful browser-authorized canonical Home preview may be revalidated
     // after the decorator has selected the exact served representation.
     // No cache admission is based on browser hints about identity or grants.
@@ -2526,7 +2545,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     // exception as Browser-session login. Never apply it to Public-v1 Device
     // playback, forwarded requests, errors or unrelated Set-Cookie headers.
     if (request.method == "POST" &&
-        request.path == "/api/media/sessions" &&
+        (request.path == "/api/media/sessions" ||
+         request.path == "/api/v1/browser/recording-playback-sessions") &&
         response.statusCode == 201)
     {
         auto cookie = response.headers.find("Set-Cookie");

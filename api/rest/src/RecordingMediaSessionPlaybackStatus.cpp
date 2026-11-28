@@ -58,13 +58,15 @@ bool hlsProfile(const std::string& profileId)
     return profileId == "hls-fmp4" || profileId == "hls-ts";
 }
 
-std::string recordingMediaPath(const StoredMediaSession& stored)
+std::string recordingMediaPath(const StoredMediaSession& stored, bool publicTransport)
 {
+    const std::string prefix = publicTransport
+        ? "/api/v1/media/sessions/" : "/api/media/sessions/";
     if (stored.presentationProfileId == "progressive-fmp4") {
-        return "/api/media/sessions/" + stored.sessionId + "/recording/stream.mp4";
+        return prefix + stored.sessionId + "/recording/stream.mp4";
     }
     if (hlsProfile(stored.presentationProfileId)) {
-        return "/api/media/sessions/" + stored.sessionId + "/hls/master.m3u8";
+        return prefix + stored.sessionId + "/hls/master.m3u8";
     }
     return {};
 }
@@ -106,6 +108,8 @@ std::string playbackJson(
 
 ApiResponse recordingPlaybackResponse(
     const StoredMediaSession& stored,
+    bool publicResponse,
+    bool publicTransport,
     int positionSeconds,
     int durationSeconds,
     bool seekSupported,
@@ -114,7 +118,7 @@ ApiResponse recordingPlaybackResponse(
     bool resumePreparing,
     const std::string& reason = {})
 {
-    const std::string mediaPath = recordingMediaPath(stored);
+    const std::string mediaPath = recordingMediaPath(stored, publicTransport);
     if (mediaPath.empty()) {
         return jsonError(409, "recording_playback_status_not_supported");
     }
@@ -129,7 +133,8 @@ ApiResponse recordingPlaybackResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"" + jsonEscape(stored.presentationProfileId) + "\"," +
         "\"growing\":false," +
         "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
@@ -149,7 +154,8 @@ ApiResponse recordingPlaybackResponse(
 
 ApiResponse RecordingMediaSessionController::playbackStatus(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionPlaybackStatusRequest request =
         RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
@@ -177,6 +183,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         return jsonError(409, "media_session_not_active");
     }
 
+    const bool publicTransport = usesPublicBrowserTransport(request.sessionId);
     PendingIndexContext context;
     {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
@@ -192,6 +199,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     if (update.running()) {
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             0,
             false,
@@ -207,6 +216,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         }
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             0,
             false,
@@ -227,6 +238,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             0,
             false,
@@ -251,6 +264,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             durationSeconds,
             false,
@@ -267,6 +282,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             durationSeconds,
             false,
@@ -286,6 +303,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         pendingIndex_.erase(request.sessionId);
         return recordingPlaybackResponse(
             *stored,
+            publicResponse,
+            publicTransport,
             0,
             durationSeconds,
             false,
@@ -303,6 +322,8 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     }
     return recordingPlaybackResponse(
         *stored,
+        publicResponse,
+        publicTransport,
         0,
         enabled.durationSeconds,
         true,

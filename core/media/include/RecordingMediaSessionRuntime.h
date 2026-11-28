@@ -163,6 +163,11 @@ public:
     RecordingMediaSessionTrackState trackState(
         const std::string& sessionId) const;
 
+    // Transport belongs to the existing active recording session, not a
+    // second registry. Device/legacy sessions never receive this marker.
+    bool markPublicBrowserTransport(const std::string& sessionId);
+    bool usesPublicBrowserTransport(const std::string& sessionId) const;
+
     bool stop(
         const std::string& sessionId,
         const std::string& reasonCode);
@@ -177,6 +182,7 @@ private:
         pid_t pid = -1;
         std::string grantId;
         std::unique_ptr<MediaSessionWorkspace> workspace;
+        bool publicBrowserTransport = false;
         bool direct = false;
         bool continuousStream = false;
         bool indexedSeekTimeline = false;

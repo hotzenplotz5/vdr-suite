@@ -65,17 +65,13 @@
     return timelineRuntimePromise;
   }
 
-  function recordingId(recording) {
-    return text(recording && (recording.recordingId || recording.id)).trim();
-  }
-
   function backendId(recording, selectedBackendId) {
     return text(selectedBackendId || (recording && recording.backendId)).trim();
   }
 
   function fetchMarks(recording, selectedBackendId) {
     const client = global.VdrSuiteClientApi;
-    const id = recordingId(recording);
+    const id = text(recording && (recording.publicRecordingId || recording.recordingId || recording.id)).trim();
     const backend = backendId(recording, selectedBackendId);
     if (!client || typeof client.requestJson !== 'function') {
       return Promise.reject(new Error('recording_marks_client_unavailable'));
@@ -83,13 +79,15 @@
     if (!id || !backend) {
       return Promise.reject(new Error('recording_marks_public_identity_unavailable'));
     }
-    return client.requestJson('/api/vdr/recordings/marks', {
-      query: {
-        backend: backend,
-        recordingId: id
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
+    const hero = global.VdrSuiteRecordings2HeroDetail;
+    if (!hero || typeof hero.resolvePublicRecordingId !== 'function')
+      return Promise.reject(new Error('recording_public_identity_unavailable'));
+    return hero.resolvePublicRecordingId(recording, backend).then(function (publicId) {
+      return client.requestJson('/api/v1/recordings/' + publicId + '/marks', {
+        query: {backendId: backend},
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
     });
   }
 

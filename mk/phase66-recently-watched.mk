@@ -4,10 +4,9 @@ DAEMON_SRC += \
 	core/media/src/RecentlyWatched.cpp \
 	core/media/src/RecentlyWatchedRepository.cpp
 
-# test-test-http-server compiles ContinueWatchingApiRuntime.cpp directly rather
-# than through DAEMON_SRC. Extend only that target's existing source list so the
-# Slice-66.6 symbols referenced by the shared runtime are linked there as well.
-test-test-http-server: REST_ROUTER_SRC += \
+# Both integration tests compile ContinueWatchingApiRuntime.cpp directly rather
+# than through DAEMON_SRC. Link its existing Slice-66.6 dependencies in both.
+test-api-router test-test-http-server: REST_ROUTER_SRC += \
 	core/media/src/RecentlyWatched.cpp \
 	core/media/src/RecentlyWatchedRepository.cpp
 
@@ -49,5 +48,5 @@ test-phase66-recently-watched-install-staging:
 	rm -rf /tmp/vdr-suite-phase66-recently-watched-pkgroot
 	$(MAKE) install-phase66-recently-watched-assets DESTDIR=/tmp/vdr-suite-phase66-recently-watched-pkgroot PREFIX=/usr
 	test -f /tmp/vdr-suite-phase66-recently-watched-pkgroot/usr/share/vdr-suite/web/frontend/home-recently-watched.js
-	grep -F '/api/media/recently-watched' /tmp/vdr-suite-phase66-recently-watched-pkgroot/usr/share/vdr-suite/web/frontend/home-recently-watched.js >/dev/null
-	grep -F '/api/media/recently-watched' web/frontend/api/continue-watching-sync.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/activity' /tmp/vdr-suite-phase66-recently-watched-pkgroot/usr/share/vdr-suite/web/frontend/home-recently-watched.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/activity' web/frontend/api/continue-watching-sync.js >/dev/null

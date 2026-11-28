@@ -202,7 +202,7 @@ function createRuntime(options) {
         recordingId,
         presentationProfileId: 'progressive-fmp4',
         growing: false,
-        mediaPath: '/api/media/sessions/' + id + '/recording/stream.mp4',
+        mediaPath: '/api/v1/media/sessions/' + id + '/recording/stream.mp4',
         playback: playbackValue
       }
     };
@@ -306,6 +306,7 @@ function createRuntime(options) {
     context,
     {filename: 'playback-failure-classification.js'}
   );
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
   vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
   return {window, requests, videos, fallbackStarts};
@@ -314,7 +315,7 @@ function createRuntime(options) {
 (async function () {
   const runtime = createRuntime();
   const playback = runtime.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Seek Test'},
+    {id: 'recording-42', publicRecordingId: 'rec_' + 'a'.repeat(32), title: 'Seek Test'},
     'living-room'
   );
 
@@ -361,6 +362,9 @@ function createRuntime(options) {
   );
 
   const id = await playback.start();
+  const initialCreate = runtime.requests.find(entry => !entry.body.operation);
+  assert.strictEqual(initialCreate.path, '/api/v1/browser/recording-playback-sessions');
+  assert.strictEqual(initialCreate.body.recordingId, 'rec_' + 'a'.repeat(32));
 
   assert.strictEqual(
     canonicalControls.hidden,
@@ -388,7 +392,7 @@ function createRuntime(options) {
   );
   assert.strictEqual(runtime.videos.length, 1);
   const video = runtime.videos[0];
-  assert.strictEqual(video.src, '/vdr-suite/api/media/sessions/' + id + '/recording/stream.mp4');
+  assert.strictEqual(video.src, '/vdr-suite/api/v1/media/sessions/' + id + '/recording/stream.mp4');
   video.dispatch('playing');
   assert.strictEqual(
     playback.state(),
@@ -415,11 +419,12 @@ function createRuntime(options) {
   await playback.seekRelative(10);
   let seekRequests = runtime.requests.filter(entry => entry.body.operation === 'seek');
   assert.strictEqual(seekRequests.length, 1);
+  assert.strictEqual(seekRequests[0].path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(seekRequests[0].body.sessionId, id);
   assert.strictEqual(seekRequests[0].body.positionSeconds, 28);
   assert.strictEqual(playback.sessionId(), id, 'seek must preserve the MediaSession identity');
   assert.strictEqual(playback.position(), 28);
-  assert.strictEqual(video.src, '/vdr-suite/api/media/sessions/' + id + '/recording/stream.mp4');
+  assert.strictEqual(video.src, '/vdr-suite/api/v1/media/sessions/' + id + '/recording/stream.mp4');
 
   assert.strictEqual(playback.pause(), true);
   assert.strictEqual(playback.state(), 'paused');
@@ -464,11 +469,12 @@ function createRuntime(options) {
   assert.strictEqual(stopResult, true);
   assert.strictEqual(playback.state(), 'stopped');
   const stopRequests = runtime.requests.filter(entry => entry.body.operation === 'stop');
+  assert.strictEqual(stopRequests.at(-1).path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(stopRequests.at(-1).body.sessionId, id);
 
   const unsupported = createRuntime({seekSupported: false});
   const unsupportedPlayback = unsupported.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-no-seek'},
+    {id: 'rec_99999999999999999999999999999999'},
     'living-room'
   );
   await unsupportedPlayback.start();
@@ -490,7 +496,7 @@ function createRuntime(options) {
   });
   const unavailableIndexPlayback =
     unavailableIndex.window.VdrSuiteRecordings2Playback.createPanel(
-      {id: 'recording-index-unavailable'},
+      {id: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},
       'living-room'
     );
   await unavailableIndexPlayback.start();
@@ -528,7 +534,7 @@ function createRuntime(options) {
 
   const preparing = createRuntime({indexPreparing: true, immediateTimers: true});
   const preparingPlayback = preparing.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-missing-index'},
+    {id: 'rec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'},
     'living-room'
   );
   const preparingId = await preparingPlayback.start();
@@ -538,6 +544,7 @@ function createRuntime(options) {
   const statusRequests = preparing.requests.filter(entry => entry.body.operation === 'playback-status');
   assert.strictEqual(createRequests.length, 1, 'lazy index activation must not create a second MediaSession');
   assert.strictEqual(statusRequests.length, 1, 'lazy index activation must poll the owned MediaSession');
+  assert.strictEqual(statusRequests[0].path, '/api/v1/browser/recording-playback-sessions/control');
   assert.strictEqual(statusRequests[0].body.sessionId, preparingId);
   assert.strictEqual(preparingPlayback.sessionId(), preparingId, 'index activation must preserve MediaSession identity');
   assert.strictEqual(preparingPlayback.duration(), 5530, 'duration must become available after index activation');
@@ -555,7 +562,7 @@ function createRuntime(options) {
 
   const startupFailure = createRuntime();
   const startupPlayback = startupFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-startup-failure'},
+    {id: 'rec_cccccccccccccccccccccccccccccccc'},
     'living-room'
   );
   await startupPlayback.start();
@@ -572,7 +579,7 @@ function createRuntime(options) {
 
   const lateFailure = createRuntime();
   const latePlayback = lateFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-late-failure'},
+    {id: 'rec_dddddddddddddddddddddddddddddddd'},
     'living-room'
   );
   const lateId = await latePlayback.start();
@@ -619,7 +626,7 @@ function createRuntime(options) {
     seekFailureCode: 'media_session_not_active'
   });
   const shortPlayback = workerEnded.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-hevc-short'}, 'living-room'
+    {id: 'rec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'}, 'living-room'
   );
   await shortPlayback.start();
   workerEnded.videos[0].dispatch('playing');
@@ -641,7 +648,7 @@ function createRuntime(options) {
   // Other seek errors must not trigger a hidden stream/profile replacement.
   const otherFailure = createRuntime({seekFailureCode: 'recording_seek_outside_window'});
   const rejectedPlayback = otherFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-bad-seek'}, 'living-room'
+    {id: 'rec_ffffffffffffffffffffffffffffffff'}, 'living-room'
   );
   await rejectedPlayback.start();
   otherFailure.videos[0].dispatch('playing');
@@ -651,7 +658,7 @@ function createRuntime(options) {
 
   const seekFailure = createRuntime();
   const seekFailurePlayback = seekFailure.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-seek-stream-failure'},
+    {id: 'rec_00000000000000000000000000000000'},
     'living-room'
   );
   const seekFailureId = await seekFailurePlayback.start();

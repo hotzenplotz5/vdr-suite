@@ -140,66 +140,38 @@ int main()
     }
 
     {
-        // A non-admin Browser session with a SearchTimer grant cannot
-        // impersonate a Device or Browser administrator.
+        // Existing scoped Human grants authorize Public-v1 SearchTimer
+        // reads without pretending a Browser is a paired Device.
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "searchtimers.view", "backend-one"));
-        const auto cookieDenied = fixture.gate.evaluate(
-            browserGet(fixture,
-                "/api/v1/search-timers?backend=backend-one"));
-        assert(!cookieDenied.allowed);
-        assert(cookieDenied.rejection.statusCode == 403);
-        // Public-v1 maps internal security reasons to stable Problem Details.
-        // A non-admin Browser must still be rejected.
-        assert(cookieDenied.rejection.headers.at("Content-Type") ==
-            "application/problem+json");
-        assert(cookieDenied.rejection.body.find(
-            "\"code\":\"forbidden\"") != std::string::npos);
-        assert(cookieDenied.rejection.body.find(
-            "Verified Device credential or administrator session required") !=
-            std::string::npos);
-    }
-    {
-        // A non-admin Browser grant does not authorize SearchTimer detail.
-        SecurityHttpGateBrowserTestFixture fixture;
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, "searchtimers.view", "backend-one"));
-        const auto denied = fixture.gate.evaluate(browserGet(fixture,
-            "/api/v1/search-timers/st_00000000000000000000000000000001"
-            "?backend=backend-one"));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
-        assert(denied.rejection.body.find(
-            "Verified Device credential or administrator session required") !=
-            std::string::npos);
-    }
-    {
-        // A Browser session with both view grants cannot impersonate a
-        // paired Device for a saved SearchTimer EPG preview.
-        SecurityHttpGateBrowserTestFixture fixture;
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, "searchtimers.view", "backend-one"));
+        const std::string collection = "/api/v1/search-timers?backend=backend-one";
+        const std::string item = "/api/v1/search-timers/st_00000000000000000000000000000001";
+        const std::string backend = "?backend=backend-one";
+        const std::string preview = item + "/preview" + backend;
+        const std::string draft = "/api/v1/search-timers/draft-preview" + backend +
+            "&query=Terra&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=0";
+        const auto read = [&](const std::string& uri) {
+            return fixture.gate.evaluate(browserGet(fixture, uri));
+        };
+        for (const auto& uri : {collection, item + backend, item + "/version" + backend})
+        {
+            const auto allowed = read(uri);
+            assert(allowed.allowed);
+            assert(allowed.browserAuthenticated && !allowed.deviceAuthenticated);
+            assert(allowed.authorizationDecision.permission == "searchtimers.view");
+            assert(allowed.authorizationDecision.backendId == "backend-one");
+        }
+        const auto wrongScope = read("/api/v1/search-timers?backend=backend-two");
+        assert(!wrongScope.allowed && wrongScope.rejection.statusCode == 403);
+        assert(wrongScope.rejection.headers.at("Content-Type") == "application/problem+json");
+        assert(wrongScope.rejection.body.find(R"json("code":"forbidden")json") != std::string::npos);
+        assert(!read(preview).allowed);
+        assert(!read(draft).allowed);
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "epg.view", "backend-one"));
-        const auto denied = fixture.gate.evaluate(browserGet(fixture,
-            "/api/v1/search-timers/st_00000000000000000000000000000001/"
-            "preview?backend=backend-one"));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
-    }
-    {
-        SecurityHttpGateBrowserTestFixture fixture;
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, "searchtimers.view", "backend-one"));
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, "epg.view", "backend-one"));
-        const auto denied = fixture.gate.evaluate(browserGet(fixture,
-            "/api/v1/search-timers/draft-preview?backend=backend-one"
-            "&query=Terra&mode=1&compareTitle=1&compareSubtitle=0"
-            "&compareSummary=0"));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
+        assert(read(preview).allowed);
+        assert(read(draft).allowed);
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;

@@ -266,7 +266,7 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
         "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?" +
         effectiveRecordingGenrePredicate +
-        "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title LIMIT ? OFFSET ?;";
+        "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title,c.cache_key LIMIT ? OFFSET ?;";
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) return page;
     bindText(statement, 1, page.backendId);
@@ -291,9 +291,70 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
     }
     sqlite3_finalize(statement);
 
+    populateRecordingCardSummariesLocked(page);
+    return page;
+}
+
+GenreRecordingPage GenreIndexRepository::recordingCards(
+    const std::string& backendId,
+    const std::vector<std::string>& nativeIds) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    GenreRecordingPage page;
+    page.backendId = normalizeBackendId(backendId);
+    if (backendId.empty() || nativeIds.empty() || nativeIds.size() > 100U ||
+        !ensureSchemaLocked()) return page;
+
+    // The caller already selected the page/order in the canonical recording
+    // query. Read only its current cache keys and effective Genre membership.
+    // No second catalog scan, metadata resolver or per-recording query.
+    std::string sql =
+        "SELECT c.recording_id,c.backend_id,c.backend_native_id,c.cache_key,c.title,c.path,"
+        "c.start_time,c.duration_seconds,c.size_mb,"
+        "(SELECT GROUP_CONCAT(DISTINCT a.genre_id) FROM suite_metadata_target_bindings b "
+        "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
+        "WHERE b.backend_id=c.backend_id AND b.resource_key=c.cache_key "
+        "AND b.target_type='recording' AND b.lifecycle_state='active' "
+        "AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
+        "SELECT 1 FROM suite_metadata_assignments ma "
+        "WHERE ma.metadata_target_id=b.metadata_target_id AND ma.assignment_state='selected' "
+        "AND ma.manual_assignment=1 AND ma.relationship_locked=1))) "
+        "FROM vdr_recording_cache c WHERE c.backend_id=? AND c.backend_native_id IN (";
+    for (std::size_t i = 0; i < nativeIds.size(); ++i)
+        sql += i == 0 ? "?" : ",?";
+    sql += ");";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return page;
+    bindText(statement, 1, page.backendId);
+    for (std::size_t i = 0; i < nativeIds.size(); ++i)
+        bindText(statement, static_cast<int>(i) + 2, nativeIds[i]);
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreRecordingItem item;
+        item.id = columnText(statement, 0);
+        item.backendId = columnText(statement, 1);
+        item.backendNativeId = columnText(statement, 2);
+        item.resourceKey = columnText(statement, 3);
+        item.title = columnText(statement, 4);
+        item.path = columnText(statement, 5);
+        item.startTime = columnText(statement, 6);
+        item.durationSeconds = sqlite3_column_int(statement, 7);
+        item.sizeMb = sqlite3_column_int64(statement, 8);
+        item.genreIds = splitCommaList(columnText(statement, 9));
+        page.recordings.push_back(std::move(item));
+    }
+    sqlite3_finalize(statement);
+    page.totalCount = static_cast<int>(page.recordings.size());
+    populateRecordingCardSummariesLocked(page);
+    return page;
+}
+
+void GenreIndexRepository::populateRecordingCardSummariesLocked(GenreRecordingPage& page) const
+{
     // One cache-only summary query for the page, without descriptions/cast/images.
     // Older/partial schemas keep the existing recording fallback.
-    if (page.recordings.empty()) return page;
+    if (page.recordings.empty()) return;
     std::string summarySql =
         "SELECT n.backend_native_id,n.title,n.provider,n.provider_id,"
         "n.season_number,n.episode_number,n.episode_name,"
@@ -304,15 +365,40 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         "NOT EXISTS (SELECT 1 FROM suite_metadata_target_bindings b "
         "JOIN suite_metadata_assignments ma ON ma.metadata_target_id=b.metadata_target_id "
         "WHERE b.backend_id=n.backend_id AND b.target_type='recording' AND b.resource_key=n.recording_key "
-        "AND ma.assignment_state='selected' AND ma.manual_assignment=1 AND ma.relationship_locked=1) "
-        "FROM vdr_recording_native_metadata n WHERE n.backend_id=? "
+        "AND ma.assignment_state='selected' AND ma.manual_assignment=1 AND ma.relationship_locked=1), "
+        "COALESCE(p.path,n.preferred_artwork_path), "
+        "COALESCE(p.width,n.preferred_artwork_width), COALESCE(p.height,n.preferred_artwork_height) "
+        "FROM vdr_recording_native_metadata n LEFT JOIN vdr_recording_native_artwork p "
+        "ON p.backend_id=n.backend_id AND p.recording_key=n.recording_key AND p.ordinal=("
+        "SELECT a.ordinal FROM vdr_recording_native_artwork a "
+        "WHERE a.backend_id=n.backend_id AND a.recording_key=n.recording_key "
+        "AND a.orientation='portrait' AND a.path<>'' ORDER BY a.ordinal LIMIT 1) "
+        "WHERE n.backend_id=? "
         "AND n.content_state='found' "
         "AND n.backend_native_id IN (";
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
         summarySql += index == 0 ? "?" : ",?";
     summarySql += ");";
     sqlite3_stmt* summary = nullptr;
-    if (sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr) == SQLITE_OK)
+    int prepared = sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr);
+    if (prepared != SQLITE_OK)
+    {
+        // Older cache schemas have native series evidence but no image dimensions.
+        // Preserve the existing summary and legacy artwork index; do not mint
+        // a public artwork identity without its complete persisted evidence.
+        sqlite3_finalize(summary);
+        summary = nullptr;
+        const std::string artworkColumns =
+            "COALESCE(p.path,n.preferred_artwork_path), "
+            "COALESCE(p.width,n.preferred_artwork_width), COALESCE(p.height,n.preferred_artwork_height)";
+        const auto position = summarySql.find(artworkColumns);
+        if (position != std::string::npos)
+        {
+            summarySql.replace(position, artworkColumns.size(), "'', 0, 0");
+            prepared = sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr);
+        }
+    }
+    if (prepared == SQLITE_OK)
     {
         bindText(summary, 1, page.backendId);
         for (std::size_t index = 0; index < page.recordings.size(); ++index)
@@ -337,6 +423,9 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
                     ? -1 : sqlite3_column_int(summary, 8);
                 item.seriesArtworkAvailable = sqlite3_column_int(summary, 7) != 0 ||
                     item.seriesArtworkIndex >= 0;
+                item.cardArtworkPath = columnText(summary, 11);
+                item.cardArtworkWidth = sqlite3_column_int(summary, 12);
+                item.cardArtworkHeight = sqlite3_column_int(summary, 13);
             }
         }
     }
@@ -400,7 +489,11 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
                 item.seriesArtworkAvailable = normalizedPoster.find(
                     "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
                 item.seriesArtworkIndex = -1;
+                item.cardArtworkPath.clear();
+                item.cardArtworkWidth = 0;
+                item.cardArtworkHeight = 0;
                 item.seriesManualRevision = sqlite3_column_int(manual, 6);
+                item.manualCardPosterReference = poster;
             }
         }
     }
@@ -508,7 +601,6 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
 
         sqlite3_finalize(hierarchy);
     }
-    return page;
 }
 
 GenreEpgPage GenreIndexRepository::epgByGenre(

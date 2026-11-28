@@ -21,6 +21,9 @@ public:
             std::map<std::string, ManualRecordingMetadataAssignment>(
                 const std::string& backendId)>;
 
+    using PublicRecordingIdLookup = std::function<std::string(
+        const std::string& backendId, const std::string& backendNativeId)>;
+
     VdrRecordingQueryController(
         VdrRecordingQueryService& queryService,
         VdrRecordingQueryResultJsonSerializer& jsonSerializer);
@@ -28,7 +31,8 @@ public:
     VdrRecordingQueryController(
         VdrRecordingQueryService& queryService,
         VdrRecordingQueryResultJsonSerializer& jsonSerializer,
-        ManualMetadataBatchLookup manualMetadataBatchLookup);
+        ManualMetadataBatchLookup manualMetadataBatchLookup,
+        PublicRecordingIdLookup publicRecordingIdLookup = {});
 
     ApiResponse getRecordings();
 
@@ -61,7 +65,8 @@ public:
 
     struct HomeItem {
         VdrRecording recording;
-        std::string title, subtitle;
+        std::string title, subtitle, releaseDate;
+        ManualRecordingMetadataAssignment manualAssignment{};
     };
     struct HomePage {
         std::vector<HomeItem> items;
@@ -80,4 +85,5 @@ private:
     VdrRecordingQueryService& queryService_;
     VdrRecordingQueryResultJsonSerializer& jsonSerializer_;
     ManualMetadataBatchLookup manualMetadataBatchLookup_;
+    PublicRecordingIdLookup publicRecordingIdLookup_;
 };

@@ -108,14 +108,21 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
 
+    ApiResponse getPublicManualRecordingMetadata(
+        const std::string& backendId,
+        const std::string& resourceKey,
+        const std::string& publicRecordingId);
+
     ApiResponse getManualRecordingGenre(
         const std::string& backendId,
-        const std::string& resourceKey);
+        const std::string& resourceKey,
+        const std::string& publicRecordingId = {});
 
     ApiResponse setManualRecordingGenre(
         const std::string& backendId,
         const std::string& resourceKey,
-        const std::string& genreId);
+        const std::string& genreId,
+        const std::string& publicRecordingId = {});
 
     using NativeInfoUpdate = std::function<bool(
         const ManualRecordingMetadataSelection&,

@@ -431,11 +431,21 @@
           permissionCategories.forEach(function(category) {
             const choices = permissionOptions.filter(function(option) {
               if (!option || !option.permission) return false;
+              // Show one Recording editing choice on modern servers.
+              // Older fine-grained grants remain visible and revocable below.
+              if (permissionOptions.some(function(candidate) {
+                return candidate && candidate.permission === 'recordings.edit';
+              }) && [
+                'recordings.rename', 'recordings.move', 'recordings.delete',
+                'recordings.marks.modify', 'recordings.cut',
+                'recordings.execute'
+              ].includes(option.permission)) return false;
               // Exact and globally granted rights need no duplicate entry.
               if (activeGrants.some(function(grant) {
                 return grant && grant.permission === option.permission &&
                   (grant.backendId === '*' || grant.backendId === scope);
               })) return false;
+
               // Add-on rights require effective provider visibility.
               if (option.category === 'addon') {
                 const addons = Array.isArray(overview.addonPermissions)
@@ -455,7 +465,8 @@
             choices.forEach(function(option) {
               const label = permissionLabel(option.permission, permissionOptions);
               appendOption(group, option.permission,
-                label === option.permission ? label : label + ' — ' + option.permission,
+                label === option.permission || option.permission === 'recordings.edit'
+                  ? label : label + ' — ' + option.permission,
                 false);
               available.push(option.permission);
             });

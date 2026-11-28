@@ -744,7 +744,8 @@ function renderSnapshotMetrics(data) {
     : (data ? '–' : '…');
   detailDataElement.appendChild(createMetric('Freier Aufnahmespeicher', free));
   const recordingMetric = createMetric('Aufnahmen',
-    !data || data.recordingCountPending ? '…' : count('recordingCount'));
+    !data || data.recordingCountPending ? '…' :
+      data.recordingCountUnavailable ? '–' : count('recordingCount'));
   recordingMetric.id = 'home-recording-count';
   detailDataElement.appendChild(recordingMetric);
   detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
@@ -966,16 +967,17 @@ function loadTimerConflictPanel(timers) {
     return;
   }
 
-  clientApi.fetchClientTimerConflicts()
+  const conflictBackendId = selectedEpgBackendId();
+  clientApi.fetchClientTimerConflicts({backendId: conflictBackendId})
     .then(report => {
-      if (selectedModule !== "timers") {
+      if (selectedModule !== "timers" || selectedEpgBackendId() !== conflictBackendId) {
         return;
       }
 
       appendTimerConflictPanel(report, timers, null);
     })
     .catch(error => {
-      if (selectedModule !== "timers") {
+      if (selectedModule !== "timers" || selectedEpgBackendId() !== conflictBackendId) {
         return;
       }
 
@@ -1165,7 +1167,7 @@ function appendEpgDetailChannelMeta(parent, event, channel) {
   // Resolve it from the existing backend-scoped channel catalogue once.
   const api = frontendPlatformClientApi();
   if (api && typeof api.fetchClientChannels === 'function') {
-    api.fetchClientChannels({query: {backend: backendId}, cache: 'no-store'})
+    api.fetchClientChannels({query: {backend: backendId}, compactCatalog: true, cache: 'no-store'})
       .then(data => paint(epgDetailChannelName(event, channel, data)))
       .catch(() => {});
   }
@@ -1348,8 +1350,10 @@ function syncEpgTimerDetailStates() {
 
   epgTimerDetailSyncInFlight = true;
 
-  window.VdrSuiteClientApi.fetchClientTimers({ cache: 'no-store' })
+  const timerBackendId = selectedEpgBackendId();
+  window.VdrSuiteClientApi.fetchClientTimers({ backendId: timerBackendId, cache: 'no-store' })
     .then(data => {
+      if (selectedEpgBackendId() !== timerBackendId) return;
       epgLiveTimerCache = epgTimerFromResponse(data);
       epgTimerDetailCards().forEach(detail => {
         syncEpgTimerDetailWithTimers(detail, epgLiveTimerCache);
@@ -3593,13 +3597,16 @@ function loadTimers() {
     return;
   }
 
-  clientApi.fetchClientTimers()
+  const timerBackendId = selectedEpgBackendId();
+  clientApi.fetchClientTimers({backendId: timerBackendId})
     .then(data => {
+      if (selectedModule !== 'timers' || selectedEpgBackendId() !== timerBackendId) return;
       currentTimers = data;
       renderTimersThroughModule(data, null);
       loadTimerConflictPanel(listFromResponse(data, "timers"));
     })
     .catch(error => {
+      if (selectedModule !== 'timers' || selectedEpgBackendId() !== timerBackendId) return;
       currentTimers = null;
       renderModuleError('Timer konnten nicht geladen werden', error);
     });
@@ -4648,7 +4655,8 @@ function loadBackendDetails(backend) {
         currentSnapshot = data;
         const metric = selectedModule === 'overview' && document.getElementById('home-recording-count');
         if (metric && metric.firstElementChild)
-          metric.firstElementChild.textContent = String(valueOrZero(data.recordingCount));
+          metric.firstElementChild.textContent = data.recordingCountUnavailable
+            ? '–' : String(valueOrZero(data.recordingCount));
       }
       markHomeStartup('recording-count-settled');
     })
@@ -5404,6 +5412,7 @@ function loadChannelSorter() {
       backend: backendId,
       _: String(Date.now())
     },
+    compactCatalog: true,
     cache: 'no-store',
     credentials: 'same-origin'
   })

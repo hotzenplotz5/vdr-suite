@@ -9,6 +9,7 @@ const window = {indexedDB: database, URL, VdrSuitePublicUrl: {basePath: '/test'}
 const context = vm.createContext({window});
 vm.runInContext(platform('home-persistence'), context);
 vm.runInContext(platform('home-cache-runtime'), context);
+const createHomeRuntime = window.VdrSuiteHomeCache.createRuntime;
 const scopeA = 'vsr-' + 'a'.repeat(64), scopeB = 'vsr-' + 'b'.repeat(64);
 const pathA = '/api/vdr/recordings/query', seriesPath = '/api/metadata/genres/recordings';
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -16,7 +17,7 @@ async function drain() { for (let i = 0; i < 30; i++) await tick(); }
 let authenticated = true, clock = 1000;
 const painted = [];
 function create() {
-  const r = window.VdrSuiteHomeCache.createRuntime({bindEvents:false, requireCursor:false, active:()=>authenticated, now:()=>clock,
+  const r = createHomeRuntime({bindEvents:false, requireCursor:false, active:()=>authenticated, now:()=>clock,
     paint(rail, title, items) { const entry = {rail, title, items, removed:false}; painted.push(entry); return ()=>{entry.removed=true;}; }});
   r.selectBackend('alpha');
   return r;
@@ -25,8 +26,8 @@ function response(scope, backend='alpha', domain='recordings') {
   const headers = new Map([['X-VDR-Suite-Home-Backend',backend],[domain==='history'?'X-VDR-Suite-Home-History-Scope':'X-VDR-Suite-Home-Recording-Scope',scope]]);
   return {ok:true, headers};
 }
-function observe(r, path, partition=scopeA, reply=response(partition), payload={}) {
-  const stamp = r.requestStamp(path,'alpha');
+function observe(r, path, partition=scopeA, reply=response(partition), payload={}, view) {
+  const stamp = r.requestStamp(path,'alpha',view);
   r.observe(stamp,reply,payload);
   return payload;
 }
@@ -51,6 +52,22 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   assert(!other.accept(observe(folders,folderRoute,scopeA,response(scopeA),
     {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
   assert.equal(await other.finish(cards),false);
+  const folderId='fld1_'+'a'.repeat(32);
+  const publicPath='/api/v1/recordings';
+  const publicPage={folderContext:{folderId,cacheReady:true},page:{offset:0}};
+  const publicFolder=folders.beginFolder(folderId,'alpha',()=>true,()=>null);
+  assert(publicFolder.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert(await publicFolder.finish(cards));
+  const wrongFolder=folders.beginFolder('fld1_'+'b'.repeat(32),'alpha',()=>true,()=>null);
+  assert(!wrongFolder.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert.equal(await wrongFolder.finish(cards),false);
+  const publicRoot=folders.begin('folders','alpha','Aufnahmeordner',()=>true);
+  const rootPage={folderContext:{folderId:'',cacheReady:true},page:{offset:0}};
+  assert(publicRoot.accept(observe(folders,publicPath,scopeA,response(scopeA),rootPage,'folders')));
+  assert(await publicRoot.finish(cards));
+  const wrongRoot=folders.begin('folders','alpha','Aufnahmeordner',()=>true);
+  assert(!wrongRoot.accept(observe(folders,publicPath,scopeA,response(scopeA),publicPage,'folders')));
+  assert.equal(await wrongRoot.finish(cards),false);
   folders.sessionBoundary(); assert.equal(removes,1);
   reopened.cancel();
   // Session boundary purges the test installation. Existing tests below
@@ -118,5 +135,110 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   const staleDisk=window.VdrSuiteHomePersistence.create({authorize:async scope=>({...scope,authorized:true})});
   const oldScope={accountId:scopeA,backendId:'alpha',permissionRevision:scopeA};
   assert.equal(await staleDisk.read(oldScope,'series',-1),null,'age-bound read rejects stale row');
+  // Exercise the actual JSON and genre clients with multiple raw HTTP pages.
+  // The synthetic aggregate must never stand in for a proven page.
+  const genreRuntime=create();
+  window.VdrSuiteHomeCache=genreRuntime;
+  const genreTicket=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  const requests=[];
+  let failSecond=false, missingProof=false;
+  const allGenres=Array.from({length:31},(_,i)=>({
+    genreId:'genre-'+String(i).padStart(2,'0'), label:'Genre '+i,
+    labelDe:'Genre '+i, labelEn:'Genre '+i, known:true, count:i+1,
+    activeCount:i+1, staleCount:0, conflictCount:0, displayOrder:30-i
+  }));
+  const genreFetch=(url,options)=>{
+    requests.push(url);
+    const parsed=new URL(url,'https://example.test');
+    assert.equal(parsed.pathname,'/api/v1/genres');
+    assert.equal(parsed.searchParams.get('backendId'),'alpha');
+    assert.equal(parsed.searchParams.get('limit'),'30');
+    assert.equal(options.credentials,'same-origin');
+    const offset=Number(parsed.searchParams.get('offset'));
+    const items=allGenres.slice(offset,offset+30);
+    const reply=response(scopeA);
+    if (offset && missingProof) reply.headers=new Map();
+    if (offset && failSecond) {
+      reply.ok=false; reply.status=403;
+      reply.text=()=>Promise.resolve('{"code":"permission_denied"}');
+    } else {
+      reply.text=()=>Promise.resolve(JSON.stringify({items,totalItems:100,assignmentCount:120,
+        page:{limit:30,offset,totalCount:31,hasMore:offset+items.length<31},meta:{partial:false}}));
+    }
+    return Promise.resolve(reply);
+  };
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:genreFetch});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
+  const options={backendId:'alpha',locale:'de',onPage:page=>assert(genreTicket.accept(page))};
+  const overview=await window.VdrSuiteClientApi.fetchClientGenres({...options,scope:'recordings'});
+  assert.equal(requests.length,2);
+  assert.equal(overview.totalItems,100);
+  assert.equal(overview.assignmentCount,120);
+  assert.equal(overview.genres.length,31);
+  assert.equal(overview.genres[0].id,'genre-30');
+  assert.equal(overview.genres[30].id,'genre-00');
+  const genreCards=overview.genres.slice(0,24).map(g=>({id:g.id,title:g.label}));
+  assert(await genreTicket.finish(genreCards));
+  const synthetic=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  assert(!synthetic.accept(overview));
+  assert.equal(await synthetic.finish(genreCards),false);
+  const mixedRoutes=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  assert(mixedRoutes.accept(observe(genreRuntime,'/api/metadata/genres')));
+  assert(!mixedRoutes.accept(observe(genreRuntime,'/api/v1/genres')));
+  assert.equal(await mixedRoutes.finish(genreCards),false);
+  // Independent cache write before the later denial tests deliberately
+  // invalidate and purge the shared installation session epoch.
+  const movieRuntime=create();
+  const movieTicket=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  const movieRoute='/api/v1/recordings';
+  assert(movieTicket.accept(observe(movieRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
+  const movieArtwork='/api/v1/recordings/rec_'+'a'.repeat(32)+'/artwork/'+'b'.repeat(32)+'?backendId=alpha';
+  const movieCards=[{id:'movie',title:'Movie',posterUrl:movieArtwork},
+    {id:'foreign',title:'Foreign',posterUrl:movieArtwork.replace('alpha','beta')},
+    {id:'token',title:'Token',posterUrl:movieArtwork+'&token=secret'}];
+  assert(await movieTicket.finish(movieCards));
+  const movieDisk=await staleDisk.read(oldScope,'recent-movies');
+  assert.equal(movieDisk.items[0].posterUrl,movieArtwork);
+  assert(movieDisk.items.slice(1).every(item=>!item.posterUrl));
+  const movieMixed=movieRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  assert(movieMixed.accept(observe(movieRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
+  assert(!movieMixed.accept(observe(movieRuntime,pathA)));
+  assert.equal(await movieMixed.finish(movieCards),false);
+  const newRuntime=create();
+  const newTicket=newRuntime.begin('newly-recorded','alpha','Neu',()=>true,false);
+  window.VdrSuiteHomeCache=newRuntime;
+  const newRows=[{kind:'recording', recordingId:'rec_'+'a'.repeat(32), backendId:'alpha', title:'New', recordedAt:'2026-11-27'}];
+  const newReply=response(scopeA);
+  newReply.text=()=>Promise.resolve(JSON.stringify({items:newRows,page:{limit:12,offset:0,totalCount:1,hasMore:false},meta:{partial:false,cardPresentation:true}}));
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:url=>{
+    assert(url.includes('view=new')); return Promise.resolve(newReply);
+  }});
+  let rawNew;
+  const newPage=await window.VdrSuiteClientApi.fetchPublicHomeNew({query:{backend:'alpha',limit:12,offset:0},onPage:page=>{rawNew=page;}});
+  assert.equal(newPage.publicView,'new');
+  assert(newTicket.accept(rawNew));
+  assert(await newTicket.finish(movieCards));
+  const wrongMovie=newRuntime.begin('recent-movies','alpha','Filme',()=>true,false);
+  assert(!wrongMovie.accept(rawNew));
+  assert.equal(await wrongMovie.finish(movieCards),false);
+  const wrongNew=newRuntime.begin('newly-recorded','alpha','Neu',()=>true,false);
+  assert(!wrongNew.accept(observe(newRuntime,movieRoute,scopeA,response(scopeA),{},'movies')));
+  assert.equal(await wrongNew.finish(movieCards),false);
+  window.VdrSuiteHomeCache=genreRuntime;
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:genreFetch});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../api/genre-client-api.js'),'utf8'),{window});
+  const denied=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  failSecond=true;
+  const beforeDenied=requests.length;
+  await assert.rejects(window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>denied.accept(page)}),err=>err.status===403);
+  assert.equal(requests.length,beforeDenied+2,'no fallback after authorization failure');
+  denied.cancel();
+  failSecond=false; missingProof=true;
+  const incomplete=genreRuntime.begin('genres','alpha','Genres',()=>true,false);
+  const online=await window.VdrSuiteClientApi.fetchPublicRecordingGenres({
+    backendId:'alpha',onPage:page=>incomplete.accept(page)});
+  assert.equal(online.genres.length,31,'missing optional cache proof does not block online data');
+  assert.equal(await incomplete.finish(genreCards),false);
   console.log('PWA.4/PWA.13 scoped Home preview and early headers contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

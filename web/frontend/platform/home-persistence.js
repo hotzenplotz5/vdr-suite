@@ -39,6 +39,12 @@
       const routes = ['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image'];
       const direct = url.pathname.match(/^\/recording-artwork\/([^/]+)\/[0-9a-fA-F]{32}$/);
       const series = url.pathname.match(/^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/settings\/series-artwork\/image$/);
+      const publicRecording = /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}$/.test(url.pathname);
+      if (publicRecording) {
+        if (url.searchParams.get('backendId') !== backend ||
+            !/^\?backendId=[A-Za-z0-9_.-]+(?:&variant=home)?$/.test(url.search)) return '';
+        return url.pathname + url.search;
+      }
       if (!routes.includes(url.pathname) && !direct && !series) return '';
       if (series) {
         // PWA.12 selected-cover URLs only, never candidate or arbitrary URLs.

@@ -96,7 +96,11 @@ struct GenreRecordingItem
     std::string episodeName;
     bool seriesArtworkAvailable = false;
     int seriesArtworkIndex = -1;
+    std::string cardArtworkPath;
+    int cardArtworkWidth = 0;
+    int cardArtworkHeight = 0;
     int seriesManualRevision = 0;
+    std::string manualCardPosterReference = {};
     // Presentation-only Series hierarchy override. Native season/episode
     // metadata remains untouched and continues to be the fallback owner.
     bool seriesHierarchyOverrideAvailable = false;
@@ -231,6 +235,12 @@ public:
         int limit,
         int offset) const;
 
+    // Compact, cache-only card facts for an already selected Recording page.
+    // Membership and manual/native/hierarchy precedence are shared with Genre.
+    GenreRecordingPage recordingCards(
+        const std::string& backendId,
+        const std::vector<std::string>& nativeIds) const;
+
     GenreEpgPage epgByGenre(
         const std::string& backendId,
         const std::string& genreId,
@@ -277,6 +287,7 @@ private:
     mutable std::recursive_mutex mutex_;
     mutable bool schemaReady_ = false;
 
+    void populateRecordingCardSummariesLocked(GenreRecordingPage& page) const;
     bool ensureSchemaLocked() const;
     bool replaceEvidenceLocked(const GenreEvidenceInput& input);
 };

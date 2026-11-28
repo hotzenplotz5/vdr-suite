@@ -36,7 +36,9 @@ inline bool attestBackendNativeTimerPreview(
             exactFingerprint);
     if (!candidate.desiredNativeTimerSpecificationPresent ||
         exactFingerprint.empty() || digest.empty() ||
-        !verified.isolatedCandidateClear ||
+        ((candidate.desiredNativeTimerSpecification.weekdays == "-------")
+            ? (!verified.isolatedCandidateClear || verified.recurringInitialClear)
+            : (!verified.recurringInitialClear || verified.isolatedCandidateClear)) ||
         verified.proposedStart <= 0 ||
         verified.proposedStop <= verified.proposedStart ||
         verified.nativeObservedAt <= 0 ||
@@ -55,8 +57,10 @@ inline bool attestBackendNativeTimerPreview(
 
     // Both the candidate decision and the proof inherit the native reply's
     // exact provider fence and a maximum fifteen-second admission window.
-    // This does NOT claim a general future-allocation scheduler. Overlapping
-    // timers and indeterminate/recursive timers are rejected by the source.
+    // This does NOT claim a general future-allocation scheduler. A
+    // recurring-positive preview verifies only its first actual airing;
+    // subsequent occurrences remain subject to VDR's own scheduling.
+    // Overlap and indeterminate existing timers still fail closed in VDR.
     candidate.conflict =
         vdrsuite::timers::TimerAssignmentPlanningConflictState::confirmedClear;
     proof.current = true;

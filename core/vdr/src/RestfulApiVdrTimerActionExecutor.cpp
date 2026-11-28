@@ -106,6 +106,14 @@ bool timerMatchesRequest(
         return false;
     }
 
+    // A one-shot or a different weekly schedule is not the requested timer.
+    const std::string expectedWeekdays =
+        request.weekdays.empty() ? "-------" : request.weekdays;
+    if (timer.weekdays != expectedWeekdays)
+    {
+        return false;
+    }
+
     if (!request.day.empty() &&
         !timer.day.empty() &&
         timer.day != request.day)

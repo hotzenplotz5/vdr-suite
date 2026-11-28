@@ -71,6 +71,56 @@ int main(){
          toggleParsed.kind==BackendAgentNativeTimerModifyKind::toggle,
          "toggle payload roundtrip failed");
 
+ // Optional Aux mutation is durable in the already-existing Agent
+ // assignment/local starting state, without changing the v1 payload.
+ auto auxPayload=payload();
+ auxPayload.modifyAux=true;
+ auxPayload.expectedAuxFingerprint=
+   "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+ auxPayload.desiredAux="<epgsearch><searchtimer>42</searchtimer></epgsearch>";
+ const auto auxEncoded=backendAgentNativeTimerModifyPayload(auxPayload);
+ require(auxEncoded.find("native-timer-modify-agent-payload/2|")==0,
+         "Aux Agent v2 serialization missing");
+ BackendAgentNativeTimerModifyPayload auxParsed;std::string auxReason;
+ require(backendAgentNativeTimerModifyParsePayload(
+    auxEncoded,auxParsed,auxReason)&&auxParsed.modifyAux &&
+    auxParsed.expectedAuxFingerprint==auxPayload.expectedAuxFingerprint &&
+    auxParsed.desiredAux==auxPayload.desiredAux,
+    "Aux Agent v2 payload did not roundtrip");
+ auto invalidAux=auxPayload;
+ invalidAux.kind=BackendAgentNativeTimerModifyKind::toggle;
+ require(backendAgentNativeTimerModifyPayload(invalidAux).empty(),
+         "Aux mutation must never use timer.toggle");
+ auto auxAssignment=assignment();
+ auxAssignment.payloadVersion=2;
+ auxAssignment.payload=auxEncoded;
+ auxAssignment.requestFingerprint=backendAgentCommandFingerprint(auxAssignment);
+ BackendAgentNativeTimerModifyLocalState auxLocal;
+ require(backendAgentNativeTimerModifyPrepareLocalStarting(
+    auxAssignment,101,auxLocal,auxReason),
+    "Aux Agent starting state was not accepted");
+ const auto auxLocalSerialized=backendAgentNativeTimerModifySerializeLocalState(
+    auxLocal,auxReason);
+ BackendAgentNativeTimerModifyLocalState auxRecovered;
+ require(!auxLocalSerialized.empty() &&
+    backendAgentNativeTimerModifyParseLocalState(
+        auxLocalSerialized,auxRecovered,auxReason) &&
+    auxRecovered.command.modifyAux &&
+    auxRecovered.command.desiredAux==auxPayload.desiredAux &&
+    auxRecovered.command.expectedAuxFingerprint==auxPayload.expectedAuxFingerprint,
+    "Aux Agent starting state lost compare-and-write evidence");
+ require(backendAgentNativeTimerModifyRecoverLocalState(
+    auxRecovered,"backend_1","agent_1","instance_1",1,102).decision ==
+    BackendAgentNativeTimerModifyRecoveryDecision::reconcileOnly,
+    "uncertain Aux recovery must not dispatch a second write");
+ auto forgedAux=auxLocalSerialized;
+ const auto beforeAux=forgedAux.find("payload_hex=");
+ require(beforeAux!=std::string::npos,"Aux crash state test input missing");
+ forgedAux.replace(beforeAux+12,2,"ff");
+ require(!backendAgentNativeTimerModifyParseLocalState(
+    forgedAux,auxRecovered,auxReason),
+    "forged Aux crash state should never recover a write");
+
  auto a=assignment();BackendAgentNativeTimerModifyLocalState state;std::string reason;
  require(backendAgentNativeTimerModifyPrepareLocalStarting(a,101,state,reason),"prepare failed");
  const auto encoded=backendAgentNativeTimerModifySerializeLocalState(state,reason);

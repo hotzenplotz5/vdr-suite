@@ -97,7 +97,7 @@ async function run() {
 
   const recordingPersonsUrl = await verifyOneShot(
     'fetchClientRecordingPersons',
-    '/api/vdr/recordings/persons/search',
+    '/api/v1/search/recordings',
     {
       backendId: 'living-room',
       query: {
@@ -106,7 +106,8 @@ async function run() {
       }
     }
   );
-  assert.strictEqual(recordingPersonsUrl.searchParams.get('backend'), 'living-room');
+  assert.strictEqual(recordingPersonsUrl.searchParams.get('backendId'), 'living-room');
+  assert.strictEqual(recordingPersonsUrl.searchParams.get('match'), 'person');
   assert.strictEqual(recordingPersonsUrl.searchParams.get('query'), 'Ada');
   assert.strictEqual(recordingPersonsUrl.searchParams.get('limit'), '12');
 
@@ -120,6 +121,24 @@ async function run() {
     "'/api/recordings/persons/search'"
   ));
 
+  const publicId = 'rec_' + 'c'.repeat(32);
+  context.fetch = (url, options) => {
+    requests.push({url:String(url), options});
+    return Promise.resolve(response(200, {items:[{kind:'recording', recordingId:publicId,
+      backendId:'living-room', title:'Film', startTime:'1780000000',
+      matchedPerson:'Ada', matchedRole:'actor', matchReason:'person',
+      description:'Synopsis', preferredArtworkId:'d'.repeat(32)}],
+      page:{offset:0,limit:20,totalCount:1,hasMore:false}}));
+  };
+  const found = await api.fetchClientRecordingPersons({backendId:'living-room', query:{name:'Ada'}});
+  assert.strictEqual(found.matches.length,1);
+  assert.strictEqual(found.matches[0].recording.recordingId,publicId);
+  assert.strictEqual(found.matches[0].recording.recordedAt,'1780000000');
+  assert.strictEqual(found.matches[0].recording.backendNativeId,undefined);
+  assert.strictEqual(found.matches[0].recording.path,undefined);
+  assert.strictEqual(found.matches[0].recording.description,'Synopsis');
+  assert.strictEqual(found.matches[0].recording.preferredArtworkId,'d'.repeat(32));
+  assert.strictEqual(found.matches[0].person.originalName,'Ada');
   console.log('test_phase69f_read_alias_fallback_removal passed');
 }
 

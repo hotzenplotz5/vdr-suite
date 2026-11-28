@@ -105,12 +105,24 @@ int main()
             if (request.backendId != "backend-a")
                 return page;
             if (!request.homeView.empty()) {
-                assert(request.homeView == "movies" && request.movieReleaseYearFrom == 2022 &&
-                    request.movieReleaseYearTo == 2026);
+                assert(request.homeView == "new" || (request.homeView == "movies" &&
+                    request.movieReleaseYearFrom == 2022 && request.movieReleaseYearTo == 2026));
                 page.status = PublicRecordingCollectionStatus::ok;
                 page.totalEntries = 2;
                 auto item = recording("rec_00000000000000000000000000000003");
                 item.subtitle = "2026";
+                item.releaseDate = "2026-05-03";
+                item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                if (request.homeView == "new")
+                {
+                    item.card.cardMediaType = "series";
+                    item.card.cardTitle = "Serie";
+                    item.card.episodeName = "Pilot";
+                    item.card.seasonNumber = 1;
+                    item.card.episodeNumber = 2;
+                    item.card.seriesGroupKey = "sg1_0123456789abcdef0123456789abcdef";
+                    item.card.seriesAncestorFolderIds = {"fld1_0123456789abcdef0123456789abcdef"};
+                }
                 if (request.offset == 0) page.recordings.push_back(item);
                 page.hasMore = request.offset == 0;
                 return page;
@@ -124,6 +136,15 @@ int main()
                 folder.folderId = "fld1_0123456789abcdef0123456789abcdef";
                 folder.name = "Serien";
                 folder.recordingCount = 1;
+                folder.representativeRecording = recording("rec_00000000000000000000000000000003");
+                folder.representativeRecording.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                PublicRecordingFolderContext context;
+                context.folderCount = 1;
+                context.recordingCount = 2;
+                context.catalogTotalCount = 3;
+                context.cacheState = "ready";
+                context.cacheReady = true;
+                page.folderContext = context;
                 page.folders.push_back(folder);
             }
             else if (request.offset == 1U)
@@ -134,6 +155,8 @@ int main()
                     recording("rec_00000000000000000000000000000001");
                 leaf.singleRecording.title = "48 Hrs";
                 leaf.singleRecording.edited = true;
+                leaf.singleRecording.subtitle = "Episode";
+                leaf.singleRecording.preferredArtworkId = "fedcba9876543210fedcba9876543210";
                 page.folders.push_back(leaf);
             }
             else if (request.offset == 2U)
@@ -151,6 +174,9 @@ int main()
     assert(folders.body.find("Serien") != std::string::npos);
     assert(folders.body.find("folderId") != std::string::npos);
     assert(folders.body.find("backendNativeId") == std::string::npos);
+    assert(folders.body.find("\"folderContext\":{") != std::string::npos);
+    assert(folders.body.find("\"folderCount\":1,\"recordingCount\":2") != std::string::npos);
+    assert(folders.body.find("\"representativeRecording\":{") != std::string::npos);
     ApiResponse children;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&view=folders&limit=1&offset=1",
@@ -160,6 +186,8 @@ int main()
     assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
     assert(children.body.find("\"folderId\"") == std::string::npos);
     assert(children.body.find("\"edited\":true") != std::string::npos);
+    assert(children.body.find("\"subtitle\":\"Episode\"") != std::string::npos);
+    assert(children.body.find("\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"") != std::string::npos);
     assert(children.body.find("\"hasMore\":true") != std::string::npos);
     ApiResponse direct;
     assert(runtime.tryHandleGet(
@@ -174,7 +202,21 @@ int main()
         "actor:tv", "home-movies", "", movies, "", "", {"backend-a"}));
     assert(movies.statusCode == 200);
     assert(movies.body.find("\"subtitle\":\"2026\"") != std::string::npos);
+    assert(movies.body.find("\"releaseDate\":\"2026-05-03\"") != std::string::npos);
+    assert(movies.body.find("\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"") != std::string::npos);
+    assert(movies.body.find("backendNativeId") == std::string::npos);
     assert(movies.body.find("\"totalCount\":2") != std::string::npos);
+    ApiResponse newly;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=new&limit=1",
+        "actor:tv", "home-new", "", newly, "", "", {"backend-a"}));
+    assert(newly.statusCode == 200);
+    assert(newly.body.find("\"cardMetadata\":{\"mediaType\":\"series\"") != std::string::npos);
+    assert(newly.body.find("\"episodeName\":\"Pilot\"") != std::string::npos);
+    assert(newly.body.find("\"seriesGrouping\":{\"groupKey\":\"sg1_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+    assert(newly.body.find("fld1_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(newly.body.find("backendNativeId") == std::string::npos);
+    assert(newly.body.find("releaseDate") == std::string::npos);
     for (const std::string& query : {"view=movies", "view=new&movieReleaseYearFrom=2022",
                                     "view=movies&movieReleaseYearFrom=2026&movieReleaseYearTo=2022"}) {
         ApiResponse invalidHome;
@@ -253,8 +295,12 @@ int main()
 
     runtime.resetRecordingCollectionLookup();
     runtime.resetSearchLookup();
-    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+    int combinedLookups = 0;
+    int personLookups = 0;
+    runtime.registerSearchLookup([&combinedLookups, &personLookups](const PublicSearchRequest& request) {
         PublicSearchResult result;
+        if (request.combined) ++combinedLookups;
+        if (request.personOnly) ++personLookups;
         result.status = PublicSearchStatus::ok;
         result.totalCount = 1U;
         if (request.offset == 0U) {
@@ -266,10 +312,38 @@ int main()
                 item.eventId = "123";
                 item.startTime = "1791565200";
                 item.endTime = "1791572400";
+                item.durationSeconds = 7200;
+                item.artworkAvailable = true;
             } else {
                 item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+                if (request.personOnly) {
+                    item.matchedPerson = "Ian McKellen";
+                    item.matchReason = "person";
+                    item.description = "A recording synopsis";
+                }
+                item.personPortraitRecordingId = item.recordingId;
+                item.personPortraitArtworkId = "0123456789abcdef0123456789abcdef";
+                item.preferredArtworkId = "abcdef0123456789abcdef0123456789";
+                item.startTime = "1791565200";
+                item.durationSeconds = 3600;
+                item.sizeMb = 2048;
+                item.artworkAvailable = true;
             }
             result.items.push_back(item);
+            if (request.combined)
+            {
+                PublicSearchItem event;
+                event.backendId = request.backendId;
+                event.channelId = "S19.2E-1-100";
+                event.eventId = "123";
+                event.title = "EPG-only person";
+                event.startTime = "1791565200";
+                event.endTime = "1791572400";
+                event.personPortraitRecordingId = item.recordingId;
+                event.personPortraitArtworkId = item.personPortraitArtworkId;
+                result.epgItems.push_back(event);
+                result.epgTotalCount = 1U;
+            }
         }
         return result;
     });
@@ -281,18 +355,59 @@ int main()
     assert(searchRecording.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
     assert(searchRecording.body.find("backendNativeId") == std::string::npos);
+    assert(searchRecording.body.find("\"startTime\":\"1791565200\"") != std::string::npos);
+    assert(searchRecording.body.find("\"durationSeconds\":3600") != std::string::npos);
+    assert(searchRecording.body.find("\"sizeMb\":2048") != std::string::npos);
+    assert(searchRecording.body.find("\"artworkAvailable\":true") != std::string::npos);
+    assert(searchRecording.body.find("\"personPortrait\":{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\",\"artworkId\":\"0123456789abcdef0123456789abcdef\"}") != std::string::npos);
+    assert(searchRecording.body.find("\"preferredArtworkId\":\"abcdef0123456789abcdef0123456789\"") != std::string::npos);
     assert(searchRecording.headers.at("Cache-Control") == "no-store");
+    ApiResponse personSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Ian%20McKellen&match=person",
+        "actor:tv", "search-person", "", personSearch, "", "", {"backend-a"}));
+    assert(personSearch.statusCode == 200 && personLookups == 1);
+    assert(personSearch.body.find("A recording synopsis") != std::string::npos);
+    assert(personSearch.body.find("Ian McKellen") != std::string::npos);
+    assert(personSearch.body.find("backendNativeId") == std::string::npos);
+    ApiResponse badPersonScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Ian%20McKellen&match=person",
+        "actor:tv", "search-person-epg", "", badPersonScope, "", "", {"backend-a"}));
+    assert(badPersonScope.statusCode == 400 && personLookups == 1);
     ApiResponse searchEpg;
     assert(runtime.tryHandleGet(
         "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
         "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
     assert(searchEpg.statusCode == 200);
     assert(searchEpg.body.find("\"kind\":\"epg\"") != std::string::npos);
+    assert(searchEpg.body.find("\"durationSeconds\":7200") != std::string::npos);
+    assert(searchEpg.body.find("\"artworkAvailable\":true") != std::string::npos);
+    assert(searchEpg.body.find("\"sizeMb\"") == std::string::npos);
+    assert(searchEpg.body.find("\"personPortrait\"") == std::string::npos);
+    assert(searchEpg.body.find("\"preferredArtworkId\"") == std::string::npos);
+    ApiResponse combinedSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search?backendId=backend-a&query=Hobbit&limit=24",
+        "actor:tv", "combined-search", "", combinedSearch, "", "", {"backend-a"}));
+    assert(combinedSearch.statusCode == 200 && combinedLookups == 1);
+    assert(combinedSearch.body.find("\"recordings\":{\"items\":[") != std::string::npos);
+    assert(combinedSearch.body.find("\"epg\":{\"items\":[") != std::string::npos);
+    assert(combinedSearch.body.find("\"title\":\"EPG-only person\"") != std::string::npos);
+    assert(combinedSearch.body.find("\"personPortrait\"", combinedSearch.body.find("\"epg\":")) != std::string::npos);
+    assert(combinedSearch.body.find("backendNativeId") == std::string::npos);
+    ApiResponse wrongCombinedScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search?backendId=backend-a&query=Hobbit",
+        "actor:tv", "combined-scope", "", wrongCombinedScope, "", "", {"backend-b"}));
+    assert(wrongCombinedScope.statusCode == 400 && combinedLookups == 1);
     for (const std::string& invalid : {
         "backendId=backend-a&query=%GG",
         "backendId=backend-a&query=a",
         "backendId=backend-a&query=Hobbit&limit=31",
         "backendId=backend-a&query=Hobbit&query=duplicate",
+        "backendId=backend-a&query=Hobbit&match=title",
+        "backendId=backend-a&query=Hobbit&match=person&match=person",
         "backendId=backend-a&query=Hobbit&offset=1000001"})
     {
         ApiResponse response;
@@ -441,6 +556,15 @@ int main()
             result.item.seriesTitle = "Series";
             result.item.episodeTitle = "Episode";
             result.item.genreText = "Drama";
+            result.item.voteAverage = 7.5;
+            result.item.voteCount = 123;
+            result.item.trailerLookupAvailable = true;
+            result.item.firstAired = "2026-10-19";
+            result.item.genres = {"Drama", "Mystery"};
+            result.item.people.push_back({"actor", "Actor \"Name\"", "Character",
+                {std::string(32, 'a'), 120, 180}});
+            result.item.preferredArtwork = {std::string(32, 'b'), 720, 1080};
+            result.item.images.push_back({"landscape", {std::string(32, 'c'), 1920, 1080}});
             // A manual Genre assignment may exist without a selected
             // manual metadata entity.
             result.item.manualGenreId = "film.drama";
@@ -462,6 +586,15 @@ int main()
     assert(detail.body.find("\"providerTitle\":\"Scraped title\"") !=
         std::string::npos);
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
+    assert(detail.body.find("\"voteAverage\":7.5") != std::string::npos);
+    assert(detail.body.find("\"voteCount\":123") != std::string::npos);
+    assert(detail.body.find("\"trailerLookupAvailable\":true") != std::string::npos);
+    assert(detail.body.find("\"preferredArtwork\":{\"available\":true") != std::string::npos);
+    assert(detail.body.find("\"images\":[{\"orientation\":\"landscape\"") != std::string::npos);
+    assert(detail.body.find("/api/v1/recordings/rec_00000000000000000000000000000001/artwork/" +
+        std::string(32, 'a') + "?backendId=backend-a") != std::string::npos);
+    assert(detail.body.find("\"genres\":[\"Drama\",\"Mystery\"]") != std::string::npos);
+    assert(detail.body.find("\"name\":\"Actor \\\"Name\\\"\"") != std::string::npos);
     assert(detail.body.find("\"manualGenreId\":\"film.drama\"") !=
         std::string::npos);
     assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=
@@ -636,6 +769,31 @@ int main()
     assert(artBytes.body == "PNGbytes");
     assert(artBytes.headers.at("Cache-Control") == "private, max-age=300");
     assert(artBytes.headers.at("X-Content-Type-Options") == "nosniff");
+    for (const std::string& query : {
+        std::string("?backendId=backend-a&variant=home"),
+        std::string("?variant=home&backendId=backend-a")})
+    {
+        ApiResponse previewSource;
+        assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId + query,
+            "actor:tv", "art-preview", "", previewSource, "", "", {"backend-a"}));
+        assert(previewSource.statusCode == 200);
+        assert(previewSource.body == artBytes.body); // HTTP decorator owns resizing.
+    }
+    for (const std::string& query : {
+        std::string("?backendId=backend-a&variant=unknown"),
+        std::string("?backendId=backend-a&variant=home&variant=home"),
+        std::string("?backendId=backend-a&variant="),
+        std::string("?backendId=backend-a&variant=home&other=1")})
+    {
+        ApiResponse invalidPreview;
+        assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId + query,
+            "actor:tv", "art-invalid-preview", "", invalidPreview, "", "", {"backend-a"}));
+        assert(invalidPreview.statusCode == 400);
+    }
+    ApiResponse invalidListPreview;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a&variant=home",
+        "actor:tv", "art-list-preview", "", invalidListPreview, "", "", {"backend-a"}));
+    assert(invalidListPreview.statusCode == 400);
     ApiResponse artWrongBackend;
     assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
         "actor:tv", "art-cross", "", artWrongBackend, "", "",

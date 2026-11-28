@@ -16,10 +16,17 @@ struct GlobalSearchRecording
     int durationSeconds = 0;
     long long sizeMb = 0;
     bool artworkAvailable = false;
+    // Internal evidence from the existing joined metadata row. Never expose
+    // the cache path or assignment revision as a public image selector.
+    std::string preferredArtworkPath;
+    int preferredArtworkWidth = 0, preferredArtworkHeight = 0;
+    int preferredArtworkManualRevision = 0;
+    bool manualArtworkSelected = false;
     std::string matchedPerson;
     std::string matchedRole;
     std::string matchReason;
     std::string personKey;
+    std::string description;
 };
 
 struct GlobalSearchEpgEvent
@@ -56,6 +63,9 @@ struct GlobalSearchPersonPortrait
     std::string backendNativeId;
     int index = -1;
     int assignmentRevision = 0;
+    // Internal cached evidence only, never serialized as a public path.
+    std::string personKey;
+    std::string localPath;
 };
 
 struct GlobalSearchResult
@@ -75,4 +85,5 @@ struct GlobalSearchResult
     std::vector<GlobalSearchRecording> recordings;
     std::vector<GlobalSearchEpgEvent> epg;
     std::vector<GlobalSearchPersonSummary> people;
+    std::vector<GlobalSearchPersonPortrait> portraits;
 };

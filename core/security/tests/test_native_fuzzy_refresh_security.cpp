@@ -614,8 +614,59 @@ void testQueryCacheRefresh()
 }
 }
 
+void testPublicPreviewCacheRefresh()
+{
+    SecurityHttpGateBrowserTestFixture fixture;
+    const std::string path = "/api/v1/search-timers/preview-cache/refresh";
+    const std::string permission = "searchtimers.preview-cache.refresh";
+    const auto evaluate = [&](const std::string& query, bool csrf = true) {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = path + query;
+        fixture.addBrowserAuthentication(request, csrf);
+        return fixture.gate.evaluate(request);
+    };
+    // Public-v1 exposes standardized problem codes. Keep asserting the exact
+    // authorization reason and scope independently in the accountability log.
+    const auto expectDenied = [&](const std::string& query, bool csrf,
+                                  int status, const std::string& problemCode,
+                                  const std::string& reason, const std::string& backend) {
+        const auto countMatching = [&]() {
+            std::size_t count = 0;
+            for (const auto& event : fixture.accountabilityRepository.listAll())
+            {
+                if (event.permission == permission && event.action == permission &&
+                    event.backendId == backend && event.reasonCode == reason &&
+                    event.outcome == "dispatch_denied")
+                    ++count;
+            }
+            return count;
+        };
+        const auto before = countMatching();
+        const auto decision = evaluate(query, csrf);
+        assertDenied(decision, status, "\"code\":\"" + problemCode + "\"");
+        assert(decision.rejection.headers.at("Content-Type") ==
+            PublicProblemDetails::contentType());
+        assert(decision.rejection.headers.at("Cache-Control") == "no-store");
+        assert(countMatching() == before + 1U);
+    };
+    expectDenied("?backendId=default", true, 403, "forbidden", "permission_denied", "default");
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId, permission, "default"));
+    const auto admitted = evaluate("?backendId=default&timespan=1209600&channelEventLimit=96");
+    assert(admitted.allowed && admitted.protectedMutation);
+    assert(admitted.authorizationDecision.backendId == "default");
+    assert(admitted.authorizationDecision.permission == permission);
+    expectDenied("?backendId=foreign", true, 403, "forbidden", "backend_scope_denied", "foreign");
+    expectDenied("?backendId=default", false, 403, "forbidden", "csrf_validation_failed", "default");
+    expectDenied("?backendId=default&backendId=foreign", true, 400, "invalid_request", "invalid_backend_scope", "*");
+    expectDenied("", true, 400, "invalid_request", "invalid_backend_scope", "*");
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId, "role.read-only", "default"));
+    expectDenied("?backendId=default", true, 403, "forbidden", "role_read_only", "default");
+}
+
 int main()
 {
+    testPublicPreviewCacheRefresh();
     testNativeFuzzyRefresh();
     testNativeFuzzyStaleProbeDelete();
     testQueryCacheRefresh();

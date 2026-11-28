@@ -88,6 +88,70 @@ int main()
         assert(directTimerWrongScope.reasonCode == "backend_scope_denied");
     }
 
+    // Simplified Recording editing stays backend-scoped and does not
+    // grant unrelated mutations. Existing per-action grants still work.
+    RequestSecurityContext recordingEditor = authenticatedContext();
+    recordingEditor.grants.push_back({"recordings.edit", "default"});
+    for (const std::string& permission : {
+             "recordings.view", "recordings.rename", "recordings.move",
+             "recordings.delete", "recordings.marks.modify", "recordings.cut"})
+    {
+        const AuthorizationDecision granted = service.authorize(
+            recordingEditor, permissionRequest(permission, "default"));
+        assert(granted.allowed);
+        assert(granted.permission == permission);
+        assert(granted.reasonCode == "permission_granted");
+        const AuthorizationDecision otherBackend = service.authorize(
+            recordingEditor, permissionRequest(permission, "house-b"));
+        assert(!otherBackend.allowed);
+        assert(otherBackend.reasonCode == "backend_scope_denied");
+    }
+    for (const std::string& permission : {
+             "recordings.execute", "metadata.recording.assign",
+             "timers.create", "media.recording.play",
+             "searchtimers.delete", "addons.media.shrink"})
+        assert(!service.authorize(recordingEditor,
+            permissionRequest(permission, "default")).allowed);
+    RequestSecurityContext recordingReader = authenticatedContext();
+    recordingReader.grants.push_back({"recordings.view", "default"});
+    assert(service.authorize(recordingReader,
+        permissionRequest("recordings.view", "default")).allowed);
+    for (const std::string& permission : {
+             "recordings.rename", "recordings.move", "recordings.delete",
+             "recordings.marks.modify", "recordings.cut"})
+        assert(!service.authorize(recordingReader,
+            permissionRequest(permission, "default")).allowed);
+    RequestSecurityContext readonlyEditor = recordingEditor;
+    readonlyEditor.grants.push_back({"role.read-only", "default"});
+    assert(service.authorize(readonlyEditor,
+        permissionRequest("recordings.view", "default")).allowed);
+    assert(service.authorize(readonlyEditor,
+        permissionRequest("recordings.cut", "default")).reasonCode ==
+        "role_read_only");
+    assert(service.authorize(readonlyEditor,
+        permissionRequest("recordings.marks.modify", "default")).reasonCode ==
+        "role_read_only");
+    // Device Service actors only receive this privilege from their
+    // explicitly approved, concrete-backend Device grant.
+    RequestSecurityContext deviceEditor = authenticatedContext();
+    deviceEditor.actor.type = ActorType::Service;
+    deviceEditor.grants.push_back({"recordings.edit", "default"});
+    assert(service.authorize(deviceEditor,
+        permissionRequest("recordings.cut", "default")).allowed);
+    assert(service.authorize(deviceEditor,
+        permissionRequest("recordings.marks.modify", "default")).allowed);
+    assert(!service.authorize(deviceEditor,
+        permissionRequest("recordings.cut", "house-b")).allowed);
+    assert(!service.authorize(deviceEditor,
+        permissionRequest("timers.delete", "default")).allowed);
+
+    RequestSecurityContext legacy = authenticatedContext();
+    legacy.grants.push_back({"recordings.marks.modify", "default"});
+    assert(service.authorize(legacy,
+        permissionRequest("recordings.marks.modify", "default")).allowed);
+    assert(!service.authorize(legacy,
+        permissionRequest("recordings.cut", "default")).allowed);
+
     RequestSecurityContext adminRole = authenticatedContext();
     adminRole.grants.push_back(PermissionGrant{"role.admin", "default"});
     const AuthorizationDecision adminAllowed =

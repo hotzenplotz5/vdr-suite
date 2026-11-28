@@ -1,4 +1,11 @@
 #include "NativeTimerCreateAdmissionService.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
+#include "TimerIntentApplicationService.h"
+#include "TimerIntentRepository.h"
+#include "TimerAssignmentDesiredNativeTimerSpecification.h"
+#include "EpgNativeTimerExecutionAuthority.h"
+#include "EpgNativeTimerConflictGuard.h"
+#include "EpgNativeTimerTimeGuard.h"
 
 #include "Database.h"
 #include "MutationOperationIdentity.h"
@@ -50,6 +57,7 @@ bool validRequest(const NativeTimerCreateAdmissionRequest& request)
         && identity(request.timerAssignmentId)
         && identity(request.expectedAssignmentRevision)
         && identity(request.expectedBackendId)
+        && nativeTimerCreateAuxValid(request.aux)
         && request.requestedAt > 0
         && (request.deadline == 0 || request.deadline >= request.requestedAt);
 }
@@ -71,6 +79,11 @@ std::string requestFingerprint(
     appendField(fingerprint, request.expectedBackendId);
     appendField(fingerprint, request.timerAssignmentId);
     appendField(fingerprint, request.expectedAssignmentRevision);
+    if (!request.aux.empty()) {
+        const auto digest = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(request.aux);
+        if (digest.empty()) return {};
+        appendField(fingerprint, digest);
+    }
     return fingerprint.size() <= kMaxRequestFingerprintLength
         ? fingerprint
         : std::string();
@@ -105,6 +118,7 @@ bool payloadMatchesReplay(
         && payload.backendGeneration == operation.backendGeneration
         && payload.expectedAssignmentRevision == operation.expectedRevision
         && specificationFingerprint == operation.expectedResourceFingerprint
+        && payload.aux == request.aux
         && !payload.nativeTimerBindingId.empty()
         && specificationFingerprint.size() > 0;
 }
@@ -182,6 +196,19 @@ NativeTimerCreateAdmissionStatus preparationStatus(
             return NativeTimerCreateAdmissionStatus::invalid;
     }
     return NativeTimerCreateAdmissionStatus::repositoryError;
+}
+
+
+std::string manualNativeTimerSubmissionDigest(
+    const std::string& actorId, const std::string& backendId,
+    const std::string& idempotencyKey)
+{
+    const auto field = [](const std::string& value) {
+        return std::to_string(value.size()) + ":" + value + "|";
+    };
+    return vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+        "manual-native-timer-create/1|" + field(actorId) +
+        field(backendId) + field(idempotencyKey));
 }
 
 std::int64_t provisioningTimestamp(
@@ -431,6 +458,7 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admitImpl(
         provisioned.assignment.backendGeneration;
     preparation.expectedSpecification =
         provisioned.assignment.desiredNativeTimerSpecification;
+    preparation.aux = request.aux;
     preparation.requestedAt = request.requestedAt;
     preparation.deadline = request.deadline;
 
@@ -456,6 +484,305 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admitImpl(
         NativeTimerCreateAdmissionStatus::prepared,
         prepared.operation,
         prepared.payload);
+}
+
+
+
+NativeTimerCreateAdmissionResult
+NativeTimerCreateAdmissionService::replayManualWindow(
+    const ManualNativeTimerCreateReplayRequest& request,
+    TimerIntentRepository& intents)
+{
+    using namespace vdrsuite::operations;
+    if (!identity(request.actorId) || !identity(request.backendId) ||
+        !identity(request.idempotencyKey) ||
+        request.channelId.empty() || !nativeTimerCreateAuxValid(request.aux) ||
+        request.startAt <= 0 || request.stopAt <= request.startAt)
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+
+    const std::string digest = manualNativeTimerSubmissionDigest(
+        request.actorId, request.backendId, request.idempotencyKey);
+    if (digest.size() != 71U)
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+    const std::string intentId = "manual-intent:" + digest.substr(7U);
+    const std::string assignmentId = "manual-assignment:" + digest.substr(7U);
+
+    auto lease = database_.acquireTransactionLease();
+    const auto found = operationRepository_.findByIdempotencyScope(
+        request.actorId, request.backendId, kResourceType, assignmentId,
+        kActionFamily, request.idempotencyKey);
+    if (found.status == MutationOperationRepositoryStatus::notFound)
+        return result(NativeTimerCreateAdmissionStatus::assignmentNotFound);
+    if (!found.ok())
+        return result(NativeTimerCreateAdmissionStatus::repositoryError);
+
+    const auto intent = intents.findById(intentId);
+    const auto assignment = assignmentRepository_.findById(assignmentId);
+    const auto payload = operationRepository_.findPayloadByOperationId(
+        found.operation.operationId);
+    NativeTimerCreateOperationPayload parsed;
+    if (!intent.ok() || !assignment.ok() || !payload.ok() ||
+        payload.payload.payloadType != kPayloadType ||
+        payload.payload.payloadVersion != kPayloadVersion ||
+        !parseNativeTimerCreateOperationPayload(
+            payload.payload.payload, parsed) ||
+        nativeTimerCreateOperationPayloadFingerprint(parsed) !=
+            payload.payload.payloadFingerprint)
+        return result(NativeTimerCreateAdmissionStatus::operationConflict);
+
+    const auto& saved = intent.intent.spec;
+    const auto& native = parsed.expectedSpecification;
+    const bool matches =
+        found.operation.actorId == request.actorId &&
+        found.operation.backendId == request.backendId &&
+        found.operation.resourceId == assignmentId &&
+        found.operation.actionFamily == kActionFamily &&
+        found.operation.idempotencyKey == request.idempotencyKey &&
+        intent.intent.createdByActorId == request.actorId &&
+        saved.intentType ==
+            (request.weekdays == "-------"
+                ? TimerIntentType::manualWindow
+                : TimerIntentType::recurringSchedule) &&
+        saved.ownerActorId == request.actorId &&
+        saved.assignmentPolicy.preferredBackendIds ==
+            std::vector<std::string>{request.backendId} &&
+        saved.schedule.startAt == request.startAt &&
+        saved.schedule.stopAt == request.stopAt &&
+        saved.channelRequirement.sourceChannelId == request.channelId &&
+        saved.recordingOptions.priority == request.priority &&
+        saved.recordingOptions.lifetimeDays == request.lifetime &&
+        saved.recordingOptions.vpsPreferred == request.vps &&
+        assignment.assignment.timerIntentId == intentId &&
+        assignment.assignment.backendId == request.backendId &&
+        assignment.assignment.desiredNativeTimerSpecificationPresent &&
+        timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+            assignment.assignment.desiredNativeTimerSpecification, native) &&
+        native.channelId == request.channelId &&
+        native.title == request.title &&
+        native.directory == request.directory &&
+        native.weekdays == request.weekdays &&
+        native.priority == request.priority &&
+        native.lifetime == request.lifetime &&
+        native.enabled == request.enabled &&
+        native.vps == request.vps &&
+        parsed.aux == request.aux &&
+        found.operation.expectedResourceFingerprint ==
+            nativeTimerSpecificationFingerprint(native);
+    if (!matches)
+        return result(NativeTimerCreateAdmissionStatus::idempotencyConflict);
+    return result(NativeTimerCreateAdmissionStatus::replayed,
+        found.operation, parsed);
+}
+
+NativeTimerCreateAdmissionResult
+NativeTimerCreateAdmissionService::admitManualWindow(
+    const ManualNativeTimerCreateAdmissionRequest& request,
+    TimerIntentRepository& intents,
+    TimerIntentApplicationService& application)
+{
+    using namespace vdrsuite::operations;
+    const auto& spec = request.draft.desiredNativeTimer;
+    const auto& intentSpec = request.draft.intent;
+    const auto& candidate = request.candidate;
+    // The persisted recurrence rule must be derived from the exact VDR
+    // weekday mask, not invented by a client or mixed with a one-shot draft.
+    ManualTimerSourceEvidence source;
+    source.backendId = request.backendId;
+    source.sourceType = intentSpec.channelRequirement.sourceType;
+    source.sourceId = intentSpec.channelRequirement.sourceId;
+    source.backendChannelId =
+        intentSpec.channelRequirement.sourceChannelId;
+    source.timezone = intentSpec.schedule.timezone;
+    source.startAt = intentSpec.schedule.startAt;
+    source.stopAt = intentSpec.schedule.stopAt;
+    const bool recurring = spec.weekdays != "-------";
+    const auto projected = recurring
+        ? makeRecurringTimerIntentDraft(spec, source, request.actorId)
+        : makeManualWindowTimerIntentDraft(spec, source, request.actorId);
+    if (!request.draft.valid ||
+        !identity(request.actorId) || !identity(request.backendId) ||
+        !identity(request.idempotencyKey) ||
+        !nativeTimerSpecificationValid(spec) ||
+        !nativeTimerCreateAuxValid(request.aux) ||
+        !timerIntentValidSpec(intentSpec) ||
+        !projected.valid ||
+        timerIntentSemanticIdentity(projected.intent) !=
+            timerIntentSemanticIdentity(intentSpec) ||
+        intentSpec.ownerActorId != request.actorId ||
+        intentSpec.assignmentPolicy.preferredBackendIds !=
+            std::vector<std::string>{request.backendId} ||
+        candidate.backendId != request.backendId ||
+        !candidate.desiredNativeTimerSpecificationPresent ||
+        !timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+            candidate.desiredNativeTimerSpecification, spec) ||
+        candidate.channel.backendChannelId != spec.channelId ||
+        request.requestedAt <= 0 ||
+        request.requestedAt >
+            std::numeric_limits<std::int64_t>::max() - 4 ||
+        (request.deadline != 0 &&
+         request.deadline < request.requestedAt + 3))
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+
+    // Stable per actor/backend/key identities preserve replay after the
+    // Assignment has entered provisioning and the Agent went away.
+    const std::string digest = manualNativeTimerSubmissionDigest(
+        request.actorId, request.backendId, request.idempotencyKey);
+    if (digest.size() != 71U)
+        return result(NativeTimerCreateAdmissionStatus::invalid);
+    const std::string intentId = "manual-intent:" + digest.substr(7U);
+    const std::string assignmentId = "manual-assignment:" + digest.substr(7U);
+
+    auto lease = database_.acquireTransactionLease();
+    if (database_.transactionActive() ||
+        !intents.ensureSchema() ||
+        !assignmentRepository_.ensureSchema() ||
+        !operationRepository_.ensureSchema() ||
+        !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+        return result(NativeTimerCreateAdmissionStatus::repositoryError);
+    const auto fail = [this](NativeTimerCreateAdmissionStatus status) {
+        database_.execute("ROLLBACK;");
+        return result(status);
+    };
+    const auto found = operationRepository_.findByIdempotencyScope(
+        request.actorId, request.backendId, kResourceType,
+        assignmentId, kActionFamily, request.idempotencyKey);
+    if (found.ok())
+    {
+        const auto savedIntent = intents.findById(intentId);
+        const auto savedAssignment = assignmentRepository_.findById(assignmentId);
+        const auto payload = operationRepository_.findPayloadByOperationId(
+            found.operation.operationId);
+        NativeTimerCreateOperationPayload parsed;
+        const bool same =
+            savedIntent.ok() && savedAssignment.ok() && payload.ok() &&
+            parseNativeTimerCreateOperationPayload(
+                payload.payload.payload, parsed) &&
+            savedIntent.intent.createdByActorId == request.actorId &&
+            timerIntentSemanticIdentity(savedIntent.intent.spec) ==
+                timerIntentSemanticIdentity(intentSpec) &&
+            savedAssignment.assignment.backendId == request.backendId &&
+            savedAssignment.assignment.desiredNativeTimerSpecificationPresent &&
+            timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+                savedAssignment.assignment.desiredNativeTimerSpecification,
+                spec) &&
+            timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+                parsed.expectedSpecification, spec) &&
+            parsed.aux == request.aux &&
+            found.operation.actorId == request.actorId &&
+            found.operation.backendId == request.backendId &&
+            found.operation.resourceId == assignmentId &&
+            found.operation.actionFamily == kActionFamily &&
+            found.operation.idempotencyKey == request.idempotencyKey &&
+            found.operation.expectedResourceFingerprint ==
+                nativeTimerSpecificationFingerprint(spec);
+        if (!same)
+            return fail(NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        if (!database_.execute("COMMIT;"))
+            return fail(NativeTimerCreateAdmissionStatus::repositoryError);
+        return result(NativeTimerCreateAdmissionStatus::replayed,
+            found.operation, parsed);
+    }
+    if (found.status != MutationOperationRepositoryStatus::notFound)
+        return fail(NativeTimerCreateAdmissionStatus::repositoryError);
+
+    // A partial previous submission must never launch a second timer.
+    if (intents.findById(intentId).status != TimerIntentRepositoryStatus::notFound ||
+        assignmentRepository_.findById(assignmentId).status !=
+            TimerAssignmentRepositoryStatus::notFound)
+        return fail(NativeTimerCreateAdmissionStatus::operationConflict);
+
+    // Match established EPG one-shot deduplication before reserving a
+    // second native operation for the same active semantic intent.
+    const auto equivalents = intents.findEquivalent(intentSpec);
+    if (!equivalents.ok())
+        return fail(NativeTimerCreateAdmissionStatus::repositoryError);
+    for (const auto& previous : equivalents.intents)
+        if (!timerIntentTerminal(previous.state))
+            return fail(NativeTimerCreateAdmissionStatus::operationConflict);
+
+    // Do not let a manual submission bypass the existing native CREATE
+    // clock / Agent lease / prospective conflict evidence required by
+    // EPG-driven CREATE. The HTTP caller cannot provide these facts.
+    const auto& clock = request.nativeClock;
+    if (!vdrsuite::public_epg_timer::currentNativeTimerCreateExecutionAuthority(
+            request.authoritativeAgent, request.nativeCreateProvider,
+            candidate, request.requestedAt) ||
+        !vdrsuite::public_epg_timer::prospectiveNativeTimerConflictClear(
+            request.conflictProof, candidate, request.requestedAt) ||
+        !clock.current ||
+        clock.backendId != request.backendId ||
+        clock.backendGeneration != candidate.currentBackendGeneration ||
+        clock.executionAuthorityFence != candidate.executionAuthorityFence ||
+        clock.providerInstanceEpoch !=
+            request.nativeCreateProvider.providerInstanceEpoch ||
+        clock.observedAt <= 0 ||
+        clock.observedAt > request.requestedAt ||
+        request.requestedAt - clock.observedAt > 15 ||
+        clock.startUtcOffsetSeconds != clock.stopUtcOffsetSeconds)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+    std::string nativeDay, nativeStart, nativeStopDay, nativeStop;
+    if (!vdrsuite::public_epg_timer::projectEpgBoundaryToNative(
+            intentSpec.schedule.startAt, clock.startUtcOffsetSeconds,
+            false, nativeDay, nativeStart) ||
+        !vdrsuite::public_epg_timer::projectEpgBoundaryToNative(
+            intentSpec.schedule.stopAt, clock.stopUtcOffsetSeconds,
+            true, nativeStopDay, nativeStop) ||
+        nativeDay != spec.day || nativeStart != spec.startTime ||
+        nativeStop != spec.endTime ||
+        intentSpec.schedule.stopAt - intentSpec.schedule.startAt >=
+            24 * 3600)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+
+    // The production callback must recheck the live backend authority and
+    // native mapping before ANY durable submission. The planner, not this
+    // method, decides suitability of the candidate.
+    if (!request.revalidateSourceAndExecutionAuthority)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+    bool current = false;
+    try {
+        current = request.revalidateSourceAndExecutionAuthority();
+    } catch (...) {
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+    }
+    if (!current)
+        return fail(NativeTimerCreateAdmissionStatus::backendConflict);
+
+    TimerIntentApplicationRequest selectedRequest;
+    selectedRequest.intent.timerIntentId = intentId;
+    selectedRequest.intent.state = TimerIntentState::draft;
+    selectedRequest.intent.createdByActorId = request.actorId;
+    selectedRequest.intent.spec = intentSpec;
+    selectedRequest.intent.createdAt = request.requestedAt;
+    selectedRequest.intent.updatedAt = request.requestedAt;
+    selectedRequest.intent.expiresAt = 0;
+    selectedRequest.timerAssignmentId = assignmentId;
+    selectedRequest.candidates = {candidate};
+    selectedRequest.activatedAt = request.requestedAt + 1;
+    selectedRequest.scheduledAt = request.requestedAt + 2;
+    selectedRequest.provisioningAt = request.requestedAt + 3;
+    const auto selected =
+        application.submitAndSelectPrimaryInCurrentTransaction(selectedRequest);
+    if (selected.status != TimerIntentApplicationStatus::assignmentSelected)
+        return fail(selected.status == TimerIntentApplicationStatus::noEligibleBackend
+            ? NativeTimerCreateAdmissionStatus::backendConflict
+            : NativeTimerCreateAdmissionStatus::operationConflict);
+
+    NativeTimerCreateAdmissionRequest native;
+    native.actorId = request.actorId;
+    native.idempotencyKey = request.idempotencyKey;
+    native.timerAssignmentId = assignmentId;
+    native.expectedAssignmentRevision =
+        selected.assignment.assignmentRevision;
+    native.expectedBackendId = request.backendId;
+    native.requestedAt = request.requestedAt + 3;
+    native.deadline = request.deadline;
+    native.aux = request.aux;
+    const auto prepared = admitInCurrentTransaction(native);
+    if (prepared.status != NativeTimerCreateAdmissionStatus::prepared)
+        return fail(prepared.status);
+    if (!database_.execute("COMMIT;"))
+        return fail(NativeTimerCreateAdmissionStatus::repositoryError);
+    return prepared;
 }
 
 } // namespace vdrsuite::timers

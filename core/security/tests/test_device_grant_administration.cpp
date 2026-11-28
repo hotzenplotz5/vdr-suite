@@ -84,6 +84,14 @@ int main()
         "media.live.play", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "recordings.view", "default"));
+    // Exactly one approved backend; no implicit editing or wildcard.
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "recordings.edit", "default"));
+    for (const char* badScope : {"*", ".", "..", ""})
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            "recordings.edit", badScope));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "recordings.cut", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "epg.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(

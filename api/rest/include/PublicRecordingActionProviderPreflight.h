@@ -101,6 +101,13 @@ struct PublicRecordingActionProviderPreflight final
         auto folder = publicRequest.parameters.find("publicTargetFolderId");
         append(revision, folder == publicRequest.parameters.end()
             ? "" : folder->second);
+        const auto logicalFolder = publicRequest.parameters.find("publicTargetFolder");
+        // Preserve existing ETags for the opaque-folder contract.
+        if (logicalFolder != publicRequest.parameters.end())
+        {
+            append(revision, "logical-folder");
+            append(revision, logicalFolder->second);
+        }
         append(revision, preview.recordingsState);
         append(revision, preview.timersState);
         return vdrsuite::http::publicStrongEntityTag(revision);

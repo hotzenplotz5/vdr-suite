@@ -20,6 +20,7 @@
 - [Human Credential and Browser Session administration](account-security-administration.md)
 - [Recording browse, genre facets and EPG now/next](recording-browse-epg.md)
 - [Recording Action validation and execution (candidate Public-v1 integration)](recording-actions.md)
+- [Public-v1 Recording Marks/Cut source contract and acceptance limits](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
 - [Device Recording playback/session and media track implementation guide](device-recording-playback.md) — five audited R2 Device playback routes, separate from Phase-69.F
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
@@ -29,7 +30,9 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies **55 documented HTTP method/resource contracts** across **43 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The current integration candidate specifies **125 documented HTTP method/resource contracts** across **103 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+
+F2 introduced five source-grounded authentication transport schemes for the original 75 operations; F6 has added four more Recording-editing operations using those same schemes. See [F2 auth parity](../docs/development/api-v1-f2-security-parity.md). OpenAPI remains partial; SecurityHttpGate still controls actor, grant, backend-scope and CSRF admission.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -87,7 +90,23 @@ The [Credential/Session administration guide](account-security-administration.md
 
 ## Machine-readable Device Recording playback subset
 
-The [Device Recording playback contract](device-recording-playback.md) is now represented in this OpenAPI file by exactly **five** additional Device-owned routes: Session create/status/stop, track inventory and subtitle selection. The model includes nullable index-backed duration, scoped media cookie handling, Device-only `media.recording.play` ownership and either text/vtt or JSON subtitle-off success. It describes source-merged **post-Phase-69 R2**, not original Phase-69.F acceptance and not proof of installed Hisense/yaVDR picture/sound acceptance. The `/api/v1/media/sessions/...` media-byte gateway, decoder-specific playback outcomes and persistent resume-position APIs are **not** modeled here.
+The [Device Recording playback contract](device-recording-playback.md) is now represented in this OpenAPI file by exactly **five** additional Device-owned routes: Session create/status/stop, track inventory and subtitle selection. The model includes nullable index-backed duration, scoped media cookie handling, Device-only `media.recording.play` ownership and either text/vtt or JSON subtitle-off success. It describes source-merged **post-Phase-69 R2**, not original Phase-69.F acceptance and not proof of installed Hisense/yaVDR picture/sound acceptance. The four versioned media-byte gateway paths are now represented separately from control-plane credentials: HLS artifacts, live fragmented MP4, recording fragmented MP4, and direct recording TS byte ranges. Each GET requires its own existing session-bound media credential, active lease and current Device authorization. This is a source contract, not decoder or hardware acceptance.
+
+## Media Tools — Media Import
+
+The five existing Media Import operations now describe capability discovery,
+opaque source catalog pagination, source inspection, recent operation recovery,
+and single/batch admission. The established `addons.media.import` grant,
+CSRF, durable Operation readback and SSE lifecycle remain unchanged. A 202
+admission is not a successful VDR import. Media Check and HEVC Shrink are also represented by ten existing operations:
+capabilities, check start/status, read-only shrink planning, stage/publication
+admission, and recording/review/operation readback. Existing playback and
+shrink grants remain unchanged. Their runtime errors may use application/json
+with an error field, independently of the security gate's Problem Details.
+The existing six administrator-only activation, source and encoding read/write
+contracts are also specified, with their current revision and local-backend
+semantics. No new authorization or execution path is introduced.
+This is not F8 acceptance.
 
 ## What is implemented but not yet in this OpenAPI subset?
 
@@ -118,3 +137,37 @@ API changes must be reviewed together with the **matching developer contract**, 
 
 - [Project README](../README.md)
 - [Documentation index](../docs/index.md)
+
+### API.V1.F3: unabhängiger Public-v1-Client für Channel/EPG/Search
+
+Die Reference-JS-API unterstützt die bestehende Backend-/Channel-Discovery
+und jetzt die vorhandenen Public-v1-Reads für Nachbarsender,
+EPG-Fenster/Now-Next und EPG-/Recording-Suche. Die Unterschiede zu
+browserprivatem Default-Backend-/Snapshot-/EPG-/Global-Search-Verhalten
+sind in der [F3-Paritätsmatrix](../docs/development/api-v1-f3-discovery-epg-search-parity.md)
+dokumentiert. Dieser Teil beweist keinen vollständigen Web-Client-Migrationsstand
+und keine neue reale Hardware-Abnahme.
+
+### API.V1.F6 — Recording editing permissions and Public-v1 Marks/Cut
+
+`recordings.edit` is a single backend-scoped permission for
+existing Recording reads, rename, move, delete, marks modification
+and native cut. Existing individual grants remain valid.
+The remaining Public-v1 Marks/Cut adapter is **in scope but not
+yet implemented**: the established `/api/vdr/recordings/marks`
+and `/api/vdr/recordings/cut` routes do not automatically
+become public-v1 contracts. See
+[F6 integration and authorization](../docs/development/api-v1-f6-recording-marks-cut-scope.md)
+and [ADR-0059](../docs/adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md).
+
+### Current F2–F8 integration candidate: reference transport coverage
+
+The shared JS reference client includes the EPG event/genre reads, both existing
+SSE streams, Device Live-TV start/read/stop, Recently Watched, trickplay and
+subtitle delivery, saved SearchTimer preview, EPG TimerIntent admission and
+Recording action/metadata operations already described by the public contract.
+Recording action validation returns its exact ETag, while EPG admission returns
+HTTP status and Operation Location; neither is a native-success assertion.
+No new runtime grant or private-route fallback was added. The OpenAPI remains
+partial until the remaining public route inventory (including Add-on and media
+transport contracts) has been source-audited; real VDR acceptance remains F8.

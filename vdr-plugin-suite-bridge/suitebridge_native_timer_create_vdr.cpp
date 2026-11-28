@@ -151,12 +151,13 @@ SuiteBridgeNativeTimerCreateVdrMutationCallback::CreateTimer(
         SuiteBridgeNativeTimerCreateMutationDisposition::RejectedWithoutEffect,
         evidence("invalid-file", request.commandId));
 
-  const std::string aux = managedCorrelation(request);
-  if (aux.empty())
+  const std::string correlation = managedCorrelation(request);
+  if (correlation.empty())
     return result(
         SuiteBridgeNativeTimerCreateMutationDisposition::RejectedWithoutEffect,
         evidence("invalid-correlation", request.commandId));
 
+  const std::string aux = request.aux + correlation;
   const unsigned flags =
       (request.enabled ? tfActive : tfNone) |
       (request.vps ? tfVps : tfNone);

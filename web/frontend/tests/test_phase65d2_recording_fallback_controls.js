@@ -124,6 +124,7 @@ Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
 });
 
 const context = vm.createContext({window, document, console, Object, Number, String, Math, Promise, Error, Array});
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
 vm.runInContext(source, context, {filename: 'recording-fallback-controls.js'});
 
 assert.strictEqual(window.__vdrSuiteRecordingFallbackControlsBound, true);
@@ -166,7 +167,7 @@ window.VdrSuiteRecordings2Playback = {
 (async function () {
   const factory = window.VdrSuiteRecordings2Playback;
   assert.strictEqual(factory.__vdrSuiteFallbackControlsDecorated, true);
-  const playback = factory.createPanel({id: 'recording-42'}, 'default');
+  const playback = factory.createPanel({id: 'recording-42', publicRecordingId: 'rec_' + 'a'.repeat(32)}, 'default');
   assert.ok(playback && playback.element);
   assert.strictEqual(typeof playback.resume, 'function');
   assert.strictEqual(typeof playback.canResume, 'function');
@@ -211,8 +212,13 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(starts, 2);
   assert.strictEqual(startOptionsSeen[1], undefined,
     'ordinary HLS resume must keep the default autoplay behavior');
+  const statusRequests = requests.filter(entry => entry.body.operation === 'playback-status');
+  assert(statusRequests.length > 0);
+  assert(statusRequests.every(entry => entry.path === '/api/v1/browser/recording-playback-sessions/control'));
   const createRequests = requests.filter(entry => !entry.body.operation);
   assert.strictEqual(createRequests.length, 2);
+  assert(createRequests.every(entry => entry.path === '/api/v1/browser/recording-playback-sessions'));
+  assert(createRequests.every(entry => entry.body.recordingId === 'rec_' + 'a'.repeat(32)));
   assert.strictEqual(Object.prototype.hasOwnProperty.call(createRequests[0].body, 'startPositionSeconds'), false);
   assert.strictEqual(createRequests[1].body.startPositionSeconds, 2494);
 

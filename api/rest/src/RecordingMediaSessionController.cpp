@@ -55,7 +55,7 @@ ApiResponse jsonError(int statusCode, const std::string& code)
     return response;
 }
 
-ApiResponse stoppedResponse(const std::string& sessionId)
+ApiResponse stoppedResponse(const std::string& sessionId, bool publicTransport)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -63,7 +63,9 @@ ApiResponse stoppedResponse(const std::string& sessionId)
     response.headers["Cache-Control"] = "no-store";
     response.headers["X-Content-Type-Options"] = "nosniff";
     const std::string expiredCookie =
-        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+        publicTransport
+            ? MediaAccessCredentialHttp::expiredPublicV1SessionCookie(sessionId, {})
+            : MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
     if (!expiredCookie.empty()) {
         response.headers["Set-Cookie"] = expiredCookie;
     }
@@ -76,11 +78,14 @@ ApiResponse stoppedResponse(const std::string& sessionId)
 
 ApiResponse stopFailureResponse(
     const std::string& sessionId,
-    const std::string& code)
+    const std::string& code,
+    bool publicTransport)
 {
     ApiResponse response = jsonError(503, code);
     const std::string expiredCookie =
-        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+        publicTransport
+            ? MediaAccessCredentialHttp::expiredPublicV1SessionCookie(sessionId, {})
+            : MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
     if (!expiredCookie.empty()) {
         response.headers["Set-Cookie"] = expiredCookie;
     }
@@ -90,7 +95,9 @@ ApiResponse stopFailureResponse(
 ApiResponse seekedResponse(
     const StoredMediaSession& stored,
     int positionSeconds,
-    int durationSeconds)
+    int durationSeconds,
+    bool publicResponse,
+    bool publicTransport)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -104,10 +111,12 @@ ApiResponse seekedResponse(
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        (publicResponse ? std::string{} :
+            "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"progressive-fmp4\"," +
         "\"growing\":false," +
-        "\"mediaPath\":\"/api/media/sessions/" +
+        "\"mediaPath\":\"" + (publicTransport
+            ? std::string("/api/v1/media/sessions/") : std::string("/api/media/sessions/")) +
             jsonEscape(stored.sessionId) + "/recording/stream.mp4\"," +
         "\"playback\":{"
             "\"positionSeconds\":" + std::to_string(position) + "," +
@@ -161,6 +170,11 @@ RecordingMediaSessionController::RecordingMediaSessionController(
 }
 
 RecordingMediaSessionController::~RecordingMediaSessionController() = default;
+
+bool RecordingMediaSessionController::usesPublicBrowserTransport(const std::string& sessionId) const
+{
+    return mediaSessionRuntime_->usesPublicBrowserTransport(sessionId);
+}
 
 std::size_t RecordingMediaSessionController::reapInactiveSessions(
     int idleTimeoutSeconds) const
@@ -289,9 +303,73 @@ ApiResponse RecordingMediaSessionController::handleRequest(
     return createSession(body, actorId);
 }
 
+ApiResponse RecordingMediaSessionController::handleBrowserControl(
+    const std::string& body,
+    const std::string& actorId,
+    const std::string& authorizedBackendId) const
+{
+    if (actorId.empty()) return jsonError(401, "media_actor_required");
+    const RecordingMediaSessionRequestParser parser;
+    const auto tracks = parser.parseTrackStatus(body);
+    if (tracks.valid) {
+        if (tracks.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return trackStatus(body, actorId, true);
+    }
+    if (tracks.reasonCode != "media_session_track_status_not_requested")
+        return jsonError(400, tracks.reasonCode);
+
+    const auto audio = parser.parseAudioTrackSelection(body, false);
+    if (audio.valid) {
+        if (audio.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return selectAudioTrack(body, actorId, true);
+    }
+    if (audio.reasonCode != "media_session_audio_track_selection_not_requested")
+        return jsonError(400, audio.reasonCode);
+
+    const auto subtitle = parser.parseSubtitleTrackSelection(body);
+    if (subtitle.valid) {
+        if (subtitle.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return selectSubtitleTrack(body, actorId);
+    }
+    if (subtitle.reasonCode != "media_session_subtitle_track_selection_not_requested")
+        return jsonError(400, subtitle.reasonCode);
+
+    const auto status = parser.parsePlaybackStatus(body);
+    if (status.valid) {
+        if (status.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return playbackStatus(body, actorId, true);
+    }
+    if (status.reasonCode != "media_session_playback_status_not_requested")
+        return jsonError(400, status.reasonCode);
+
+    const auto seek = parser.parseSeek(body);
+    if (seek.valid) {
+        if (seek.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return seekSession(body, actorId, true);
+    }
+    if (seek.reasonCode != "media_session_seek_not_requested")
+        return jsonError(400, seek.reasonCode);
+
+    const auto stop = parser.parseStop(body);
+    if (stop.valid) {
+        if (stop.backendId != authorizedBackendId)
+            return jsonError(403, "backend_scope_denied");
+        return stopSession(body, actorId, true);
+    }
+    // This route is not CREATE or Live-TV.
+    return jsonError(400, stop.reasonCode == "media_session_stop_not_requested"
+        ? "invalid_media_session_operation" : stop.reasonCode);
+}
+
 ApiResponse RecordingMediaSessionController::stopSession(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionStopRequest request =
         RecordingMediaSessionRequestParser().parseStop(body);
@@ -311,6 +389,9 @@ ApiResponse RecordingMediaSessionController::stopSession(
         return jsonError(403, "media_session_not_owned");
     }
 
+    if (publicResponse && stored->resourceKind != "recording")
+        return jsonError(404, "media_session_not_found");
+
     {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
@@ -324,8 +405,9 @@ ApiResponse RecordingMediaSessionController::stopSession(
         selectedSubtitleStreamIndexes_.erase(request.sessionId);
     }
 
+    const bool publicTransport = usesPublicBrowserTransport(request.sessionId);
     if (stored->state == "ended" || stored->state == "failed") {
-        return stoppedResponse(request.sessionId);
+        return stoppedResponse(request.sessionId, publicTransport);
     }
 
     if (!mediaSessionRuntime_->stop(request.sessionId, "client_closed")) {
@@ -334,15 +416,16 @@ ApiResponse RecordingMediaSessionController::stopSession(
             "client_stop_runtime_unavailable");
         return stopFailureResponse(
             request.sessionId,
-            "media_session_stop_failed");
+            "media_session_stop_failed", publicTransport);
     }
 
-    return stoppedResponse(request.sessionId);
+    return stoppedResponse(request.sessionId, publicTransport);
 }
 
 ApiResponse RecordingMediaSessionController::seekSession(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool publicResponse) const
 {
     const RecordingMediaSessionSeekRequest request =
         RecordingMediaSessionRequestParser().parseSeek(body);
@@ -388,5 +471,6 @@ ApiResponse RecordingMediaSessionController::seekSession(
                 : seek.reasonCode);
     }
 
-    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds);
+    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds, publicResponse,
+        usesPublicBrowserTransport(request.sessionId));
 }

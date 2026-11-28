@@ -161,6 +161,7 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
+    resolvePublicRecordingId: owner.resolvePublicRecordingId,
     enterPlaybackMode: function (root) {
       return typeof owner.enterPlaybackMode === 'function' &&
         owner.enterPlaybackMode(root) === true;

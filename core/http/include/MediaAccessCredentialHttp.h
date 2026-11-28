@@ -44,8 +44,8 @@ public:
         return makeExpiredCookie(cookiePath(sessionId));
     }
 
-    // Explicitly opt in when a versioned Device MediaSession issuer is
-    // available. The legacy browser issuer must retain its old cookie path.
+    // Versioned Browser and Device issuers use the same narrow media path.
+    // Legacy issuers retain the old cookie path.
     static std::string publicV1SessionCookie(
         const std::string& sessionId,
         const std::string& credential,
@@ -68,8 +68,8 @@ public:
 
     // The Browser MediaSession issuer is intentionally Secure by default.
     // Only the server's already-verified direct-HTTP LAN request may drop
-    // Secure for that single legacy Browser cookie. Device/Public-v1 cookies
-    // never use this transport exception.
+    // Secure for the Browser cookie. The HTTP caller restricts this
+    // exception to Browser CREATE; Device cookies never use it.
     static std::string browserCookieForDirectHttpLan(
         const std::string& issuedCookie,
         bool allowDirectHttpLan)

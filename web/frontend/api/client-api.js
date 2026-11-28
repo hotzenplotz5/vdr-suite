@@ -270,8 +270,9 @@
     const homeCache = window.VdrSuiteHomeCache;
     const snapshot = path.match(/^\/api\/backends\/([A-Za-z0-9_.-]+)\/snapshot$/);
     const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
-      (path !== '/api/metadata/genres' || query.scope === 'recordings')
-        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
+      (path !== '/api/metadata/genres' || query.scope === 'recordings') &&
+      (path !== '/api/v1/recordings' || query.view === 'movies' || query.view === 'new')
+        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId, query.view || query.genreId)
         : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
       if (stamp) homeCache.observe(stamp, response, null);
@@ -396,11 +397,157 @@
   }
 
   function fetchClientTimers(options) {
-    return requestJson('/api/vdr/timers/live', options);
+    const input = normalizeOptions(options);
+    // The historical unscoped reader selected default. Keep that scope
+    // explicit on Public-v1, also for callers using the older query option.
+    const backendId = input.backendId || (input.query && (input.query.backendId || input.query.backend)) || 'default';
+    return publicNativeTimerClient().getLiveNativeTimers({
+      backendId, credentials: 'same-origin',
+      cache: 'no-store', signal: input.signal
+    });
   }
 
   function fetchClientTimerConflicts(options) {
-    return requestJson('/api/vdr/timers/conflicts/live', options);
+    const input = normalizeOptions(options);
+    const backendId = input.backendId || (input.query && (input.query.backendId || input.query.backend)) || 'default';
+    return publicNativeTimerClient().getNativeTimerConflicts({
+      backendId, credentials: 'same-origin',
+      cache: 'no-store', signal: input.signal
+    });
+  }
+
+  // F5.3: reuse the Public-v1 reference client's scoped native Timer reads.
+  // The legacy editor needs more fields and different write semantics.
+  function publicNativeTimerClient() {
+    const factory = window.VdrSuitePublicV1Client;
+    if (!factory || typeof factory.createClient !== 'function') {
+      throw new Error('Public API v1 Client ist nicht verfügbar.');
+    }
+    return factory.createClient({
+      baseUrl: window.location && window.location.origin ? window.location.origin : '',
+      credentials: 'same-origin'
+    });
+  }
+
+  function fetchPublicNativeTimerPage(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimers({
+      query: {backendId: input.backendId, offset: input.offset, limit: input.limit},
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  function fetchPublicNativeTimerDetail(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifNoneMatch: input.ifNoneMatch,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  // F5.6.2: raw Aux is a separate unconditional native VDR read.
+  // Unlike timer detail it has no Binding ETag and cannot return 304.
+  function fetchPublicNativeTimerAux(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getNativeTimerAux({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  // F5.5: Explicit Public-v1 native mutation client, separate from the
+  // synchronous legacy editor. The caller supplies the current binding ETag,
+  // one idempotency key and, for UPDATE, the complete native specification.
+  // The reference client sends exactly once and returns a durable Operation,
+  // never the legacy {success:true} result.
+  function fetchPublicNativeTimerModify(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().modifyNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifMatch: input.ifMatch,
+      idempotencyKey: input.idempotencyKey,
+      payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  // The public write returns HTTP 202, not a completed Timer mutation.
+  // Read the existing durable Operation once; SSE is the frontend's
+  // preferred completion signal when the edit workflow is migrated.
+  function fetchPublicNativeTimerOperation(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().getOperation({
+      operationId: input.operationId,
+      ifNoneMatch: input.ifNoneMatch,
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  function fetchPublicNativeTimerDelete(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().deleteNativeTimer({
+      backendId: input.backendId,
+      timerId: input.timerId,
+      ifMatch: input.ifMatch,
+      idempotencyKey: input.idempotencyKey,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
+  }
+
+  // Slice 3: direct external/unbound native actions retain the single
+  // established VDR writer and return a synchronous result, not HTTP 202.
+  function fetchPublicNativeTimerDirectCreate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().createNativeTimer({
+      backendId: input.payload && input.payload.backendId, payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
+  function fetchPublicNativeTimerDirectUpdate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().updateExternalNativeTimer({
+      backendId: input.backendId, timerId: input.timerId,
+      payload: input.payload,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
+  function fetchPublicNativeTimerDirectDelete(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().deleteExternalNativeTimer({
+      backendId: input.backendId, timerId: input.timerId,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin', signal: input.signal
+    }).then(result => result.data);
+  }
+
+  // F5.6: manual one-shot Timer CREATE uses the same Public-v1 client,
+  // current Browser session/CSRF and caller's stable Idempotency-Key.
+  // A 202 is only an Operation; no legacy mutation or automatic retry.
+  function fetchPublicManualTimerCreate(options) {
+    const input = normalizeOptions(options);
+    return publicNativeTimerClient().submitManualTimerIntent({
+      payload: input.payload,
+      idempotencyKey: input.idempotencyKey,
+      headers: Object.assign({}, copyHeaders(input.headers), activeSessionCsrfHeaders()),
+      credentials: 'same-origin',
+      signal: input.signal
+    });
   }
 
   // One public EPG Timer CREATE path for all browser EPG surfaces. The
@@ -455,20 +602,65 @@
       });
   }
 
-  function fetchClientTimerCreateAction(options) {
-    return requestJson('/api/vdr/timers/actions/create', jsonPostOptions(options));
-  }
-
-  function fetchClientTimerUpdateAction(options) {
-    return requestJson('/api/vdr/timers/actions/update', jsonPostOptions(options));
-  }
-
-  function fetchClientTimerDeleteAction(options) {
-    return requestJson('/api/vdr/timers/actions/delete', jsonPostOptions(options));
+  // Timer editors, the channel sorter and EPG detail name resolution consume
+  // only the compact public Channel projection. The full channel browser
+  // still needs its richer legacy representation. Retain the independently
+  // authorized browser read for users without the separate Channel grant.
+  async function fetchCompactChannelCatalog(input) {
+    const backendId = input.query && input.query.backend;
+    const factory = window.VdrSuitePublicV1Client;
+    if (!backendId || !factory || typeof factory.createClient !== 'function')
+      return requestJson('/api/vdr/channels', input);
+    const client = publicNativeTimerClient();
+    const items = [];
+    const seen = new Set();
+    const cursors = new Set();
+    let cursor;
+    try {
+      do {
+        const page = await client.getChannels({
+          query: {backendIds: [backendId], limit: 100, cursor,
+            sort: 'backendId,channelNumber,channelId', order: 'asc'},
+          cache: input.cache, credentials: input.credentials || 'same-origin',
+          signal: input.signal
+        });
+        if (!page || !Array.isArray(page.items) || !page.page ||
+            !page.meta || page.meta.partial !== false)
+          return requestJson('/api/vdr/channels', input);
+        for (const channel of page.items) {
+          if (!channel || channel.backendId !== backendId ||
+              typeof channel.channelId !== 'string' || !channel.channelId)
+            return requestJson('/api/vdr/channels', input);
+          if (!seen.has(channel.channelId)) {
+            seen.add(channel.channelId);
+            items.push(channel);
+          }
+        }
+        if (!page.page.hasMore) break;
+        cursor = page.page.nextCursor;
+        if (typeof cursor !== 'string' || !cursor || cursors.has(cursor))
+          return requestJson('/api/vdr/channels', input);
+        cursors.add(cursor);
+      } while (cursor);
+    } catch (error) {
+      // Browser-only compatibility: a current editor user can have Timer
+      // rights without the separate public Channel grant. Do not alter grants
+      // or retry an unknown mutation (this is a read-only catalog).
+      if (error && !cursor && (error.status === 404 || error.status === 501))
+        return requestJson('/api/vdr/channels', input);
+      if (error && error.status === 403 &&
+          (error.code === 'permission_denied' || error.code === 'backend_scope_denied'))
+        return requestJson('/api/vdr/channels', input);
+      throw error;
+    }
+    return {channels: items};
   }
 
   function fetchClientChannels(options) {
-    return requestJson('/api/vdr/channels', options);
+    const input = normalizeOptions(options);
+    if (input.editorCatalog === true || input.compactCatalog === true)
+      return fetchCompactChannelCatalog(input);
+    return requestJson('/api/vdr/channels', input);
   }
 
   function fetchClientTeletextService(options) {
@@ -589,8 +781,13 @@
       if (typeof onSnapshot === 'function') onSnapshot(snapshot);
       return snapshot;
     });
-    const recordingStatusRequest = fetchClientRecordingCacheStatus(
-      Object.assign({}, normalizeOptions(options), {backendId: id})
+    // A bounded root page already exposes the global catalog count, not
+    // just the number of visible root cards. Reuse the canonical browse
+    // adapter rather than the private cache-status transport.
+    const recordingStatusRequest = fetchPublicRecordingFolder(
+      Object.assign({}, normalizeOptions(options), {
+        backendId: id, query: {limit: 1, offset: 0}
+      })
     ).catch(function () {
       return null;
     });
@@ -600,18 +797,19 @@
         const snapshot = results[0];
         const recordingStatus = results[1];
 
-        if (!snapshot || typeof snapshot !== 'object' ||
-            !recordingStatus || typeof recordingStatus !== 'object') {
-          return snapshot;
-        }
-
-        const recordingCount = Number(recordingStatus.totalCount);
-        if (!Number.isFinite(recordingCount) || recordingCount < 0) {
-          return snapshot;
+        if (!snapshot || typeof snapshot !== 'object') return snapshot;
+        const recordingCount = recordingStatus && recordingStatus.totalCount;
+        if (!Number.isSafeInteger(recordingCount) || recordingCount < 0 ||
+            !recordingStatus || (recordingStatus.backendId && recordingStatus.backendId !== id) ||
+            (recordingStatus.cacheState !== 'ready' && recordingCount === 0)) {
+          // The lightweight snapshot is not authoritative for Recording
+          // inventory. A failed or cold read is not an empty catalog.
+          return Object.assign({}, snapshot, {recordingCountUnavailable: true});
         }
 
         return Object.assign({}, snapshot, {
-          recordingCount: recordingCount
+          recordingCount: recordingCount,
+          recordingCountUnavailable: false
         });
       });
   }
@@ -620,8 +818,100 @@
     return requestJson('/api/vdr/events/live', options);
   }
 
+  function globalSearchArtworkUrl(backendId, recordingId, artworkId) {
+    return /^[A-Za-z0-9._-]+$/.test(String(backendId || '')) &&
+      /^rec_[0-9a-f]{32}$/.test(String(recordingId || '')) &&
+      /^[0-9a-f]{32}$/.test(String(artworkId || ''))
+      ? '/api/v1/recordings/' + recordingId + '/artwork/' + artworkId +
+        '?backendId=' + encodeURIComponent(backendId) : '';
+  }
+
+  // Adapt the existing Public-v1 page contracts to the search dialog's
+  // existing card owners. Group only by the server's canonical personKey;
+  // do not introduce another text matcher or re-rank results.
+  function globalSearchBrowserView(payload, backendId, query) {
+    const recordingPage = payload && payload.recordings;
+    const epgPage = payload && payload.epg;
+    if (!recordingPage || !epgPage ||
+        !Array.isArray(recordingPage.items) || !Array.isArray(epgPage.items) ||
+        !recordingPage.page || !epgPage.page)
+      throw new Error('Ungültige Public-v1-Suchantwort');
+    const people = new Map();
+    function person(item, recording) {
+      if (!item.personKey || !item.matchedPerson) return;
+      const key = item.personKey;
+      const entry = people.get(key) || {name:'',role:'',recordingCount:0,epgCount:0,
+        image:{available:false,url:''}};
+      entry.name = item.matchedPerson;
+      entry.role = item.matchedRole || '';
+      if (recording) entry.recordingCount += 1;
+      else entry.epgCount += 1;
+      const ref = item.personPortrait;
+      const url = ref && globalSearchArtworkUrl(backendId, ref.recordingId, ref.artworkId);
+      if (url && !entry.image.available) entry.image = {available:true,url};
+      people.set(key, entry);
+    }
+    const recordings = recordingPage.items.map(item => {
+      if (item.kind !== 'recording' || item.backendId !== backendId ||
+          !/^rec_[0-9a-f]{32}$/.test(String(item.recordingId || '')))
+        throw new Error('Ungültige Aufnahmeidentität in der Suchantwort');
+      person(item, true);
+      return Object.assign({}, item, {
+        recordedAt: String(item.startTime || ''),
+        metadata: {subtitle: item.subtitle || ''}
+      });
+    });
+    const epg = epgPage.items.map(item => {
+      if (item.kind !== 'epg' || item.backendId !== backendId ||
+          !item.channelId || !item.eventId)
+        throw new Error('Ungültige EPG-Identität in der Suchantwort');
+      person(item, false);
+      const url = item.artworkAvailable ? '/api/v1/epg/artwork?backendId=' +
+        encodeURIComponent(backendId) + '&channelId=' +
+        encodeURIComponent(item.channelId) + '&eventId=' +
+        encodeURIComponent(item.eventId) + '&variant=home' : '';
+      return Object.assign({}, item, {id:item.eventId, artwork:{available:!!url,url}});
+    });
+    return {
+      backendId, query, status:'ready', recordings, epg,
+      recordingTotal:recordingPage.page.totalCount,
+      epgTotal:epgPage.page.totalCount,
+      recordingHasMore:recordingPage.page.hasMore,
+      epgHasMore:epgPage.page.hasMore,
+      hasMore:recordingPage.page.hasMore || epgPage.page.hasMore,
+      people:Array.from(people.keys()).sort().map(key => people.get(key))
+    };
+  }
+
   function fetchClientGlobalSearch(options) {
-    return requestJson('/api/search', backendQueryOptions(options));
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const legacy = () => requestJson('/api/search', backendQueryOptions(options));
+    const backendId = input.backendId || query.backend || 'default';
+    const searchText = query.query || query.text || '';
+    const limit = query.limit === undefined ? 20 : Number(query.limit);
+    const offset = query.offset === undefined ? 0 : Number(query.offset);
+    // Keep the established Browser route for its existing wider query
+    // options; the dialog uses the common 24-hit/default-window contract.
+    if (typeof searchText !== 'string' || searchText.trim().length < 2 ||
+        searchText.length > 240 || !Number.isInteger(limit) || limit < 1 ||
+        limit > 30 || !Number.isInteger(offset) || offset < 0 || offset > 1000000 ||
+        Object.keys(query).some(key => !['backend','query','text','limit','offset','_'].includes(key)))
+      return legacy();
+    return requestJson('/api/v1/search', {
+      query:{backendId,query:searchText,limit,offset},
+      cache:input.cache || 'no-store', credentials:input.credentials || 'same-origin',
+      signal:input.signal
+    }).then(payload => globalSearchBrowserView(payload, backendId, searchText))
+      .catch(error => {
+        // Independently authenticated Browser compatibility for older daemons
+        // or pre-existing browser-only access. Never retry authentication loss,
+        // transport failures or invalid Public-v1 data through another route.
+        if (error && (error.status === 404 || error.status === 405 ||
+            (error.status === 403 && ['permission_denied','backend_scope_denied'].includes(error.code))))
+          return legacy();
+        throw error;
+      });
   }
 
   function fetchClientEpgSearch(options) {
@@ -671,17 +961,39 @@
   }
 
   function fetchClientRecordingPersons(options) {
-    return requestJson(
-      '/api/vdr/recordings/persons/search',
-      backendQueryOptions(options)
-    );
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const backendId = input.backendId || query.backendId || query.backend || 'default';
+    const limit = query.limit === undefined ? 20 : Number(query.limit);
+    const offset = query.offset === undefined ? 0 : Number(query.offset);
+    return requestJson('/api/v1/search/recordings', Object.assign({}, input, {
+      backendId: undefined, query: {backendId, query: query.name || query.query,
+        match:'person', limit, offset}
+    })).then(function (payload) {
+      const page = payload && payload.page;
+      if (!page || !Array.isArray(payload.items) || page.offset !== offset ||
+          page.limit !== limit || !Number.isSafeInteger(page.totalCount) ||
+          page.totalCount < offset + payload.items.length ||
+          page.hasMore !== (offset + payload.items.length < page.totalCount) ||
+          payload.items.length > limit)
+        throw new Error('Ungültige öffentliche Personensuche.');
+      const matches = payload.items.map(function (item) {
+        if (item.kind !== 'recording' || item.backendId !== backendId ||
+            !/^rec_[0-9a-f]{32}$/.test(item.recordingId || '') ||
+            item.matchReason !== 'person' || !item.matchedPerson)
+          throw new Error('Ungültiger öffentlicher Personentreffer.');
+        return {recording: Object.assign({}, item, {recordedAt: String(item.startTime || '')}),
+          person:{originalName:item.matchedPerson, role:item.matchedRole}};
+      });
+      return {matches, totalCount:page.totalCount, returnedCount:matches.length, limit, offset};
+    });
   }
 
   function fetchClientRecordingTrailer(options) {
     const normalized = normalizeOptions(options);
     const backendId = normalized.backendId ? String(normalized.backendId) : 'default';
     return requestJson(
-      '/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer',
+      '/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer',
       Object.assign({}, normalized, {backendId: undefined})
     );
   }
@@ -690,12 +1002,234 @@
     return requestJson('/api/vdr/recordings/query', options);
   }
 
+  // Adapt the canonical public Home movie pages without inventing native
+  // recording paths. Retain the established large expanded-rail read by
+  // traversing the public offset pages (maximum 100 per HTTP response).
+  async function fetchPublicHomeMovies(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = query.backend;
+    const start = Number(query.offset || 0);
+    const count = Number(query.limit);
+    const rows = [], pages = [], ids = new Set();
+    let total;
+    let offset = start;
+    do {
+      const limit = Math.min(100, count - rows.length);
+      let payload;
+      try {
+        payload = await requestJson('/api/v1/recordings', {
+          query: {backendId, view: 'movies', limit, offset,
+            movieReleaseYearFrom: query.movieReleaseYearFrom,
+            movieReleaseYearTo: query.movieReleaseYearTo},
+          credentials: input.credentials || 'same-origin',
+          cache: input.cache || 'no-store', signal: input.signal
+        });
+      } catch (error) {
+        // Only explicit older-route absence permits compatibility. Never
+        // fall back on an authorization or provider failure.
+        if (!pages.length && (error.status === 404 || error.status === 501))
+          return fetchClientRecordings(input);
+        throw error;
+      }
+      const page = payload && payload.page;
+      const items = payload && payload.items;
+      if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+          page.offset !== offset || page.limit !== limit ||
+          !Number.isSafeInteger(page.totalCount) || page.totalCount < 0 ||
+          items.length > limit ||
+          (offset > page.totalCount ? items.length !== 0 : offset + items.length > page.totalCount) ||
+          page.hasMore !== (offset + items.length < page.totalCount) ||
+          (page.hasMore && !items.length) ||
+          (total !== undefined && total !== page.totalCount))
+        throw new Error('Unvollständige Filmseite.');
+      // Older versions of this same endpoint lack the effective release date.
+      // A whole first page lacking that additive field identifies the old
+      // presentation contract. Never mix proven public and legacy pages.
+      if (!pages.length && items.length && items.every(item =>
+          item && item.releaseDate === undefined)) return fetchClientRecordings(input);
+      for (const item of items) {
+        if (!item || item.kind !== 'recording' || item.backendId !== backendId ||
+            !/^rec_[0-9a-f]{32}$/.test(item.recordingId) ||
+            typeof item.recordedAt !== 'string' || typeof item.releaseDate !== 'string' ||
+            ids.has(item.recordingId)) throw new Error('Uneinheitliche Filmseite.');
+        ids.add(item.recordingId);
+        rows.push(item);
+      }
+      pages.push(payload);
+      total = page.totalCount;
+      offset += items.length;
+      if (!page.hasMore) break;
+    } while (rows.length < count);
+    if (typeof input.onPage === 'function') pages.forEach(input.onPage);
+    return {recordings: rows, totalCount: total};
+  }
+
+  // The compact page already contains the effective card facts. Keep the
+  // old query only for explicitly older servers; do not hide access errors.
+  async function fetchPublicHomeNew(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = query.backend;
+    const offset = Number(query.offset || 0);
+    const limit = Number(query.limit);
+    let payload;
+    try {
+      payload = await requestJson('/api/v1/recordings', {
+        query: {backendId, view: 'new', limit, offset},
+        credentials: input.credentials || 'same-origin',
+        cache: input.cache || 'no-store', signal: input.signal
+      });
+    } catch (error) {
+      if (error.status === 404 || error.status === 501)
+        return fetchClientRecordings(input);
+      throw error;
+    }
+    const page = payload && payload.page;
+    const items = payload && payload.items;
+    if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+        page.offset !== offset || page.limit !== limit ||
+        !Number.isSafeInteger(page.totalCount) || page.totalCount < 0 ||
+        items.length > limit ||
+        (offset > page.totalCount ? items.length !== 0 : offset + items.length > page.totalCount) ||
+        page.hasMore !== (offset + items.length < page.totalCount) ||
+        (page.hasMore && items.length !== limit))
+      throw new Error('Unvollständige Seite neu aufgenommener Inhalte.');
+    if (payload.meta.cardPresentation === undefined) return fetchClientRecordings(input);
+    if (payload.meta.cardPresentation !== true) throw new Error('Ungültige Kartenprojektion.');
+    const ids = new Set();
+    for (const item of items) {
+      if (!item || item.kind !== 'recording' || item.backendId !== backendId ||
+          !/^rec_[0-9a-f]{32}$/.test(item.recordingId) ||
+          typeof item.recordedAt !== 'string' || typeof item.title !== 'string' ||
+          item.backendNativeId !== undefined || item.path !== undefined ||
+          ids.has(item.recordingId))
+        throw new Error('Uneinheitliche Seite neu aufgenommener Inhalte.');
+      ids.add(item.recordingId);
+    }
+    if (typeof input.onPage === 'function') input.onPage(payload);
+    return {recordings: items, totalCount: page.totalCount, publicView: 'new'};
+  }
+
   function fetchClientRecordingCacheStatus(options) {
     return requestJson('/api/vdr/recordings/cache/status', backendQueryOptions(options));
   }
 
   function fetchClientRecordingFolder(options) {
     return requestJson('/api/vdr/recordings/folder', backendQueryOptions(options));
+  }
+
+  // Mixed public browse pages are already promoted and enriched by the
+  // server. Adapt the transport only; do not manufacture native paths.
+  async function fetchPublicRecordingFolder(options) {
+    const input = normalizeOptions(options);
+    const query = input.query || {};
+    const backendId = input.backendId || query.backend;
+    const folderId = query.folderId || '';
+    const start = Number(query.offset || 0);
+    const count = Number(query.limit);
+    const folderPattern = /^fld1_[0-9a-f]{32}$/;
+    const recordingPattern = /^rec_[0-9a-f]{32}$/;
+    const validFolderId = id => id === '' || folderPattern.test(id);
+    const nonnegative = n => Number.isSafeInteger(n) && n >= 0;
+    if (!backendId || !validFolderId(folderId) || !nonnegative(start) ||
+        !Number.isSafeInteger(count) || count < 1) throw new Error('Ungültiger Aufnahmeordner.');
+    let offset = start, context = null, total, hasMore = false;
+    const folders = [], recordings = [], seen = new Set();
+    const legacy = () => {
+      // Only an explicit older-server response may use the existing private
+      // compatibility read, and only when a real legacy path is available.
+      if (folderId && typeof input.legacyPath !== 'string')
+        throw new Error('Die öffentliche Ordnerschnittstelle ist nicht verfügbar.');
+      return fetchClientRecordingFolder(Object.assign({}, input, {
+        query: {backend:backendId, path:input.legacyPath || '', limit:count, offset:start}
+      }));
+    };
+    do {
+      const limit = Math.min(100, count - (folders.length + recordings.length));
+      let payload;
+      try {
+        payload = await requestJson('/api/v1/recordings', {
+          query: {backendId, view: 'folders', limit, offset, folderId:folderId || undefined},
+          cache: input.cache || 'no-store', credentials:input.credentials || 'same-origin',
+          signal:input.signal
+        });
+      } catch (error) {
+        if (!context && (error.status === 404 || error.status === 501)) return legacy();
+        throw error;
+      }
+      const page = payload && payload.page, items = payload && payload.items;
+      if (!page || !Array.isArray(items) || !payload.meta || payload.meta.partial !== false ||
+          page.limit !== limit || page.offset !== offset || !nonnegative(page.totalCount) ||
+          offset + items.length > page.totalCount || items.length > limit ||
+          page.hasMore !== (offset + items.length < page.totalCount) ||
+          (page.hasMore && items.length !== limit))
+        throw new Error('Unvollständige öffentliche Ordnerseite.');
+      const current = payload.folderContext;
+      if (!current && !context) return legacy();
+      if (!current || current.folderId !== folderId || !validFolderId(current.parentFolderId) ||
+          !nonnegative(current.folderCount) || !nonnegative(current.recordingCount) ||
+          current.folderCount + current.recordingCount !== page.totalCount ||
+          !nonnegative(current.catalogTotalCount) || typeof current.cacheState !== 'string' ||
+          typeof current.cacheReady !== 'boolean' || !Array.isArray(current.breadcrumbs) ||
+          current.breadcrumbs.some(crumb => !crumb || !folderPattern.test(crumb.folderId) ||
+            typeof crumb.name !== 'string' || !crumb.name) ||
+          new Set(current.breadcrumbs.map(crumb=>crumb.folderId)).size !== current.breadcrumbs.length ||
+          (current.breadcrumbs.length ? current.breadcrumbs.at(-1).folderId : '') !== folderId ||
+          (current.breadcrumbs.length > 1 ? current.breadcrumbs.at(-2).folderId : '') !== current.parentFolderId ||
+          (context && (JSON.stringify(context) !== JSON.stringify(current) || total !== page.totalCount)))
+        throw new Error('Uneinheitliche öffentliche Ordnerseite.');
+      context = current; total = page.totalCount;
+      for (const item of items) {
+        if (!item || item.path !== undefined || item.backendNativeId !== undefined)
+          throw new Error('Ungültiger öffentlicher Ordnereintrag.');
+        if (item.kind === 'folder') {
+          const representative = item.representativeRecording;
+          if (!folderPattern.test(item.folderId) || typeof item.name !== 'string' ||
+              !nonnegative(item.recordingCount) || seen.has(item.folderId) ||
+              (representative && (representative.backendId !== backendId ||
+                !recordingPattern.test(representative.recordingId) ||
+                typeof representative.recordedAt !== 'string' ||
+                !/^[0-9a-f]{32}$/.test(representative.preferredArtworkId) ||
+                representative.path !== undefined || representative.backendNativeId !== undefined)))
+            throw new Error('Ungültiger öffentlicher Ordner.');
+          seen.add(item.folderId); folders.push(item);
+        } else if (item.kind === 'recording') {
+          if (!recordingPattern.test(item.recordingId) || item.backendId !== backendId ||
+              typeof item.recordedAt !== 'string' || typeof item.title !== 'string' ||
+              seen.has(item.recordingId))
+            throw new Error('Ungültige öffentliche Aufnahme.');
+          seen.add(item.recordingId);
+          recordings.push(Object.assign({}, item, {folderCard:true}));
+        } else throw new Error('Unbekannter öffentlicher Ordnereintrag.');
+      }
+      if (typeof input.onPage === 'function') input.onPage(payload);
+      offset += items.length;
+      hasMore = page.hasMore;
+      if (!hasMore) break;
+    } while (offset - start < count);
+    return {recordingFolder:true, publicFolder:true, backendId,
+      folderId, parentFolderId:context.parentFolderId, breadcrumbs:context.breadcrumbs,
+      folderCount:context.folderCount, recordingCount:context.recordingCount,
+      totalCount:context.catalogTotalCount, cacheState:context.cacheState,
+      cacheReady:context.cacheReady, cardCount:total, returnedCards:offset-start,
+      offset:start, nextOffset:offset, hasMore, folders, recordings};
+  }
+
+  // Keep the exact provider preflight ETag with the public action response.
+  // Browser CSRF comes from the same existing session transport.
+  function fetchPublicRecordingAction(options) {
+    const input = normalizeOptions(options);
+    const path = '/api/v1/recordings/actions/' +
+      (input.execute === true ? 'execute' : 'validate');
+    return fetch(path, requestOptions(queryMutationOptions(jsonPostOptions(input))))
+      .then(function (response) {
+        return parseJsonResponse(path, response).then(function (data) {
+          if (!response.ok) throw createClientError(path, response.status, data);
+          return {data: data, etag: response.headers &&
+            typeof response.headers.get === 'function' ? response.headers.get('ETag') || '' : ''};
+        });
+      });
   }
 
   function fetchClientRecordingActionValidation(options) {
@@ -712,57 +1246,17 @@
     );
   }
 
-  function fetchClientSearchTimers(options) {
-    return requestJson('/api/vdr/searchtimers', options);
-  }
-
-  function fetchClientSearchTimerDiscovery(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/discovery',
-      backendQueryOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerPreview(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/preview',
-      backendQueryOptions(options)
-    );
-  }
-
   function fetchClientSearchTimerPreviewCacheRefresh(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/preview/cache/refresh',
-      backendQueryOptions(queryMutationOptions(options))
-    );
-  }
-
-  function fetchClientSearchTimerPlan(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/plan',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerValidate(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/validate',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerExecute(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/execute',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerRealTest(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/real-test',
-      jsonPostOptions(options)
-    );
+    const input = normalizeOptions(options);
+    const query = copyQuery(input.query);
+    const backendId = input.backendId || query.backendId || query.backend;
+    if (typeof backendId !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/.test(backendId))
+      return Promise.reject(new Error('Preview-Cache benötigt eine Backend-ID.'));
+    delete query.backend;
+    delete query._;
+    query.backendId = backendId;
+    return requestJson('/api/v1/search-timers/preview-cache/refresh',
+      queryMutationOptions(Object.assign({}, input, {query, method:'POST'})));
   }
 
   // Both Browser and Device clients use the same Public-v1 domain CREATE.
@@ -846,6 +1340,23 @@
     return {items, totalCount: items.length, meta: {partial: false}};
   }
 
+  function fetchPublicSearchTimerDraftPreview(options) {
+    const normalized = normalizeOptions(options);
+    const payload = normalized.payload || {};
+    const query = {backend: normalized.backend, query: payload.query,
+      mode: payload.mode, limit: normalized.limit || 30};
+    // Only existing EPG matcher options belong to the read-only preview.
+    for (const key of ['compareTitle','compareSubtitle','compareSummary',
+      'useDuration','useTime','useDayOfWeek']) query[key] = payload[key] ? 1 : 0;
+    for (const key of ['useChannel','channels','channelMin','channelMax',
+      'durationMinMinutes','durationMaxMinutes','startTime','stopTime','dayOfWeek'])
+      query[key] = payload[key];
+    if (payload.mode === 5) query.tolerance = payload.tolerance;
+    return requestJson('/api/v1/search-timers/draft-preview', {
+      query, cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
   async function fetchPublicSearchTimerPreview(options) {
     const normalized = normalizeOptions(options);
     return requestJson(publicSearchTimerPath(normalized, '/preview'), {
@@ -885,30 +1396,23 @@
     );
   }
 
-  function fetchClientSearchTimerUpdateAction(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/update',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerDeleteAction(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/delete',
-      jsonPostOptions(options)
-    );
-  }
-
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
     requestBinary: requestBinary,
     isClientError: isClientError,
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
-    fetchClientTimerCreateAction: fetchClientTimerCreateAction,
+    fetchPublicNativeTimerPage: fetchPublicNativeTimerPage,
+    fetchPublicNativeTimerDetail: fetchPublicNativeTimerDetail,
+    fetchPublicNativeTimerAux: fetchPublicNativeTimerAux,
+    fetchPublicNativeTimerModify: fetchPublicNativeTimerModify,
+    fetchPublicNativeTimerDelete: fetchPublicNativeTimerDelete,
+    fetchPublicNativeTimerDirectCreate: fetchPublicNativeTimerDirectCreate,
+    fetchPublicNativeTimerDirectUpdate: fetchPublicNativeTimerDirectUpdate,
+    fetchPublicNativeTimerDirectDelete: fetchPublicNativeTimerDirectDelete,
+    fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,
+    fetchPublicManualTimerCreate: fetchPublicManualTimerCreate,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
-    fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
-    fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
     fetchClientTeletextService: fetchClientTeletextService,
     fetchClientTeletextPage: fetchClientTeletextPage,
@@ -946,28 +1450,24 @@
     fetchClientRecordingPersons: fetchClientRecordingPersons,
     fetchClientRecordingTrailer: fetchClientRecordingTrailer,
     fetchClientRecordings: fetchClientRecordings,
+    fetchPublicHomeMovies: fetchPublicHomeMovies,
+    fetchPublicHomeNew: fetchPublicHomeNew,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,
+    fetchPublicRecordingFolder: fetchPublicRecordingFolder,
+    fetchPublicRecordingAction: fetchPublicRecordingAction,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
-    fetchClientSearchTimers: fetchClientSearchTimers,
-    fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
-    fetchClientSearchTimerPreview: fetchClientSearchTimerPreview,
     fetchClientSearchTimerPreviewCacheRefresh: fetchClientSearchTimerPreviewCacheRefresh,
-    fetchClientSearchTimerPlan: fetchClientSearchTimerPlan,
-    fetchClientSearchTimerValidate: fetchClientSearchTimerValidate,
-    fetchClientSearchTimerExecute: fetchClientSearchTimerExecute,
-    fetchClientSearchTimerRealTest: fetchClientSearchTimerRealTest,
     fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
     fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
     fetchClientSearchTimerOperation: fetchClientSearchTimerOperation,
     fetchPublicSearchTimerPage: fetchPublicSearchTimerPage,
     fetchPublicSearchTimers: fetchPublicSearchTimers,
     fetchPublicSearchTimerPreview: fetchPublicSearchTimerPreview,
+    fetchPublicSearchTimerDraftPreview: fetchPublicSearchTimerDraftPreview,
     fetchPublicSearchTimerDetail: fetchPublicSearchTimerDetail,
     fetchPublicSearchTimerVersion: fetchPublicSearchTimerVersion,
-    mutatePublicSearchTimer: mutatePublicSearchTimer,
-    fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
-    fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
+    mutatePublicSearchTimer: mutatePublicSearchTimer
   });
 }());

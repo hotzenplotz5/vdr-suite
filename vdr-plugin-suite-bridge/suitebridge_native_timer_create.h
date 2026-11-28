@@ -48,6 +48,7 @@ struct SuiteBridgeNativeTimerCreateRequest final {
   std::uint64_t lifetime = 0;
   bool enabled = false;
   bool vps = false;
+  std::string aux;
 };
 
 enum class SuiteBridgeNativeTimerCreateMutationDisposition {

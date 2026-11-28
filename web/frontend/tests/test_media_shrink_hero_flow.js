@@ -188,6 +188,12 @@ const context = {console, document: {
 };
 context.window = context;
 vm.createContext(context);
+// Use the production identity resolver with the fixture's DOM helpers.
+const fixtureShared = context.VdrSuiteRecordings2Shared;
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), context);
+context.VdrSuiteRecordings2Shared = Object.assign({}, fixtureShared, {
+  resolvePublicRecordingId: context.VdrSuiteRecordings2Shared.resolvePublicRecordingId
+});
 vm.runInContext(hero, context);
 vm.runInContext(fs.readFileSync('web/frontend/recordings2-browser-cards.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('web/frontend/recordings2-folder-dom-cache.js', 'utf8'), context);

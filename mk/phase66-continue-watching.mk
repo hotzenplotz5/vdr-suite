@@ -10,6 +10,7 @@ DAEMON_SRC += \
 test-public-v1-recording-progress-client:
 	node clients/reference-js/tests/test_public_v1_recording_progress_client.js
 	node clients/reference-js/tests/test_public_v1_recording_resume_session_client.js
+	node clients/reference-js/tests/test_public_v1_f7_device_resume_flow.js
 	node clients/reference-js/tests/test_public_v1_playback_account_binding_client.js
 
 .PHONY: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend install-phase66-continue-watching-assets test-phase66-continue-watching-install-staging
@@ -69,6 +70,6 @@ test-phase66-continue-watching-install-staging:
 	$(MAKE) install-phase66-continue-watching-assets DESTDIR=/tmp/vdr-suite-phase66-cw-pkgroot PREFIX=/usr
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js
-	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
-	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/progress' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/progress' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
 	grep -F "state !== 'starting'" /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null

@@ -17,6 +17,10 @@ class GenreBrowserController;
 class GenreIndexRepository;
 class IEpgScraperMetadataResolver;
 
+struct PublicGenreCollectionRequest;
+struct PublicGenreCollectionResult;
+struct PublicGenreRecordingItem;
+
 class GenreBrowserApiRuntime
 {
 public:
@@ -67,15 +71,31 @@ public:
         std::int64_t untilTime, int limit, int offset,
         GenreEpgPage& result) const;
 
+    GenreEpgArtworkSelection epgPortraitArtwork(
+        const std::string& backendId, const std::string& channelId,
+        const std::string& eventId) const;
+
     bool recordingOverview(
         const std::string& backendId,
         const std::string& locale,
         GenreOverview& result) const;
+    PublicGenreCollectionResult recordingOverviewPage(
+        const PublicGenreCollectionRequest& request,
+        const BackendRegistryService& backends) const;
     bool recordingPage(
         const std::string& backendId,
         const std::string& genreId,
         int limit, int offset,
         GenreRecordingPage& result) const;
+
+    // Read card summaries for a page already selected by the Recording query.
+    bool recordingCards(const std::string& backendId,
+        const std::vector<std::string>& nativeIds, GenreRecordingPage& result) const;
+
+    // Projects card facts and returns the private, non-wire grouping seed
+    // for the daemon's backend-scoped opaque Series group key.
+    static std::string projectRecordingCard(
+        const GenreRecordingItem& source, PublicGenreRecordingItem& target);
 
     bool configured() const;
     void reset();

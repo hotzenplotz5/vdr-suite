@@ -57,7 +57,8 @@ GlobalSearchApiRuntime& GlobalSearchApiRuntime::instance()
 
 bool GlobalSearchApiRuntime::configure(
     Database& database,
-    BackendRegistryService& backendRegistryService)
+    BackendRegistryService& backendRegistryService,
+    GlobalSearchController::PublicRecordingIdLookup publicRecordingIdLookup)
 {
     auto writerRepository = std::make_unique<GlobalSearchRepository>(database);
     if (!writerRepository->ensureSchema()) return false;
@@ -110,7 +111,8 @@ bool GlobalSearchApiRuntime::configure(
     auto controller = std::make_unique<GlobalSearchController>(
         *service,
         backendRegistryService,
-        std::move(personPortraitLookup));
+        std::move(personPortraitLookup),
+        std::move(publicRecordingIdLookup));
 
     std::lock_guard<std::mutex> lock(mutex_);
     controller_.reset();
@@ -169,12 +171,21 @@ bool GlobalSearchApiRuntime::tryHandleGet(
 std::optional<GlobalSearchResult> GlobalSearchApiRuntime::searchPublic(
     const std::string& backendId, const std::string& query,
     std::int64_t from, std::int64_t until,
-    int limit, int offset) const
+    int limit, int offset, bool includeRecordingPortraits, bool personOnly) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!service_ || limit < 1 || limit > 30 ||
         offset < 0 || offset > 1000000) return std::nullopt;
-    return service_->search(backendId, query, from, until, limit, offset);
+    auto result = service_->search(backendId, query, from, until, limit, offset, personOnly);
+    // Recording and combined search callers use the existing bulk portrait
+    // owner. EPG-only authorization never requests recording image references.
+    if (includeRecordingPortraits && result.status == "ready" &&
+        !result.people.empty())
+    {
+        if (personPortraitLookup_) result.portraits = personPortraitLookup_(backendId);
+        else if (portraitRepository_) result.portraits = portraitRepository_->findForBackend(backendId);
+    }
+    return result;
 }
 
 bool GlobalSearchApiRuntime::configured() const

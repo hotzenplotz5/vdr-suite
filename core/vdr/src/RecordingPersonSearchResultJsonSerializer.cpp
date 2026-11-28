@@ -144,9 +144,17 @@ void appendPerson(
 
 void appendRecording(
     std::ostringstream& json,
-    const VdrRecording& recording)
+    const VdrRecording& recording,
+    const RecordingPersonSearchResultJsonSerializer::PublicRecordingIdLookup& lookup)
 {
     json << '{';
+
+    const auto publicId = lookup ? lookup(recording) : std::string{};
+    if (!publicId.empty()) {
+        appendKey(json, "publicRecordingId");
+        appendQuoted(json, publicId);
+        json << ',';
+    }
 
     appendKey(json, "id");
     appendQuoted(json, recording.id);
@@ -188,12 +196,13 @@ void appendRecording(
 
 void appendMatch(
     std::ostringstream& json,
-    const RecordingPersonSearchMatch& match)
+    const RecordingPersonSearchMatch& match,
+    const RecordingPersonSearchResultJsonSerializer::PublicRecordingIdLookup& lookup)
 {
     json << '{';
 
     appendKey(json, "recording");
-    appendRecording(json, match.recording());
+    appendRecording(json, match.recording(), lookup);
     json << ',';
 
     appendKey(json, "person");
@@ -205,7 +214,8 @@ void appendMatch(
 }
 
 std::string RecordingPersonSearchResultJsonSerializer::serialize(
-    const RecordingPersonSearchResult& result) const
+    const RecordingPersonSearchResult& result,
+    const PublicRecordingIdLookup& publicRecordingIdLookup) const
 {
     std::ostringstream json;
 
@@ -238,7 +248,7 @@ std::string RecordingPersonSearchResultJsonSerializer::serialize(
             json << ',';
         }
 
-        appendMatch(json, matches.at(index));
+        appendMatch(json, matches.at(index), publicRecordingIdLookup);
     }
 
     json << ']';

@@ -79,6 +79,20 @@ for suffix in ("'/version'", "'/mutations'", "'/preview'"):
 browser_client = browser_client.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
 browser_client = browser_client.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
                         "'approved-searchtimer-resource' + encodeURIComponent(id)")
+# F5 explicitly migrates the read-only SearchTimer draft preview.
+draft_preview_route = "'/api/v1/search-timers/draft-preview'"
+require(browser_client.count(draft_preview_route) == 1,
+        "reviewed Browser SearchTimer draft preview route missing or duplicated")
+require("return requestJson(" + draft_preview_route + ", {" in browser_client,
+        "browser SearchTimer draft preview must use the reviewed request")
+browser_client = browser_client.replace(draft_preview_route,
+                                        "'approved-searchtimer-draft-preview'")
+refresh_route = "'/api/v1/search-timers/preview-cache/refresh'"
+require(browser_client.count(refresh_route) == 1 and
+        "return requestJson(" + refresh_route in browser_client and
+        "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))" in browser_client,
+        "reviewed SearchTimer cache refresh POST drifted")
+browser_client = browser_client.replace(refresh_route, "'approved-searchtimer-cache-refresh'")
 operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
 require(browser_client.count(operation_route) == 1,
         "reviewed Browser SearchTimer Operation GET missing or duplicated")
@@ -89,6 +103,37 @@ for route in ("'/api/v1/epg/event'", "'/api/v1/epg/timer-intents'"):
     require(browser_client.count(route) == 1,
             "reviewed Browser EPG timer route missing: " + route)
     browser_client = browser_client.replace(route, "'reviewed-epg-timer'")
+# R4 explicitly migrates these bounded recording operations. Keep the
+# discovery boundary and reject every other unreviewed public route.
+for route in (
+    "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'",
+    "'/api/v1/recordings/actions/' +\n      (input.execute === true ? 'execute' : 'validate')",
+):
+    require(browser_client.count(route) == 1,
+            "reviewed Browser recording route missing or duplicated: " + route)
+    browser_client = browser_client.replace(route, "'reviewed-recording-route'")
+# Reviewed combined-search successor; discovery itself remains unchanged.
+for route in (
+    "'/api/v1/search'",
+    "'/api/v1/recordings/' + recordingId + '/artwork/' + artworkId",
+    "'/api/v1/epg/artwork?backendId='",
+):
+    require(browser_client.count(route) == 1,
+            "reviewed Browser search route missing or duplicated: " + route)
+    browser_client = browser_client.replace(route, "'reviewed-global-search-route'")
+# Reviewed recording-person search: one exact public route, person-only mode.
+person_route = "'/api/v1/search/recordings'"
+require(browser_client.count(person_route) == 1 and "match:'person'" in browser_client,
+        "reviewed Browser recording-person search route or mode drifted")
+browser_client = browser_client.replace(person_route, "'reviewed-recording-person-search'")
+# Reviewed Home movie/new offset reads and their shared cache-evidence path.
+home_route = "'/api/v1/recordings'"
+require(browser_client.count(home_route) == 4,
+        "reviewed Home recording route missing or duplicated")
+for view in ("movies", "new", "folders"):
+    require(browser_client.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
+            "reviewed Home recording view missing or duplicated: " + view)
+browser_client = browser_client.replace(home_route, "'reviewed-home-recording-view'")
 require("/api/v1" not in browser_client,
         "non-equivalent bundled browser was silently migrated to public-v1")
 
@@ -138,4 +183,4 @@ require("test-phase69f-public-v1-discovery-reference-client" in read("mk/test-gr
 
 print("Phase 69.F public-v1 discovery reference-client guard passed.")
 print("Reference client consumes only root, capabilities and Backend discovery.")
-print("Bundled browser remains on its explicitly non-equivalent transition contracts.")
+print("Browser transition contracts and explicitly reviewed successor routes retained.")

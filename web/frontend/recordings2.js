@@ -14,6 +14,10 @@
     backendId: '',
     path: '',
     parentPath: '',
+    folderId: null,
+    parentFolderId: '',
+    breadcrumbs: [],
+    legacyFolderPath: undefined,
     data: null,
     serverRecordings: [],
     promotedRecordings: [],
@@ -68,13 +72,18 @@
         ? api.fetchClientRecordingFolder(options)
         : Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
     },
+    fetchPublicRecordingFolder: function (options) {
+      const api = shared.clientApi();
+      return api && typeof api.fetchPublicRecordingFolder === 'function'
+        ? api.fetchPublicRecordingFolder(options) : null;
+    },
     pageSize: shared.PAGE_SIZE,
     normalizePath: shared.normalizePath,
     number: shared.number,
     shared: shared,
     folderArtwork: folderArtwork,
     normalizeRecordings: normalizeRecordings,
-    applyFolderData: applyFolderData,
+    normalizeRecording: normalizeRecording,
     render: render,
     loadFolder: loadFolder,
     onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); },
@@ -91,34 +100,21 @@
     }
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves, stop: stopFolderRefresh,
-    schedule: scheduleFolderRefresh, updatePresentedFolderState, forgetRecording} = folderRefresh;
-  function applyFolderData(data, append) {
-    if (!data || data.recordingFolder !== true) {
-      throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
-    }
-    const previousFolders = append && state.data
-      ? shared.folderList(state.data).slice()
-      : shared.folderList(data).slice();
-    const incomingRecordings = normalizeRecordings(shared.recordingList(data));
-    state.data = append
-      ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
-      : Object.assign({}, data, {folders: previousFolders});
-    state.path = shared.normalizePath(shared.first(data, ['path'], state.path));
-    state.parentPath = shared.normalizePath(shared.first(data, ['parentPath'], ''));
-    state.serverRecordingCount = shared.number(data.recordingCount, incomingRecordings.length);
-    state.serverRecordings = append
-      ? state.serverRecordings.concat(incomingRecordings)
-      : incomingRecordings;
-    state.serverSignature = append ? '' : folderRefresh.signature(data);
-    if (!append) state.promotedRecordings = [];
-    updatePresentedFolderState();
-  }
+    schedule: scheduleFolderRefresh, applyFolderData, forgetRecording} = folderRefresh;
   function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; state.detailHome = null; state.detailHomeLabel = ''; }
+  function folderTarget() {
+    return state.folderId !== null ? {folderId:state.folderId, legacyPath:state.legacyFolderPath} : state.path || '';
+  }
   function loadFolder(path) {
     stopFolderRefresh();
     state.active = true;
     state.backendId = shared.selectedBackendId();
-    state.path = shared.normalizePath(path);
+    const opaque = path && typeof path === 'object' && typeof path.folderId === 'string';
+    state.folderId = opaque ? path.folderId : null;
+    state.parentFolderId = '';
+    state.breadcrumbs = [];
+    state.legacyFolderPath = opaque ? path.legacyPath : undefined;
+    state.path = opaque ? '' : shared.normalizePath(path);
     state.parentPath = state.path.split('/').slice(0, -1).join('/');
     state.selectedRecording = null;
     clearExternalDetailReturn();
@@ -130,7 +126,7 @@
       return state.active && sequence === state.requestSequence;
     };
     render();
-    requestFolder(state.path, 0)
+    requestFolder(folderTarget(), 0)
       .then(function (data) {
         if (!current()) return null;
         applyFolderData(data, false);
@@ -155,7 +151,8 @@
     state.loadingMore = true;
     const sequence = ++state.requestSequence;
     render();
-    requestFolder(state.path, state.serverRecordings.length)
+    requestFolder(folderTarget(), state.data && state.data.publicFolder === true
+      ? state.data.nextOffset : state.serverRecordings.length)
       .then(function (data) {
         if (!state.active || sequence !== state.requestSequence) return;
         applyFolderData(data, true);
@@ -171,15 +168,9 @@
         scheduleFolderRefresh();
       });
   }
-  function selectRecording(recording) {
-    state.requestSequence += 1;
-    clearExternalDetailReturn();
-    state.selectedRecording = normalizeRecording(recording);
-    render();
-    scheduleFolderRefresh();
-  }
+  function selectRecording(recording) { clearExternalDetailReturn(); folderRefresh.selectRecording(recording); }
   function leaveExternalDetail(callback) { if (view && typeof view.destroy === 'function') view.destroy(); state.requestSequence += 1; state.selectedRecording = null; clearExternalDetailReturn(); if (typeof callback !== 'function') return false; stopFolderRefresh(); state.active = false; callback(); return true; }
-  function closeDetail() { const detailReturn = state.detailReturn; if (leaveExternalDetail(detailReturn)) return; render(); scheduleFolderRefresh(0); }
+  function closeDetail(changed) { const detailReturn = state.detailReturn; if (leaveExternalDetail(typeof detailReturn === 'function' ? function () { detailReturn(changed === true); } : null)) return; render(); scheduleFolderRefresh(0); }
   function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; leaveExternalDetail(function () { if (typeof global.selectModule === 'function') global.selectModule('overview'); if (typeof global.scrollTo === 'function') global.scrollTo({top: 0, left: 0, behavior: 'auto'}); }); }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
@@ -187,13 +178,14 @@
       return;
     }
     if (state.selectedRecording) state.selectedRecording = null;
-    loadFolder(state.path || '');
+    loadFolder(folderTarget());
   }
   view = browserView.create({
     getState: function () { return state; },
     openFolder: loadFolder, loadMore: loadMore, selectRecording: selectRecording,
     closeDetail: closeDetail, goHome: goHomeDetail, reload: reload,
-    completeDelete: function (recording) { forgetRecording(recording); if (typeof state.detailHome === 'function') return goHomeDetail(); closeDetail(); }
+    completeAction: function () { if (typeof state.detailReturn === 'function') return closeDetail(true); closeDetail(); reload(); },
+    completeDelete: function (recording) { forgetRecording(recording); if (typeof state.detailHome === 'function') return goHomeDetail(); closeDetail(true); }
   });
   const moduleApi = Object.freeze({
     activate: function () {
@@ -219,7 +211,7 @@
     },
     refresh: function () {
       state.active = true;
-      loadFolder(state.path || '');
+      loadFolder(folderTarget());
     },
     openFolder: function (path) {
       loadFolder(path || '');

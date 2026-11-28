@@ -22,7 +22,7 @@
   }
 
   const doc = global.document;
-  const ENDPOINT = '/api/media/continue-watching';
+  const ENDPOINT = '/api/v1/browser/recording-playback-sessions/progress';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   let refreshGeneration = 0;
   let liveSource = null;
@@ -47,7 +47,7 @@
   }
   function recordingSynopsis(recording) {
     const metadata = recording && recording.metadata;
-    if (!metadata || typeof metadata !== 'object') return '';
+    if (!metadata || typeof metadata !== 'object') return text(recording && recording.description).trim();
     const presentation = metadata.presentation && typeof metadata.presentation === 'object'
       ? metadata.presentation : {};
     const provider = metadata.provider && typeof metadata.provider === 'object'
@@ -259,7 +259,14 @@
     // Reset only the version shown by this card. A newer Device checkpoint
     // must fail the existing CAS comparison instead of being silently erased.
     return Promise.resolve().then(function () {
-      return sync.clear(item.backendId, item.recordingId, item.progressRevision);
+      const shared = global.VdrSuiteRecordings2Shared;
+      const clear = function (id) {
+        return sync.clear(item.backendId, id, item.progressRevision);
+      };
+      if (shared && typeof shared.resolvePublicRecordingId === 'function')
+        return shared.resolvePublicRecordingId(item.recording, item.backendId, null, clear);
+      return /^rec_[0-9a-f]{32}$/.test(item.recordingId)
+        ? clear(item.recordingId) : false;
     }).then(function (cleared) {
       return cleared === true;
     }).catch(function () { return false; });

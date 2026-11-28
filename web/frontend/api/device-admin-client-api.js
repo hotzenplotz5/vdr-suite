@@ -97,6 +97,7 @@
     // Server Device-grant admission requires a concrete backend for every
     // Timer and SearchTimer mutation permission, not only for CREATE.
     const concreteBackendRequired = [
+      'recordings.edit',
       'timers.create', 'timers.modify', 'timers.delete',
       'searchtimers.create', 'searchtimers.modify',
       'searchtimers.execute', 'searchtimers.delete'

@@ -63,6 +63,16 @@ test-public-epg-timer-intent-admission:
 
 test-phase: test-public-epg-timer-intent-admission
 
+.PHONY: test-public-v1-native-timer-read-client
+test-public-v1-native-timer-read-client:
+	node clients/reference-js/tests/test_public_v1_f5_native_timer_read_client.js
+	node clients/reference-js/tests/test_public_v1_f5_native_timer_mutation_client.js
+	node clients/reference-js/tests/test_public_v1_f5_manual_timer_create_client.js
+	node web/frontend/tests/test_timer_public_v1_browser_create.js
+	node web/frontend/tests/test_timer_public_v1_browser_native_actions.js
+
+test-ci-fast: test-public-v1-native-timer-read-client
+
 .PHONY: test-public-v1-native-timer-detail
 test-public-v1-native-timer-detail:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -546,6 +556,12 @@ test-frontend-contracts: test-phase69f-read-alias-fallback-removal
 test-phase69f-client-contract-matrix:
 	python3 tools/check_phase69f_client_contract_matrix.py
 
+.PHONY: test-api-v1-f4-recording-read-client
+test-api-v1-f4-recording-read-client:
+	node clients/reference-js/tests/test_public_v1_f4_recording_read_client.js
+
+test-frontend-contracts: test-api-v1-f4-recording-read-client
+
 test-frontend-contracts: test-phase69f-client-contract-matrix
 
 
@@ -770,3 +786,10 @@ test-public-epg-event-detail:
 		api/rest/tests/test_public_epg_event_detail.cpp \
 		-o $(BUILD_DIR)/test_public_epg_event_detail
 	$(BUILD_DIR)/test_public_epg_event_detail
+
+# Public API v1 F6 native Editing client contract (mock HTTP only).
+.PHONY: test-api-v1-f6-recording-edit-client
+test-api-v1-f6-recording-edit-client:
+	node clients/reference-js/tests/test_public_v1_f6_recording_edit_client.js
+
+test-frontend-contracts: test-api-v1-f6-recording-edit-client

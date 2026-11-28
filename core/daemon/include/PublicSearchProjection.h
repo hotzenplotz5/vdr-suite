@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -19,6 +20,10 @@ namespace PublicSearchProjection
 {
 using RecordingIdLookup = std::function<std::optional<std::string>(
     const std::string&, const std::string&)>;
+using PortraitArtworkIdLookup = std::function<std::string(
+    const VdrRecording&, const GlobalSearchPersonPortrait&)>;
+using PreferredArtworkIdLookup = std::function<std::string(
+    const VdrRecording&, const GlobalSearchRecording&)>;
 
 inline bool validRecordingId(const std::string& id)
 {
@@ -30,11 +35,13 @@ inline bool validRecordingId(const std::string& id)
             });
 }
 
-inline PublicSearchResult project(
+inline PublicSearchResult projectPage(
     const PublicSearchRequest& request,
     const GlobalSearchResult& searched,
     const std::vector<VdrRecording>& currentRecordings,
-    const RecordingIdLookup& recordingIdLookup)
+    const RecordingIdLookup& recordingIdLookup,
+    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {},
+    const PreferredArtworkIdLookup& preferredArtworkIdLookup = {})
 {
     PublicSearchResult result;
     const std::size_t pageCount =
@@ -67,6 +74,8 @@ inline PublicSearchResult project(
             item.endTime = event.endTime;
             item.channelName = event.channelName;
             item.description = event.description;
+            item.durationSeconds = std::max(0, event.durationSeconds);
+            item.artworkAvailable = event.artworkAvailable;
             item.matchedPerson = event.matchedPerson;
             item.matchedRole = event.matchedRole;
             item.matchReason = event.matchReason;
@@ -106,11 +115,71 @@ inline PublicSearchResult project(
             item.edited = display.edited;
             item.startTime = recording.startTime;
             item.subtitle = recording.subtitle;
+            item.description = recording.description;
+            item.durationSeconds = std::max(0, recording.durationSeconds);
+            item.sizeMb = std::max<std::int64_t>(0, recording.sizeMb);
+            item.artworkAvailable = recording.artworkAvailable;
             item.matchedPerson = recording.matchedPerson;
             item.matchedRole = recording.matchedRole;
             item.matchReason = recording.matchReason;
             item.personKey = recording.personKey;
+            if (preferredArtworkIdLookup)
+            {
+                const auto id = preferredArtworkIdLookup(*live, recording);
+                if (id.size() == 32U && std::all_of(id.begin(), id.end(),
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+                    }))
+                    item.preferredArtworkId = id;
+            }
             result.items.push_back(std::move(item));
+        }
+    }
+
+    // Reuse the bulk portrait result from the Web's owner. The map caches
+    // each person's opaque image reference once per response. An absent
+    // or stale portrait never removes a valid recording hit.
+    if ((!request.epg || request.combined) && portraitArtworkIdLookup)
+    {
+        std::map<std::string, std::pair<std::string, std::string>> resolved;
+        for (auto& item : result.items)
+        {
+            if (item.personKey.empty() || item.matchedPerson.empty()) continue;
+            auto entry = resolved.emplace(item.personKey,
+                std::pair<std::string, std::string>{});
+            if (entry.second)
+            {
+                const auto portrait = std::find_if(
+                    searched.portraits.begin(), searched.portraits.end(),
+                    [&item](const GlobalSearchPersonPortrait& p) {
+                        return p.personKey == item.personKey;
+                    });
+                if (portrait != searched.portraits.end())
+                {
+                    const auto live = std::find_if(
+                        currentRecordings.begin(), currentRecordings.end(),
+                        [&request, &portrait](const VdrRecording& recording) {
+                            return recording.backendId == request.backendId &&
+                                recording.backendNativeId == portrait->backendNativeId;
+                        });
+                    if (live != currentRecordings.end())
+                    {
+                        const auto art = portraitArtworkIdLookup(*live, *portrait);
+                        if (art.size() == 32U && std::all_of(art.begin(), art.end(),
+                            [](unsigned char ch) {
+                                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+                            }))
+                        {
+                            const auto id = recordingIdLookup(request.backendId,
+                                portrait->backendNativeId);
+                            if (id && validRecordingId(*id))
+                                entry.first->second = {*id, art};
+                        }
+                    }
+                }
+            }
+            item.personPortraitRecordingId = entry.first->second.first;
+            item.personPortraitArtworkId = entry.first->second.second;
         }
     }
 
@@ -126,6 +195,28 @@ inline PublicSearchResult project(
     result.totalCount = std::max(shown, reconciledTotal);
     result.hasMore = shown < result.totalCount;
     result.status = PublicSearchStatus::ok;
+    return result;
+}
+inline PublicSearchResult project(
+    const PublicSearchRequest& request,
+    const GlobalSearchResult& searched,
+    const std::vector<VdrRecording>& currentRecordings,
+    const RecordingIdLookup& recordingIdLookup,
+    const PortraitArtworkIdLookup& portraitArtworkIdLookup = {},
+    const PreferredArtworkIdLookup& preferredArtworkIdLookup = {})
+{
+    auto result = projectPage(request, searched, currentRecordings,
+        recordingIdLookup, portraitArtworkIdLookup, preferredArtworkIdLookup);
+    if (!request.combined || result.status != PublicSearchStatus::ok)
+        return result;
+    auto epgRequest = request;
+    epgRequest.epg = true;
+    auto epg = projectPage(epgRequest, searched, currentRecordings,
+        recordingIdLookup, portraitArtworkIdLookup, preferredArtworkIdLookup);
+    if (epg.status != PublicSearchStatus::ok) return {};
+    result.epgItems = std::move(epg.items);
+    result.epgTotalCount = epg.totalCount;
+    result.epgHasMore = epg.hasMore;
     return result;
 }
 } // namespace PublicSearchProjection

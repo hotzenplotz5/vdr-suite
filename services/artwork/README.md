@@ -2,8 +2,9 @@
 
 Home recording cards and Now/Next programme rail cards opt into `variant=home`
 on the existing recording-artwork, recording metadata image and legacy EPG cache
-artwork/metadata image routes. The large Live Hero, EPG detail and Public-v1
-artwork requests remain unchanged. The existing HTTP boundary first performs
+artwork/metadata image routes. Public-v1 Recording binary artwork and direct/preferred
+EPG artwork also accept the same optional variant; original requests, including
+large Live Hero and EPG detail, remain unchanged. The existing HTTP boundary first performs
 authentication, identity selection and allowed-root checks, then supplies the
 validated original bytes to its preview cache. No client path is passed to a
 decoder. Requests without the variant, including recording details, retain the

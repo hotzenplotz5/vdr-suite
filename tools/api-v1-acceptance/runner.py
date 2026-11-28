@@ -510,8 +510,11 @@ class Acceptance:
                      path=path, shape=",".join(required_keys))
         if self.spec is not None and not invalid:
             base = urllib.parse.urlsplit(path).path
-            match = next((name for name in self.spec["paths"] if
-                          re.fullmatch(re.sub(r"\{[^/]+\}", "[^/]+", name), base)), None)
+            # Literal paths (e.g. SearchTimer draft-preview) take precedence
+            # over a matching resource template, as in OpenAPI routing.
+            match = base if base in self.spec["paths"] else next((
+                name for name in self.spec["paths"] if
+                re.fullmatch(re.sub(r"\{[^/]+\}", "[^/]+", name), base)), None)
             if match:
                 op = self.spec["paths"][match].get("get", {})
                 response = op.get("responses", {}).get("200", {})

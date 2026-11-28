@@ -682,9 +682,46 @@ ApiResponse MetadataController::getManualRecordingMetadata(
     return response;
 }
 
+ApiResponse MetadataController::getPublicManualRecordingMetadata(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    const std::string& publicRecordingId)
+{
+    const auto assignment = metadataRepository_.getManualRecordingMetadataReadOnly(
+        backendId, resourceKey);
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    // Editing facts only; no native key, provider portrait paths or cast payload.
+    std::ostringstream json;
+    json << "{\"recordingId\":\"" << jsonEscape(publicRecordingId)
+         << "\",\"backendId\":\"" << jsonEscape(backendId)
+         << "\",\"found\":" << (assignment.found ? "true" : "false");
+    if (assignment.found)
+    {
+        json << ",\"providerId\":\"" << jsonEscape(assignment.providerId) << "\""
+             << ",\"externalNamespace\":\"" << jsonEscape(assignment.externalNamespace) << "\""
+             << ",\"externalId\":\"" << jsonEscape(assignment.externalId) << "\""
+             << ",\"mediaType\":\"" << jsonEscape(assignment.mediaType) << "\""
+             << ",\"title\":\"" << jsonEscape(assignment.title) << "\""
+             << ",\"originalTitle\":\"" << jsonEscape(assignment.originalTitle) << "\""
+             << ",\"overview\":\"" << jsonEscape(assignment.overview) << "\""
+             << ",\"releaseDate\":\"" << jsonEscape(assignment.releaseDate) << "\""
+             << ",\"posterAvailable\":" << (!assignment.posterReference.empty() ? "true" : "false")
+             << ",\"seasonNumber\":" << assignment.seasonNumber
+             << ",\"episodeNumber\":" << assignment.episodeNumber
+             << ",\"revision\":" << assignment.revision;
+    }
+    json << '}';
+    response.body = json.str();
+    return response;
+}
+
 ApiResponse MetadataController::getManualRecordingGenre(
     const std::string& backendId,
-    const std::string& resourceKey)
+    const std::string& resourceKey,
+    const std::string& publicRecordingId)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -700,7 +737,10 @@ ApiResponse MetadataController::getManualRecordingGenre(
     std::ostringstream json;
     json << "{\"backendId\":\"" << jsonEscape(
         backendId.empty() ? "default" : backendId) << "\"";
-    json << ",\"resourceKey\":\"" << jsonEscape(resourceKey) << "\"";
+    if (publicRecordingId.empty())
+        json << ",\"resourceKey\":\"" << jsonEscape(resourceKey) << "\"";
+    else
+        json << ",\"recordingId\":\"" << jsonEscape(publicRecordingId) << "\"";
     json << ",\"selectedGenreId\":\""
          << jsonEscape(selectedGenreId) << "\"";
     json << ",\"genres\":[";
@@ -722,7 +762,8 @@ ApiResponse MetadataController::getManualRecordingGenre(
 ApiResponse MetadataController::setManualRecordingGenre(
     const std::string& backendId,
     const std::string& resourceKey,
-    const std::string& genreId)
+    const std::string& genreId,
+    const std::string& publicRecordingId)
 {
     if (resourceKey.empty())
     {
@@ -751,7 +792,8 @@ ApiResponse MetadataController::setManualRecordingGenre(
 
     return getManualRecordingGenre(
         backendId,
-        resourceKey);
+        resourceKey,
+        publicRecordingId);
 }
 
 ApiResponse MetadataController::assignManualRecordingMetadata(

@@ -74,6 +74,28 @@ assert.strictEqual(scrollCalls[0].top, 0);
 assert.strictEqual(scrollCalls[0].left, 0);
 assert.strictEqual(scrollCalls[0].behavior, 'auto');
 
+const event = {backendId:'living-room',channelId:'S19.2E-1-2',eventId:'42',
+  artwork:{available:true,url:'/api/epg/cache/artwork?backend=living-room&channelId=S19.2E-1-2&eventId=42'}};
+const artworkSources = testApi.epgArtworkSources(event);
+assert.strictEqual(artworkSources.length,2);
+assert.strictEqual(artworkSources[0],'/api/v1/epg/artwork?backendId=living-room&channelId=S19.2E-1-2&eventId=42&variant=home');
+assert.strictEqual(artworkSources[1],event.artwork.url);
+assert.strictEqual(testApi.epgArtworkSources({artwork:{available:false}}).length,0);
+assert.strictEqual(testApi.epgArtworkSources({artwork:event.artwork})[0],event.artwork.url);
+let errorHandler = null;
+let missing = 0;
+const image = {src:'',addEventListener(name, handler, options) {
+  assert.strictEqual(name,'error'); assert.strictEqual(options.once,true);
+  errorHandler = handler;
+}};
+testApi.setEpgArtworkImage(image,artworkSources,()=>{missing+=1;});
+assert.strictEqual(image.src,artworkSources[0]);
+errorHandler();
+assert.strictEqual(image.src,artworkSources[1]);
+assert.strictEqual(missing,0);
+errorHandler();
+assert.strictEqual(missing,1);
+
 (async function run() {
   const first = deferred();
   const second = deferred();
@@ -117,6 +139,132 @@ assert.strictEqual(scrollCalls[0].behavior, 'auto');
   assert.strictEqual(timeoutResult.current, true);
   assert(timeoutResult.error);
   assert.match(timeoutResult.error.message, /dauerte zu lange/);
+
+
+  // Exercise the actual Browser client wrapper, not a replacement matcher.
+  const clientSource = fs.readFileSync(path.join(__dirname,'..','api','client-api.js'),'utf8');
+  const clientWindow = {};
+  const requests = [];
+  let replies = [];
+  const fetch = (url, options) => {
+    requests.push({url:String(url),options});
+    assert(replies.length, 'Unexpected global search request');
+    const reply = replies.shift();
+    return Promise.resolve({
+      ok:reply.status >= 200 && reply.status < 300,
+      status:reply.status,
+      text:() => Promise.resolve(JSON.stringify(reply.data))
+    });
+  };
+  vm.runInNewContext(clientSource,{window:clientWindow,fetch,console,Promise,Date,URLSearchParams},
+    {filename:'client-api.js'});
+  const api = clientWindow.VdrSuiteClientApi;
+  const recId = 'rec_0123456789abcdef0123456789abcdef';
+  const portraitId = 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const artworkId = 'abcdef0123456789abcdef0123456789';
+  const portrait = {recordingId:portraitId,artworkId};
+  const rec = {kind:'recording',backendId:'living-room',recordingId:recId,
+    title:'Manueller Titel',subtitle:'Folge',startTime:'1791565200',durationSeconds:3600,
+    sizeMb:2048,preferredArtworkId:artworkId,personKey:'bruce willis\nactor',
+    matchedPerson:'Bruce Willis',matchedRole:'actor',matchReason:'person',personPortrait:portrait};
+  const e1 = {kind:'epg',backendId:'living-room',channelId:'C-1',eventId:'12',
+    title:'EPG-Titel',subtitle:'Untertitel',startTime:'1791565200',endTime:'1791568800',
+    artworkAvailable:true,personKey:'bruce willis\nactor',matchedPerson:'Bruce Willis',
+    matchedRole:'actor',personPortrait:portrait};
+  const e2 = Object.assign({},e1,{eventId:'13',personKey:'ewan mcgregor\nactor',
+    matchedPerson:'Ewan McGregor'});
+  const payload = {recordings:{items:[rec],personProjectionVersion:1,
+    page:{offset:0,limit:24,totalCount:28,hasMore:true}},
+    epg:{items:[e1,e2],personProjectionVersion:1,
+    page:{offset:0,limit:24,totalCount:2,hasMore:false}}};
+  const signal = new AbortController().signal;
+  const options = {backendId:'living-room',query:{query:'Hobbit',limit:24,offset:0,_:123},
+    cache:'no-store',signal};
+  replies = [{status:200,data:payload}];
+  const actual = await api.fetchClientGlobalSearch(options);
+  assert.strictEqual(requests.length,1);
+  assert.strictEqual(requests[0].url.split('?')[0],'/api/v1/search');
+  const query = new URL(requests[0].url,'https://vdr-suite.test').searchParams;
+  assert.strictEqual(query.get('backendId'),'living-room');
+  assert.strictEqual(query.get('query'),'Hobbit');
+  assert.strictEqual(query.get('limit'),'24');
+  assert.strictEqual(query.get('offset'),'0');
+  assert.strictEqual(query.has('_'),false);
+  assert.strictEqual(requests[0].options.signal,signal);
+  assert.strictEqual(actual.recordingTotal,28);
+  assert.strictEqual(actual.epgTotal,2);
+  assert.strictEqual(actual.hasMore,true);
+  assert.strictEqual(actual.recordings[0].title,'Manueller Titel');
+  assert.strictEqual(actual.recordings[0].recordedAt,'1791565200');
+  assert.strictEqual(actual.recordings[0].metadata.subtitle,'Folge');
+  assert.strictEqual(actual.recordings[0].preferredArtworkId,artworkId);
+  assert.strictEqual(actual.recordings[0].backendNativeId,undefined);
+  // Open through the real public HTTP adapter and existing detail owner.
+  const opened = [];
+  window.VdrSuiteClientApi = api;
+  window.VdrSuiteRecordings2 = {openRecording(value, options) {
+    opened.push({value, options});
+  }};
+  requests.length = 0;
+  replies = [{status:200,data:{
+    recordingId:recId, backendId:'living-room', title:'Aktueller Titel',
+    recordedAt:'2026-10-09T17:00:00Z', durationSeconds:3600,
+    metadata:{state:'absent',source:'none',contentKind:'unknown'}
+  }}];
+  await testApi.openRecording(actual.recordings[0]);
+  assert.strictEqual(requests.length,1);
+  assert.strictEqual(requests[0].url.split('?')[0],'/api/v1/recordings/'+recId);
+  assert.strictEqual(new URL(requests[0].url,'https://vdr-suite.test').searchParams.get('backendId'),'living-room');
+  assert.strictEqual(opened.length,1);
+  assert.strictEqual(opened[0].value.recordingId,recId);
+  assert.strictEqual(opened[0].value.backendNativeId,undefined);
+  assert.strictEqual(opened[0].value.path,undefined);
+  assert.strictEqual(opened[0].value.title,'Aktueller Titel');
+  assert.strictEqual(opened[0].options.backLabel,'← Zurück zur Suche');
+  assert.strictEqual(opened[0].options.focusNavigation,true);
+  // Older legacy search results keep their already established handoff.
+  requests.length = 0;
+  const oldCard = {id:'old',backendId:'living-room',backendNativeId:'/video/old.rec'};
+  await testApi.openRecording(oldCard);
+  assert.strictEqual(requests.length,0);
+  assert.strictEqual(opened[1].value,oldCard);
+  assert.strictEqual(actual.epg[0].id,'12');
+  assert(testApi.epgArtworkSources(actual.epg[0]).length === 1);
+  assert.strictEqual(actual.people.length,2);
+  assert.strictEqual(actual.people[0].recordingCount,1);
+  assert.strictEqual(actual.people[0].epgCount,1);
+  assert.strictEqual(actual.people[1].recordingCount,0);
+  assert.strictEqual(actual.people[1].epgCount,1);
+  assert.strictEqual(actual.people[1].image.url,
+    '/api/v1/recordings/'+portraitId+'/artwork/'+artworkId+'?backendId=living-room');
+  assert(testApi.publicPersonImageUrl(actual.people[1].image.url));
+  assert(!testApi.publicPersonImageUrl('https://foreign.invalid/image'));
+  requests.length=0;
+  replies=[{status:404,data:{code:'not_found'}},{status:200,data:{recordings:[],epg:[],status:'ready'}}];
+  assert.strictEqual((await api.fetchClientGlobalSearch(options)).status,'ready');
+  assert.strictEqual(requests.length,2);
+  assert.strictEqual(requests[1].url.split('?')[0],'/api/search');
+  for (const status of [401,503]) {
+    requests.length=0;
+    replies=[{status,data:{code:status===401?'authentication_required':'service_unavailable'}}];
+    await assert.rejects(api.fetchClientGlobalSearch(options),error=>error.status===status);
+    assert.strictEqual(requests.length,1);
+  }
+  requests.length=0;
+  replies=[{status:403,data:{code:'permission_denied'}},{status:200,data:{recordings:[],epg:[],status:'ready'}}];
+  await api.fetchClientGlobalSearch(options);
+  assert.strictEqual(requests.length,2);
+  assert.strictEqual(requests[1].url.split('?')[0],'/api/search');
+  requests.length=0;
+  replies=[{status:403,data:{code:'actor_revoked'}}];
+  await assert.rejects(api.fetchClientGlobalSearch(options),error=>error.status===403);
+  assert.strictEqual(requests.length,1);
+  requests.length=0;
+  const bad=JSON.parse(JSON.stringify(payload));
+  bad.recordings.items[0].backendId='other';
+  replies=[{status:200,data:bad}];
+  await assert.rejects(api.fetchClientGlobalSearch(options),/Aufnahmeidentität/);
+  assert.strictEqual(requests.length,1);
 
   console.log('global search frontend runtime tests passed');
 })().catch(function (error) {

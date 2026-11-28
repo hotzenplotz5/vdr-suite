@@ -63,6 +63,20 @@ async function run() {
   }), /path delimiter/);
   assert.strictEqual(requests.length, count);
 
+  const body = {recordingId:'rec_' + 'a'.repeat(32),operation:'set',groupType:'season',
+    seasonNumber:3,expectedRevision:2};
+  await client.setRecordingSeriesHierarchy({backendId:'living-room',payload:body,
+    headers:{'X-VDR-Suite-CSRF':'test-token'}});
+  const hierarchy = requests[requests.length-1];
+  assert.strictEqual(hierarchy.url,
+    'https://suite.example/api/v1/backends/living-room/recordings/series-hierarchy');
+  assert.strictEqual(hierarchy.options.method,'POST');
+  assert.deepStrictEqual(JSON.parse(hierarchy.options.body),body);
+  assert.strictEqual(hierarchy.options.headers['X-VDR-Suite-CSRF'],'test-token');
+  assert.throws(() => client.setRecordingSeriesHierarchy({backendId:'living-room',
+    payload:Object.assign({},body,{resourceKey:'native'})}), /canonical rec_/);
+  assert.strictEqual(requests.length,count+1);
+
   console.log('test_public_v1_account_security_metadata_client passed');
 }
 

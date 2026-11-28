@@ -6,6 +6,7 @@
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "PublicApiRuntime.h"
 
 #include <cassert>
 #include <chrono>
@@ -405,8 +406,160 @@ int main()
         "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1"));
     assert(contains(initialMovies, "\"width\":500,\"height\":750"));
 
+    assert(database.execute(
+        "CREATE TABLE IF NOT EXISTS recording_series_hierarchy_overrides("
+        "backend_id TEXT NOT NULL,recording_key TEXT NOT NULL,group_type TEXT NOT NULL,"
+        "season_number INTEGER NOT NULL DEFAULT 0,group_label TEXT NOT NULL DEFAULT '',"
+        "sort_order INTEGER NOT NULL DEFAULT 0,episode_start INTEGER NOT NULL DEFAULT 0,"
+        "episode_end INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(backend_id,recording_key));"
+        "INSERT INTO recording_series_hierarchy_overrides(backend_id,recording_key,group_type,"
+        "season_number,group_label,sort_order,episode_start,episode_end,revision)"
+        " VALUES('default','recording-1','special',0,'Pilot / Miniserie',-100,1,2,3);"));
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
+
+    // Actual SQLite membership and the production compact card projection.
+    // Locked manual series metadata retains the canonical episode hierarchy.
+    GenreRecordingPage membership;
+    assert(runtime.recordingPage("default", "action", 10, 0, membership));
+    assert(membership.totalCount == 1 && membership.recordings.size() == 1);
+    const auto& member = membership.recordings.front();
+    PublicGenreRecordingItem card;
+    const auto membershipSeed = GenreBrowserApiRuntime::projectRecordingCard(member, card);
+    assert(membershipSeed == "folder:movies");
+    assert(card.seriesFolderTitle == "Movies");
+    assert(!card.seriesNativeMetadataAvailable); // manual selection, no native provider ID
+    assert(card.cardTitle == "Manuelle Serie");
+    assert(card.cardMediaType == "series");
+    assert(card.seasonNumber == 2 && card.episodeNumber == 7);
+    assert(card.seriesHierarchyOverrideAvailable);
+    assert(card.seriesHierarchyGroupType == "special");
+    assert(card.seriesHierarchySeasonNumber == 0);
+    assert(card.seriesHierarchyGroupLabel == "Pilot / Miniserie");
+    assert(card.seriesHierarchySortOrder == -100);
+    assert(card.seriesHierarchyEpisodeStart == 1 && card.seriesHierarchyEpisodeEnd == 2);
+    assert(card.seriesHierarchyRevision == 3);
+    const auto webHierarchy = controller.getRecordings("default", "action", 10, 0);
+    assert(contains(webHierarchy, "\"groupLabel\":\"Pilot / Miniserie\""));
+    assert(contains(webHierarchy, "\"episodeStart\":1,\"episodeEnd\":2"));
+    assert(card.genreIds == member.genreIds);
+    assert(card.sizeMb == member.sizeMb);
+    assert(contains(manualSeriesSummary, "\"title\":\"" + card.cardTitle + "\""));
+    GenreRecordingItem noMetadata;
+    PublicGenreRecordingItem plainCard;
+    GenreBrowserApiRuntime::projectRecordingCard(noMetadata, plainCard);
+    assert(plainCard.cardMediaType.empty() && plainCard.cardTitle.empty());
+    assert(!plainCard.seriesHierarchyOverrideAvailable);
+
+    // Same folder grouping for initial fallback/native members and different
+    // seasons, without using native Recording identities as Series identity.
+    GenreRecordingItem fallbackEpisode;
+    fallbackEpisode.path = "Serien/Band_Of_Brothers/Staffel 1/04_Die_Neuen";
+    fallbackEpisode.title = "04_Die_Neuen";
+    fallbackEpisode.genreIds = {"series"};
+    GenreRecordingItem nativeEpisode = fallbackEpisode;
+    nativeEpisode.path = "serien/band_of_brothers/Staffel 2/09_Warum_wir_kaempfen";
+    nativeEpisode.seriesMetadataAvailable = true;
+    nativeEpisode.seriesTitle = "Band of Brothers";
+    nativeEpisode.seriesProvider = "tvscraper";
+    nativeEpisode.seriesProviderId = -74205;
+    PublicGenreRecordingItem fallbackCard, nativeCard;
+    const auto fallbackSeed =
+        GenreBrowserApiRuntime::projectRecordingCard(fallbackEpisode, fallbackCard);
+    const auto nativeSeed =
+        GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, nativeCard);
+    assert(fallbackSeed == "folder:serien/band_of_brothers");
+    assert(fallbackSeed == nativeSeed);
+    auto unicodeEpisode = fallbackEpisode;
+    unicodeEpisode.path = "Serien/ÄRZTE/Staffel 1/Folge";
+    PublicGenreRecordingItem unicodeCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(unicodeEpisode, unicodeCard) == "folder:serien/ärzte");
+    unicodeEpisode.path = "Serien/ärzte/Staffel 2/Folge";
+    assert(GenreBrowserApiRuntime::projectRecordingCard(unicodeEpisode, unicodeCard) == "folder:serien/ärzte");
+    assert(fallbackCard.seriesFolderTitle == "Band_Of_Brothers");
+    assert(!fallbackCard.seriesNativeMetadataAvailable);
+    assert(nativeCard.seriesNativeMetadataAvailable);
+    nativeEpisode.path = "Serien/Andere Serie/Folge";
+    PublicGenreRecordingItem anotherCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, anotherCard) !=
+        nativeSeed);
+    nativeEpisode.path.clear();
+    nativeEpisode.title = "Folge neun";
+    PublicGenreRecordingItem nativeOnlyCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(nativeEpisode, nativeOnlyCard) ==
+        "native:tvscraper:-74205");
+    fallbackEpisode.path.clear();
+    fallbackEpisode.title = "Beispielserie";
+    PublicGenreRecordingItem titleOnlyCard;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(fallbackEpisode, titleOnlyCard) ==
+        "title:beispielserie");
+    PublicGenreRecordingItem notSeries;
+    assert(GenreBrowserApiRuntime::projectRecordingCard(noMetadata, notSeries).empty());
+
+    // Exercise the production projection against the same SQLite index
+    // used by the established Web overview, including cross-page ordering.
+    GenreOverview canonical;
+    assert(runtime.recordingOverview("default", "de", canonical));
+    ApiResponse webOverview;
+    assert(runtime.tryHandleGet(
+        "/api/metadata/genres?backend=default&scope=recordings&locale=de",
+        webOverview));
+    assert(webOverview.statusCode == 200);
+    PublicGenreCollectionRequest request;
+    request.backendId = "default";
+    request.limit = 1;
+    assert(!canonical.genres.empty());
+    assert(!backendRegistryService.getBackend("default")->online);
+    // A registered, enabled but offline backend has the same persisted facets.
+    std::string previousGenreId;
+    for (std::size_t offset = 0; offset < canonical.genres.size(); ++offset)
+    {
+        request.offset = offset;
+        const auto page = runtime.recordingOverviewPage(request, backendRegistryService);
+        assert(page.status == PublicGenreCollectionStatus::ok);
+        assert(page.totalCount == canonical.genres.size());
+        assert(page.totalItems == static_cast<std::size_t>(canonical.distinctItemCount));
+        assert(page.assignmentCount == static_cast<std::size_t>(canonical.assignmentCount));
+        assert(page.genres.size() == 1);
+        const auto& item = page.genres.front();
+        assert(previousGenreId < item.genreId);
+        previousGenreId = item.genreId;
+        assert(item.displayOrder < canonical.genres.size());
+        const auto& expected = canonical.genres[item.displayOrder];
+        assert(item.genreId == expected.genreId);
+        assert(item.label == expected.label);
+        assert(item.known == expected.known);
+        assert(item.count == static_cast<std::size_t>(expected.itemCount));
+        assert(item.activeCount == static_cast<std::size_t>(expected.activeCount));
+        assert(item.staleCount == static_cast<std::size_t>(expected.staleCount));
+        assert(item.conflictCount == static_cast<std::size_t>(expected.conflictCount));
+        assert(contains(webOverview, "\"id\":\"" + item.genreId + "\""));
+    }
+    assert(contains(webOverview, "\"totalItems\":" +
+        std::to_string(canonical.distinctItemCount)));
+    assert(contains(webOverview, "\"assignmentCount\":" +
+        std::to_string(canonical.assignmentCount)));
+
+    request.offset = 0;
+    request.backendId = "remote";
+    GenreOverview remoteCanonical;
+    assert(runtime.recordingOverview("remote", "de", remoteCanonical));
+    assert(!backendRegistryService.getBackend("remote")->online);
+    const auto remotePage = runtime.recordingOverviewPage(request, backendRegistryService);
+    assert(remotePage.status == PublicGenreCollectionStatus::ok);
+    assert(remotePage.totalItems == static_cast<std::size_t>(remoteCanonical.distinctItemCount));
+    assert(remotePage.assignmentCount == static_cast<std::size_t>(remoteCanonical.assignmentCount));
+    request.backendId = "missing-genre-backend";
+    assert(runtime.recordingOverviewPage(request, backendRegistryService).status ==
+        PublicGenreCollectionStatus::unavailable);
+    BackendNode disabled;
+    disabled.backendId = "disabled-genre-backend";
+    disabled.enabled = false;
+    registry.addBackend(disabled);
+    request.backendId = disabled.backendId;
+    assert(runtime.recordingOverviewPage(request, backendRegistryService).status ==
+        PublicGenreCollectionStatus::unavailable);
 
     FakeEpgResolver resolver;
     runtime.registerEpgScraperMetadataResolver("default", resolver);

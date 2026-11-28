@@ -50,6 +50,8 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "VdrRecordingArtworkIdentity.h"
+#include "VdrRecordingMetadataJsonSerializer.h"
+#include "ManualRecordingMetadataReadModelJson.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingMetadataDetailProjection.h"
@@ -59,6 +61,7 @@
 #include "RestfulApiRecordingMapper.h"
 #include "HttpRequest.h"
 #include "PublicRecordingDisplayName.h"
+#include "PublicSeriesGroupKey.h"
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -92,11 +95,100 @@
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <set>
 #include <utility>
 #include <vector>
 
 namespace
 {
+// Same selected manual poster reference for list/bytes and membership cards.
+// This does not open the image or create a new artwork identity.
+std::optional<VdrRecordingArtworkRef> publicManualRecordingPoster(
+    const ManualRecordingMetadataAssignment& selected)
+{
+    const std::string prefix = "/var/cache/vdr-suite/recording-metadata/posters/";
+    std::error_code error;
+    if (selected.posterReference.compare(0, prefix.size(), prefix) != 0 ||
+        !std::filesystem::is_regular_file(selected.posterReference, error))
+        return std::nullopt;
+    VdrRecordingArtworkRef poster;
+    poster.kind = VdrRecordingArtworkKind::Poster;
+    poster.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    poster.reference = selected.posterReference;
+    poster.temporary = false;
+    return poster;
+}
+
+// All public recording cards share the cached genre/native presentation
+// and the artwork identity accepted by the existing bytes endpoint.
+void projectPublicGenreRecordingCard(const std::string& backendId,
+    const VdrRecording& recording, const GenreRecordingItem& summary,
+    bool manualSelected, const std::string& manualPoster, int manualRevision,
+    PublicGenreRecordingItem& card)
+{
+    const auto seed = GenreBrowserApiRuntime::projectRecordingCard(summary, card);
+    if (!seed.empty())
+    {
+        card.seriesGroupKey = PublicSeriesGroupKey::fromLegacy(backendId, seed);
+        card.seriesAncestorFolderIds = VdrRecordingCacheRepository::publicFolderAncestors(
+            backendId, recording);
+        const auto addCoverKey = [&](const std::string& legacy) {
+            const auto key = PublicSeriesGroupKey::fromLegacy(backendId, legacy);
+            if (!key.empty() && std::find(card.seriesCoverGroupKeys.begin(),
+                card.seriesCoverGroupKeys.end(), key) == card.seriesCoverGroupKeys.end())
+                card.seriesCoverGroupKeys.push_back(key);
+        };
+        const auto& providerId = recording.metadata.provider.seriesId;
+        if (!providerId.empty()) addCoverKey("provider:" + providerId);
+        addCoverKey(seed);
+        if (!summary.seriesProvider.empty() && summary.seriesProviderId != 0)
+            addCoverKey("native:" + summary.seriesProvider + ":" + std::to_string(summary.seriesProviderId));
+    }
+    card.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+        recording, manualPoster, 0, 0, manualSelected, manualRevision);
+    if (!manualSelected && !summary.cardArtworkPath.empty())
+        card.preferredArtworkId = VdrRecordingFolderController::publicNativeCardArtworkId(
+            recording, summary.cardArtworkPath, summary.cardArtworkWidth,
+            summary.cardArtworkHeight, summary.seriesArtworkIndex);
+}
+
+void projectPublicRecordingCard(const std::string& backendId,
+    const VdrRecording& recording, const ManualRecordingMetadataAssignment& manual,
+    const GenreRecordingPage& cardPage, PublicRecordingCollectionItem& entry)
+{
+    const auto summary = std::find_if(cardPage.recordings.begin(), cardPage.recordings.end(),
+        [&](const auto& value) { return value.backendNativeId == recording.backendNativeId; });
+    if (summary == cardPage.recordings.end())
+    {
+        entry.preferredArtworkId = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+            recording, manual.posterReference, 0, 0,
+            manual.found && manual.relationshipLocked, manual.revision);
+        return;
+    }
+    PublicGenreRecordingItem card;
+    projectPublicGenreRecordingCard(backendId, recording, *summary,
+        manual.found && manual.relationshipLocked, manual.posterReference, manual.revision, card);
+    entry.preferredArtworkId = std::move(card.preferredArtworkId);
+    entry.seriesCoverGroupKeys = std::move(card.seriesCoverGroupKeys);
+    entry.card.cardTitle = std::move(card.cardTitle);
+    entry.card.cardMediaType = std::move(card.cardMediaType);
+    entry.card.seriesGroupKey = std::move(card.seriesGroupKey);
+    entry.card.seriesFolderTitle = std::move(card.seriesFolderTitle);
+    entry.card.seriesAncestorFolderIds = std::move(card.seriesAncestorFolderIds);
+    entry.card.seriesNativeMetadataAvailable = std::move(card.seriesNativeMetadataAvailable);
+    entry.card.episodeName = std::move(card.episodeName);
+    entry.card.seasonNumber = std::move(card.seasonNumber);
+    entry.card.episodeNumber = std::move(card.episodeNumber);
+    entry.card.seriesHierarchyOverrideAvailable = std::move(card.seriesHierarchyOverrideAvailable);
+    entry.card.seriesHierarchyGroupType = std::move(card.seriesHierarchyGroupType);
+    entry.card.seriesHierarchySeasonNumber = std::move(card.seriesHierarchySeasonNumber);
+    entry.card.seriesHierarchyGroupLabel = std::move(card.seriesHierarchyGroupLabel);
+    entry.card.seriesHierarchySortOrder = std::move(card.seriesHierarchySortOrder);
+    entry.card.seriesHierarchyEpisodeStart = std::move(card.seriesHierarchyEpisodeStart);
+    entry.card.seriesHierarchyEpisodeEnd = std::move(card.seriesHierarchyEpisodeEnd);
+    entry.card.seriesHierarchyRevision = std::move(card.seriesHierarchyRevision);
+}
+
 bool searchCasReplayMatches(
     const std::string& canonical,
     const std::string& action,
@@ -152,7 +244,7 @@ std::int64_t stockSearchTimerNow()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-std::string stockSearchTimerDigest(const std::string& value)
+std::string sha256Hex(const std::string& value)
 {
     std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
     if (!SHA256(reinterpret_cast<const unsigned char*>(value.data()),
@@ -170,7 +262,7 @@ std::string stockSearchTimerDigest(const std::string& value)
 std::string stockSearchTimerRevision(const std::string& publicId,
     const std::string& raw)
 {
-    const auto hash = stockSearchTimerDigest(
+    const auto hash = sha256Hex(
         "searchtimer-stock-revision-v1|" + publicId + "|" + raw);
     return hash.empty() ? std::string{} : "sr_" + hash.substr(0U, 32U);
 }
@@ -1193,6 +1285,12 @@ bool DaemonRuntime::initialize()
             return metadataController_
                 ->findManualRecordingMetadataForBackend(
                     backendId);
+        },
+        [this](const std::string& backendId, const std::string& nativeId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                .value_or(std::string{});
         });
     vdrRecordingFolderController_ =
         std::make_unique<VdrRecordingFolderController>(
@@ -1227,6 +1325,21 @@ bool DaemonRuntime::initialize()
 
                 return VdrRecordingNativeMetadataRecord{};
             });
+    vdrRecordingFolderController_->setPublicRecordingIdLookup(
+        [this](const std::string& backendId, const std::string& nativeId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            const auto id = publicRecordingIdentities_->resolveOrCreate(backendId, nativeId);
+            return id.value_or(std::string{});
+        });
+    vdrRecordingFolderController_->setPublicRecordingNativeLookup(
+        [this](const std::string& backendId, const std::string& publicId)
+        {
+            if (!publicRecordingIdentities_) return std::string{};
+            const auto native = publicRecordingIdentities_->findNativeForPublicId(
+                backendId, publicId);
+            return native.value_or(std::string{});
+        });
 
     capabilityResolver_ =
         std::make_unique<BackendRegistryCapabilityResolver>(
@@ -1480,7 +1593,13 @@ bool DaemonRuntime::initialize()
                 *recordingPersonSearchService_,
                 *recordingPersonSearchResultJsonSerializer_,
                 std::move(
-                    persistentRecordingPersonSearch));
+                    persistentRecordingPersonSearch),
+                [this](const std::string& backendId, const std::string& nativeId)
+                {
+                    if (!publicRecordingIdentities_) return std::string{};
+                    return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                        .value_or(std::string{});
+                });
 
     std::cout
         << "recording person search controller runtime initialized: "
@@ -1901,6 +2020,16 @@ bool DaemonRuntime::initialize()
     deviceLiveEventHub_ = std::make_shared<DeviceLiveEventHub>();
     liveTransport_ = std::make_unique<SseLiveTransport>();
     liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
+    liveTransport_->setRecordingPublicIdLookup(
+        [this](const std::string& backendId, const std::string& nativeId)
+            -> std::optional<std::string>
+        {
+            // Read existing bindings only. Change notifications must not
+            // create identities for deleted or not-yet-admitted recordings.
+            return publicRecordingIdentities_
+                ? publicRecordingIdentities_->find(backendId, nativeId)
+                : std::nullopt;
+        });
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
     if (mediaImportOperationFence_) {
@@ -1919,6 +2048,50 @@ bool DaemonRuntime::initialize()
             {
                 recordingPresentationChangeQueue_.request(
                     backendId, recordingNativeId);
+            });
+
+    // Resolve public recording identities against the same current cache as
+    // Public-v1 detail. Metadata editing does not require a playable media ID.
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerPublicRecordingNativeLookup(
+            [this](const std::string& backendId, const std::string& publicId)
+            {
+                if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
+                    return std::string{};
+                PublicRecordingPlaybackTargetResolver resolver(
+                    *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+                const auto found = resolver.resolveForRead(backendId, publicId);
+                return found.status == PublicRecordingPlaybackTargetStatus::ready
+                    ? found.recording.backendNativeId : std::string{};
+            });
+    RecordingSeriesHierarchyApiRuntime::instance().registerPublicRecordingKeyLookup(
+        [this](const std::string& backendId, const std::string& publicId) {
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_) return std::string{};
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(backendId, publicId);
+            return found.status == PublicRecordingPlaybackTargetStatus::ready
+                ? VdrRecordingCacheRepository::cacheKeyForRecording(found.recording) : std::string{};
+        });
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerPublicRecordingTrailerLookup(
+            [this](const std::string& backendId, const std::string& nativeId)
+            {
+                VdrRecording recording;
+                if (!vdrRecordingCacheRepository_ || !metadataRepository_ ||
+                    !vdrRecordingFolderController_ ||
+                    !vdrRecordingCacheRepository_->findByBackendNativeId(
+                        backendId, nativeId, recording) ||
+                    recording.backendId != backendId ||
+                    recording.backendNativeId != nativeId)
+                    return std::pair<std::string, std::string>{};
+                const auto manual = metadataRepository_->getManualRecordingMetadataReadOnly(
+                    backendId, nativeId);
+                const auto native = manual.found && manual.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : vdrRecordingFolderController_->findNativeMetadata(backendId, nativeId);
+                return VdrRecordingFolderController::metadataTrailerIdentity(
+                    recording, manual, native);
             });
 
     // After the existing authenticated assignment, resolve its native
@@ -2326,7 +2499,7 @@ bool DaemonRuntime::initialize()
             if (action.empty()) return result;
             const std::string family = "searchtimer.stock." + action;
             const auto canonical = stockSearchTimerRequestPayload(request, action);
-            const auto digest = stockSearchTimerDigest(canonical);
+            const auto digest = sha256Hex(canonical);
             if (digest.empty()) return result;
             const std::string fingerprint = "sha256:" + digest;
 
@@ -2857,7 +3030,7 @@ bool DaemonRuntime::initialize()
             PublicSearchTimerPreviewResult result;
             if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
                 !searchTimerPreviewEpgCache_ || request.limit == 0U ||
-                request.limit > 30U)
+                request.limit > (request.draft ? 40U : 30U))
                 return result;
             const auto backend =
                 backendRegistryService_->getBackend(request.backendId);
@@ -2884,22 +3057,56 @@ bool DaemonRuntime::initialize()
                 timer.comparisonOptions().setCompareSummary(request.compareSummary);
                 timer.matchOptions().setMode(request.mode);
                 timer.matchOptions().setTolerance(request.tolerance);
+                timer.filterOptions().setUseChannel(request.useChannel != 0);
+                timer.filterOptions().setChannelMode(request.useChannel);
+                timer.channelOptions().setChannels(request.channels);
+                timer.channelOptions().setChannelMinId(request.channelMin);
+                timer.channelOptions().setChannelMaxId(request.channelMax);
+                timer.filterOptions().setUseDuration(request.useDuration);
+                timer.filterOptions().setDurationMinMinutes(request.durationMinMinutes);
+                timer.filterOptions().setDurationMaxMinutes(request.durationMaxMinutes);
+                timer.filterOptions().setUseTime(request.useTime);
+                timer.filterOptions().setStartTime(request.startTime);
+                timer.filterOptions().setStopTime(request.stopTime);
+                timer.filterOptions().setUseDayOfWeek(request.useDayOfWeek);
+                timer.filterOptions().setDayOfWeek(request.dayOfWeek);
+                const std::vector<VdrChannel> channels =
+                    request.useChannel != 0 && vdrSnapshotReadService_
+                        ? vdrSnapshotReadService_->getChannelsForBackend(request.backendId)
+                        : std::vector<VdrChannel>{};
                 SearchTimerPreviewService service;
                 const auto preview = service.preview(
-                    timer, *events, static_cast<int>(request.limit), 0);
+                    timer, *events, 0, 0, channels);
+                result.warnings = preview.warnings();
                 result.backendId = request.backendId;
                 result.totalCount = preview.totalCount();
+                std::set<std::string> matchedChannels;
                 for (const auto& match : preview.searchResult().matches())
                 {
                     const auto& event = match.event();
+                    if (!event.channelId.empty()) matchedChannels.insert(event.channelId);
+                    if (!event.startTime.empty())
+                    {
+                        if (result.nextStartTime.empty() || event.startTime < result.nextStartTime)
+                            result.nextStartTime = event.startTime;
+                        if (result.latestStartTime.empty() || event.startTime > result.latestStartTime)
+                            result.latestStartTime = event.startTime;
+                    }
+                    if (result.items.size() >= request.limit) continue;
                     PublicSearchTimerPreviewEvent item;
                     item.title = event.title;
                     item.subtitle = event.subtitle;
                     item.channelId = event.channelId;
                     item.startTime = event.startTime;
                     item.endTime = event.endTime;
+                    item.description = event.description;
+                    item.durationSeconds = event.durationSeconds;
+                    item.contentDescriptors = event.contentDescriptors;
+                    item.parentalRating = event.parentalRating;
+                    item.matchedFields = match.matchedFields();
                     result.items.push_back(std::move(item));
                 }
+                result.channelCount = static_cast<int>(matchedChannels.size());
                 result.status = PublicSearchTimerPreviewStatus::ok;
                 return result;
             }
@@ -3167,7 +3374,7 @@ bool DaemonRuntime::initialize()
                 request.backendId, request.query,
                 now - 6 * 3600, now + 14 * 24 * 3600,
                 static_cast<int>(request.limit),
-                static_cast<int>(request.offset));
+                static_cast<int>(request.offset), !request.epg, request.personOnly);
             if (!searched || searched->status != "ready")
             {
                 std::cerr << "Public-v1 search unavailable: shared search"
@@ -3175,10 +3382,46 @@ bool DaemonRuntime::initialize()
                 return unavailable;
             }
 
-            const std::vector<VdrRecording> snapshot = request.epg
-                ? std::vector<VdrRecording>{}
-                : vdrSnapshotReadService_->getRecordingsForBackend(
-                    request.backendId);
+            std::vector<VdrRecording> snapshot;
+            if (!request.epg)
+            {
+                // Fast startup deliberately omits recordings from the VDR
+                // snapshot. Resolve the bounded search page and matched
+                // portrait owners from the same warmed cache as Web/detail.
+                if (vdrRecordingCacheRepository_ &&
+                    vdrRecordingCacheRepository_->statusForBackend(
+                        request.backendId).state == "ready")
+                {
+                    std::set<std::string> owners, personKeys;
+                    for (const auto& hit : searched->recordings)
+                    {
+                        if (hit.backendId != request.backendId) continue;
+                        owners.insert(hit.backendNativeId);
+                        if (!hit.personKey.empty()) personKeys.insert(hit.personKey);
+                    }
+                    if (request.combined)
+                        for (const auto& hit : searched->epg)
+                            if (hit.backendId == request.backendId &&
+                                !hit.personKey.empty())
+                                personKeys.insert(hit.personKey);
+                    for (const auto& portrait : searched->portraits)
+                        if (personKeys.erase(portrait.personKey) != 0U)
+                            owners.insert(portrait.backendNativeId);
+                    for (const auto& owner : owners)
+                    {
+                        VdrRecording recording;
+                        if (!owner.empty() &&
+                            vdrRecordingCacheRepository_->findByBackendNativeId(
+                                request.backendId, owner, recording) &&
+                            recording.backendId == request.backendId &&
+                            recording.backendNativeId == owner)
+                            snapshot.push_back(std::move(recording));
+                    }
+                }
+                else
+                    snapshot = vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
+            }
             PublicSearchResult response = PublicSearchProjection::project(
                 request, *searched, snapshot,
                 [this](const std::string& backendId,
@@ -3186,6 +3429,19 @@ bool DaemonRuntime::initialize()
                 {
                     return publicRecordingIdentities_->resolveOrCreate(
                         backendId, nativeId);
+                },
+                [](const VdrRecording& recording,
+                   const GlobalSearchPersonPortrait& portrait) {
+                    return VdrRecordingFolderController::publicManualPortraitArtworkId(
+                        recording, portrait.index, portrait.assignmentRevision,
+                        portrait.localPath);
+                },
+                [](const VdrRecording& recording,
+                   const GlobalSearchRecording& hit) {
+                    return VdrRecordingFolderController::publicSearchPreferredArtworkId(
+                        recording, hit.preferredArtworkPath,
+                        hit.preferredArtworkWidth, hit.preferredArtworkHeight,
+                        hit.manualArtworkSelected, hit.preferredArtworkManualRevision);
                 });
 
             const std::size_t original = request.epg
@@ -3229,111 +3485,128 @@ bool DaemonRuntime::initialize()
 
             if (request.browseFolders)
             {
-                // Reuse the Home cache hierarchy; only opaque folder IDs,
-                // safe labels and Public-v1 recording identities leave here.
-                VdrRecordingFolderPage initial;
+                // One mixed page from the existing Home hierarchy, including
+                // its embedded leaves and representative recordings.
+                VdrRecordingFolderPage page;
                 if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
-                        request.backendId, request.folderId, 1, 0, initial))
+                        request.backendId, request.folderId,
+                        static_cast<int>(request.limit), static_cast<int>(request.offset), page, true))
                 {
                     result.status = PublicRecordingCollectionStatus::invalid;
                     return result;
                 }
-                const std::size_t folderCount = initial.folders.size();
-                const std::size_t recordingCount =
-                    static_cast<std::size_t>(std::max(0, initial.recordingCount));
-                result.totalEntries = folderCount + recordingCount;
-                const std::size_t begin =
-                    std::min(request.offset, folderCount);
-                const std::size_t end =
-                    std::min(folderCount, request.offset + request.limit);
-                for (std::size_t index = begin; index < end; ++index)
+
+                PublicRecordingFolderContext context;
+                context.folderId = request.folderId;
+                context.parentFolderId = page.parentPath.empty() ? std::string{} :
+                    VdrRecordingCacheRepository::publicFolderId(request.backendId, page.parentPath);
+                context.folderCount = page.folderCount - page.singleRecordingLeafCount;
+                context.recordingCount = page.recordingCount + page.singleRecordingLeafCount;
+                context.catalogTotalCount = page.totalCount;
+                context.cacheState = page.cacheState;
+                context.cacheReady = page.cacheReady;
+                std::string prefix;
+                std::size_t start = 0;
+                while (start < page.path.size())
                 {
-                    const auto& child = initial.folders[index];
+                    const auto end = page.path.find('/', start);
+                    const auto part = page.path.substr(start,
+                        end == std::string::npos ? std::string::npos : end - start);
+                    if (!part.empty())
+                    {
+                        if (!prefix.empty()) prefix += '/';
+                        prefix += part;
+                        context.breadcrumbs.emplace_back(
+                            VdrRecordingCacheRepository::publicFolderId(request.backendId, prefix),
+                            PublicRecordingDisplayName::decodeDisplayText(part));
+                    }
+                    if (end == std::string::npos) break;
+                    start = end + 1U;
+                }
+
+                std::vector<std::string> nativeIds;
+                const auto addNative = [&](const VdrRecording& recording) {
+                    if (std::find(nativeIds.begin(), nativeIds.end(), recording.backendNativeId) == nativeIds.end())
+                        nativeIds.push_back(recording.backendNativeId);
+                };
+                for (const auto& child : page.folders)
+                {
+                    if (child.singleRecordingLeaf) addNative(child.singleRecording);
+                    else if (child.hasRepresentativeRecording) addNative(child.representativeRecording);
+                }
+                for (const auto& recording : page.recordings) addNative(recording);
+                GenreRecordingPage cardPage;
+                if (!nativeIds.empty() &&
+                    (!GenreBrowserApiRuntime::instance().recordingCards(request.backendId, nativeIds, cardPage) ||
+                        cardPage.recordings.size() != nativeIds.size())) return result;
+                const auto manualAssignments = metadataController_ && !nativeIds.empty()
+                    ? metadataController_->findManualRecordingMetadataForBackend(request.backendId)
+                    : std::map<std::string, ManualRecordingMetadataAssignment>{};
+
+                PublicRecordingCollectionProjection projector(*publicRecordingIdentities_);
+                const auto project = [&](const VdrRecording& recording, PublicRecordingCollectionItem& entry) {
+                    const auto visible = projector.project(request.backendId, {recording}, true);
+                    if (!visible.valid || visible.items.size() != 1U) return false;
+                    const auto& item = visible.items.front();
+                    entry.recordingId = item.recordingId;
+                    entry.backendId = item.backendId;
+                    entry.title = item.title;
+                    entry.recordedAt = item.recordedAt;
+                    entry.durationSeconds = item.durationSeconds;
+                    entry.durationKnown = item.durationKnown;
+                    entry.edited = item.edited;
+                    entry.description = item.description;
+                    entry.sizeMb = item.sizeMb;
+                    ManualRecordingMetadataAssignment manual;
+                    for (const auto* key : {&recording.backendNativeId, &recording.path, &recording.id})
+                    {
+                        if (key->empty()) continue;
+                        const auto found = manualAssignments.find(*key);
+                        if (found != manualAssignments.end()) { manual = found->second; break; }
+                    }
+                    if (manual.found && manual.relationshipLocked)
+                    {
+                        if (!manual.title.empty()) entry.title = manual.title;
+                        entry.subtitle = vdrsuite::rest::manual_recording_metadata_json::seasonEpisodeLabel(manual);
+                        if (!manual.overview.empty())
+                        {
+                            std::size_t length = std::min<std::size_t>(2048U, manual.overview.size());
+                            while (length < manual.overview.size() && length > 0U &&
+                                (static_cast<unsigned char>(manual.overview[length]) & 0xc0U) == 0x80U) --length;
+                            entry.description = manual.overview.substr(0, length);
+                        }
+                    }
+                    else entry.subtitle = VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+                    projectPublicRecordingCard(request.backendId, recording, manual, cardPage, entry);
+                    return true;
+                };
+                for (const auto& child : page.folders)
+                {
                     PublicRecordingFolderItem entry;
-                    entry.folderId =
-                        VdrRecordingCacheRepository::publicFolderId(
-                            request.backendId, child.path);
-                    entry.name = child.name;
+                    entry.folderId = VdrRecordingCacheRepository::publicFolderId(request.backendId, child.path);
+                    entry.name = PublicRecordingDisplayName::decodeDisplayText(child.name);
                     entry.recordingCount = child.recordingCount;
+                    entry.singleRecordingLeaf = child.singleRecordingLeaf;
                     if (child.singleRecordingLeaf)
                     {
-                        // A VDR title directory with exactly one recording is
-                        // presented as a recording, not as another TV folder.
-                        PublicRecordingCollectionProjection projector(
-                            *publicRecordingIdentities_);
-                        const auto visible = projector.project(
-                            request.backendId, {child.singleRecording});
-                        if (!visible.valid || visible.items.size() != 1U)
-                        {
-                            std::cerr << "Public-v1 Recording browse unavailable: "
-                                         "single-recording leaf projection failed"
-                                      << std::endl;
-                            result.status =
-                                PublicRecordingCollectionStatus::unavailable;
-                            return result;
-                        }
-                        const auto& item = visible.items.front();
-                        entry.singleRecordingLeaf = true;
-                        entry.singleRecording.recordingId = item.recordingId;
-                        entry.singleRecording.backendId = item.backendId;
-                        entry.singleRecording.title = item.title;
-                        entry.singleRecording.recordedAt = item.recordedAt;
-                        entry.singleRecording.durationSeconds =
-                            item.durationSeconds;
-                        entry.singleRecording.durationKnown =
-                            item.durationKnown;
-                        entry.singleRecording.edited = item.edited;
-                        entry.singleRecording.description = item.description;
-                        entry.singleRecording.sizeMb = item.sizeMb;
+                        if (!project(child.singleRecording, entry.singleRecording)) return result;
+                    }
+                    else if (child.hasRepresentativeRecording)
+                    {
+                        if (!project(child.representativeRecording, entry.representativeRecording)) return result;
                     }
                     result.folders.push_back(std::move(entry));
                 }
-                const std::size_t used = result.folders.size();
-                if (used < request.limit &&
-                    request.offset + used >= folderCount &&
-                    request.offset + used < result.totalEntries)
+                for (const auto& recording : page.recordings)
                 {
-                    const std::size_t recordingOffset =
-                        request.offset + used - folderCount;
-                    VdrRecordingFolderPage direct;
-                    if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
-                            request.backendId, request.folderId,
-                            static_cast<int>(request.limit - used),
-                            static_cast<int>(recordingOffset), direct))
-                    {
-                        result.status = PublicRecordingCollectionStatus::unavailable;
-                        return result;
-                    }
-                    PublicRecordingCollectionProjection projector(
-                        *publicRecordingIdentities_);
-                    const auto visible = projector.project(
-                        request.backendId, direct.recordings);
-                    if (!visible.valid)
-                    {
-                        std::cerr << "Public-v1 Recording browse unavailable: "
-                                     "direct-recording projection failed"
-                                  << std::endl;
-                        result.status = PublicRecordingCollectionStatus::unavailable;
-                        return result;
-                    }
-                    for (const auto& item : visible.items)
-                    {
-                        PublicRecordingCollectionItem entry;
-                        entry.recordingId = item.recordingId;
-                        entry.backendId = item.backendId;
-                        entry.title = item.title;
-                        entry.recordedAt = item.recordedAt;
-                        entry.durationSeconds = item.durationSeconds;
-                        entry.durationKnown = item.durationKnown;
-                        entry.edited = item.edited;
-                        entry.description = item.description;
-                        entry.sizeMb = item.sizeMb;
-                        result.recordings.push_back(std::move(entry));
-                    }
+                    PublicRecordingCollectionItem entry;
+                    if (!project(recording, entry)) return result;
+                    result.recordings.push_back(std::move(entry));
                 }
-                result.hasMore = request.offset +
-                    result.folders.size() + result.recordings.size() <
-                        result.totalEntries;
+                result.totalEntries = static_cast<std::size_t>(page.folderCount) +
+                    static_cast<std::size_t>(page.recordingCount);
+                result.hasMore = request.offset + result.folders.size() + result.recordings.size() < result.totalEntries;
+                result.folderContext = std::move(context);
                 result.status = PublicRecordingCollectionStatus::ok;
                 return result;
             }
@@ -3360,6 +3633,16 @@ bool DaemonRuntime::initialize()
                     request.backendId, request.homeView == "movies",
                     request.movieReleaseYearFrom, request.movieReleaseYearTo,
                     static_cast<int>(request.limit), static_cast<int>(request.offset));
+                GenreRecordingPage cardPage;
+                if (request.homeView == "new")
+                {
+                    std::vector<std::string> nativeIds;
+                    for (const auto& row : page.items)
+                        nativeIds.push_back(row.recording.backendNativeId);
+                    if (!GenreBrowserApiRuntime::instance().recordingCards(
+                            request.backendId, nativeIds, cardPage) ||
+                        cardPage.recordings.size() != page.items.size()) return result;
+                }
                 PublicRecordingCollectionProjection projection(*publicRecordingIdentities_);
                 for (const auto& row : page.items)
                 {
@@ -3372,6 +3655,11 @@ bool DaemonRuntime::initialize()
                     entry.backendId = item.backendId;
                     entry.title = row.title.empty() ? item.title : row.title;
                     entry.subtitle = row.subtitle;
+                    entry.releaseDate = row.releaseDate;
+                    // Use the same batch-selected manual assignment as the Web
+                    // query. No second metadata lookup or image request.
+                    const auto& manual = row.manualAssignment;
+                    projectPublicRecordingCard(request.backendId, row.recording, manual, cardPage, entry);
                     entry.recordedAt = item.recordedAt;
                     entry.durationSeconds = item.durationSeconds;
                     entry.durationKnown = item.durationKnown;
@@ -3504,6 +3792,16 @@ bool DaemonRuntime::initialize()
             if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
                     request.backendId, manual, *detail))
                 return result;
+            VdrRecordingNativeMetadataRecord nativeDetail;
+            if (detail->metadataSource != "manual" && vdrRecordingFolderController_)
+            {
+                nativeDetail = vdrRecordingFolderController_->findNativeMetadata(
+                    request.backendId, found.recording.backendNativeId);
+                PublicRecordingMetadataDetailProjection::applyNativeDetails(
+                    found.recording, nativeDetail, *detail);
+            }
+            const auto metadataArtwork = VdrRecordingFolderController::publicMetadataArtwork(
+                found.recording, manual, nativeDetail);
 
             // The Web's canonical, separately assigned Genre belongs to the
             // same backend-native Recording, whether or not manual metadata
@@ -3577,6 +3875,61 @@ bool DaemonRuntime::initialize()
             out.manualAssignmentId = source.manualAssignmentId;
             out.metadataEntityId = source.metadataEntityId;
             out.manualRevision = source.manualRevision;
+            out.firstAired = source.firstAired;
+            out.statusText = source.statusText;
+            out.collectionName = source.collectionName;
+            out.imdbId = source.imdbId;
+            out.absoluteEpisodeNumber = source.absoluteEpisodeNumber;
+            out.voteAverage = source.voteAverage;
+            out.voteCount = source.voteCount;
+            out.trailerLookupAvailable =
+                !VdrRecordingFolderController::metadataTrailerIdentity(
+                    found.recording, manual, nativeDetail).first.empty();
+            out.genres = source.genres;
+            out.productionCountries = source.productionCountries;
+            out.networks = source.networks;
+            for (const auto& person : source.people)
+            {
+                PublicRecordingDetailItem::Person projected{
+                    person.role, person.name, person.characterName, {}};
+                const auto image = std::find_if(metadataArtwork.begin(),
+                    metadataArtwork.end(), [&person](const auto& entry) {
+                        return entry.kind == "person" &&
+                            static_cast<std::size_t>(entry.index) == person.sourceIndex;
+                    });
+                if (image != metadataArtwork.end())
+                    projected.image = {image->artworkId, image->width, image->height};
+                out.people.push_back(std::move(projected));
+            }
+            for (const auto& entry : metadataArtwork)
+            {
+                if (entry.kind == "preferred")
+                    out.preferredArtwork = {entry.artworkId, entry.width, entry.height};
+                else if (entry.kind == "gallery")
+                    out.images.push_back({entry.orientation,
+                        {entry.artworkId, entry.width, entry.height}});
+            }
+            // Cache-only recordings use the existing M2 artwork identities,
+            // matching the Web's cached fallback without another HTTP request.
+            if (source.metadataSource != "manual" &&
+                !(nativeDetail.exists() && nativeDetail.metadata.found))
+            {
+                const auto* preferred = VdrRecordingArtworkIdentity::preferredArtwork(found.recording);
+                if (preferred)
+                    out.preferredArtwork = {
+                        VdrRecordingArtworkIdentity::assetId(found.recording, *preferred),
+                        preferred->width, preferred->height};
+                for (const auto& artwork : found.recording.metadata.artwork)
+                {
+                    if (!artwork.isValid()) continue;
+                    std::string orientation = "landscape";
+                    if (artwork.kind == VdrRecordingArtworkKind::Poster) orientation = "portrait";
+                    else if (artwork.kind == VdrRecordingArtworkKind::Banner) orientation = "banner";
+                    out.images.push_back({orientation, {
+                        VdrRecordingArtworkIdentity::assetId(found.recording, artwork),
+                        artwork.width, artwork.height}});
+                }
+            }
             result.status = PublicRecordingDetailStatus::ok;
             return result;
         });
@@ -3587,10 +3940,19 @@ bool DaemonRuntime::initialize()
         [this](const PublicGenreCollectionRequest& request)
         {
             PublicGenreCollectionResult result;
-            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
-                !publicRecordingIdentities_ || request.backendId.empty() ||
-                request.limit == 0U || request.limit > 30U ||
+            if (!backendRegistryService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > (request.recordings ? 100U : 30U) ||
                 request.offset > 1000000U)
+            {
+                result.status = PublicGenreCollectionStatus::invalid;
+                return result;
+            }
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (!request.recordings)
+                return genres.recordingOverviewPage(request, *backendRegistryService_);
+
+            // Only membership needs the existing native-recording projection.
+            if (!vdrSnapshotReadService_ || !publicRecordingIdentities_)
             {
                 result.status = PublicGenreCollectionStatus::invalid;
                 return result;
@@ -3603,8 +3965,6 @@ bool DaemonRuntime::initialize()
                     request.backendId))
                 return result;
 
-            auto& genres = GenreBrowserApiRuntime::instance();
-            if (request.recordings)
             {
                 GenreRecordingPage page;
                 if (!genres.recordingPage(request.backendId,
@@ -3631,7 +3991,7 @@ bool DaemonRuntime::initialize()
                         found.backendId != request.backendId ||
                         found.backendNativeId != item.backendNativeId ||
                         found.title.empty() ||
-                        found.durationSeconds < 0)
+                        (found.durationSeconds < 0 && found.recordingDurationKnown))
                         return PublicGenreCollectionResult{};
                     const auto publicId =
                         publicRecordingIdentities_->resolveOrCreate(
@@ -3646,40 +4006,18 @@ bool DaemonRuntime::initialize()
                     view.title = display.title;
                     view.edited = display.edited;
                     view.recordedAt = found.startTime;
-                    view.durationSeconds = found.durationSeconds;
-                    view.durationKnown = found.recordingDurationKnown;
+                    view.durationSeconds = std::max(0, found.durationSeconds);
+                    view.durationKnown = found.recordingDurationKnown && found.durationSeconds > 0;
+                    // The selected assignment and native poster are already
+                    // present in the same page-scoped Genre summary.
+                    projectPublicGenreRecordingCard(request.backendId, found, item,
+                        item.seriesManualRevision > 0, item.manualCardPosterReference,
+                        item.seriesManualRevision, view);
+                    if (!view.seriesGroupKey.empty() && view.seriesAncestorFolderIds.empty() &&
+                        found.backendNativeId.empty()) return PublicGenreCollectionResult{};
                     result.recordings.push_back(std::move(view));
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);
-            }
-            else
-            {
-                GenreOverview overview;
-                if (!genres.recordingOverview(
-                    request.backendId, request.locale, overview))
-                    return result;
-                std::sort(overview.genres.begin(), overview.genres.end(),
-                    [](const GenreOverviewEntry& a,
-                       const GenreOverviewEntry& b) {
-                        return a.genreId < b.genreId;
-                    });
-                result.totalCount = overview.genres.size();
-                const std::size_t end =
-                    std::min(result.totalCount, request.offset + request.limit);
-                for (std::size_t index = request.offset; index < end; ++index)
-                {
-                    const auto& item = overview.genres[index];
-                    if (item.genreId.empty() || item.label.empty() ||
-                        item.itemCount < 0)
-                        return PublicGenreCollectionResult{};
-                    PublicGenreItem view;
-                    view.genreId = item.genreId;
-                    view.label = item.label;
-                    view.labelDe = item.labelDe;
-                    view.labelEn = item.labelEn;
-                    view.count = static_cast<std::size_t>(item.itemCount);
-                    result.genres.push_back(std::move(view));
-                }
             }
             result.status = PublicGenreCollectionStatus::ok;
             return result;
@@ -3692,7 +4030,7 @@ bool DaemonRuntime::initialize()
         {
             PublicEpgGenreResult result;
             if (!backendRegistryService_ || request.backendId.empty() ||
-                request.limit == 0U || request.limit > 30U ||
+                request.limit == 0U || request.limit > (request.events ? 48U : 30U) ||
                 request.offset > 1000000U)
             {
                 result.status = PublicEpgGenreStatus::invalid;
@@ -3704,8 +4042,11 @@ bool DaemonRuntime::initialize()
                 return result;
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const std::int64_t from = now;
-            const std::int64_t until = now + 48 * 60 * 60;
+            const std::int64_t from = request.fromTime > 0 ? request.fromTime : now;
+            const std::int64_t until = request.untilTime > from ?
+                request.untilTime : from + 48 * 60 * 60;
+            result.fromTime = from;
+            result.untilTime = until;
             auto& genres = GenreBrowserApiRuntime::instance();
             if (request.events)
             {
@@ -3732,6 +4073,17 @@ bool DaemonRuntime::initialize()
                     item.subtitle = event.subtitle;
                     item.startTime = std::to_string(event.startTime);
                     item.endTime = std::to_string(event.endTime);
+                    item.channelName = event.channelName;
+                    item.description = event.description;
+                    item.contentClass = event.contentClass;
+                    item.durationSeconds = event.durationSeconds;
+                    item.genreIds = event.genreIds;
+                    const auto poster = genres.epgPortraitArtwork(
+                        event.backendId, event.channelId, event.eventId);
+                    item.artworkAvailable = poster.available || event.artworkAvailable;
+                    item.portraitArtwork = poster.available;
+                    item.artworkWidth = poster.available ? poster.width : event.artworkWidth;
+                    item.artworkHeight = poster.available ? poster.height : event.artworkHeight;
                     result.events.push_back(std::move(item));
                 }
             }
@@ -3741,6 +4093,10 @@ bool DaemonRuntime::initialize()
                 if (!genres.epgOverview(
                     request.backendId, request.locale, from, until, overview))
                     return result;
+                if (overview.distinctItemCount < 0 || overview.assignmentCount < 0)
+                    return result;
+                result.totalItems = static_cast<std::size_t>(overview.distinctItemCount);
+                result.assignmentCount = static_cast<std::size_t>(overview.assignmentCount);
                 std::vector<PublicEpgGenreItem> flat;
                 for (const auto& category : overview.categories)
                 {
@@ -3884,12 +4240,18 @@ bool DaemonRuntime::initialize()
                 item.id = timer.id;
                 item.channelId = timer.channelId;
                 item.channelName = timer.channelName;
+                item.eventId = timer.eventId;
                 item.title = timer.title;
+                item.directory = timer.directory;
                 item.day = timer.day;
                 item.weekdays = timer.weekdays;
                 item.startTime = timer.startTime;
                 item.endTime = timer.endTime;
+                item.flags = timer.flags;
+                item.priority = timer.priority;
+                item.lifetime = timer.lifetime;
                 item.enabled = timer.enabled;
+                item.vps = timer.vps;
                 item.recording = timer.recording;
                 item.pending = timer.pending;
                 result.timers.push_back(std::move(item));
@@ -4003,8 +4365,10 @@ bool DaemonRuntime::initialize()
                 response.status = S::invalid;
                 return response;
             }
-            if (nativeTimerObservationMatchesSpecification(
-                specification, binding.observedState))
+            const bool nativeShapeUnchanged =
+                nativeTimerObservationMatchesSpecification(
+                    specification, binding.observedState);
+            if (nativeShapeUnchanged && !request.specification.modifyAux)
             {
                 response.status = S::stateConflict;
                 return response;
@@ -4018,9 +4382,22 @@ bool DaemonRuntime::initialize()
                 return response;
             const std::string action = request.kind == PublicNativeTimerChangeKind::toggle
                 ? "timer.toggle" : "timer.update";
+            const std::string auxDigest = request.specification.modifyAux
+                ? vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    std::to_string(request.specification.expectedAux.size()) +
+                    ":" + request.specification.expectedAux + "|" +
+                    std::to_string(request.specification.aux.size()) + ":" +
+                    request.specification.aux)
+                : std::string();
+            if (request.specification.modifyAux && auxDigest.empty())
+            {
+                response.status = S::invalid;
+                return response;
+            }
             const std::string requestFingerprint =
                 "native-modify/1:" + binding.nativeTimerBindingId + ":" +
-                binding.bindingRevision + ":" + action + ":" + specDigest;
+                binding.bindingRevision + ":" + action + ":" + specDigest +
+                (auxDigest.empty() ? std::string() : ":aux:" + auxDigest);
             if (requestFingerprint.size() > 512U)
             {
                 response.status = S::invalid;
@@ -4081,6 +4458,22 @@ bool DaemonRuntime::initialize()
                 response.status = S::stateConflict;
                 return response;
             }
+            // The native Binding ETag intentionally excludes opaque Aux.
+            // A caller that explicitly edits Aux must have observed the
+            // exact previous value; the VDR-side NTMOD v2 checks again under
+            // its write lock before changing any metadata.
+            if (request.specification.modifyAux &&
+                current->aux != request.specification.expectedAux)
+            {
+                response.status = S::revisionConflict;
+                return response;
+            }
+            if (request.specification.modifyAux && nativeShapeUnchanged &&
+                current->aux == request.specification.aux)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
             const auto verification = nativeTimerPublicDetailRevision(
                 request.backendId, agent->backendGeneration,
                 *current, &binding);
@@ -4119,6 +4512,21 @@ bool DaemonRuntime::initialize()
             candidate.backendNativeTimerId = binding.backendNativeTimerId;
             candidate.expectedCurrentFingerprint = binding.observedFingerprint;
             candidate.expectedSpecification = specification;
+            candidate.modifyAux = request.specification.modifyAux;
+            if (candidate.modifyAux)
+            {
+                candidate.expectedAuxFingerprint =
+                    vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                        "native-timer-aux/1|" +
+                        std::to_string(request.specification.expectedAux.size()) +
+                        ":" + request.specification.expectedAux);
+                if (candidate.expectedAuxFingerprint.empty())
+                {
+                    response.status = S::invalid;
+                    return response;
+                }
+                candidate.desiredAux = request.specification.aux;
+            }
             candidate.requestedAt = now;
             candidate.deadline = now + 3600;
 
@@ -4388,6 +4796,80 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // Slice 3: reuse the established backend-native VDR action controller.
+    // No second writer, implicit adoption or fabricated durable Operation.
+    PublicApiRuntime::instance().registerNativeTimerDirectAction(
+        [this](const std::string& action, const std::string& actorRef,
+            const std::string& backendId, const std::string& timerId,
+            const std::string& body)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = R"json({"success":false})json";
+            if (actorRef.empty() || backendId.empty()) return response;
+            if (action == "list")
+            {
+                // Reuse the live VDR editor's service and full serializer,
+                // preserving provider order, subtitle, raw AUX and status.
+                // Unlike the paginated snapshot, no Binding ETag applies.
+                for (const auto& context : backendRuntimeContexts_)
+                    if (context && context->backendId == backendId &&
+                        context->service && vdrSnapshotReadJsonSerializer_)
+                    {
+                        response.statusCode = 200;
+                        response.body = vdrSnapshotReadJsonSerializer_->serializeTimers(
+                            context->service->getTimers());
+                        return response;
+                    }
+                return response;
+            }
+            if (action == "conflicts")
+            {
+                VdrTimerConflictReport report;
+                report.source = "restfulapi-epgsearch";
+                report.error = "live VDR service unavailable";
+                for (const auto& context : backendRuntimeContexts_)
+                    if (context && context->backendId == backendId && context->service)
+                    {
+                        report = context->service->getTimerConflictReport();
+                        break;
+                    }
+                if (vdrSnapshotReadJsonSerializer_)
+                {
+                    response.statusCode = 200;
+                    response.body = vdrSnapshotReadJsonSerializer_->serializeTimerConflictReport(report);
+                }
+                return response;
+            }
+            if (!vdrTimerActionRequestParser_ ||
+                !vdrTimerActionController_ ||
+                !vdrTimerActionExecutorAdapterRegistry_)
+                return response;
+            const auto parsed = vdrTimerActionRequestParser_->parse(body);
+            if (parsed.backendId != backendId || parsed.timerId != timerId ||
+                (action != "create" && timerId.empty()) ||
+                (action == "create" && (!timerId.empty() ||
+                    parsed.aux.find("<vdr-suite-managed-timer") != std::string::npos)))
+            {
+                response.statusCode = 400;
+                response.body = R"json({"success":false,"error":"timer_identity_mismatch"})json";
+                return response;
+            }
+            if (action == "create")
+                return vdrTimerActionController_->createBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
+            if (action == "update")
+                return vdrTimerActionController_->updateBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
+            if (action == "delete")
+                return vdrTimerActionController_->removeBody(
+                    body, *vdrTimerActionExecutorAdapterRegistry_);
+            response.statusCode = 400;
+            response.body = R"json({"success":false,"error":"invalid_action"})json";
+            return response;
+        });
+
     PublicApiRuntime::instance().registerNativeTimerDetailLookup(
         [this](const PublicNativeTimerDetailRequest& request)
         {
@@ -4444,12 +4926,19 @@ bool DaemonRuntime::initialize()
             result.timer.id = timer->id;
             result.timer.channelId = timer->channelId;
             result.timer.channelName = timer->channelName;
+            result.timer.eventId = timer->eventId;
             result.timer.title = timer->title;
+            result.timer.directory = timer->directory;
+            result.timer.aux = timer->aux;
             result.timer.day = timer->day;
             result.timer.weekdays = timer->weekdays;
             result.timer.startTime = timer->startTime;
             result.timer.endTime = timer->endTime;
+            result.timer.flags = timer->flags;
+            result.timer.priority = timer->priority;
+            result.timer.lifetime = timer->lifetime;
             result.timer.enabled = timer->enabled;
+            result.timer.vps = timer->vps;
             result.timer.recording = timer->recording;
             result.timer.pending = timer->pending;
             result.resourceRevision = revision.resourceRevision;
@@ -5031,6 +5520,370 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+
+    // Public-v1 manual one-shot Timer CREATE composes the SAME provider-fenced
+    // native CLOCK/NTPREVIEW, TimerIntent/Assignment and Native CREATE
+    // operation/readback owner as the EPG path. No legacy CRUD alias.
+    PublicApiRuntime::instance().registerManualTimerIntentReplayLookup(
+        [this](const PublicManualTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!nativeTimerCreateAdmissionService_ ||
+                !timerIntentRepository_ || !mutationOperationReadService_)
+                return result;
+
+            vdrsuite::timers::ManualNativeTimerCreateReplayRequest lookup;
+            lookup.actorId = request.actorRef;
+            lookup.backendId = request.backendId;
+            lookup.idempotencyKey = request.idempotencyKey;
+            lookup.channelId = request.channelId;
+            lookup.title = request.title;
+            lookup.directory = request.directory;
+            lookup.weekdays = request.weekdays;
+            lookup.aux = request.aux;
+            lookup.startAt = request.startAt;
+            lookup.stopAt = request.stopAt;
+            lookup.priority = request.priority;
+            lookup.lifetime = request.lifetime;
+            lookup.enabled = request.enabled;
+            lookup.vps = request.vps;
+            const auto saved = nativeTimerCreateAdmissionService_->replayManualWindow(
+                lookup, *timerIntentRepository_);
+            using S = vdrsuite::timers::NativeTimerCreateAdmissionStatus;
+            if (saved.status == S::assignmentNotFound)
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+            else if (saved.status == S::idempotencyConflict)
+                result.status =
+                    PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+            else if (saved.status == S::invalid)
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+            else if (saved.status == S::replayed)
+            {
+                const auto current = mutationOperationReadService_->findForActor(
+                    saved.operation.operationId, request.actorRef);
+                if (!current.ok() ||
+                    current.operation.backendId != request.backendId ||
+                    current.operation.actionFamily != "timer.create")
+                    return result;
+                result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+                result.operation.operationId = current.operation.operationId;
+                result.operation.state =
+                    vdrsuite::operations::mutationOperationStateName(
+                        current.operation.state);
+                result.operation.backendId = current.operation.backendId;
+                result.operation.resourceRevision =
+                    current.operation.operationRevision;
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerManualTimerIntentSubmit(
+        [this](const PublicManualTimerIntentAdmissionRequest& request)
+        {
+            using namespace vdrsuite::public_epg_timer;
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::agent;
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                !vdrSnapshotReadService_ || !timerIntentRepository_ ||
+                !timerAssignmentRepository_ || !nativeTimerBindingRepository_ ||
+                !nativeTimerCreateAdmissionService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.channelId.empty() || request.title.empty())
+                return result;
+
+            const auto nowSeconds = []() -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            };
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, request.backendId).allowed ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            }
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(request.backendId);
+            const bool channelObserved = std::any_of(
+                channels.begin(), channels.end(), [&request](const VdrChannel& c) {
+                    return c.id == request.channelId;
+                });
+            if (!channelObserved)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            }
+
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == request.backendId &&
+                    context->suiteBridgeTransport && context->httpClient &&
+                    context->service)
+                {
+                    runtime = context.get();
+                    break;
+                }
+            if (!runtime) return result;
+
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            }
+            std::string reason;
+            const auto provider = backendAgentCommandRepository_->selectLocalProvider(
+                request.backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration,
+                kBackendAgentNativeTimerCreateAuthorityDomain,
+                kBackendAgentNativeTimerCreateCapability, reason);
+            if (!provider) return result;
+
+            TimerAssignmentPlanningBackendCandidate candidate;
+            candidate.backendId = request.backendId;
+            candidate.currentBackendGeneration = agent->backendGeneration;
+            candidate.executionAuthorityFence =
+                nativeTimerCreatePlanningAuthorityFence(*provider);
+            candidate.executionAuthorityCurrent =
+                !candidate.executionAuthorityFence.empty();
+            candidate.state = TimerAssignmentPlanningBackendState::online;
+            candidate.writeAllowed = true;
+            const auto observedAt = nowSeconds();
+            if (!currentNativeTimerCreateExecutionAuthority(
+                    *agent, *provider, candidate, observedAt))
+                return result;
+
+            // No EPG event and no implicit margins: this is exactly the
+            // Human's manually selected absolute window. Backend VDR owns
+            // the local time projections, never the daemon host timezone.
+            ServerOwnedNativeClockEvidence clock;
+            if (!attestBackendNativeTimerClockReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerClockContract(
+                        request.startAt, request.stopAt),
+                    *agent, *provider, candidate,
+                    request.startAt, request.stopAt, nowSeconds(),
+                    clock, reason) ||
+                clock.startUtcOffsetSeconds != clock.stopUtcOffsetSeconds)
+                return result;
+
+            NativeTimerSpecification native;
+            native.channelId = request.channelId;
+            native.title = request.title;
+            native.directory = request.directory;
+            native.weekdays = request.weekdays;
+            native.priority = request.priority;
+            native.lifetime = request.lifetime;
+            native.enabled = request.enabled;
+            native.vps = request.vps;
+            std::string endDay;
+            if (!projectEpgBoundaryToNative(
+                    request.startAt, clock.startUtcOffsetSeconds,
+                    false, native.day, native.startTime) ||
+                !projectEpgBoundaryToNative(
+                    request.stopAt, clock.stopUtcOffsetSeconds,
+                    true, endDay, native.endTime) ||
+                !nativeTimerSpecificationValid(native))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            }
+
+            candidate.desiredNativeTimerSpecification = native;
+            candidate.desiredNativeTimerSpecificationPresent = true;
+            candidate.channel.backendGeneration = agent->backendGeneration;
+            candidate.channel.mappingRevision =
+                "native:" + std::to_string(agent->backendGeneration);
+            candidate.channel.mappingSource = "vdr-native-snapshot";
+            candidate.channel.sourceType = "vdr";
+            candidate.channel.sourceId = request.backendId;
+            candidate.channel.sourceChannelId = request.channelId;
+            candidate.channel.backendChannelId = request.channelId;
+            candidate.channel.current = true;
+            candidate.capability.backendGeneration = agent->backendGeneration;
+            candidate.capability.revision =
+                "suitebridge:" + std::to_string(provider->capabilityRevision);
+            candidate.capability.current = true;
+            candidate.capability.timerCreate = true;
+            candidate.capability.timerReadback = true;
+            candidate.health.backendGeneration = agent->backendGeneration;
+            candidate.health.revision =
+                "agent:" + std::to_string(agent->heartbeatSequence);
+            candidate.health.current = true;
+            candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+            candidate.health.timerWritesAvailable = true;
+
+            BackendAgentNativeTimerCreateSpecification nativeCommand;
+            nativeCommand.channelId = native.channelId;
+            nativeCommand.title = native.title;
+            nativeCommand.directory = native.directory;
+            nativeCommand.day = native.day;
+            nativeCommand.weekdays = native.weekdays;
+            nativeCommand.startTime = native.startTime;
+            nativeCommand.endTime = native.endTime;
+            nativeCommand.priority = native.priority;
+            nativeCommand.lifetime = native.lifetime;
+            nativeCommand.enabled = native.enabled;
+            nativeCommand.vps = native.vps;
+
+            const auto previewReply =
+                runtime->suiteBridgeTransport->inspectNativeTimerPreviewContract(
+                    nativeCommand, provider->providerInstanceEpoch,
+                    request.startAt, request.stopAt);
+            const auto previewReceivedAt = nowSeconds();
+            SuiteBridgeNativeTimerPreviewProjection nativePreview;
+            if (!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+                    previewReply, nativeCommand, request.startAt, request.stopAt,
+                    *provider, previewReceivedAt, nativePreview, reason))
+            {
+                // Read-only preview, BEFORE admitManualWindow. This is not
+                // a failed or uncertain native mutation. Keep the established
+                // native editor available without relaxing managed admission.
+                result.status = PublicEpgTimerIntentAdmissionStatus::nativeEditorRequired;
+                return result;
+            }
+            ProspectiveNativeTimerConflictProof proof;
+            if (!attestBackendNativeTimerPreview(
+                    nativePreview, *agent, *provider, candidate,
+                    previewReceivedAt, proof))
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::nativeEditorRequired;
+                return result;
+            }
+
+            ManualTimerSourceEvidence source;
+            source.backendId = request.backendId;
+            source.sourceType = "vdr";
+            source.sourceId = request.backendId;
+            source.backendChannelId = request.channelId;
+            // The first interval is an absolute Unix time; weekly repeats
+            // follow the owning VDR clock rather than the daemon timezone.
+            source.timezone = native.weekdays == "-------"
+                ? "UTC" : "VDR-local";
+            source.startAt = request.startAt;
+            source.stopAt = request.stopAt;
+            const auto draft = native.weekdays == "-------"
+                ? makeManualWindowTimerIntentDraft(
+                    native, source, request.actorRef)
+                : makeRecurringTimerIntentDraft(
+                    native, source, request.actorRef);
+            if (!draft.valid)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            }
+            ManualNativeTimerCreateAdmissionRequest admission;
+            admission.actorId = request.actorRef;
+            admission.backendId = request.backendId;
+            admission.idempotencyKey = request.idempotencyKey;
+            admission.draft = draft;
+            admission.aux = request.aux;
+            admission.candidate = candidate;
+            admission.nativeClock = clock;
+            admission.conflictProof = proof;
+            admission.authoritativeAgent = *agent;
+            admission.nativeCreateProvider = *provider;
+            admission.requestedAt = nowSeconds();
+            // Fresh backend authority must remain true during the atomic
+            // transaction. This callback never initiates native mutation.
+            admission.revalidateSourceAndExecutionAuthority =
+                [this, backendId = request.backendId,
+                    channelId = request.channelId, agent = *agent,
+                    provider = *provider, candidate]() {
+                    if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                        !backendAgentRepository_ || !backendAgentCommandRepository_ ||
+                        !vdrSnapshotReadService_ ||
+                        !backendAccessPolicy_->canWriteToBackend(
+                            *backendRegistryService_, backendId).allowed)
+                        return false;
+                    const auto backend =
+                        backendRegistryService_->getBackend(backendId);
+                    if (!backend || !backend->enabled || !backend->online ||
+                        !vdrSnapshotReadService_->hasSnapshotForBackend(backendId))
+                        return false;
+                    const auto channels =
+                        vdrSnapshotReadService_->getChannelsForBackend(backendId);
+                    if (!std::any_of(channels.begin(), channels.end(),
+                        [&channelId](const VdrChannel& c) {
+                            return c.id == channelId;
+                        })) return false;
+                    const auto liveAgent =
+                        backendAgentRepository_->findAgentForBackend(backendId);
+                    if (!liveAgent || liveAgent->agentId != agent.agentId ||
+                        liveAgent->agentInstanceId != agent.agentInstanceId ||
+                        liveAgent->backendGeneration != agent.backendGeneration)
+                        return false;
+                    std::string why;
+                    const auto liveProvider =
+                        backendAgentCommandRepository_->selectLocalProvider(
+                            backendId, liveAgent->agentId,
+                            liveAgent->agentInstanceId,
+                            liveAgent->backendGeneration,
+                            kBackendAgentNativeTimerCreateAuthorityDomain,
+                            kBackendAgentNativeTimerCreateCapability, why);
+                    if (!liveProvider ||
+                        !backendAgentLocalProviderSameFence(
+                            *liveProvider, provider))
+                        return false;
+                    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    return currentNativeTimerCreateExecutionAuthority(
+                        *liveAgent, *liveProvider, candidate, now);
+                };
+
+            TimerIntentApplicationService application(
+                *timerIntentRepository_, *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_);
+            const auto saved = nativeTimerCreateAdmissionService_->admitManualWindow(
+                admission, *timerIntentRepository_, application);
+            using S = NativeTimerCreateAdmissionStatus;
+            switch (saved.status)
+            {
+            case S::prepared:
+                result.status = PublicEpgTimerIntentAdmissionStatus::accepted;
+                break;
+            case S::replayed:
+                result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+                break;
+            case S::invalid:
+                result.status = PublicEpgTimerIntentAdmissionStatus::invalid;
+                return result;
+            case S::assignmentNotFound:
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            case S::idempotencyConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+                return result;
+            case S::backendConflict:
+            case S::generationConflict:
+            case S::specificationUnavailable:
+                result.status = PublicEpgTimerIntentAdmissionStatus::backendUnavailable;
+                return result;
+            case S::assignmentRevisionConflict:
+            case S::assignmentStateConflict:
+            case S::intentRevisionConflict:
+            case S::operationConflict:
+                result.status = PublicEpgTimerIntentAdmissionStatus::stateConflict;
+                return result;
+            case S::identityGenerationFailed:
+            case S::repositoryError:
+                return result;
+            }
+            result.operation.operationId = saved.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    saved.operation.state);
+            result.operation.backendId = saved.operation.backendId;
+            result.operation.resourceRevision =
+                saved.operation.operationRevision;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerEpgWindowLookup(
         [this](const PublicEpgWindowRequest& request)
         {
@@ -5542,6 +6395,15 @@ bool DaemonRuntime::initialize()
             return true;
         });
 
+    apiRouter_->setPublicRecordingEditedResultResolver(
+        [this](const std::string& backendId,
+               const std::string& backendNativeId) -> std::string {
+            if (!publicRecordingIdentities_) return {};
+            const auto id = publicRecordingIdentities_->resolveOrCreate(
+                backendId, backendNativeId);
+            return id.value_or(std::string());
+        });
+
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
@@ -5601,27 +6463,36 @@ bool DaemonRuntime::initialize()
                 ? metadataRepository_->getManualRecordingMetadataReadOnly(
                     request.backendId, found.recording.backendNativeId)
                 : ManualRecordingMetadataAssignment{};
+            if (!request.artworkId.empty() && vdrRecordingFolderController_)
+            {
+                const auto native = selected.found && selected.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : vdrRecordingFolderController_->findNativeMetadata(
+                        request.backendId, found.recording.backendNativeId);
+                const auto image = vdrRecordingFolderController_->loadPublicMetadataArtwork(
+                    found.recording, selected, native, request.artworkId);
+                if (image)
+                {
+                    if (image->statusCode != 200)
+                    {
+                        result.status = PublicRecordingArtworkStatus::notFound;
+                        return result;
+                    }
+                    result.contentType = image->contentType;
+                    result.content = image->body;
+                    result.status = PublicRecordingArtworkStatus::ok;
+                    return result;
+                }
+            }
             if (selected.found && selected.relationshipLocked &&
                 selected.backendId == request.backendId)
             {
-                const std::string prefix =
-                    "/var/cache/vdr-suite/recording-metadata/posters/";
-                const bool hasPoster =
-                    selected.posterReference.compare(0, prefix.size(),
-                        prefix) == 0 &&
-                    std::filesystem::is_regular_file(
-                        selected.posterReference);
-                if (hasPoster)
+                const auto poster = publicManualRecordingPoster(selected);
+                if (poster)
                 {
-                    VdrRecordingArtworkRef poster;
-                    poster.kind = VdrRecordingArtworkKind::Poster;
-                    poster.source =
-                        VdrRecordingMetadataSource::RestfulApiScraperBridge;
-                    poster.reference = selected.posterReference;
-                    poster.temporary = false;
                     const std::string id =
                         VdrRecordingArtworkIdentity::assetId(
-                            found.recording, poster);
+                            found.recording, *poster);
                     if (!id.empty() &&
                         (request.artworkId.empty() || request.artworkId == id))
                     {

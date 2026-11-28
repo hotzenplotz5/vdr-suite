@@ -368,3 +368,18 @@ korrekte Gesamtanzahl und Offset-Paginierung, fehlerhafte EPG-Zeiten;
 API-Router-Test für die tatsächliche Übernahme der HTTP-Query-Parameter.
 Keine Veränderung an CREATE/UPDATE, vorhandener Autorisierung,
 Recordings oder PWA-Cache. Native VDR-/yaVDR-Abnahme separat.
+
+## Public-v1 manual refresh (28.11.2026)
+
+The active deferred Browser refresh owner now calls
+`POST /api/v1/search-timers/preview-cache/refresh?backendId=...`.
+The query carries the established from, timespan, start, limit and
+channelEventLimit values; it has no request body and no cache-busting
+parameter. The Browser's existing 14-day/96-per-channel request is
+preserved. The existing refresh controller/service and cache are used,
+with the same `searchtimers.preview-cache.refresh` grant, backend scope
+and Browser CSRF. No retry, new polling, extra provider request or new
+cache owner. A failing refresh uses the public problem envelope rather
+than a fabricated ready/empty cache. Legacy runtime routes remain for
+other existing consumers. Reference JS: `refreshSearchTimerPreviewCache`.
+CI and real VDR acceptance are tracked separately.

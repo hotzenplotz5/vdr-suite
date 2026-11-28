@@ -666,11 +666,25 @@ int main()
             if (request.draft)
             {
                 assert(request.searchTimerId.empty());
-                assert(request.query == "Terra X" || request.query == "zero");
-                assert(request.mode == 1);
+                assert(request.query == "Terra X" || request.query == "zero" || request.query == "X");
+                assert(request.mode == (request.query == "X" ? 4 : 1));
+                if (request.query == "X") assert(request.limit == 40U);
                 assert(request.compareTitle);
                 assert(!request.compareSubtitle);
                 assert(request.compareSummary);
+                if (request.useChannel != 0)
+                {
+                    assert(request.useChannel == 1);
+                    assert(request.channelMin == "C-42");
+                    assert(request.channelMax == "C-44");
+                    assert(request.channels == "ARD & ZDF");
+                    assert(request.useDuration && request.durationMinMinutes == 30 &&
+                        request.durationMaxMinutes == 130);
+                    assert(request.useTime && request.startTime == 2200 &&
+                        request.stopTime == 200);
+                    assert(request.useDayOfWeek && request.dayOfWeek == -62);
+                    result.warnings.push_back("channel filter warning");
+                }
                 if (request.query == "zero")
                 {
                     result.status = PublicSearchTimerPreviewStatus::ok;
@@ -688,12 +702,20 @@ int main()
             result.backendId = request.backendId;
             result.searchTimerId = request.searchTimerId;
             result.totalCount = 42;
+            result.channelCount = 3;
             PublicSearchTimerPreviewEvent event;
             event.title = "Terra X";
             event.subtitle = "Planet Erde";
             event.channelId = "C-42";
             event.startTime = "1760724000";
             event.endTime = "1760727600";
+            event.description = "EPG \"Beschreibung\"";
+            event.durationSeconds = 3600;
+            event.contentDescriptors = {"Dokumentation"};
+            event.parentalRating = 6;
+            event.matchedFields = {"title", "summary"};
+            result.nextStartTime = event.startTime;
+            result.latestStartTime = "1760800000";
             result.items.push_back(event);
             return result;
         });
@@ -735,7 +757,7 @@ int main()
     assert(runtime.tryHandlePost(previewRoute + "?backend=one",
         "preview-post", "", previewPost));
     assert(previewPost.statusCode == 405);
-    // Distinct draft preview: exact match fields only; never mutate.
+    // Distinct draft preview: text and existing EPG filters; never mutate.
     const std::string draftRoute =
         "/api/v1/search-timers/draft-preview?backend=one&query=Terra%20X"
         "&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=1";
@@ -749,13 +771,42 @@ int main()
     assert(draft.body.find("backendNativeId") == std::string::npos);
     assert(draft.headers.at("Cache-Control") == "no-store");
     assert(draft.headers.at("X-Request-ID") == "draft-ok");
+    assert(draft.body.find("\"channelCount\":3") != std::string::npos);
+    assert(draft.body.find("\"returnedCount\":1") != std::string::npos);
+    assert(draft.body.find("\"nextStartTime\":\"1760724000\"") != std::string::npos);
+    assert(draft.body.find("\"latestStartTime\":\"1760800000\"") != std::string::npos);
+    assert(draft.body.find("\"description\":\"EPG \\\"Beschreibung\\\"\"") != std::string::npos);
+    assert(draft.body.find("\"durationSeconds\":3600") != std::string::npos);
+    assert(draft.body.find("\"contentDescriptors\":[\"Dokumentation\"]") != std::string::npos);
+    assert(draft.body.find("\"parentalRating\":6") != std::string::npos);
+    assert(draft.body.find("\"matchedFields\":[\"title\",\"summary\"]") != std::string::npos);
+    assert(preview.body.find("matchedFields") == std::string::npos);
+    ApiResponse regexDraft;
+    assert(runtime.tryHandleGet("/api/v1/search-timers/draft-preview?backend=one&query=X"
+        "&mode=4&compareTitle=1&compareSubtitle=0&compareSummary=1&limit=40",
+        "actor:test", "draft-regex", "", regexDraft, "", "one"));
+    assert(regexDraft.statusCode == 200);
+    ApiResponse filteredDraft;
+    assert(runtime.tryHandleGet(draftRoute +
+        "&useChannel=1&channelMin=C-42&channelMax=C-44&channels=ARD%20%26%20ZDF"
+        "&useDuration=1&durationMinMinutes=30&durationMaxMinutes=130"
+        "&useTime=1&startTime=2200&stopTime=200&useDayOfWeek=1&dayOfWeek=-62",
+        "actor:test", "draft-filtered", "", filteredDraft, "", "one"));
+    assert(filteredDraft.statusCode == 200);
+    assert(filteredDraft.body.find("\"warnings\":[\"channel filter warning\"]") !=
+        std::string::npos);
     for (const std::string& suffix : {
             std::string("&cursor=bad"),
             std::string("&compareTitle=1"),
-            std::string("&useChannel=1"),
+            std::string("&useChannel=1"), // Missing channel identity.
+            std::string("&useChannel=4"),
+            std::string("&useTime=2"),
+            std::string("&dayOfWeek=-128"),
+            std::string("&channelMin=%XX"),
+            std::string("&startTime=100&startTime=200"),
             std::string("&avoidRepeats=1"),
             std::string("&mode=4"),
-            std::string("&limit=31"),
+            std::string("&limit=41"),
             std::string("&query=other"),
             std::string("&blacklistIds=x")})
     {

@@ -23,9 +23,19 @@
     return element;
   }
 
-  function backendPath(backendId, operation) {
-    return '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +
+  function publicBackendPath(backendId, operation) {
+    return '/api/v1/backends/' + encodeURIComponent(text(backendId) || 'default') +
       '/recordings/metadata/' + operation;
+  }
+
+  function recordingIdentity(recording) {
+    const id = shared.publicRecordingId(recording);
+    return id ? {recordingId:id} : {};
+  }
+
+  function resolveRecordingIdentity(recording, backendId) {
+    return shared.resolvePublicRecordingId(recording, backendId)
+      .then(function (recordingId) { return {recordingId:recordingId}; });
   }
 
   function csrfHeaders() {
@@ -44,7 +54,8 @@
   }
 
   function post(backendId, operation, payload) {
-    return api().requestJson(backendPath(backendId, operation), {
+    const route = publicBackendPath(backendId, operation);
+    return api().requestJson(route, {
       method: 'POST',
       headers: Object.assign({
         'Content-Type': 'application/json'
@@ -52,6 +63,12 @@
       body: JSON.stringify(payload || {}),
       cache: 'no-store',
       credentials: 'same-origin'
+    });
+  }
+
+  function postRecording(backendId, operation, recording, payload) {
+    return resolveRecordingIdentity(recording, backendId).then(function (identity) {
+      return post(backendId, operation, Object.assign({}, payload, identity));
     });
   }
 
@@ -95,8 +112,7 @@
   }
 
   function assignmentPayload(recording, candidate, revision, mediaType) {
-    return {
-      resourceKey: text(recording && recording.backendNativeId),
+    return Object.assign(recordingIdentity(recording), {
       providerId: text(candidate.providerId),
       externalNamespace: text(candidate.externalNamespace),
       externalId: text(candidate.externalId),
@@ -109,7 +125,7 @@
       seasonNumber: Number(candidate.seasonNumber || 0),
       episodeNumber: Number(candidate.episodeNumber || 0),
       expectedRevision: Number(revision || 0)
-    };
+    });
   }
 
   function mount(root, recording, backendId, metadata) {
@@ -172,8 +188,7 @@
     if (current) {
       toolbar.appendChild(button('Manuelle Zuordnung entfernen', function () {
         setStatus('Zuordnung wird entfernt …', false);
-        post(backendId, 'withdraw', {
-          resourceKey: text(recording.backendNativeId),
+        postRecording(backendId, 'withdraw', recording, {
           expectedRevision: revision
         }).then(function () {
           setStatus('Manuelle Zuordnung wurde entfernt.', false);
@@ -222,11 +237,11 @@
             assign(candidate, 'series');
           }, 'primary'));
           actions.appendChild(button('Staffeln anzeigen', function () {
-            loadSeasons(candidate);
+            loadSeriesLevel(candidate);
           }));
         } else if (mode === 'season') {
           actions.appendChild(button('Folgen anzeigen', function () {
-            loadEpisodes(parentSeries, candidate);
+            loadSeriesLevel(parentSeries, candidate);
           }, 'primary'));
         } else {
           actions.appendChild(button('Diesen Treffer verwenden', function () {
@@ -246,9 +261,10 @@
 
     function assign(candidate, mediaType) {
       setStatus('Metadaten werden zugeordnet …', false);
-      post(
+      postRecording(
         backendId,
         'assign',
+        recording,
         assignmentPayload(recording, candidate, revision, mediaType)
       ).then(function (result) {
         revision = Number(result && result.revision || revision + 1);
@@ -259,33 +275,26 @@
       });
     }
 
-    function loadSeasons(series) {
+    function loadCandidates(operation, payload, mode, parentSeries, message, trigger) {
       clearResults();
-      setStatus('Staffeln werden geladen …', false);
-      post(backendId, 'seasons', {
-        seriesExternalId: text(series.externalId),
-        limit: 20
-      }).then(function (result) {
+      if (trigger) trigger.disabled = true;
+      setStatus(message, false);
+      post(backendId, operation, payload).then(function (result) {
+        if (trigger) trigger.disabled = false;
         setStatus('', false);
-        renderCandidates(result && result.candidates, 'season', series);
+        renderCandidates(result && result.candidates, mode, parentSeries);
       }).catch(function (error) {
+        if (trigger) trigger.disabled = false;
         setStatus(error.message || String(error), true);
       });
     }
 
-    function loadEpisodes(series, season) {
-      clearResults();
-      setStatus('Folgen werden geladen …', false);
-      post(backendId, 'episodes', {
-        seriesExternalId: text(series.externalId),
-        seasonNumber: Number(season.seasonNumber || 0),
-        limit: 20
-      }).then(function (result) {
-        setStatus('', false);
-        renderCandidates(result && result.candidates, 'episode', series);
-      }).catch(function (error) {
-        setStatus(error.message || String(error), true);
-      });
+    function loadSeriesLevel(series, season) {
+      const payload = {seriesExternalId: text(series.externalId), limit: 20};
+      if (season) payload.seasonNumber = Number(season.seasonNumber || 0);
+      loadCandidates(season ? 'episodes' : 'seasons', payload,
+        season ? 'episode' : 'season', series,
+        season ? 'Folgen werden geladen …' : 'Staffeln werden geladen …');
     }
 
     function openSearch() {
@@ -315,24 +324,9 @@
           setStatus('Bitte mindestens zwei Zeichen eingeben.', true);
           return;
         }
-        clearResults();
-        searchButton.disabled = true;
-        setStatus('Kandidaten werden gesucht …', false);
-        post(backendId, 'search', {
-          query: query,
-          kind: kind.value,
-          limit: 12
-        }).then(function (result) {
-          searchButton.disabled = false;
-          setStatus('', false);
-          renderCandidates(
-            result && result.candidates,
-            kind.value === 'series' ? 'series' : 'movie'
-          );
-        }).catch(function (error) {
-          searchButton.disabled = false;
-          setStatus(error.message || String(error), true);
-        });
+        const mode = kind.value === 'series' ? 'series' : 'movie';
+        loadCandidates('search', {query: query, kind: kind.value, limit: 12},
+          mode, undefined, 'Kandidaten werden gesucht …', searchButton);
       }, 'primary');
       row.append(input, kind, searchButton);
       searchArea.appendChild(row);
@@ -349,8 +343,16 @@
 
   global.VdrSuiteRecordings2MetadataAssignment = Object.freeze({
     mount: mount,
+    recordingIdentity: recordingIdentity,
+    post: post,
+    postRecording: postRecording,
+    resolveRecordingIdentity: resolveRecordingIdentity,
+    publicBackendPath: publicBackendPath,
     __test: Object.freeze({
-      backendPath: backendPath,
+      publicBackendPath: publicBackendPath,
+      recordingIdentity: recordingIdentity,
+      post: post,
+      postRecording: postRecording,
       assignmentPayload: assignmentPayload,
       candidateLabel: candidateLabel
     })

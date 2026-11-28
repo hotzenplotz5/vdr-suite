@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "EpgTimerIntentDraft.h"
+#include "ManualTimerIntentDraft.h"
 #include "EpgTimerIntentAtomicAdmissionService.h"
 #include "EpgNativeTimerClockAttestation.h"
 #include "EpgNativeTimerPreviewAttestation.h"
@@ -822,8 +823,387 @@ void test_epg_public_atomic_admission_and_replay()
 
 } // namespace
 
+
+void test_manual_draft_atomic_native_create_admission(bool rollBack)
+{
+    Fixture fixture;
+    const auto nativeTemplate = specification();
+    auto nativeSpec = nativeTemplate;
+    nativeSpec.title = "Manual archive, part one";
+    nativeSpec.directory = "TV~Archive";
+    nativeSpec.day = "2026-11-24";
+    nativeSpec.startTime = "2015";
+    nativeSpec.endTime = "2130";
+    nativeSpec.priority = 0;
+    nativeSpec.lifetime = 0;
+    nativeSpec.enabled = false;
+    nativeSpec.vps = true;
+
+    ManualTimerSourceEvidence source;
+    source.backendId = "backend-one";
+    source.sourceType = "vdr";
+    source.sourceId = "suitebridge:local";
+    source.backendChannelId = nativeSpec.channelId;
+    source.timezone = "Europe/Berlin";
+    source.startAt = 1795547700;
+    source.stopAt = 1795552200;
+    const auto draft =
+        makeManualWindowTimerIntentDraft(nativeSpec, source, "actor:owner");
+    assert(draft.valid);
+
+    TimerIntentApplicationRequest applicationRequest;
+    applicationRequest.intent.timerIntentId = "intent:manual-atomic";
+    applicationRequest.intent.state = TimerIntentState::draft;
+    applicationRequest.intent.createdByActorId = "actor:owner";
+    applicationRequest.intent.spec = draft.intent;
+    applicationRequest.intent.createdAt = 100;
+    applicationRequest.intent.updatedAt = 100;
+    applicationRequest.intent.expiresAt = source.stopAt + 86400;
+    applicationRequest.timerAssignmentId = "assignment:manual-atomic";
+    applicationRequest.activatedAt = 101;
+    applicationRequest.scheduledAt = 102;
+    applicationRequest.provisioningAt = 103;
+
+    TimerAssignmentPlanningBackendCandidate candidate;
+    candidate.backendId = source.backendId;
+    candidate.siteId = "site:home";
+    candidate.currentBackendGeneration = 7;
+    candidate.state = TimerAssignmentPlanningBackendState::online;
+    candidate.writeAllowed = true;
+    candidate.executionAuthorityCurrent = true;
+    candidate.executionAuthorityFence = "local:7";
+    candidate.capability.backendGeneration = 7;
+    candidate.capability.revision = "cap:7";
+    candidate.capability.current = true;
+    candidate.capability.timerCreate = true;
+    candidate.capability.timerReadback = true;
+    candidate.health.backendGeneration = 7;
+    candidate.health.revision = "health:7";
+    candidate.health.current = true;
+    candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+    candidate.health.timerWritesAvailable = true;
+    candidate.channel.backendGeneration = 7;
+    candidate.channel.mappingRevision = "mapping:7";
+    candidate.channel.mappingSource = "native-source";
+    candidate.channel.sourceType = source.sourceType;
+    candidate.channel.sourceId = source.sourceId;
+    candidate.channel.sourceChannelId = source.backendChannelId;
+    candidate.channel.backendChannelId = source.backendChannelId;
+    candidate.channel.current = true;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification = draft.desiredNativeTimer;
+    candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    applicationRequest.candidates = {candidate};
+
+
+    // End-to-end manual coordinator: real Intent, Assignment and Operation
+    // repositories; a subsequent replay does not require Agent liveness.
+    if (!rollBack)
+    {
+        Fixture second;
+        TimerIntentApplicationService secondApplication(
+            second.intents, second.assignments, second.bindings);
+        ManualNativeTimerCreateAdmissionRequest manual;
+        manual.actorId = "actor:owner";
+        manual.backendId = source.backendId;
+        manual.idempotencyKey = "manual-public-atomic-key";
+        manual.draft = draft;
+        manual.candidate = candidate;
+        manual.requestedAt = 100;
+        manual.deadline = 500;
+        // Existing EPG native-CREATE authority and previews are reused;
+        // these are TEST FIXTURES, not productive native evidence.
+        manual.authoritativeAgent.agentId = "agent:owner";
+        manual.authoritativeAgent.backendId = candidate.backendId;
+        manual.authoritativeAgent.agentInstanceId = "agent-instance:7";
+        manual.authoritativeAgent.backendGeneration = 7;
+        manual.authoritativeAgent.heartbeatSequence = 8;
+        manual.authoritativeAgent.capabilityRevision = 2;
+        manual.authoritativeAgent.lastHeartbeatAt = 95;
+        manual.authoritativeAgent.leaseExpiresAt = 130;
+        auto& provider = manual.nativeCreateProvider;
+        provider.backendId = candidate.backendId;
+        provider.authorityDomain = "vdr.timer";
+        provider.providerId = "suitebridge:local";
+        provider.providerKind = "suitebridge";
+        provider.ownershipGeneration = 3;
+        provider.providerInstanceEpoch =
+            "pie_9a2839a085848a27bd72c66481547420";
+        provider.providerGeneration = 1;
+        provider.capabilityRevision = 1;
+        provider.requiredCapability = "vdr.timer.create";
+        manual.candidate.executionAuthorityFence =
+            vdrsuite::public_epg_timer::nativeTimerCreatePlanningAuthorityFence(
+                provider);
+        manual.candidate.executionAuthorityCurrent = true;
+        manual.nativeClock.current = true;
+        manual.nativeClock.backendId = candidate.backendId;
+        manual.nativeClock.backendGeneration = 7;
+        manual.nativeClock.providerInstanceEpoch = provider.providerInstanceEpoch;
+        manual.nativeClock.executionAuthorityFence =
+            manual.candidate.executionAuthorityFence;
+        manual.nativeClock.observedAt = 99;
+        manual.nativeClock.startUtcOffsetSeconds = 3600;
+        manual.nativeClock.stopUtcOffsetSeconds = 3600;
+        manual.conflictProof.current = true;
+        manual.conflictProof.backendId = candidate.backendId;
+        manual.conflictProof.backendGeneration = 7;
+        manual.conflictProof.executionAuthorityFence =
+            manual.candidate.executionAuthorityFence;
+        manual.conflictProof.nativeSpecificationFingerprint =
+            nativeTimerSpecificationFingerprint(nativeSpec);
+        manual.conflictProof.evidenceRevision =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        manual.conflictProof.observedAt = 99;
+        manual.conflictProof.expiresAt = 114;
+        manual.conflictProof.proposedTimerIncluded = true;
+        manual.conflictProof.allExistingTimersConsidered = true;
+        manual.conflictProof.devicesConsidered = true;
+        manual.conflictProof.conflictsFound = false;
+        int validations = 0;
+        manual.revalidateSourceAndExecutionAuthority = [&]() {
+            ++validations;
+            return true;
+        };
+        // A new key without current authoritative native proof cannot
+        // create an Operation even with a nominally online candidate.
+        auto noProof = manual;
+        noProof.idempotencyKey = "manual-without-native-proof";
+        noProof.nativeClock.current = false;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-stale-native-preview";
+        noProof.conflictProof.observedAt = 10;
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+        noProof = manual;
+        noProof.idempotencyKey = "manual-with-wrong-provider";
+        noProof.nativeCreateProvider.providerInstanceEpoch = "pie_restarted";
+        noProof.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            noProof, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::backendConflict);
+
+        manual.aux = "<epgsearch>plugin:data</epgsearch>";
+        const auto first = second.admission.admitManualWindow(
+            manual, second.intents, secondApplication);
+        assert(first.status == NativeTimerCreateAdmissionStatus::prepared);
+        assert(validations == 1);
+        assert(first.operation.state == MutationOperationState::accepted);
+        assert(first.operation.actionFamily == "timer.create");
+        assert(first.payload.aux == manual.aux);
+        assert(first.payload.expectedSpecification.title == nativeSpec.title);
+        assert(first.payload.expectedSpecification.directory == nativeSpec.directory);
+        assert(first.payload.expectedSpecification.priority == 0);
+        assert(first.payload.expectedSpecification.lifetime == 0);
+        assert(!first.payload.expectedSpecification.enabled);
+        assert(first.payload.expectedSpecification.vps);
+
+        manual.revalidateSourceAndExecutionAuthority = [&]() {
+            ++validations;
+            return false;
+        };
+        const auto replay = second.admission.admitManualWindow(
+            manual, second.intents, secondApplication);
+        assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(replay.operation.operationId == first.operation.operationId);
+        assert(validations == 1);
+
+        ManualNativeTimerCreateReplayRequest lookup;
+        lookup.actorId = manual.actorId;
+        lookup.backendId = manual.backendId;
+        lookup.idempotencyKey = manual.idempotencyKey;
+        lookup.channelId = nativeSpec.channelId;
+        lookup.title = nativeSpec.title;
+        lookup.directory = nativeSpec.directory;
+        lookup.startAt = source.startAt;
+        lookup.stopAt = source.stopAt;
+        lookup.priority = nativeSpec.priority;
+        lookup.lifetime = nativeSpec.lifetime;
+        lookup.enabled = nativeSpec.enabled;
+        lookup.vps = nativeSpec.vps;
+        lookup.aux = manual.aux;
+        const auto offlineReplay = second.admission.replayManualWindow(
+            lookup, second.intents);
+        assert(offlineReplay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(offlineReplay.operation.operationId == first.operation.operationId);
+        lookup.aux = "changed";
+        assert(second.admission.replayManualWindow(lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        lookup.aux = manual.aux;
+        lookup.title = "Changed without source";
+        assert(second.admission.replayManualWindow(
+            lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        lookup.idempotencyKey = "never-submitted";
+        assert(second.admission.replayManualWindow(
+            lookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::assignmentNotFound);
+
+        auto changed = manual;
+        changed.draft.desiredNativeTimer.title = "Different manual title";
+        changed.candidate.desiredNativeTimerSpecification =
+            changed.draft.desiredNativeTimer;
+        assert(second.admission.admitManualWindow(
+            changed, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+
+        changed = manual;
+        changed.idempotencyKey = "manual-public-other-key";
+        changed.revalidateSourceAndExecutionAuthority = []() { return true; };
+        assert(second.admission.admitManualWindow(
+            changed, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::operationConflict);
+
+        const auto durable = second.operations.findByIdempotencyScope(
+            "actor:owner", source.backendId, "TimerAssignment",
+            first.operation.resourceId, "timer.create",
+            "manual-public-atomic-key");
+        assert(durable.ok());
+        assert(durable.operation.operationId == first.operation.operationId);
+
+        // The very same atomic coordinator can persist a recurring Intent,
+        // native weekly specification and one CREATE Operation once a
+        // backend-originated exact-specification preview exists. Synthetic
+        // proof here is TEST ONLY; the productive SuiteBridge preview still
+        // refuses recurring requests until it can attest the native schedule.
+        auto recurringNative = nativeSpec;
+        recurringNative.weekdays = "MTWTF--";
+        const auto recurringDraft =
+            makeRecurringTimerIntentDraft(recurringNative, source, manual.actorId);
+        assert(recurringDraft.valid);
+        auto recurring = manual;
+        recurring.idempotencyKey = "manual-public-recurring-key";
+        recurring.draft = recurringDraft;
+        recurring.candidate.desiredNativeTimerSpecification = recurringNative;
+        recurring.conflictProof.nativeSpecificationFingerprint =
+            nativeTimerSpecificationFingerprint(recurringNative);
+        recurring.revalidateSourceAndExecutionAuthority = []() { return true; };
+        const auto recurrentResult = second.admission.admitManualWindow(
+            recurring, second.intents, secondApplication);
+        assert(recurrentResult.status == NativeTimerCreateAdmissionStatus::prepared);
+        assert(recurrentResult.payload.expectedSpecification.weekdays == "MTWTF--");
+        const std::string assignmentPrefix = "manual-assignment:";
+        assert(recurrentResult.operation.resourceId.compare(
+            0, assignmentPrefix.size(), assignmentPrefix) == 0);
+        const auto recurrentIntentId =
+            std::string("manual-intent:") +
+            recurrentResult.operation.resourceId.substr(
+                assignmentPrefix.size());
+        const auto persistedRecurring = second.intents.findById(recurrentIntentId);
+        assert(persistedRecurring.ok());
+        assert(persistedRecurring.intent.spec.intentType ==
+            TimerIntentType::recurringSchedule);
+        assert(persistedRecurring.intent.spec.schedule.recurrenceRule ==
+            "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+        ManualNativeTimerCreateReplayRequest recurringLookup = lookup;
+        recurringLookup.idempotencyKey = recurring.idempotencyKey;
+        // Earlier negative replay intentionally mutated lookup.title.
+        recurringLookup.title = recurringNative.title;
+        recurringLookup.weekdays = recurringNative.weekdays;
+        const auto recurringReplay = second.admission.replayManualWindow(
+            recurringLookup, second.intents);
+        assert(recurringReplay.status == NativeTimerCreateAdmissionStatus::replayed);
+        assert(recurringReplay.operation.operationId ==
+            recurrentResult.operation.operationId);
+        recurringLookup.weekdays = "-------";
+        assert(second.admission.replayManualWindow(
+            recurringLookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+        recurringLookup.weekdays = "MTWT---";
+        assert(second.admission.replayManualWindow(
+            recurringLookup, second.intents).status ==
+            NativeTimerCreateAdmissionStatus::idempotencyConflict);
+
+        auto mismatchedRule = recurring;
+        mismatchedRule.idempotencyKey = "manual-wrong-recurring-rule";
+        mismatchedRule.draft.intent.schedule.recurrenceRule =
+            "FREQ=WEEKLY;BYDAY=SA,SU";
+        assert(second.admission.admitManualWindow(
+            mismatchedRule, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::invalid);
+        mismatchedRule = recurring;
+        mismatchedRule.idempotencyKey = "manual-wrong-recurring-mask";
+        mismatchedRule.draft.desiredNativeTimer.weekdays = "MTWTFSS";
+        mismatchedRule.candidate.desiredNativeTimerSpecification.weekdays = "MTWTFSS";
+        assert(second.admission.admitManualWindow(
+            mismatchedRule, second.intents, secondApplication).status ==
+            NativeTimerCreateAdmissionStatus::invalid);
+    }
+
+    TimerIntentApplicationService application(
+        fixture.intents, fixture.assignments, fixture.bindings);
+    auto lease = fixture.database.acquireTransactionLease();
+    assert(fixture.database.execute("BEGIN IMMEDIATE TRANSACTION;"));
+    const auto selected =
+        application.submitAndSelectPrimaryInCurrentTransaction(applicationRequest);
+    assert(selected.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(selected.assignment.desiredNativeTimerSpecificationPresent);
+    assert(selected.assignment.desiredNativeTimerSpecification.priority == 0);
+    assert(selected.assignment.desiredNativeTimerSpecification.lifetime == 0);
+
+    const auto before = fixture.operations.findByIdempotencyScope(
+        "actor:owner", source.backendId, "TimerAssignment",
+        applicationRequest.timerAssignmentId, "timer.create",
+        "manual-atomic-key");
+    assert(before.status == MutationOperationRepositoryStatus::notFound);
+
+    NativeTimerCreateAdmissionRequest create;
+    create.actorId = "actor:owner";
+    create.idempotencyKey = "manual-atomic-key";
+    create.timerAssignmentId = applicationRequest.timerAssignmentId;
+    create.expectedAssignmentRevision = selected.assignment.assignmentRevision;
+    create.expectedBackendId = source.backendId;
+    create.requestedAt = 103;
+    create.deadline = 500;
+    const auto admitted = fixture.admission.admitInCurrentTransaction(create);
+    assert(admitted.status == NativeTimerCreateAdmissionStatus::prepared);
+    assert(admitted.operation.state == MutationOperationState::accepted);
+    assert(admitted.operation.resourceId == applicationRequest.timerAssignmentId);
+    assert(admitted.payload.expectedSpecification.title == nativeSpec.title);
+    assert(admitted.payload.expectedSpecification.directory == nativeSpec.directory);
+    assert(admitted.payload.expectedSpecification.priority == 0);
+    assert(admitted.payload.expectedSpecification.lifetime == 0);
+    assert(admitted.payload.expectedSpecification.vps);
+    assert(!admitted.payload.expectedSpecification.enabled);
+    assert(!admitted.payload.nativeTimerBindingId.empty());
+
+    if (rollBack)
+    {
+        assert(fixture.database.execute("ROLLBACK;"));
+        assert(fixture.intents.findById(
+            applicationRequest.intent.timerIntentId).status ==
+            TimerIntentRepositoryStatus::notFound);
+        assert(fixture.assignments.findById(
+            applicationRequest.timerAssignmentId).status ==
+            TimerAssignmentRepositoryStatus::notFound);
+        assert(fixture.operations.findByIdempotencyScope(
+            "actor:owner", source.backendId, "TimerAssignment",
+            applicationRequest.timerAssignmentId, "timer.create",
+            "manual-atomic-key").status ==
+            MutationOperationRepositoryStatus::notFound);
+        return;
+    }
+
+    assert(fixture.database.execute("COMMIT;"));
+    const auto stored = fixture.assignments.findById(
+        applicationRequest.timerAssignmentId);
+    assert(stored.ok());
+    assert(stored.assignment.state == TimerAssignmentState::provisioning);
+    const auto replay = fixture.admission.admit(create);
+    assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
+    assert(replay.operation.operationId == admitted.operation.operationId);
+}
+
 int main()
 {
+    test_manual_draft_atomic_native_create_admission(false);
+    test_manual_draft_atomic_native_create_admission(true);
     test_source_epg_draft_to_atomic_native_create_admission(false);
     test_source_epg_draft_to_atomic_native_create_admission(true);
     test_epg_native_time_contract();

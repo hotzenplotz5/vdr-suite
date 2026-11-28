@@ -372,6 +372,7 @@ NativeTimerCreateReadbackExpectation expectationFor(
     expectation.backendGeneration = payload.backendGeneration;
     expectation.readbackNotBefore = outcome.dispatchStartedAt;
     expectation.expectedSpecification = payload.expectedSpecification;
+    expectation.aux = payload.aux;
     expectation.expectedSpecificationFingerprint =
         nativeTimerSpecificationFingerprint(payload.expectedSpecification);
     return expectation;

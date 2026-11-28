@@ -244,7 +244,7 @@ function createRuntime() {
                 resolve(recordingSession(
                   body.sessionId,
                   body.backendId,
-                  'recording-42',
+                  'rec_11111111111111111111111111111111',
                   body.positionSeconds
                 ));
               };
@@ -253,12 +253,12 @@ function createRuntime() {
           return Promise.resolve(recordingSession(
             body.sessionId,
             body.backendId,
-            'recording-42',
+            'rec_11111111111111111111111111111111',
             body.positionSeconds
           ));
         }
         if (body.operation === 'playback-status') {
-          return Promise.resolve(recordingSession(body.sessionId, body.backendId, 'recording-42', 0));
+          return Promise.resolve(recordingSession(body.sessionId, body.backendId, 'rec_11111111111111111111111111111111', 0));
         }
         createAttempts += 1;
         sessionSequence += 1;
@@ -324,6 +324,7 @@ function createRuntime() {
     clearTimeout: clearTimeoutFake
   });
 
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
   vm.runInContext(guardSource, context, {filename: 'recording-network-recovery-guard.js'});
   vm.runInContext(lifecycleSource, context, {filename: 'playback-owner-lifecycle.js'});
   vm.runInContext(failureSource, context, {filename: 'playback-failure-classification.js'});
@@ -352,7 +353,7 @@ function createRuntime() {
 (async function () {
   const runtime = createRuntime();
   const panel = runtime.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Stall Recovery'},
+    {id: 'rec_11111111111111111111111111111111', title: 'Stall Recovery'},
     'living-room'
   );
 

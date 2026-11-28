@@ -42,6 +42,7 @@ bool payloadMatchesExpectation(
         payload.nativeTimerBindingId == expectation.nativeTimerBindingId &&
         payload.backendId == expectation.backendId &&
         payload.backendGeneration == expectation.backendGeneration &&
+        payload.aux == expectation.aux &&
         fingerprint == expectation.expectedSpecificationFingerprint &&
         fingerprint ==
             vdrsuite::timers::nativeTimerSpecificationFingerprint(

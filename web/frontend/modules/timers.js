@@ -298,6 +298,60 @@
     };
   }
 
+  // The VDR-owning backend checks the first occurrence's weekday and
+  // local-time projection. Without an explicit first date, recurring forms
+  // retain their existing native editor instead of guessing a timezone.
+  function manualTimerIntentSpecification(payload) {
+    if (!payload) return null;
+    const weekdays = normalizeWeekdays(payload.weekdays);
+    if (!/^[M-][T-][W-][T-][F-][S-][S-]$/.test(weekdays))
+      return null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(payload.day || ''));
+    if (!match) return null;
+    const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+    const start = Number(payload.start), stop = Number(payload.stop);
+    const validHhmm = value => Number.isInteger(value) && value >= 0 &&
+      value <= 2359 && value % 100 < 60;
+    if (!validHhmm(start) || !validHhmm(stop)) return null;
+    const at = (hhmm, dayOffset) => new Date(year, month - 1, day + dayOffset,
+      Math.floor(hhmm / 100), hhmm % 100, 0, 0);
+    const starts = at(start, 0);
+    if (starts.getFullYear() !== year || starts.getMonth() !== month - 1 ||
+        starts.getDate() !== day || starts.getHours() !== Math.floor(start / 100) ||
+        starts.getMinutes() !== start % 100) return null;
+    if (weekdays !== '-------' && weekdays[(starts.getDay() + 6) % 7] === '-')
+      return null;
+    let stops = at(stop, 0);
+    if (stops <= starts) stops = at(stop, 1);
+    const duration = (stops.getTime() - starts.getTime()) / 1000;
+    if (!Number.isInteger(duration) || duration <= 0 || duration >= 86400) return null;
+    const startAt = starts.getTime() / 1000, stopAt = stops.getTime() / 1000;
+    if (!Number.isSafeInteger(startAt) || startAt <= 0 ||
+        !Number.isSafeInteger(stopAt)) return null;
+    return {
+      backendId: payload.backendId, channelId: payload.channelId,
+      title: payload.title, directory: payload.directory,
+      startAt, stopAt, priority: payload.priority, lifetime: payload.lifetime,
+      enabled: payload.active, vps: payload.vps,
+      ...(weekdays === '-------' ? {} : {weekdays}),
+      ...(payload.aux ? {aux: String(payload.aux)} : {})
+    };
+  }
+
+  function manualOneShotSpecification(payload) {
+    return payload && normalizeWeekdays(payload.weekdays) === '-------'
+      ? manualTimerIntentSpecification(payload) : null;
+  }
+
+  function newManualTimerIdempotencyKey() {
+    if (!global.crypto || typeof global.crypto.getRandomValues !== 'function')
+      throw new Error('Sichere Auftrags-ID ist nicht verfügbar.');
+    const bytes = new Uint8Array(16);
+    global.crypto.getRandomValues(bytes);
+    return 'manual-web-' +
+      Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
   function validateTimerPayload(payload, requireTimerId) {
     const errors = [];
     const repeating = normalizeWeekdays(payload.weekdays) !== '-------';
@@ -432,6 +486,10 @@
   }
 
   function setFeedback(target, message, error) {
+    if (typeof target === 'function') {
+      target(message, error);
+      return;
+    }
     target.className = 'timer-feedback ' + (error ? 'error' : 'success');
     target.textContent = String(message || '');
   }
@@ -442,14 +500,136 @@
     return fallback;
   }
 
+  // Use the same Idempotency-Key after an uncertain native mutation.
+  const nativeMutationAttempts = new WeakMap();
+
+  function publicNativeTimerUpdatePayload(payload, originalAux) {
+    if (!payload) return null;
+    const spec = {
+      kind: 'update', channelId: payload.channelId, title: payload.title,
+      directory: payload.directory, day: payload.day,
+      weekdays: normalizeWeekdays(payload.weekdays),
+      startTime: String(payload.start).padStart(4, '0'),
+      endTime: String(payload.stop).padStart(4, '0'),
+      priority: payload.priority, lifetime: payload.lifetime,
+      enabled: payload.active, vps: payload.vps
+    };
+    if (originalAux !== undefined && String(payload.aux || '') !== originalAux) {
+      spec.expectedAux = originalAux;
+      spec.aux = String(payload.aux || '');
+    }
+    return spec;
+  }
+
+  // Managed/adopted and external/unbound Timers retain their distinct
+  // existing Public-v1 writers. A denied or unavailable API is not a
+  // reason to retry an unversioned mutation.
+  function executePublicNativeTimerAction(type, payload, button, feedback, originalAux, onConfirmed) {
+    // The browser's recording flag is UI state, not a DELETE field.
+    const directPayload = type === 'delete'
+      ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
+    const api = resolvedClientApi();
+    if (!api || typeof api.fetchPublicNativeTimerDetail !== 'function' ||
+        typeof api.fetchPublicNativeTimerOperation !== 'function' ||
+        (type === 'delete'
+          ? typeof api.fetchPublicNativeTimerDelete !== 'function'
+          : typeof api.fetchPublicNativeTimerModify !== 'function')) {
+      setFeedback(feedback, 'Public API v1 für Timer-Aktionen ist nicht verfügbar.', true);
+      return Promise.resolve(null);
+    }
+
+    const modification = type === 'update'
+      ? publicNativeTimerUpdatePayload(payload, originalAux)
+      : {kind: 'toggle', enabled: payload.active};
+    const fingerprint = JSON.stringify([type, payload]);
+    button.disabled = true;
+    setFeedback(feedback, 'Native Timer-Bindung wird geprüft …', false);
+    return Promise.resolve().then(() => api.fetchPublicNativeTimerDetail({
+      backendId: payload.backendId, timerId: payload.timerId
+    })).then(detail => {
+      if (!detail || detail.status !== 200 || !detail.data)
+        throw new Error('Native Timer-Bindung konnte nicht gelesen werden.');
+      // External/unbound Timers cannot use a managed Binding ETag.
+      // Their public direct action reuses the established VDR writer.
+      // Never dispatch to another writer after a denied or uncertain result.
+      if (detail.data.bindingState === 'binding_required' ||
+          detail.data.bindingState === 'adoption_required') {
+        const direct = detail.data.directActions === true &&
+          (type === 'delete'
+            ? typeof api.fetchPublicNativeTimerDirectDelete === 'function'
+            : typeof api.fetchPublicNativeTimerDirectUpdate === 'function');
+        if (!direct)
+          throw new Error('Public API v1 für externe Timer ist nicht verfügbar.');
+        const request = {backendId: payload.backendId, timerId: payload.timerId};
+        if (type !== 'delete') request.payload = directPayload;
+        const write = type === 'delete'
+          ? api.fetchPublicNativeTimerDirectDelete(request)
+          : api.fetchPublicNativeTimerDirectUpdate(request);
+        return Promise.resolve(write).then(result => {
+          if (!result || result.success !== true)
+            throw new Error(resultMessage(result,
+              'VDR hat die direkte Timer-Aktion abgelehnt.'));
+          setFeedback(feedback,
+            resultMessage(result, 'VDR hat die Timer-Aktion bestätigt.'), false);
+          if (typeof onConfirmed === 'function')
+            return Promise.resolve(onConfirmed()).then(() => result);
+          global.setTimeout(reloadTimers, 250);
+          return result;
+        });
+      }
+      if (detail.data.bindingState !== 'verified' || !detail.etag)
+        throw new Error('Native Timer-Bindung nicht verifiziert.');
+
+      let attempt = nativeMutationAttempts.get(button);
+      if (!attempt || attempt.fingerprint !== fingerprint) {
+        attempt = {fingerprint, key: newManualTimerIdempotencyKey()};
+        nativeMutationAttempts.set(button, attempt);
+      }
+      const request = {backendId: payload.backendId, timerId: payload.timerId,
+        ifMatch: detail.etag, idempotencyKey: attempt.key};
+      // From this point an unknown transport result may already have
+      // mutated VDR; NEVER fall back to a second writer.
+      const write = type === 'delete'
+        ? api.fetchPublicNativeTimerDelete(request)
+        : api.fetchPublicNativeTimerModify(Object.assign(request,
+          {payload: modification}));
+      return Promise.resolve(write).then(result => {
+        const operation = result && result.data &&
+          (result.data.operation || result.data);
+        if (!result || result.status !== 202 || !operation ||
+            !operation.operationId)
+          throw new Error('Timer-Antwort enthält keine dauerhafte Operation.');
+        setFeedback(feedback, 'Timer-Auftrag ' + operation.operationId +
+          ' angenommen. VDR-Bestätigung steht noch aus.', false);
+        observeManualTimerOperation(operation.operationId, feedback,
+          () => {
+            nativeMutationAttempts.delete(button);
+            if (typeof onConfirmed === 'function') onConfirmed();
+          }, typeof onConfirmed !== 'function');
+        return result;
+      });
+    }).catch(error => {
+      // The central AuthorizationService owns effective Human grants.
+      // Preserve the error, including CSRF/scope denial, without a second
+      // writer or a private compatibility request.
+      setFeedback(feedback, 'Timer-Aktion nicht bestätigt: ' +
+        String(error && error.message ? error.message : error), true);
+      return null;
+    }).finally(() => { button.disabled = false; });
+  }
+
+  // The remote REC button uses the same binding selection, existing writer,
+  // stable mutation key and operation observer as the Timer editor.
+  function stopRunningTimer(payload, button, feedback, onConfirmed) {
+    return executePublicNativeTimerAction('delete', payload, button, feedback,
+      undefined, onConfirmed);
+  }
+
   function actionClientFunction(type) {
     const clientApi = resolvedClientApi();
     if (!clientApi) return null;
-    const name = type === 'create'
-      ? 'fetchClientTimerCreateAction'
-      : type === 'update'
-        ? 'fetchClientTimerUpdateAction'
-        : 'fetchClientTimerDeleteAction';
+    if (type !== 'create') return null;
+    const name = 'fetchPublicNativeTimerDirectCreate';
     return typeof clientApi[name] === 'function' ? clientApi[name].bind(clientApi) : null;
   }
 
@@ -477,6 +657,102 @@
       .finally(() => { button.disabled = false; });
   }
 
+  // No status polling: one immediate read and event-driven readbacks.
+  // The POST is never re-dispatched to resolve an uncertain outcome.
+  function observeManualTimerOperation(operationId, feedback, onSucceeded, reloadOnSuccess = true) {
+    const api = resolvedClientApi();
+    if (!api || typeof api.fetchPublicNativeTimerOperation !== 'function')
+      return;
+    const source = typeof api.createClientOperationUpdateSource === 'function'
+      ? api.createClientOperationUpdateSource(operationId) : null;
+    let closed = false, reading = false, queued = false;
+    function close() {
+      closed = true;
+      if (source && typeof source.close === 'function') source.close();
+    }
+    function readback() {
+      if (closed) return;
+      if (reading) { queued = true; return; }
+      reading = true;
+      Promise.resolve(api.fetchPublicNativeTimerOperation({operationId}))
+        .then(response => {
+          if (closed || !response || response.status !== 200 || !response.data ||
+              response.data.operationId !== operationId) return;
+          const state = response.data.state;
+          if (state === 'succeeded') {
+            close();
+            setFeedback(feedback, 'Timer wurde im VDR bestätigt.', false);
+            if (typeof onSucceeded === 'function') onSucceeded();
+            if (reloadOnSuccess) reloadTimers();
+          } else if (['rejected', 'conflict', 'failed_before_dispatch',
+              'failed_verified', 'cancelled'].includes(state)) {
+            close();
+            setFeedback(feedback, 'Timer-Auftrag beendet: ' + state, true);
+          } else if (state === 'outcome_unknown') {
+            setFeedback(feedback,
+              'Timer-Ergebnis noch ungewiss. Auftrag ' + operationId +
+              ' wird weiter beobachtet; kein neuer CREATE-Auftrag.', true);
+          }
+        })
+        .catch(error => {
+          if (!closed) setFeedback(feedback,
+            'Timer-Auftrag ' + operationId + ': Status nicht lesbar (' +
+            String(error && error.message ? error.message : error) + ').', true);
+        })
+        .finally(() => {
+          reading = false;
+          if (queued && !closed) { queued = false; readback(); }
+        });
+    }
+    if (source) {
+      source.onopen = readback;
+      source.addEventListener('operation', event => {
+        let message;
+        try { message = JSON.parse(event.data); } catch (_) { return; }
+        if (message && message.operationId === operationId) readback();
+      });
+      source.addEventListener('resync', readback);
+    }
+    readback();
+  }
+
+  function executePublicManualCreate(specification, idempotencyKey, button, feedback, onSucceeded, nativePayload) {
+    const api = resolvedClientApi();
+    if (!api || typeof api.fetchPublicManualTimerCreate !== 'function') {
+      setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
+      return Promise.resolve(null);
+    }
+    button.disabled = true;
+    setFeedback(feedback, 'Timer-Auftrag wird über Public API v1 gesendet …', false);
+    return Promise.resolve().then(() => api.fetchPublicManualTimerCreate({
+      payload: specification, idempotencyKey
+    })).then(result => {
+      if (!result || result.status !== 202 || !result.data ||
+          !result.data.operationId)
+        throw new Error('Timer-Antwort enthält keine dauerhafte Operation.');
+      setFeedback(feedback, 'Timer-Auftrag ' + result.data.operationId +
+        ' angenommen. Native Bestätigung steht noch aus.', false);
+      observeManualTimerOperation(result.data.operationId, feedback, onSucceeded);
+      return result;
+    }).catch(error => {
+      // Only this typed, pre-admission response proves that no durable
+      // operation was admitted. The existing native editor may create once;
+      // generic 409/503, transport failures and unknown outcomes never retry.
+      if (error && error.status === 409 && error.code === 'native_editor_required' &&
+          nativePayload && typeof api.fetchPublicNativeTimerDirectCreate === 'function') {
+        return executeAction('create', nativePayload, button, feedback).then(result => {
+          if (result && typeof onSucceeded === 'function') onSucceeded();
+          return result;
+        });
+      }
+      setFeedback(feedback,
+        'Timer-Erstellung nicht bestätigt: ' +
+        String(error && error.message ? error.message : error) +
+        '. Einen möglichen Auftrag nicht mit neuer ID wiederholen.', true);
+      return null;
+    }).finally(() => { button.disabled = false; });
+  }
+
   function fetchChannels() {
     const backendId = selectedBackendId();
     if (channelCache[backendId]) return channelCache[backendId];
@@ -487,6 +763,7 @@
     }
 
     channelCache[backendId] = clientApi.fetchClientChannels({
+      editorCatalog: true,
       query: {backend: backendId, _: String(Date.now())},
       cache: 'no-store',
       credentials: 'same-origin'
@@ -702,8 +979,8 @@
     grid.appendChild(createField('Datum', textInput('day', timer.day, 'date')));
     grid.appendChild(createField('Start', textInput('start', timeToInput(timer.start), 'time')));
     grid.appendChild(createField('Ende', textInput('stop', timeToInput(timer.stop), 'time')));
-    grid.appendChild(createField('Priorität', textInput('priority', timer.priority || 50, 'number')));
-    grid.appendChild(createField('Lebensdauer', textInput('lifetime', timer.lifetime || 99, 'number')));
+    grid.appendChild(createField('Priorität', textInput('priority', timer.priority, 'number')));
+    grid.appendChild(createField('Lebensdauer', textInput('lifetime', timer.lifetime, 'number')));
     grid.appendChild(checkboxField('active', 'Aktiv', mode === 'create' ? true : timer.active));
     grid.appendChild(checkboxField('vps', 'VPS/PDC verwenden', timer.vps));
     grid.appendChild(createField('Aux/Metadaten', textInput('aux', timer.aux), true));
@@ -729,6 +1006,8 @@
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
 
+    let manualAttemptPayload = '';
+    let manualAttemptKey = '';
     form.addEventListener('submit', event => {
       event.preventDefault();
       const payload = formPayload(form, timer);
@@ -737,7 +1016,39 @@
         setFeedback(feedback, errors.join(' '), true);
         return;
       }
-      executeAction(mode, payload, submit, feedback);
+      // Disabled/VPS and recurring schedules without an explicit first date
+      // use the established native editor owner through Public v1 directly.
+      // No prospective device proof is invented for these schedule shapes.
+      const manual = mode === 'create' && payload.active && !payload.vps
+        ? manualTimerIntentSpecification({
+          ...payload,
+          // The native editor intentionally leaves recurring day empty.
+          // Use the separately entered first-airing date only for Public v1.
+          day: form.elements.day.value.trim()
+        }) : null;
+      if (manual) {
+        const fingerprint = JSON.stringify(manual);
+        try {
+          if (manualAttemptPayload !== fingerprint) {
+            manualAttemptKey = newManualTimerIdempotencyKey();
+            manualAttemptPayload = fingerprint;
+          }
+        } catch (error) {
+          setFeedback(feedback, String(error.message || error), true);
+          return;
+        }
+        executePublicManualCreate(manual, manualAttemptKey, submit, feedback, () => {
+          manualAttemptPayload = '';
+          manualAttemptKey = '';
+        }, {...payload, day: form.elements.day.value.trim()});
+        return;
+      }
+      // Explicit AUX edits go through the existing durable Public-v1
+      // MODIFY writer; unchanged Aux is omitted from the update body.
+      if (mode === 'update')
+        executePublicNativeTimerAction(
+          'update', payload, submit, feedback, String(timer.aux || ''));
+      else executeAction(mode, payload, submit, feedback);
     });
     return form;
   }
@@ -852,7 +1163,8 @@
     toggle.type = 'button';
     toggle.disabled = timer.recording;
     toggle.addEventListener('click', () => {
-      executeAction('update', timerActionPayload(timer, {active: !timer.active}), toggle, feedback);
+      executePublicNativeTimerAction('toggle',
+        timerActionPayload(timer, {active: !timer.active}), toggle, feedback);
     });
     actions.appendChild(toggle);
 
@@ -864,7 +1176,10 @@
       : '';
     remove.addEventListener('click', () => {
       if (!global.confirm(timerDeletePrompt(timer))) return;
-      executeAction('delete', {backendId: selectedBackendId(), timerId: timer.timerId}, remove, feedback);
+      executePublicNativeTimerAction('delete', {
+        backendId: selectedBackendId(), timerId: timer.timerId,
+        recording: timer.recording
+      }, remove, feedback);
     });
     actions.appendChild(remove);
 
@@ -994,6 +1309,10 @@
     directoryOptionLabel: directoryOptionLabel,
     directoryOptions: directoryOptions,
     timerActionPayload: timerActionPayload,
+    manualOneShotSpecification: manualOneShotSpecification,
+    manualTimerIntentSpecification: manualTimerIntentSpecification,
+    publicNativeTimerUpdatePayload: publicNativeTimerUpdatePayload,
+    stopRunningTimer: stopRunningTimer,
     timerDeleteLabel: timerDeleteLabel,
     timerDeletePrompt: timerDeletePrompt,
     validateTimerPayload: validateTimerPayload,

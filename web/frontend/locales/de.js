@@ -161,6 +161,7 @@
   "settings.accountAdminPermissionLabel.remote.control": "Fernbedienung bedienen",
   "settings.accountAdminPermissionLabel.osd.view": "OSD ansehen",
   "settings.accountAdminPermissionLabel.osd.control": "OSD bedienen",
+  "settings.accountAdminPermissionLabel.recordings.edit": "Aufnahmen bearbeiten (inkl. Schnitt)",
   "settings.accountAdminPermissionLabel.recordings.rename": "Aufnahmen umbenennen",
   "settings.accountAdminPermissionLabel.recordings.move": "Aufnahmen verschieben",
   "settings.accountAdminPermissionLabel.recordings.delete": "Aufnahmen löschen",

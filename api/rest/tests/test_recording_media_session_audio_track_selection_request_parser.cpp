@@ -56,6 +56,30 @@ int main()
     assert(valid.capabilities.containers.front() == MediaContainer::Fmp4);
     assert(valid.capabilities.audioCodecs.front() == MediaCodec::Aac);
 
+    // Versioned controls bind the source via the owned MediaSession, not a
+    // client-supplied native Recording ID. Legacy validation remains strict.
+    std::string sessionBody = selectionBody();
+    const std::string legacyIdentity = R"json("recordingId":"rec-123",)json";
+    const auto identityAt = sessionBody.find(legacyIdentity);
+    assert(identityAt != std::string::npos);
+    sessionBody.erase(identityAt, legacyIdentity.size());
+    const auto legacyWithoutId =
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(sessionBody);
+    assert(!legacyWithoutId.valid && legacyWithoutId.reasonCode == "invalid_recording_id");
+    const auto publicSelection =
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(sessionBody, false);
+    assert(publicSelection.valid && publicSelection.recordingId.empty());
+    assert(publicSelection.backendId == valid.backendId);
+    assert(publicSelection.sessionId == valid.sessionId);
+    assert(publicSelection.audioTrackId == valid.audioTrackId);
+    assert(publicSelection.positionSeconds == valid.positionSeconds);
+    assert(publicSelection.capabilities.protocols == valid.capabilities.protocols);
+    const auto invalidPublicSelection =
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(
+            R"json({"operation":"select-audio-track","backendId":"default","sessionId":"mediasess_1","audioTrackId":"audio-1","positionSeconds":0})json", false);
+    assert(!invalidPublicSelection.valid &&
+        invalidPublicSelection.reasonCode == "invalid_media_capabilities");
+
     const auto seek = RecordingMediaSessionRequestParser().parseAudioTrackSelection(
         R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_1","positionSeconds":12})json");
     assert(!seek.valid);

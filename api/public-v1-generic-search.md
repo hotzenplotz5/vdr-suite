@@ -63,3 +63,50 @@ wire it directly to TV or expose stream URLs.
 ### Person matches (additive projection)
 
 Both authorized search routes return `personProjectionVersion: 1` and per-item `matchedPerson`, `matchedRole`, `matchReason`, and `personKey` from the existing global search owner. The key uses the same Unicode folding and role as the Web people grouping. Clients combine the already authorized recording and EPG pages in key order, counting only returned matches. No extra permission, second matcher, native ID or filesystem path is introduced. Older servers lack the version marker. Recording subtitles and EPG channel name/description are also projected.
+
+### Search card data (additive projection)
+
+Both search result types also expose `durationSeconds` and advisory
+`artworkAvailable` from the same Web search index. Recording hits expose
+`startTime`, `sizeMb` and `edited`, with the existing canonical `rec_` identity.
+The availability hint is not an artwork grant or proof that a byte resource
+is currently available. Use the existing Public-v1 artwork resources;
+no native recording path, native ID or private URL is returned. This adds no
+new index query and does not yet replace the combined browser search dialog.
+
+### Cached person portraits in Recording search
+
+A Recording search hit may carry `personPortrait: {recordingId, artworkId}`
+for its matched person. The reference uses the existing backend-scoped,
+bulk portrait lookup, complete cast ordinal, assignment revision and the
+same opaque image identity as Recording detail and its binary artwork GET.
+No additional index, provider request or per-person profile query is needed.
+The referenced recording can differ from the search hit; its current backend
+identity must resolve. Missing/stale portraits do not remove valid hits.
+EPG search never emits Recording portrait references. Existing independent
+`recordings.view` and `epg.view` authorization remains unchanged.
+
+### Preferred artwork in Recording search
+
+Recording hits optionally include `preferredArtworkId`, referencing the existing
+individual Recording artwork GET with the hit's `recordingId` and `backendId`.
+The shared search query already joins the selected manual and persisted native
+metadata. Its image evidence now includes native dimensions and the selected
+manual revision, so the same existing opaque asset identity is generated without
+additional per-result metadata lookups. Selected manual metadata has precedence;
+missing/stale images do not remove a hit, and no private paths are returned.
+`artworkAvailable` remains an advisory hint from the shared index.
+
+### Combined search
+
+`GET /api/v1/search?backendId=default&query=hobbit&limit=24&offset=0`
+returns `{recordings: <Recording search page>, epg: <EPG search page>}`.
+It calls the existing shared search once and preserves the independent page
+sizes, totals and ranking. Both existing read grants (`recordings.view` and
+`epg.view`) must cover the same backend; no new permission vocabulary and no
+change to either split endpoint. The combined EPG page may also contain a
+cached Recording portrait reference for an EPG-only person, because the same
+caller already has Recording read access. The split EPG page still cannot.
+Public Recording IDs and the existing opaque artwork IDs are used throughout.
+The old authenticated browser route remains available for existing legacy
+browser compatibility; it is not a fallback inside the public runtime.

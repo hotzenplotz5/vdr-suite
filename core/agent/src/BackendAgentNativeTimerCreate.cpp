@@ -222,6 +222,9 @@ bool backendAgentNativeTimerCreateSpecificationValid(
         !boundedText(specification.title, kMaxTextLength) ||
         !boundedText(specification.directory, kMaxTextLength) ||
         !boundedText(specification.day, kMaxIdentityLength) ||
+        specification.aux.size() > kMaxTextLength ||
+        specification.aux.find_first_of("\0\r\n", 0U, 3U) != std::string::npos ||
+        specification.aux.find("<vdr-suite-managed-timer") != std::string::npos ||
         specification.weekdays.size() != 7 ||
         !validHhmm(specification.startTime) ||
         !validHhmm(specification.endTime) ||

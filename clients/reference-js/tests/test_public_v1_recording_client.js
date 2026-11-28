@@ -95,6 +95,19 @@ async function run() {
   assert(requests[requests.length - 1].url.includes('/api/v1/epg/preferred-artwork?'));
   assert.strictEqual(requests[requests.length - 1].options.headers.Authorization,
     'Bearer device-secret');
+  const previewOptions = {backendId: 'backend-a', variant: 'home'};
+  await artClient.getRecordingArtworkImage({...previewOptions, recordingId: recId, artworkId: artId});
+  assert(requests[requests.length - 1].url.endsWith('?backendId=backend-a&variant=home'));
+  for (const method of ['getEpgArtworkImage', 'getEpgPreferredArtworkImage']) {
+    await artClient[method]({...previewOptions, channelId: 'S19.2E-1-100', eventId: '81234'});
+    assert(requests[requests.length - 1].url.endsWith('&variant=home'));
+    assert.strictEqual(requests[requests.length - 1].options.headers.Authorization, 'Bearer device-secret');
+    assert.throws(() => artClient[method]({...previewOptions, variant: 'unknown',
+      channelId: 'S19.2E-1-100', eventId: '81234'}));
+  }
+  assert.throws(() => artClient.getRecordingArtwork({...previewOptions, recordingId: recId}));
+  assert.throws(() => artClient.getRecordingArtworkImage({...previewOptions, variant: 'unknown',
+    recordingId: recId, artworkId: artId}));
   const priorImage = requests.length;
   for (const invalid of [
     {recordingId: 'rec_bad', backendId: 'backend-a'},

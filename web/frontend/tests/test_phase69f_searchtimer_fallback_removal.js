@@ -77,7 +77,7 @@ async function verifyOneShot(functionName, expectedPath, expectedMethod, options
   assert.strictEqual(emitted[0].options.method, expectedMethod);
 
   if (options && options.backendId) {
-    assert.strictEqual(parsed.searchParams.get('backend'), options.backendId);
+    assert.strictEqual(parsed.searchParams.get(expectedPath === '/api/v1/search-timers/preview-cache/refresh' ? 'backendId' : 'backend'), options.backendId);
   }
 }
 
@@ -85,48 +85,38 @@ async function run() {
   assert.ok(!source.includes('function requestJsonWithFallbacks(paths, options)'));
   assert.ok(!source.includes('/api/vdr/searchtimers/live'));
 
+  for (const name of ["fetchClientTimerCreateAction","fetchClientTimerUpdateAction","fetchClientTimerDeleteAction","fetchClientSearchTimers","fetchClientSearchTimerDiscovery","fetchClientSearchTimerPreview","fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","fetchClientSearchTimerRealTest","fetchClientSearchTimerUpdateAction","fetchClientSearchTimerDeleteAction"]) {
+    assert.strictEqual(typeof api[name], 'undefined', 'retired wrapper returned: ' + name);
+  }
+  assert.ok(!source.includes('/api/vdr/searchtimers'));
+  assert.ok(!source.includes('/api/searchtimers'));
+  assert.ok(!source.includes('/api/vdr/timers/actions/'));
+
   await verifyOneShot(
-    'fetchClientSearchTimers',
-    '/api/vdr/searchtimers',
-    'GET'
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerDiscovery',
-    '/api/vdr/searchtimers/discovery',
+    'fetchPublicSearchTimerDraftPreview',
+    '/api/v1/search-timers/draft-preview',
     'GET',
-    {backendId: 'living-room'}
+    {backend: 'living-room', limit: 40, payload: {query:'Tatort & Co',mode:4,
+      compareTitle:true,compareSubtitle:false,compareSummary:true,useChannel:2,
+      channels:'Öffentlich',useTime:true,startTime:2200,stopTime:200,
+      useDuration:true,durationMinMinutes:30,durationMaxMinutes:130,
+      useDayOfWeek:true,dayOfWeek:-62,blacklistIds:'4',priority:50}}
   );
-  await verifyOneShot(
-    'fetchClientSearchTimerPreview',
-    '/api/vdr/searchtimers/preview',
-    'GET',
-    {backendId: 'living-room'}
-  );
+  const draft = requests.at(-1);
+  const draftParams = new URL(draft.url,'https://vdr-suite.test/').searchParams;
+  for (const [key,value] of Object.entries({backend:'living-room',query:'Tatort & Co',mode:'4',
+    limit:'40',compareTitle:'1',compareSubtitle:'0',compareSummary:'1',useChannel:'2',
+    channels:'Öffentlich',useTime:'1',startTime:'2200',stopTime:'200',useDuration:'1',
+    durationMinMinutes:'30',durationMaxMinutes:'130',useDayOfWeek:'1',dayOfWeek:'-62'}))
+    assert.strictEqual(draftParams.get(key),value);
+  assert(!draftParams.has('blacklistIds') && !draftParams.has('priority') && !draftParams.has('tolerance'));
+  assert.strictEqual(draft.options.credentials,'same-origin');
   await verifyOneShot(
     'fetchClientSearchTimerPreviewCacheRefresh',
-    '/api/vdr/searchtimers/preview/cache/refresh',
+    '/api/v1/search-timers/preview-cache/refresh',
     'POST',
     {backendId: 'living-room'}
   );
-  await verifyOneShot(
-    'fetchClientSearchTimerPlan',
-    '/api/vdr/searchtimers/plan',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerValidate',
-    '/api/vdr/searchtimers/validate',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerRealTest',
-    '/api/vdr/searchtimers/real-test',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-
   const id = 'st_' + 'a'.repeat(32);
   const revision = 'sr_' + 'b'.repeat(32);
   const backend = 'living-room';
@@ -140,6 +130,8 @@ async function run() {
   assert.strictEqual(pageRequest.searchParams.get('limit'), '30');
   assert.strictEqual(pageRequest.searchParams.get('cursor'), 'cursor-example');
   await verifyOneShot('fetchPublicSearchTimerDetail', '/api/v1/search-timers/' + id,
+    'GET', {backend, searchTimerId: id});
+  await verifyOneShot('fetchPublicSearchTimerPreview', '/api/v1/search-timers/' + id + '/preview',
     'GET', {backend, searchTimerId: id});
   await verifyOneShot('fetchPublicSearchTimerVersion', '/api/v1/search-timers/' + id + '/version',
     'GET', {backend, searchTimerId: id});
@@ -160,6 +152,50 @@ async function run() {
   const previousCount = requests.length;
   await captureFailure(() => api.mutatePublicSearchTimer({backend, searchTimerId: '0'}));
   assert.strictEqual(requests.length, previousCount);
+
+  // The editor catalog reuses the real Public-v1 client, follows every
+  // page in VDR order and retains the private read only for its existing
+  // permission/compatibility boundary. Ordinary browser consumers are unchanged.
+  const publicPath = path.resolve(__dirname, '../../../clients/reference-js/public-v1-client.js');
+  vm.runInContext(fs.readFileSync(publicPath, 'utf8'), context, {filename: publicPath});
+  const originalFetch = context.fetch;
+  const editorOptions = {editorCatalog:true, query:{backend:'living-room'}, cache:'no-store'};
+  const channel = (id, number) => ({backendId:'living-room',channelId:id,
+    channelNumber:number,name:id,groupName:'TV',enabled:true,radio:false});
+  let calls = [];
+  let replies = [];
+  context.fetch = (url, options) => {
+    calls.push(String(url));
+    assert.strictEqual(options.method,'GET');
+    assert.ok(replies.length, 'unexpected catalog request');
+    return Promise.resolve(replies.shift());
+  };
+  try {
+    replies = [
+      response(200,{items:[channel('a',1)],page:{hasMore:true,nextCursor:'ch2_next'},meta:{partial:false}}),
+      response(200,{items:[channel('b',2)],page:{hasMore:false,nextCursor:null},meta:{partial:false}})
+    ];
+    const catalog = await api.fetchClientChannels(editorOptions);
+    assert.strictEqual(JSON.stringify(catalog.channels.map(x=>x.channelId)), '["a","b"]');
+    assert.strictEqual(calls.length,2);
+    const first = new URL(calls[0],'https://vdr-suite.test');
+    assert.strictEqual(first.pathname,'/api/v1/channels');
+    assert.strictEqual(first.searchParams.get('backendId'),'living-room');
+    assert.strictEqual(first.searchParams.get('sort'),'backendId,channelNumber,channelId');
+    assert.strictEqual(new URL(calls[1],'https://vdr-suite.test').searchParams.get('cursor'),'ch2_next');
+    calls = [];
+    replies = [response(403,{code:'permission_denied'}),response(200,{channels:[channel('legacy',3)]})];
+    assert.strictEqual((await api.fetchClientChannels(editorOptions)).channels[0].channelId,'legacy');
+    assert.strictEqual(new URL(calls[1],'https://vdr-suite.test').pathname,'/api/vdr/channels');
+    calls = [];
+    replies = [response(503,{code:'backend_unavailable'})];
+    await assert.rejects(api.fetchClientChannels(editorOptions), e=>e.status===503);
+    assert.strictEqual(calls.length,1);
+    calls = [];
+    replies = [response(200,{channels:[]})];
+    await api.fetchClientChannels({query:{backend:'living-room'}});
+    assert.strictEqual(new URL(calls[0],'https://vdr-suite.test').pathname,'/api/vdr/channels');
+  } finally { context.fetch = originalFetch; }
 
   console.log('test_phase69f_searchtimer_fallback_removal passed');
 }

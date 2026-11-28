@@ -116,11 +116,12 @@ bool DeviceGrantAdministrationService::supportedGrant(
 {
     // A Device Service Actor cannot receive role.admin, arbitrary
     // administrative rights, or unrestricted mutation permissions here.
-    // Only the explicitly reviewed single-backend Timer mutations are allowed.
-    // No grant is given automatically: an administrator must approve each Device.
+    // Only reviewed backend-scoped Timer/SearchTimer and Recording-edit
+    // mutations are permitted. Nothing is granted automatically.
     const bool devicePermission =
         permission == "channels.view" ||
         permission == "recordings.view" ||
+        permission == "recordings.edit" ||
         permission == "epg.view" ||
         permission == "timers.view" ||
         permission == "timers.create" ||
@@ -135,7 +136,8 @@ bool DeviceGrantAdministrationService::supportedGrant(
         permission == "media.recording.play";
     // Native Timer CREATE, MODIFY and DELETE require a concrete backend.
     // Human grant vocabulary may allow '*', but Device mutation may not.
-    if ((permission == "searchtimers.create" ||
+    if ((permission == "recordings.edit" ||
+         permission == "searchtimers.create" ||
          permission == "searchtimers.modify" ||
          permission == "searchtimers.execute" ||
          permission == "searchtimers.delete" ||

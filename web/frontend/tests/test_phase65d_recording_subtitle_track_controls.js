@@ -258,6 +258,7 @@ function trackContract(audioTrackId, subtitleTrackId) {
       requestJson(requestPath, options) {
         const body = JSON.parse(options.body);
         if (body.operation === 'track-status') {
+          assert.strictEqual(requestPath, '/api/v1/browser/recording-playback-sessions/control');
           statusRequests.push(body);
           return Promise.resolve({mediaSession: {
             id: body.sessionId,
@@ -270,7 +271,7 @@ function trackContract(audioTrackId, subtitleTrackId) {
       }
     },
     fetch(requestPath, options) {
-      assert.strictEqual(requestPath, '/api/media/sessions');
+      assert.strictEqual(requestPath, '/api/v1/browser/recording-playback-sessions/control');
       const body = JSON.parse(options.body);
       assert.strictEqual(body.operation, 'select-subtitle-track');
       subtitleRequests.push(body);

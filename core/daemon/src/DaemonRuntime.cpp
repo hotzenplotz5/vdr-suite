@@ -87,7 +87,30 @@ int DaemonRuntime::run()
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
             database_,
-            *vdrRecordingCacheRepository_)) {
+            *vdrRecordingCacheRepository_,
+            [this](const std::string& backendId, const std::string& nativeId)
+            {
+                if (!publicRecordingIdentities_) return std::string{};
+                return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                    .value_or(std::string{});
+            },
+            [this](const VdrRecording& recording, const ManualRecordingMetadataAssignment& manual)
+            {
+                // Same preferred-artwork identity as the public metadata
+                // and binary image owner, not a second artwork store.
+                const bool selected = manual.found && manual.relationshipLocked;
+                auto id = VdrRecordingFolderController::publicSearchPreferredArtworkId(
+                    recording, selected ? manual.posterReference : std::string{},
+                    0, 0, selected, manual.revision);
+                if (!id.empty() || selected || !vdrRecordingFolderController_)
+                    return id;
+                const auto native = vdrRecordingFolderController_->findNativeMetadata(
+                    recording.backendId, recording.backendNativeId);
+                for (const auto& image : VdrRecordingFolderController::publicMetadataArtwork(
+                        recording, manual, native))
+                    if (image.kind == "preferred") return image.artworkId;
+                return std::string{};
+            })) {
         std::cerr << "Continue Watching runtime unavailable" << std::endl;
         return 1;
     }

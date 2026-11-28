@@ -338,6 +338,11 @@ public:
         return executor_.callCount();
     }
 
+    VdrTimerOperationRequest lastRequest() const
+    {
+        return executor_.lastRequest();
+    }
+
 private:
     std::string backendIdValue_;
     MockVdrTimerActionExecutor executor_;
@@ -1963,6 +1968,15 @@ int main()
         "\"action\":\"DELETE\"}");
     assert(wrongBackend.statusCode == 404);
 
+    // The real client router must reach the existing hierarchy owner rather
+    // than the generic Public-v1 fallback.
+    const auto hierarchyUnavailable = router.handleClientPost(
+        "/api/v1/backends/router-backend/recordings/series-hierarchy",
+        R"json({"recordingId":"rec_0123456789abcdef0123456789abcdef","operation":"clear"})json",
+        "test-actor", "", "", "", "", "", "application/json", "router-backend");
+    assert(hierarchyUnavailable.statusCode == 503);
+    assert(hierarchyUnavailable.body.find("series_hierarchy_runtime_unavailable") != std::string::npos);
+
     const std::string timerCreateBody =
         "{"
         "\"backendId\":\"router-backend\","
@@ -2001,6 +2015,18 @@ int main()
     assert(timerUpdateResponse.contentType == "application/json");
     assert(timerUpdateResponse.body.find("\"type\":\"update\"")
            != std::string::npos);
+
+    // Productive router -> existing controller/parser -> existing native
+    // timer executor must forward JSON-escaped metadata without truncation.
+    const ApiResponse metadataUpdate = router.handlePost(
+        "/api/vdr/timers/actions/update",
+        R"json({"backendId":"router-backend","timerId":"router-timer-1","channelId":"router-channel-1","title":"Serie, Teil } 2: \"Finale\"","aux":"<plugin x=\"a,b}\" path=\"C:\\video\">Text\n2</plugin>","priority":0,"lifetime":0})json");
+    assert(metadataUpdate.statusCode == 200);
+    assert(metadataUpdate.body.find("\"success\":true") != std::string::npos);
+    const auto forwardedTimer = routerTimerAdapter->lastRequest();
+    assert(forwardedTimer.title == "Serie, Teil } 2: \"Finale\"");
+    assert(forwardedTimer.aux == "<plugin x=\"a,b}\" path=\"C:\\video\">Text\n2</plugin>");
+    assert(forwardedTimer.priority == 0 && forwardedTimer.lifetime == 0);
 
     const std::string timerDeleteBody =
         "{"
@@ -2262,6 +2288,22 @@ int main()
         "{\"backendId\":\"router-backend\","
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"DELETE\",\"dryRun\":true}";
+    recordingActionValidationService.setRequestGuard(
+        [](const RecordingActionRequest&) {
+            return std::string("recording_cut_active_delete_blocked");
+        });
+    const auto cutBlocked = router.handlePost(
+        "/api/v1/recordings/actions/validate", deletePreviewBody);
+    assert(cutBlocked.statusCode == 200);
+    assert(cutBlocked.body.find("recording_cut_active_delete_blocked") != std::string::npos);
+    assert(cutBlocked.headers.count("ETag") == 0U);
+    recordingActionValidationService.setRequestGuard(
+        [](const RecordingActionRequest&) { return std::string("/private/native-error"); });
+    const auto sanitized = router.handlePost(
+        "/api/v1/recordings/actions/validate", deletePreviewBody);
+    assert(sanitized.body.find("/private/native-error") == std::string::npos);
+    assert(sanitized.body.find("Recording action validation failed") != std::string::npos);
+    recordingActionValidationService.setRequestGuard({});
     const auto deletePreflight = router.handlePost(
         "/api/v1/recordings/actions/validate", deletePreviewBody);
     assert(deletePreflight.statusCode == 200);
@@ -2318,13 +2360,39 @@ int main()
     assert(moved.body.find("Movies/Archive") == std::string::npos);
     assert(publicReadbacks == 3);
 
+    // New logical folders use the same provider revision and write stack.
+    const std::string newFolderPrefix =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\",\"targetFolder\":\"Movies/New Archive\",";
+    const auto newFolderPreview = router.handlePost(
+        "/api/v1/recordings/actions/validate",
+        newFolderPrefix + "\"dryRun\":true}");
+    assert(newFolderPreview.statusCode == 200);
+    assert(newFolderPreview.headers.count("ETag") == 1U);
+    const auto newFolderTag = newFolderPreview.headers.at("ETag");
+    assert(newFolderTag != moveTag);
+    assert(newFolderTag.find("Movies/New Archive") == std::string::npos);
+    const auto staleNewFolder = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        newFolderPrefix + "\"dryRun\":false}", moveTag);
+    assert(staleNewFolder.statusCode == 412);
+    assert(publicReadbacks == 3);
+    const auto newFolderMoved = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        newFolderPrefix + "\"dryRun\":false}", newFolderTag);
+    assert(newFolderMoved.statusCode == 200);
+    assert(newFolderMoved.body.find("\"readbackVerified\":true") != std::string::npos);
+    assert(newFolderMoved.body.find("Movies/New Archive") == std::string::npos);
+    assert(publicReadbacks == 4);
+
     int moveDispatches = 0;
     int deleteDispatches = 0;
     for (const auto& url : safeHttp.urls) {
         if (url == "/recordings/move.json") ++moveDispatches;
         if (url == "/recordings/trash.json") ++deleteDispatches;
     }
-    assert(moveDispatches == 1 && deleteDispatches == 1);
+    assert(moveDispatches == 2 && deleteDispatches == 1);
 
     std::cout
         << "test_api_router passed"

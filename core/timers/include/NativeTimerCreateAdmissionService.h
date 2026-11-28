@@ -2,8 +2,14 @@
 
 #include "MutationOperation.h"
 #include "NativeTimerCreateOperationPayload.h"
+#include "ManualTimerIntentDraft.h"
+#include "EpgNativeTimerTimeGuard.h"
+#include "EpgNativeTimerConflictGuard.h"
+#include "EpgNativeTimerExecutionAuthority.h"
+#include "TimerAssignmentPlanner.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 class Database;
@@ -19,6 +25,8 @@ namespace vdrsuite::timers
 class NativeTimerCreateOperationPreparationService;
 class TimerAssignmentFulfillmentService;
 class TimerAssignmentRepository;
+class TimerIntentApplicationService;
+class TimerIntentRepository;
 
 enum class NativeTimerCreateAdmissionStatus
 {
@@ -38,6 +46,43 @@ enum class NativeTimerCreateAdmissionStatus
     invalid,
 };
 
+
+ // Manual and recurring draft admission reuse the EXISTING native CREATE
+ // operation authority. Input projection/Planner evidence is server-owned;
+ // the API may supply desired fields but not authoritative Agent facts.
+
+struct ManualNativeTimerCreateReplayRequest
+{
+    std::string actorId, backendId, idempotencyKey;
+    std::string channelId, title, directory;
+    // Explicit native recurrence mask; the original one-shot contract
+    // continues to use ------- by default.
+    std::string weekdays = "-------";
+    std::int64_t startAt = 0, stopAt = 0;
+    std::int32_t priority = 50, lifetime = 99;
+    bool enabled = true, vps = false;
+    std::string aux;
+};
+
+struct ManualNativeTimerCreateAdmissionRequest
+{
+    std::string actorId;
+    std::string backendId;
+    std::string idempotencyKey;
+    ManualTimerIntentDraft draft;
+    TimerAssignmentPlanningBackendCandidate candidate;
+    vdrsuite::public_epg_timer::ServerOwnedNativeClockEvidence nativeClock;
+    vdrsuite::public_epg_timer::ProspectiveNativeTimerConflictProof conflictProof;
+    BackendAgentRecord authoritativeAgent;
+    vdrsuite::agent::BackendAgentLocalProviderSelection nativeCreateProvider;
+    std::int64_t requestedAt = 0;
+    std::int64_t deadline = 0;
+    // Re-evaluate current backend/Agent/provider and channel mapping under
+    // the already-established atomic transaction; no implicit retry.
+    std::function<bool()> revalidateSourceAndExecutionAuthority;
+    std::string aux;
+};
+
 struct NativeTimerCreateAdmissionRequest
 {
     std::string actorId;
@@ -47,6 +92,7 @@ struct NativeTimerCreateAdmissionRequest
     std::string expectedBackendId;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
+    std::string aux;
 };
 
 struct NativeTimerCreateAdmissionResult
@@ -75,6 +121,20 @@ public:
 
     NativeTimerCreateAdmissionResult admit(
         const NativeTimerCreateAdmissionRequest& request);
+
+    // One transaction owns manual Intent, selected Assignment and the same
+    // NativeTimerCreateAdmissionService Operation/payload. No second writer
+    // and no second idempotency table: deterministic IDs reserve a key scope.
+    NativeTimerCreateAdmissionResult admitManualWindow(
+        const ManualNativeTimerCreateAdmissionRequest& request,
+        TimerIntentRepository& intents,
+        TimerIntentApplicationService& application);
+
+    // Read-only recovery; no Agent/Clock/preview needed for a committed
+    // Operation. Returns assignmentNotFound for a previously unused key.
+    NativeTimerCreateAdmissionResult replayManualWindow(
+        const ManualNativeTimerCreateReplayRequest& request,
+        TimerIntentRepository& intents);
 
     // Higher-level EPG admission owns BEGIN/COMMIT/ROLLBACK and the
     // database transaction lease. Never commits a partially-created

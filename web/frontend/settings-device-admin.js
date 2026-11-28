@@ -3,6 +3,7 @@
   const names = Object.freeze({
     'channels.view': 'Sender ansehen',
     'recordings.view': 'Aufnahmen ansehen',
+    'recordings.edit': 'Aufnahmen bearbeiten (inkl. Schnitt)',
     'epg.view': 'EPG ansehen',
     'timers.view': 'Aufnahmetimer ansehen',
     'timers.create': 'Einzelaufnahmen programmieren',
@@ -446,7 +447,7 @@
         // and server-side scope/permission admission; never offer new scopes.
         const supported = grant.supportedPermissions.includes(permission);
         const canEdit = editable && supported && (knownBackend || original) &&
-          !(['timers.create', 'searchtimers.create'].includes(permission) && backendId === '*');
+          !(['recordings.edit', 'timers.create', 'searchtimers.create'].includes(permission) && backendId === '*');
         input.disabled = state.loading || !canEdit;
         const control = {input: input, permission: permission, original: original,
           canEdit: canEdit, canAdd: knownBackend && allowed.includes(permission)};

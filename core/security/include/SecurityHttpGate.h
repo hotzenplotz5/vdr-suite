@@ -173,10 +173,28 @@ public:
              path == "/api/vdr/recordings/actions/execute" ||
              path == "/api/v1/recordings/actions/execute" ||
              path == "/api/v1/recordings/actions/validate");
+        // Existing native edit permissions also protect the public routes.
+        const std::string publicEditPrefix = "/api/v1/recordings/";
+        const std::size_t publicEditSlash =
+            path.compare(0U, publicEditPrefix.size(), publicEditPrefix) == 0
+                ? path.find('/', publicEditPrefix.size())
+                : std::string::npos;
+        const bool publicEditPath =
+            publicEditSlash != std::string::npos &&
+            publicEditSlash > publicEditPrefix.size();
+        const bool isPublicRecordingMarks =
+            publicEditPath && path.substr(publicEditSlash) == "/marks";
+        const bool isPublicRecordingCut =
+            publicEditPath && path.substr(publicEditSlash) == "/cut";
+        const bool isPublicRecordingEditRead =
+            request.method == "GET" &&
+            (isPublicRecordingMarks || isPublicRecordingCut);
         const bool isRecordingMarksModifyAction =
-            isPost && path == "/api/vdr/recordings/marks";
+            isPost && (path == "/api/vdr/recordings/marks" ||
+                       isPublicRecordingMarks);
         const bool isRecordingCutAction =
-            isPost && path == "/api/vdr/recordings/cut";
+            isPost && (path == "/api/vdr/recordings/cut" ||
+                       isPublicRecordingCut);
         const bool isSearchTimerCreateAction = isPost &&
             (path == "/api/searchtimers" || path == "/api/vdr/searchtimers");
         const bool isSearchTimerUpdateAction = isPost &&
@@ -187,8 +205,11 @@ public:
             (path == "/api/searchtimers/execute" || path == "/api/vdr/searchtimers/execute");
         const bool isSearchTimerRealTestAction = isPost &&
             (path == "/api/searchtimers/real-test" || path == "/api/vdr/searchtimers/real-test");
+        const bool isPublicSearchTimerPreviewCacheRefresh = isPost &&
+            path == "/api/v1/search-timers/preview-cache/refresh";
         const bool isSearchTimerPreviewCacheRefreshAction = isPost &&
-            (path == "/api/searchtimers/preview/cache/refresh" || path == "/api/vdr/searchtimers/preview/cache/refresh");
+            (isPublicSearchTimerPreviewCacheRefresh ||
+             path == "/api/searchtimers/preview/cache/refresh" || path == "/api/vdr/searchtimers/preview/cache/refresh");
         const bool isEpgCacheRefreshAction = isPost && path == "/api/epg/cache/refresh";
         const bool isNativeFuzzyRefreshAction = isPost &&
             (path == "/api/epgsearch/native-fuzzy/refresh" || path == "/api/vdr/epgsearch/native-fuzzy/refresh");
@@ -385,16 +406,32 @@ public:
         }
         std::string manualMetadataBackendId;
         std::string manualMetadataOperation;
-        const bool isManualRecordingMetadataAction = isPost &&
+        const bool isManualRecordingMetadataRoute =
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
+        const bool isManualRecordingMetadataAction = isPost &&
+            isManualRecordingMetadataRoute && manualMetadataOperation != "manual";
+        const bool isPublicManualMetadataRead = request.method == "GET" &&
+            isManualRecordingMetadataRoute &&
+            (manualMetadataOperation == "genre" || manualMetadataOperation == "trailer" ||
+             manualMetadataOperation == "manual") &&
+            path.compare(0, std::string("/api/v1/backends/").size(), "/api/v1/backends/") == 0;
         std::string recordingSeriesHierarchyBackendId;
         const bool isRecordingSeriesHierarchyAction =
             isPost &&
             recordingSeriesHierarchyRoute(
                 path,
                 recordingSeriesHierarchyBackendId);
+        const bool isPublicBrowserRecordingSessionCreate =
+            isPost && path == "/api/v1/browser/recording-playback-sessions";
+        const bool isPublicBrowserRecordingSessionControl =
+            isPost && path == "/api/v1/browser/recording-playback-sessions/control";
+        const bool isPublicBrowserRecordingHistory =
+            isPost && (path == "/api/v1/browser/recording-playback-sessions/progress" ||
+                       path == "/api/v1/browser/recording-playback-sessions/activity");
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
-        const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        const bool isRecordingPlaybackSessionCreate =
+            isMediaSessionMutation || isPublicBrowserRecordingSessionCreate ||
+            isPublicBrowserRecordingSessionControl || isPublicBrowserRecordingHistory;
         // Control-plane reservation. Media bytes use the separately guarded
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
@@ -1041,9 +1078,12 @@ public:
             (path == "/api/v1/recordings" ||
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
+             isPublicRecordingEditRead ||
+             isPublicManualMetadataRead ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
-             path == "/api/v1/search/recordings");
+             path == "/api/v1/search/recordings" ||
+             path == "/api/v1/search");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
@@ -1062,20 +1102,51 @@ public:
             path.size() > nativeTimerItemPrefix.size() &&
             path.find('/', nativeTimerItemPrefix.size()) ==
                 std::string::npos;
+        // Direct external/unbound actions inherit the EXACT existing
+        // Public-v1 timers.modify / timers.delete authorization and CSRF.
+        const auto nativeDirectPath = [&](const std::string& suffix) {
+            return isPost &&
+                path.compare(0U, nativeTimerItemPrefix.size(),
+                    nativeTimerItemPrefix) == 0 &&
+                path.size() > nativeTimerItemPrefix.size() + suffix.size() &&
+                path.compare(path.size() - suffix.size(),
+                    suffix.size(), suffix) == 0 &&
+                path.find('/', nativeTimerItemPrefix.size()) ==
+                    path.size() - suffix.size();
+        };
+        const bool isPublicNativeTimerDirectUpdate =
+            nativeDirectPath("/direct-update");
+        const bool isPublicNativeTimerDirectDelete =
+            nativeDirectPath("/direct-delete");
         const std::string modificationSuffix = "/modifications";
         const bool isPublicNativeTimerModify =
-            isPost && path.compare(0U, nativeTimerItemPrefix.size(),
+            (isPost && path.compare(0U, nativeTimerItemPrefix.size(),
                 nativeTimerItemPrefix) == 0 &&
             path.size() > nativeTimerItemPrefix.size() + modificationSuffix.size() &&
             path.compare(path.size() - modificationSuffix.size(),
                 modificationSuffix.size(), modificationSuffix) == 0 &&
             path.find('/', nativeTimerItemPrefix.size()) ==
-                path.size() - modificationSuffix.size();
+                path.size() - modificationSuffix.size()) ||
+            isPublicNativeTimerDirectUpdate;
         const bool isPublicNativeTimerDelete =
-            request.method == "DELETE" && isPublicNativeTimerItem;
+            (request.method == "DELETE" && isPublicNativeTimerItem) ||
+            isPublicNativeTimerDirectDelete;
+        const std::string nativeAuxSuffix = "/aux";
+        const bool isPublicNativeTimerAuxRead =
+            request.method == "GET" &&
+            path.compare(0U, nativeTimerItemPrefix.size(),
+                nativeTimerItemPrefix) == 0 &&
+            path.size() > nativeTimerItemPrefix.size() + nativeAuxSuffix.size() &&
+            path.compare(path.size() - nativeAuxSuffix.size(),
+                nativeAuxSuffix.size(), nativeAuxSuffix) == 0 &&
+            path.find('/', nativeTimerItemPrefix.size()) ==
+                path.size() - nativeAuxSuffix.size();
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
-            (path == "/api/v1/native-timers" || isPublicNativeTimerItem);
+            (path == "/api/v1/native-timers" || isPublicNativeTimerItem ||
+             isPublicNativeTimerAuxRead ||
+             path == "/api/v1/native-timers/conflicts/live" ||
+             path == "/api/v1/native-timers/live/list");
         const bool isPublicDeviceEventRead =
             request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
@@ -1136,8 +1207,12 @@ public:
         const bool isPublicSearchTimerPreviewRead =
             request.method == "GET" &&
             (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
+        // Manual and EPG one-shot CREATE share the EXISTING exact
+        // timers.create authorization, Browser CSRF and audited mutation.
         const bool isPublicEpgTimerIntentCreate =
-            isPost && path == "/api/v1/epg/timer-intents";
+            isPost && (path == "/api/v1/epg/timer-intents" ||
+                       path == "/api/v1/manual/timer-intents" ||
+                       path == "/api/v1/native-timers/actions/create");
         const std::string publicEpgTimerBackendId =
             isPublicEpgTimerIntentCreate
                 ? jsonStringValue(request.body, "backendId") : std::string();
@@ -1215,25 +1290,19 @@ public:
                 searchVersionEndpoint);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
-        // Browser administrators use the existing CREATE identity policy
-        // for SearchTimer reads and the canonical native mutation route.
+        // Browser sessions and paired Devices share the existing scoped
+        // SearchTimer permissions. The authorization service below checks
+        // the exact action; a session is not an implicit grant.
         const bool searchTimerDeviceClient =
             gate.deviceAuthenticated &&
             gate.context.actor.type == ActorType::Service &&
             gate.context.device.has_value() &&
             gate.context.credential.has_value() &&
             !gate.context.session.has_value();
-        const bool searchTimerBrowserAdmin =
+        const bool searchTimerBrowserClient =
             gate.browserAuthenticated &&
             gate.context.actor.type == ActorType::User &&
-            gate.context.session.has_value() &&
-            std::any_of(gate.context.grants.begin(),
-                gate.context.grants.end(),
-                [&publicSearchTimerBackendId](const PermissionGrant& grant) {
-                    return grant.permission == "role.admin" &&
-                        (grant.backendId == "*" ||
-                         grant.backendId == publicSearchTimerBackendId);
-                });
+            gate.context.session.has_value();
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -1291,7 +1360,10 @@ public:
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
              isPublicRecordingArtwork ||
+             path == "/api/v1/search" ||
              path == "/api/v1/native-timers" ||
+             path == "/api/v1/native-timers/conflicts/live" ||
+             path == "/api/v1/native-timers/live/list" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||
@@ -1315,7 +1387,7 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
-            isPublicNativeTimerModify ||
+            isPublicNativeTimerModify || isPublicNativeTimerDelete ||
             isAddonActivationMutation || isAddonSourceMutation ||
             isAddonEncodingMutation ||
             isRemoteAction || isTimerCreateAction ||
@@ -1916,8 +1988,9 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
-            const auto scopes = queryStringValues(
-                request.path, "backendId");
+            const auto scopes = isPublicManualMetadataRead
+                ? std::vector<std::string>{manualMetadataBackendId}
+                : queryStringValues(request.path, "backendId");
             const bool validScope = scopes.size() == 1U &&
                 !scopes.front().empty() &&
                 scopes.front().size() <= 128U &&
@@ -1938,36 +2011,46 @@ public:
                     "A single valid backendId is required.", "");
             }
 
-            AuthorizationRequest recordingReadRequest;
-            recordingReadRequest.permission = "recordings.view";
-            recordingReadRequest.backendId = scopes.front();
-            recordingReadRequest.action = "recordings.view";
-            const AuthorizationDecision decision =
-                authorizationService_.authorize(
-                    gate.context, recordingReadRequest);
-            if (!appendDecisionEvent(gate.context, decision, ""))
+            // The combined projection reads both already-authorized domains.
+            // Reuse their existing grants and audit path; the split endpoints
+            // and private browser authorization are unchanged.
+            const std::vector<std::string> permissions = path == "/api/v1/search"
+                ? std::vector<std::string>{"recordings.view", "epg.view"}
+                : std::vector<std::string>{isPublicManualMetadataRead && manualMetadataOperation == "manual"
+                    ? "metadata.recording.assign" : "recordings.view"};
+            for (const auto& permission : permissions)
             {
-                gate.rejection = errorResponse(
-                    503, "accountability_unavailable",
-                    "Security accountability persistence is unavailable",
-                    gate.context);
-                return gate;
-            }
-            if (!decision.allowed)
-            {
-                const int statusCode =
-                    decision.reasonCode == "invalid_backend_scope"
-                        ? 400
-                        : (authenticationFailure(decision) ? 401 : 403);
-                gate.rejection = errorResponse(
-                    statusCode, decision.reasonCode,
-                    messageForReason(decision.reasonCode),
-                    gate.context, authenticationFailure(decision),
-                    gate.publicApiV1);
-                return gate;
-            }
+                AuthorizationRequest recordingReadRequest;
+                recordingReadRequest.permission = permission;
+                recordingReadRequest.backendId = scopes.front();
+                recordingReadRequest.action = permission;
+                const AuthorizationDecision decision =
+                    authorizationService_.authorize(
+                        gate.context, recordingReadRequest);
+                if (!appendDecisionEvent(gate.context, decision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (!decision.allowed)
+                {
+                    const int statusCode =
+                        decision.reasonCode == "invalid_backend_scope"
+                            ? 400
+                            : (authenticationFailure(decision) ? 401 : 403);
+                    gate.rejection = errorResponse(
+                        statusCode, decision.reasonCode,
+                        messageForReason(decision.reasonCode),
+                        gate.context, authenticationFailure(decision),
+                        gate.publicApiV1);
+                    return gate;
+                }
 
-            gate.authorizationDecision = decision;
+                gate.authorizationDecision = decision;
+            }
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;
@@ -2158,7 +2241,7 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!searchTimerDeviceClient && !searchTimerBrowserAdmin)
+            if (!searchTimerDeviceClient && !searchTimerBrowserClient)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.view";
@@ -2166,7 +2249,7 @@ public:
                 denial.action = "searchtimers.view";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             const bool validScope =
                 !publicSearchTimerBackendId.empty() &&
@@ -2298,18 +2381,14 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&scopes](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == scopes.front());
-                    });
-            if (!deviceClient && !browserAdmin)
+                gate.context.session.has_value();
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.modify";
@@ -2317,10 +2396,10 @@ public:
                 denial.action = "native_timers.modify";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             // This route returns before the shared Browser CSRF gate.
-            if (browserAdmin &&
+            if (browserAuthorized &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2408,18 +2487,14 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&scopes](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == scopes.front());
-                    });
-            if (!deviceClient && !browserAdmin)
+                gate.context.session.has_value();
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.delete";
@@ -2427,10 +2502,10 @@ public:
                 denial.action = "native_timers.delete";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             // This route returns before the shared Browser CSRF gate.
-            if (browserAdmin &&
+            if (browserAuthorized &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2767,10 +2842,9 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
-        // Native EPG Timer CREATE accepts a verified, explicitly granted
-        // Device OR a Human administrator Browser Session. A normal Human
-        // with timers.create alone is not an administrator. Browser CSRF is
-        // checked by the shared protected-mutation gate below.
+        // Native EPG/manual Timer CREATE accepts a verified, explicitly
+        // granted Device or a Human Browser Session with existing
+        // timers.create/administrator rights. Browser CSRF remains mandatory.
         if (isPublicEpgTimerIntentCreate)
         {
             if (!gate.context.authenticated())
@@ -2781,18 +2855,14 @@ public:
                 gate.context.device.has_value() &&
                 gate.context.credential.has_value() &&
                 !gate.context.session.has_value();
-            const bool browserAdmin =
+            // Human permission semantics belong to AuthorizationService.
+            // Keep the verified Browser Session and CSRF boundary here;
+            // do not reject existing wildcard grants before authorization.
+            const bool browserAuthorized =
                 gate.browserAuthenticated &&
                 gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&publicEpgTimerBackendId](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == publicEpgTimerBackendId);
-                    });
-            if (!deviceClient && !browserAdmin)
+                gate.context.session.has_value();
+            if (!deviceClient && !browserAuthorized)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.create";
@@ -2800,7 +2870,7 @@ public:
                 denial.action = "timers.create";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             const bool validBackend =
                 !publicEpgTimerBackendId.empty() &&
@@ -2844,7 +2914,7 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!searchTimerDeviceClient && !searchTimerBrowserAdmin)
+            if (!searchTimerDeviceClient && !searchTimerBrowserClient)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.create";
@@ -2852,9 +2922,9 @@ public:
                 denial.action = "searchtimers.create";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
-            if (searchTimerBrowserAdmin &&
+            if (searchTimerBrowserClient &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2910,7 +2980,7 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
             if (!searchTimerDeviceClient &&
-                !(searchMutationEndpoint && searchTimerBrowserAdmin))
+                !(searchMutationEndpoint && searchTimerBrowserClient))
             {
                 AuthorizationDecision denial;
                 denial.permission = searchMutationPermission;
@@ -2918,7 +2988,7 @@ public:
                 denial.action = searchMutationPermission;
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential or administrator session required", "");
+                    "Verified Device credential or authorized Browser Session required", "");
             }
             const bool validBackend =
                 !publicSearchTimerBackendId.empty() &&
@@ -3084,6 +3154,20 @@ public:
                 "Credential rotation requires an administrator Browser Session",
                 "");
         }
+        if ((isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl ||
+             isPublicBrowserRecordingHistory) &&
+            (!gate.browserAuthenticated || gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "media.recording.play";
+            denial.action = "media.recording.play";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "A verified Browser Session is required", "");
+        }
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
@@ -3243,6 +3327,12 @@ public:
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
         }
+        else if (isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl ||
+             isPublicBrowserRecordingHistory)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.play";
+        }
         else if (isMediaSessionMutation)
         {
             const std::string resourceKind = jsonStringValue(request.body, "resourceKind");
@@ -3383,8 +3473,31 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.preview-cache.refresh";
             requestToAuthorize.action = "searchtimers.preview-cache.refresh";
-            requestToAuthorize.backendId = queryStringValue(request.path, "backend");
-            defaultBackend(requestToAuthorize);
+            if (isPublicSearchTimerPreviewCacheRefresh)
+            {
+                const auto scopes = queryStringValues(request.path, "backendId");
+                if (scopes.size() != 1U || scopes.front().empty() ||
+                    scopes.front().size() > 128U ||
+                    scopes.front() == "." || scopes.front() == ".." ||
+                    !std::all_of(scopes.front().begin(), scopes.front().end(),
+                        [](unsigned char ch) {
+                            return std::isalnum(ch) || ch == '.' || ch == '_' || ch == '-';
+                        }))
+                {
+                    AuthorizationDecision invalid;
+                    invalid.permission = requestToAuthorize.permission;
+                    invalid.action = requestToAuthorize.action;
+                    invalid.backendId = "*";
+                    invalid.reasonCode = "invalid_backend_scope";
+                    return rejectWithAudit(gate, invalid, 400, "One exact backendId is required.", "");
+                }
+                requestToAuthorize.backendId = scopes.front();
+            }
+            else
+            {
+                requestToAuthorize.backendId = queryStringValue(request.path, "backend");
+                defaultBackend(requestToAuthorize);
+            }
         }
         else if (isEpgCacheRefreshAction)
         {
@@ -3503,7 +3616,9 @@ public:
                 503,
                 "accountability_unavailable",
                 "Security accountability persistence is unavailable",
-                gate.context);
+                gate.context,
+                false,
+                isPublicSearchTimerPreviewCacheRefresh);
             return gate;
         }
 
@@ -3518,7 +3633,8 @@ public:
                 decision.reasonCode,
                 messageForReason(decision.reasonCode),
                 gate.context,
-                false);
+                false,
+                isPublicSearchTimerPreviewCacheRefresh);
             return gate;
         }
 
@@ -3633,7 +3749,9 @@ private:
     {
         backendId.clear();
 
-        const std::string prefix = "/api/backends/";
+        const std::string publicPrefix = "/api/v1/backends/";
+        const std::string prefix = path.compare(0, publicPrefix.size(), publicPrefix) == 0
+            ? publicPrefix : "/api/backends/";
         const std::string suffix =
             "/recordings/series-hierarchy";
 
@@ -3683,7 +3801,9 @@ private:
     {
         backendId.clear();
         operation.clear();
-        const std::string prefix = "/api/backends/";
+        const std::string publicPrefix = "/api/v1/backends/";
+        const bool publicApi = path.compare(0, publicPrefix.size(), publicPrefix) == 0;
+        const std::string prefix = publicApi ? publicPrefix : "/api/backends/";
         const std::string segment = "/recordings/metadata/";
         if (path.compare(0, prefix.size(), prefix) != 0) return false;
         const std::size_t separator = path.find(segment, prefix.size());
@@ -3701,7 +3821,8 @@ private:
             return false;
         return operation == "search" || operation == "seasons" ||
             operation == "episodes" || operation == "assign" ||
-            operation == "withdraw" || operation == "genre";
+            operation == "withdraw" || operation == "genre" ||
+            (publicApi && (operation == "trailer" || operation == "manual"));
     }
 
     static int hexValue(char value)

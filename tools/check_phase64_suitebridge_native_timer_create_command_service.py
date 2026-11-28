@@ -39,7 +39,8 @@ for needle in (
 
 for needle in (
     'strcasecmp(command, "NTCREATE")', 'values.front() == "CAP"',
-    'values.front() == "EXEC"', "values.size() != 42",
+    'values.front() == "EXEC"', "values.size() != 42", "values.size() != 44",
+    'values[42] != "aux"', "request.aux",
     "hexValue(", "canonicalRequest(", "replayByOperationId_",
     '"replay_conflict"', '"in_progress"', '"ledger_full"',
     "localStartingPersistedAt >= request.controlPlaneClaimedAt",

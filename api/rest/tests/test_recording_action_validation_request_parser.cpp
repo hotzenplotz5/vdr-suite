@@ -206,6 +206,26 @@ int main()
         "\"action\":\"RENAME\",\"newName\":\"X\",\"confirmDelete\":true}",
         publicRequest));
 
+    const std::string logicalMovePrefix =
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\",";
+    assert(parser.parsePublic(logicalMovePrefix +
+        "\"targetFolder\":\"Filme/Klassiker\"}", publicRequest));
+    assert(publicRequest.parameters.at("publicTargetFolder") == "Filme/Klassiker");
+    assert(publicRequest.parameters.count("targetPath") == 0U);
+    assert(parser.parsePublic(logicalMovePrefix +
+        "\"targetFolder\":\"/\"}", publicRequest));
+    for (const std::string folder : {"", "/private", "A/../B", "A//B",
+            "A/", ".", "A~B", " A", "A/ B"})
+    {
+        assert(!parser.parsePublic(logicalMovePrefix +
+            "\"targetFolder\":\"" + folder + "\"}", publicRequest));
+    }
+    assert(!parser.parsePublic(logicalMovePrefix +
+        "\"targetFolder\":\"A\",\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}",
+        publicRequest));
+
     // Authoritative SafeMutation provider preview counters become an opaque,
     // operation-scoped public ETag without any backend-native path.
     RecordingActionExecutionResult acceptedProvider;
@@ -240,6 +260,14 @@ int main()
     renamePreview.parameters["newName"] = "Other";
     assert(PublicRecordingActionProviderPreflight::tag(
         renamePreview, recPublicId, provider) != publicTag);
+    RecordingActionRequest logicalPreview;
+    assert(parser.parsePublic(logicalMovePrefix +
+        "\"targetFolder\":\"A/New\"}", logicalPreview));
+    const auto logicalTag = PublicRecordingActionProviderPreflight::tag(
+        logicalPreview, recPublicId, provider);
+    logicalPreview.parameters["publicTargetFolder"] = "A/Other";
+    assert(PublicRecordingActionProviderPreflight::tag(
+        logicalPreview, recPublicId, provider) != logicalTag);
     acceptedProvider.upstreamResponseBody =
         "{\"executable\":false,\"revision_recordings_state\":310,"
         "\"revision_timers_state\":28}";

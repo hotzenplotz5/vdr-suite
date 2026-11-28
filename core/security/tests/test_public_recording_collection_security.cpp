@@ -214,6 +214,24 @@ int main()
         assert(duplicated.rejection.statusCode == 400);
     }
 
+    // A public trailer uses the same existing backend grant as detail/artwork.
+    const std::string trailer =
+        "/api/v1/backends/backend-a/recordings/metadata/trailer"
+        "?recordingId=rec_0123456789abcdef0123456789abcdef";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, Permission, "backend-a"));
+        const auto allowed = fixture.gate.evaluate(browserGet(fixture, trailer));
+        assert(allowed.allowed && allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId, Permission, "backend-b"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture, trailer));
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+    }
+
     // Public-v1 Genre collections use the same recordings.view authorization.
     for (const std::string& target : {
         "/api/v1/genres?backendId=backend-a&limit=30",
@@ -257,6 +275,27 @@ int main()
             denied.gate.evaluate(browserGet(denied, scenario.first));
         assert(!blocked.allowed);
         assert(blocked.rejection.statusCode == 403);
+    }
+    // Combined search reads exactly the two already-authorized resources.
+    {
+        const std::string path = "/api/v1/search?backendId=backend-a&query=Hobbit";
+        SecurityHttpGateBrowserTestFixture both;
+        assert(both.grantRepository.ensureGrant(both.actorId, "recordings.view", "backend-a"));
+        assert(both.grantRepository.ensureGrant(both.actorId, "epg.view", "backend-a"));
+        const auto allowed = both.gate.evaluate(browserGet(both, path));
+        assert(allowed.allowed && allowed.authorizedBackendIds ==
+            std::vector<std::string>{"backend-a"});
+        for (const auto& one : {"recordings.view", "epg.view"})
+        {
+            SecurityHttpGateBrowserTestFixture single;
+            assert(single.grantRepository.ensureGrant(single.actorId, one, "backend-a"));
+            const auto denied = single.gate.evaluate(browserGet(single, path));
+            assert(!denied.allowed && denied.rejection.statusCode == 403);
+        }
+        SecurityHttpGateBrowserTestFixture different;
+        assert(different.grantRepository.ensureGrant(different.actorId, "recordings.view", "backend-a"));
+        assert(different.grantRepository.ensureGrant(different.actorId, "epg.view", "backend-b"));
+        assert(!different.gate.evaluate(browserGet(different, path)).allowed);
     }
     return 0;
 }

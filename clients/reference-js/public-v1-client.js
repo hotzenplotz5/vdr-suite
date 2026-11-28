@@ -268,6 +268,167 @@
 
 
 
+
+  // F3: Public-v1 read-only EPG and search queries. No browser-private fallback.
+  function f3CanonicalId(value, label, maxLength) {
+    if (typeof value !== 'string' || value.length > maxLength ||
+        !/^[A-Za-z0-9._-]+$/.test(value)) {
+      throw new Error(label + ' must be a canonical identifier');
+    }
+    return value;
+  }
+
+  function f3UnixSeconds(value, label) {
+    const text = typeof value === 'number' && Number.isSafeInteger(value)
+      ? String(value) : value;
+    if (typeof text !== 'string' || !/^[1-9][0-9]{9,11}$/.test(text)) {
+      throw new Error(label + ' must be Unix seconds (10..12 digits)');
+    }
+    return text;
+  }
+
+  function f3EpgEventQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query) ||
+        Object.keys(query).some(key => !['backendId','channelId','eventId'].includes(key)))
+      throw new Error('EPG event requires exact backend, channel and event IDs');
+    const backend = f3CanonicalId(query.backendId, 'EPG backendId', 128);
+    const eventIdentity = (value) => {
+      if (typeof value !== 'string' || !/^[A-Za-z0-9._:-]{1,160}$/.test(value))
+        throw new Error('Invalid EPG event identity');
+      return value;
+    };
+    return '?backendId=' + backend + '&channelId=' + eventIdentity(query.channelId) +
+      '&eventId=' + eventIdentity(query.eventId);
+  }
+
+  function f3EpgGenreQuery(query, events) {
+    const allowed = ['backendId','locale','limit','offset','fromTime','untilTime'];
+    if (events) allowed.push('contentClass','genreId');
+    if (!query || typeof query !== 'object' || Array.isArray(query) ||
+        Object.keys(query).some(key => !allowed.includes(key)))
+      throw new Error('Invalid EPG genre query');
+    const fields = ['backendId=' + f3CanonicalId(query.backendId, 'EPG backendId', 128)];
+    if (events) {
+      if (!['movie','series','documentary','sports'].includes(query.contentClass))
+        throw new Error('Invalid EPG contentClass');
+      fields.push('contentClass=' + query.contentClass);
+      if (query.genreId !== undefined) {
+        if (query.contentClass !== 'movie') throw new Error('genreId requires movie');
+        fields.push('genreId=' + f3CanonicalId(query.genreId, 'EPG genreId', 128));
+      }
+    }
+    if (query.locale !== undefined) {
+      if (!['de','en'].includes(query.locale)) throw new Error('Invalid EPG locale');
+      fields.push('locale=' + query.locale);
+    }
+    if (query.fromTime !== undefined || query.untilTime !== undefined) {
+      const from = f3UnixSeconds(query.fromTime, 'EPG genre fromTime');
+      const until = f3UnixSeconds(query.untilTime, 'EPG genre untilTime');
+      if (Number(until) <= Number(from) || Number(until) - Number(from) > 604800)
+        throw new Error('Invalid EPG genre window');
+      fields.push('fromTime=' + from, 'untilTime=' + until);
+    }
+    for (const [key, min, max] of [['limit',1,events ? 48 : 30],['offset',0,1000000]]) {
+      if (query[key] === undefined) continue;
+      if (!Number.isInteger(query[key]) || query[key] < min || query[key] > max)
+        throw new Error('Invalid EPG genre ' + key);
+      fields.push(key + '=' + query[key]);
+    }
+    return '?' + fields.join('&');
+  }
+
+  function f3EpgQuery(query, window) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Public EPG query must be an object');
+    const permitted = window
+      ? ['backendId', 'channelId', 'fromTime', 'untilTime', 'limit', 'cursor']
+      : ['backendId', 'channelId', 'fromTime', 'limit'];
+    Object.keys(query).forEach(function (field) {
+      if (!permitted.includes(field))
+        throw new Error('unsupported Public EPG query field: ' + field);
+    });
+    const backend = f3CanonicalId(query.backendId, 'EPG backendId', 128);
+    const channel = f3CanonicalId(query.channelId, 'EPG channelId', 256);
+    const from = f3UnixSeconds(query.fromTime, 'EPG fromTime');
+    const fields = [
+      'backendId=' + encodeURIComponent(backend),
+      'channelId=' + encodeURIComponent(channel),
+      'fromTime=' + from
+    ];
+    if (window) {
+      const until = f3UnixSeconds(query.untilTime, 'EPG untilTime');
+      if (Number(until) <= Number(from))
+        throw new Error('EPG untilTime must follow fromTime');
+      fields.push('untilTime=' + until);
+    }
+    if (query.limit !== undefined) {
+      const maximum = window ? 192 : 2;
+      if (!Number.isInteger(query.limit) ||
+          query.limit < 1 || query.limit > maximum)
+        throw new Error('EPG limit must be an integer from 1 to ' + maximum);
+      fields.push('limit=' + query.limit);
+    }
+    if (window && query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' ||
+          query.cursor.length < 5 || query.cursor.length > 4200)
+        throw new Error('EPG cursor must be a non-empty opaque cursor');
+      fields.push('cursor=' + encodeURIComponent(query.cursor));
+    }
+    return '?' + fields.join('&');
+  }
+
+  function f3SearchQuery(query, allowPersonOnly = false) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Public search query must be an object');
+    const allowed = ['backendId', 'query', 'limit', 'offset'];
+    if (allowPersonOnly) allowed.push('match');
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.includes(key))
+        throw new Error('unsupported Public search field: ' + key);
+    });
+    const backend = f3CanonicalId(query.backendId, 'Search backendId', 128);
+    if (typeof query.query !== 'string' ||
+        query.query.length < 2 || query.query.length > 240)
+      throw new Error('Search text must contain 2..240 characters');
+    const params = [
+      'backendId=' + encodeURIComponent(backend),
+      'query=' + encodeURIComponent(query.query)
+    ];
+    if (query.match !== undefined) {
+      if (!allowPersonOnly || query.match !== 'person') throw new Error('Invalid recording search match');
+      params.push('match=person');
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) ||
+          query.limit < 1 || query.limit > 30)
+        throw new Error('Public search limit must be 1..30');
+      params.push('limit=' + query.limit);
+    }
+    if (query.offset !== undefined) {
+      if (!Number.isInteger(query.offset) ||
+          query.offset < 0 || query.offset > 1000000)
+        throw new Error('Public search offset must be 0..1000000');
+      params.push('offset=' + query.offset);
+    }
+    return '?' + params.join('&');
+  }
+
+  function f3AdjacentChannelQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('Adjacent Channel query must be an object');
+    Object.keys(query).forEach(function (field) {
+      if (!['backendId', 'relativeTo', 'direction'].includes(field))
+        throw new Error('unsupported adjacent Channel field: ' + field);
+    });
+    const backend = f3CanonicalId(query.backendId, 'Channel backendId', 128);
+    const current = f3CanonicalId(query.relativeTo, 'Current channelId', 256);
+    if (query.direction !== 'up' && query.direction !== 'down')
+      throw new Error('Adjacent Channel direction must be up or down');
+    return '?backendId=' + encodeURIComponent(backend) +
+      '&limit=1&relativeTo=' + encodeURIComponent(current) +
+      '&direction=' + query.direction;
+  }
+
   function recordingCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('Recording collection query must be an object');
@@ -307,6 +468,79 @@
     return '?' + params.toString();
   }
 
+
+  // F4: Public Recording IDs are not native VDR paths.
+  function f4Id(value, label, pattern) {
+    if (typeof value !== 'string' || !pattern.test(value))
+      throw new Error(label + ' is invalid');
+    return value;
+  }
+
+  function f4RecordingDetailPath(input) {
+    const id = f4Id(input.recordingId, 'recordingId', /^rec_[0-9a-f]{32}$/);
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    return '/api/v1/recordings/' + id + '?backendId=' + encodeURIComponent(backend);
+  }
+
+  // Public-v1 native Recording editing shares the authoritative VDR
+  // Recording identity and the existing native Cut/Marks core.
+  function f6RecordingEditPath(input, suffix) {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new Error('Recording edit options must be an object');
+    if (suffix !== 'marks' && suffix !== 'cut')
+      throw new Error('Unsupported native Recording editing resource');
+    const id = f4Id(input.recordingId, 'recordingId', /^rec_[0-9a-f]{32}$/);
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    if (backend === '.' || backend === '..')
+      throw new Error('Invalid Recording edit backend');
+    return '/api/v1/recordings/' + id + '/' + suffix +
+      '?backendId=' + encodeURIComponent(backend);
+  }
+
+  function f4PagedQuery(input, kind) {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new Error('Public Recording query must be an object');
+    const folder = kind === 'folders', membership = kind === 'membership';
+    const allowed = folder ? ['backendId', 'folderId', 'limit', 'offset']
+      : membership ? ['backendId', 'genreId', 'locale', 'limit', 'offset']
+      : ['backendId', 'locale', 'limit', 'offset'];
+    Object.keys(input).forEach(function (name) {
+      if (!allowed.includes(name))
+        throw new Error('Unsupported Recording query field: ' + name);
+    });
+    const backend = f4Id(input.backendId, 'backendId', /^[A-Za-z0-9._-]{1,128}$/);
+    const values = ['backendId=' + encodeURIComponent(backend)];
+    if (folder) {
+      values.push('view=folders');
+      if (input.folderId !== undefined) {
+        const id = f4Id(input.folderId, 'folderId', /^fld1_[0-9a-f]{32}$/);
+        values.push('folderId=' + encodeURIComponent(id));
+      }
+    } else {
+      if (membership) {
+        const id = f4Id(input.genreId, 'genreId', /^[A-Za-z0-9._-]{1,128}$/);
+        values.push('genreId=' + encodeURIComponent(id));
+      }
+      if (input.locale !== undefined) {
+        if (input.locale !== 'de' && input.locale !== 'en')
+          throw new Error('Genre locale must be de or en');
+        values.push('locale=' + input.locale);
+      }
+    }
+    if (input.limit !== undefined) {
+      const max = folder || membership ? 100 : 30;
+      if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > max)
+        throw new Error('Recording/Genre limit is invalid');
+      values.push('limit=' + input.limit);
+    }
+    if (input.offset !== undefined) {
+      if (!Number.isInteger(input.offset) ||
+          input.offset < 0 || input.offset > 1000000)
+        throw new Error('Recording/Genre offset is invalid');
+      values.push('offset=' + input.offset);
+    }
+    return '?' + values.join('&');
+  }
   function recordingArtworkPath(options, binary) {
     if (!options || typeof options !== 'object' ||
         typeof options.recordingId !== 'string' ||
@@ -317,9 +551,12 @@
     if (binary && (typeof options.artworkId !== 'string' ||
         !/^[0-9a-f]{32}$/.test(options.artworkId)))
       throw new Error('Artwork requires opaque 32-hex artworkId');
+    if (options.variant !== undefined && (!binary || options.variant !== 'home'))
+      throw new Error('Artwork variant home is supported only for binary images');
     return '/api/v1/recordings/' + options.recordingId + '/artwork' +
       (binary ? '/' + options.artworkId : '') +
-      '?backendId=' + encodeURIComponent(options.backendId);
+      '?backendId=' + encodeURIComponent(options.backendId) +
+      (options.variant === 'home' ? '&variant=home' : '');
   }
 
   function epgArtworkPath(options, preferred) {
@@ -335,6 +572,11 @@
     p.set('backendId', options.backendId);
     p.set('channelId', options.channelId);
     p.set('eventId', options.eventId);
+    if (options.variant !== undefined) {
+      if (options.variant !== 'home' && !(preferred && options.variant === 'genre'))
+        throw new Error('Unsupported artwork variant');
+      p.set('variant', options.variant);
+    }
     return '/api/v1/epg/' + (preferred ? 'preferred-artwork' : 'artwork') +
       '?' + p.toString();
   }
@@ -372,15 +614,18 @@
     if (!query || typeof query !== 'object' || Array.isArray(query))
       throw new Error('SearchTimer draft preview query must be an object');
     const allowed = new Set(['backendId','query','mode','tolerance',
-      'compareTitle','compareSubtitle','compareSummary','limit']);
+      'compareTitle','compareSubtitle','compareSummary','limit',
+      'useChannel','channels','channelMin','channelMax','useDuration',
+      'durationMinMinutes','durationMaxMinutes','useTime','startTime','stopTime',
+      'useDayOfWeek','dayOfWeek']);
     Object.keys(query).forEach(function (key) {
       if (!allowed.has(key)) throw new Error('unsupported draft preview field: ' + key);
     });
     if (typeof query.backendId !== 'string' ||
         !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId) ||
         typeof query.query !== 'string' ||
-        query.query.length < 2 || query.query.length > 240 ||
-        ![0,1,2,3,5].includes(query.mode) ||
+        query.query.length < 1 || query.query.length > 240 ||
+        ![0,1,2,3,4,5].includes(query.mode) ||
         typeof query.compareTitle !== 'boolean' ||
         typeof query.compareSubtitle !== 'boolean' ||
         typeof query.compareSummary !== 'boolean' ||
@@ -391,7 +636,7 @@
         (query.mode !== 5 && tolerance !== 0))
       throw new Error('invalid SearchTimer draft tolerance');
     if (query.limit !== undefined &&
-        (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 30))
+        (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 40))
       throw new Error('invalid SearchTimer preview limit');
     const params = new URLSearchParams();
     params.set('backend',query.backendId);
@@ -402,6 +647,25 @@
     params.set('compareSummary',query.compareSummary ? '1' : '0');
     if (tolerance !== 0) params.set('tolerance',String(tolerance));
     if (query.limit !== undefined) params.set('limit',String(query.limit));
+    for (const key of ['useChannel','durationMinMinutes','durationMaxMinutes',
+      'startTime','stopTime','dayOfWeek']) {
+      if (query[key] === undefined) continue;
+      if (!Number.isInteger(query[key]) ||
+          (key === 'dayOfWeek' ? query[key] < -127 || query[key] > 127 :
+            query[key] < 0 || (key === 'useChannel' && query[key] > 3)))
+        throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,String(query[key]));
+    }
+    for (const key of ['useDuration','useTime','useDayOfWeek']) {
+      if (query[key] === undefined) continue;
+      if (typeof query[key] !== 'boolean') throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,query[key] ? '1' : '0');
+    }
+    for (const key of ['channels','channelMin','channelMax']) {
+      if (query[key] === undefined) continue;
+      if (typeof query[key] !== 'string') throw new Error('invalid SearchTimer preview ' + key);
+      params.set(key,query[key]);
+    }
     // Preserve spaces as percent-encoded bytes, never form-urlencoded '+'.
     return '?' + params.toString().replace(/\+/g, '%20');
   }
@@ -688,6 +952,136 @@
       });
     }
 
+
+    // Common transport for documented Public-v1 POST resources. The server
+    // remains the DTO/permission authority; callers own CSRF and preconditions.
+    function requestPublicJsonPost(path, input, body, extraHeaders) {
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders, copyHeaders(input.headers));
+      const controlled = Object.assign({'Content-Type':'application/json'}, extraHeaders || {});
+      Object.keys(headers).forEach(name => {
+        if (Object.keys(controlled).some(key => key.toLowerCase() === name.toLowerCase()))
+          delete headers[name];
+      });
+      Object.assign(headers, controlled);
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST',headers,cache:'no-store',
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal:input.signal,body:JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path,response.status,data,response);
+        return {status:response.status,etag:headerValue(response,'ETag'),
+          location:headerValue(response,'Location'),data};
+      }));
+    }
+
+    function submitEpgTimer(input) {
+      const p = input.payload;
+      // Same identity grammar as EPG event GET; no legacy event ID guessing.
+      f3EpgEventQuery(p);
+      if (typeof input.ifMatch !== 'string' || !/^"epg1:sha256:[0-9a-f]{64}"$/.test(input.ifMatch) ||
+          typeof input.idempotencyKey !== 'string' || !/^[!-~]{1,160}$/.test(input.idempotencyKey))
+        throw new Error('EPG TimerIntent requires event ETag and caller-owned Idempotency-Key');
+      return requestPublicJsonPost('/api/v1/epg/timer-intents',input,p,
+        {'If-Match':input.ifMatch,'Idempotency-Key':input.idempotencyKey});
+    }
+
+    function recordingAction(input, execute) {
+      const p = input.payload;
+      recordingProgressIdentity(p);
+      if (!['RENAME','MOVE','DELETE'].includes(p.action))
+        throw new Error('Invalid public Recording action');
+      const headers = {};
+      if (input.ifMatch !== undefined) headers['If-Match'] = input.ifMatch;
+      return requestPublicJsonPost('/api/v1/recordings/actions/' +
+        (execute ? 'execute' : 'validate'),input,p,headers);
+    }
+
+    function recordingMetadataPath(input, operation) {
+      return mediaImportPath(input,'recordings/metadata/' + operation);
+    }
+
+    function readRecordingMetadata(input, operation) {
+      const identity = recordingProgressIdentity(input);
+      return request(recordingMetadataPath(input,operation) +
+        '?recordingId=' + identity.recordingId,input);
+    }
+
+    function postRecordingMetadata(input, operation, recordingScoped) {
+      const body = input.payload;
+      if (!body || typeof body !== 'object' || Array.isArray(body))
+        throw new Error('Metadata payload must be an object');
+      if (recordingScoped && (typeof body.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(body.recordingId)))
+        throw new Error('Metadata mutation requires canonical rec_ ID');
+      return requestPublicJsonPost(recordingMetadataPath(input,operation),input,body)
+        .then(result => result.data);
+    }
+
+    function requestRecordingEditMutation(options, suffix) {
+      const o = options && typeof options === 'object' ? options : {};
+      const path = f6RecordingEditPath(o, suffix);
+      const body = o.payload;
+      if (!body || typeof body !== 'object' || Array.isArray(body) ||
+          body.backendId !== o.backendId ||
+          body.recordingId !== o.recordingId ||
+          typeof body.operationId !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{1,192}$/.test(body.operationId) ||
+          typeof body.operationRevision !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{1,192}$/.test(body.operationRevision) ||
+          typeof body.expectedMarksRevision !== 'string' ||
+          !/^[0-9a-f]{32}$/.test(body.expectedMarksRevision)) {
+        throw new Error('Recording edit requires matching backend/Recording ID and native operation revision');
+      }
+      // Single user-intended POST; transport never retries an uncertain cut.
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(o.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers,
+        credentials: o.credentials !== undefined
+          ? o.credentials : normalized.credentials,
+        cache: 'no-store', signal: o.signal,
+        body: JSON.stringify(body)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          return payload;
+        });
+      });
+    }
+
+    // Return the actual incremental stream, never buffer an SSE response.
+    // Callers own parsing, resync and cancellation of the existing protocol.
+    function requestEventStream(path, options) {
+      const input = options && typeof options === 'object' ? options : {};
+      const headers = Object.assign({Accept: 'text/event-stream'},
+        defaultHeaders, copyHeaders(input.headers));
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'GET', headers: headers,
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        cache: 'no-store', signal: input.signal
+      }).then(function (response) {
+        if (!response.ok) {
+          return parseJsonBody(response).then(function (payload) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          });
+        }
+        const type = headerValue(response, 'Content-Type');
+        if (!type || type.split(';')[0].trim().toLowerCase() !== 'text/event-stream' ||
+            !response.body || typeof response.body.getReader !== 'function') {
+          if (response.body && typeof response.body.cancel === 'function')
+            Promise.resolve(response.body.cancel()).catch(function () {});
+          throw new Error('Incremental event stream unavailable');
+        }
+        return response;
+      });
+    }
 
     function requestArtworkImage(path, options) {
       const input = options && typeof options === 'object' ? options : {};
@@ -1500,6 +1894,202 @@
     }
 
 
+
+    // F5.6: Submit a manual one-shot or VDR-weekly native TimerIntent. This is an
+    // Operation resource, NOT a synchronous Timer-creation confirmation.
+    // Preserve the caller's key on a retry; never replay a native write here.
+    function submitManualTimerIntent(input) {
+      const o = input && typeof input === 'object' ? input : {};
+      const p = o.payload;
+      const path = '/api/v1/manual/timer-intents';
+      const fields = ['backendId', 'channelId', 'title', 'directory',
+        'startAt', 'stopAt', 'priority', 'lifetime', 'enabled', 'vps'];
+      const hasWeekdays = !!p && Object.prototype.hasOwnProperty.call(p, 'weekdays');
+      const hasAux = !!p && Object.prototype.hasOwnProperty.call(p, 'aux');
+      const allowed = fields.concat(hasWeekdays ? ['weekdays'] : [], hasAux ? ['aux'] : []);
+      // C++ JSON Cursor rejects isolated UTF-16 surrogates in escaped JSON.
+      const invalidSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+      if (!p || typeof p !== 'object' || Array.isArray(p) ||
+          Object.keys(p).length !== allowed.length ||
+          Object.keys(p).some(key => !allowed.includes(key)) ||
+          fields.some(key => !Object.prototype.hasOwnProperty.call(p, key)) ||
+          typeof p.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(p.backendId) ||
+          typeof p.channelId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(p.channelId) ||
+          typeof p.title !== 'string' || p.title.length < 1 ||
+          new TextEncoder().encode(p.title).length > 1024 ||
+          typeof p.directory !== 'string' ||
+          new TextEncoder().encode(p.directory).length > 1024 ||
+          invalidSurrogate.test(p.title) || invalidSurrogate.test(p.directory) ||
+          (hasAux && (typeof p.aux !== 'string' ||
+            new TextEncoder().encode(p.aux).length > 1024 ||
+            invalidSurrogate.test(p.aux) || /[\0\r\n]/.test(p.aux) ||
+            p.aux.includes('<vdr-suite-managed-timer'))) ||
+          !Number.isSafeInteger(p.startAt) || p.startAt <= 0 ||
+          !Number.isSafeInteger(p.stopAt) ||
+          p.stopAt <= p.startAt || p.stopAt - p.startAt >= 86400 ||
+          !Number.isInteger(p.priority) || p.priority < 0 || p.priority > 99 ||
+          !Number.isInteger(p.lifetime) || p.lifetime < 0 || p.lifetime > 99 ||
+          typeof p.enabled !== 'boolean' || typeof p.vps !== 'boolean' ||
+          (hasWeekdays && (typeof p.weekdays !== 'string' ||
+            !/^[M-][T-][W-][T-][F-][S-][S-]$/.test(p.weekdays))) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[!-~]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('Manual TimerIntent requires exact one-shot/weekly payload and Idempotency-Key');
+
+      const requestBody = JSON.stringify(p);
+      if (new TextEncoder().encode(requestBody).length > 4096)
+        throw new Error('Manual TimerIntent JSON body exceeds 4096 UTF-8 bytes');
+
+      const headers = Object.assign({Accept: 'application/json'},
+        defaultHeaders, copyHeaders(o.headers));
+      if (Object.keys(headers).some(name => name.toLowerCase() === 'if-match'))
+        throw new Error('Manual TimerIntent CREATE has no EPG If-Match');
+      // Fetch Headers treats names case-insensitively. Avoid two conflicting
+      // copies of transport-owned fields from caller/default headers.
+      Object.keys(headers).forEach(name => {
+        const lower = name.toLowerCase();
+        if (lower === 'content-type' || lower === 'idempotency-key')
+          delete headers[name];
+      });
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers,
+        credentials: o.credentials !== undefined
+          ? o.credentials : normalized.credentials,
+        cache: 'no-store', signal: o.signal,
+        body: requestBody
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        // HTTP 202 acknowledges only the durable Operation, not a Timer.
+        return {status: response.status, data,
+          location: headerValue(response, 'Location')};
+      }));
+    }
+
+    // Native timers are current VDR snapshot resources, not TimerAssignments.
+    // Keep their backendId/offset paging distinct from SearchTimer/Assignment
+    // cursors and preserve the server's conditional ETag semantics on detail.
+    function nativeTimerListQuery(query) {
+      if (!query || typeof query !== 'object' || Array.isArray(query) ||
+          typeof query.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId))
+        throw new Error('Native Timer backendId required');
+      const allowed = new Set(['backendId', 'offset', 'limit']);
+      Object.keys(query).forEach(key => {
+        if (!allowed.has(key))
+          throw new Error('Unsupported native Timer query: ' + key);
+      });
+      const params = new URLSearchParams();
+      params.set('backendId', query.backendId);
+      if (query.offset !== undefined) {
+        if (!Number.isInteger(query.offset) ||
+            query.offset < 0 || query.offset > 100000)
+          throw new Error('Native Timer offset must be 0..100000');
+        params.set('offset', String(query.offset));
+      }
+      if (query.limit !== undefined) {
+        if (!Number.isInteger(query.limit) ||
+            query.limit < 1 || query.limit > 30)
+          throw new Error('Native Timer limit must be 1..30');
+        params.set('limit', String(query.limit));
+      }
+      return '?' + params.toString();
+    }
+
+    function nativeTimerItemPath(options, suffix) {
+      if (!options || typeof options !== 'object' ||
+          typeof options.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
+          typeof options.timerId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(options.timerId))
+        throw new Error('Canonical native Timer ID and backendId required');
+      return '/api/v1/native-timers/' + options.timerId +
+        (suffix || '') + '?backendId=' + encodeURIComponent(options.backendId);
+    }
+
+    // Native VDR editor CREATE and external/unbound actions: one direct,
+    // synchronous native action via the existing controller, not a durable Operation.
+    // No auto retry after a transport failure or uncertain native outcome.
+    function submitDirectNativeTimerAction(input, action) {
+      const options = input && typeof input === 'object' ? input : {};
+      if (!['create', 'update', 'delete'].includes(action))
+        throw new Error('Unsupported direct native Timer action');
+      const create = action === 'create';
+      if (create && (typeof options.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) || options.timerId))
+        throw new Error('Canonical backendId and no timerId required for CREATE');
+      const uri = create ? '/api/v1/native-timers/actions/create' :
+        nativeTimerItemPath(options, '/direct-' + action);
+      const source = options.payload && typeof options.payload === 'object' &&
+        !Array.isArray(options.payload) ? options.payload : {};
+      if ((source.backendId !== undefined && source.backendId !== options.backendId) ||
+          (create ? !!source.timerId :
+            source.timerId !== undefined && source.timerId !== options.timerId))
+        throw new Error('Native Timer request identity mismatch');
+      const payload = action === 'delete'
+        ? {backendId: options.backendId, timerId: options.timerId}
+        : Object.assign({}, source,
+            {backendId: options.backendId, timerId: create ? '' : options.timerId});
+      if (action !== 'delete' &&
+          (!options.payload || typeof options.payload !== 'object' ||
+           Array.isArray(options.payload)))
+        throw new Error('Native Timer direct CREATE/UPDATE requires payload');
+      const headers = Object.assign({Accept:'application/json'}, defaultHeaders,
+        copyHeaders(options.headers), {'Content-Type':'application/json'});
+      return fetchImpl(buildUrl(baseUrl, uri), {
+        method:'POST', headers,
+        credentials: options.credentials !== undefined
+          ? options.credentials : normalized.credentials,
+        signal: options.signal, body: JSON.stringify(payload)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(uri,response.status,data,response);
+        return {status:response.status, data};
+      }));
+    }
+
+    function submitNativeTimerMutation(input, method) {
+      const options = input && typeof input === 'object' ? input : {};
+      const path = nativeTimerItemPath(options,
+        method === 'POST' ? '/modifications' : '');
+      if (typeof options.ifMatch !== 'string' || options.ifMatch.length === 0 ||
+          typeof options.idempotencyKey !== 'string' ||
+          options.idempotencyKey.length === 0)
+        throw new Error('Native Timer mutation requires If-Match and Idempotency-Key');
+      if (method === 'POST' &&
+          (!options.payload || typeof options.payload !== 'object' ||
+           Array.isArray(options.payload)))
+        throw new Error('Native Timer modification requires caller-owned JSON payload');
+      // Uncertain writes are never dispatched a second time.
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(options.headers), {
+          'If-Match': options.ifMatch,
+          'Idempotency-Key': options.idempotencyKey
+        });
+      const requestOptions = {
+        method, headers,
+        credentials: options.credentials !== undefined
+          ? options.credentials : normalized.credentials,
+        signal: options.signal
+      };
+      if (method === 'POST') {
+        headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify(options.payload);
+      }
+      return fetchImpl(buildUrl(baseUrl, path), requestOptions).then(
+        response => parseJsonBody(response).then(data => {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status: response.status, data,
+            location: headerValue(response,'Location')};
+        })
+      );
+    }
+
     function playbackAccountAdminPath(input) {
       if (!input || typeof input.deviceId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.deviceId))
@@ -1537,8 +2127,7 @@
       return input.sessionId;
     }
 
-    function startDeviceRecordingPlayback(input) {
-      const identity = recordingProgressIdentity(input);
+    function recordingPlaybackCapabilities(input) {
       const capabilities = input.capabilities;
       const protocols = new Set(['hls', 'progressive']);
       const containers = new Set(['mpeg-ts', 'fmp4', 'mp4']);
@@ -1561,6 +2150,14 @@
           !Number.isInteger(capabilities.maxAudioChannels) ||
           capabilities.maxAudioChannels < 0 || capabilities.maxAudioChannels > 32)
         throw new Error('Explicit, measured Device codec and protocol capabilities required');
+      return capabilities;
+    }
+
+    function startDeviceRecordingPlayback(input, browser = false) {
+      const identity = recordingProgressIdentity(input);
+      if (browser && (input.nativeMediaAccess !== undefined || input.capabilityProfile !== undefined))
+        throw new Error('Device media options are not Browser playback options');
+      const capabilities = recordingPlaybackCapabilities(input);
       const body = {...identity, capabilities};
       if (input.startPositionSeconds !== undefined) {
         if (!Number.isInteger(input.startPositionSeconds) ||
@@ -1576,7 +2173,61 @@
           throw new Error('Invalid verified Device capability profile');
         body.capabilityProfile = input.capabilityProfile;
       }
-      const path = '/api/v1/recording-playback-sessions';
+      // Both options are already supported by the existing Device MediaSession
+      // owner; neither enables a second media path or changes the defaults.
+      if (input.audioTrackId !== undefined) {
+        if (typeof input.audioTrackId !== 'string' ||
+            !/^audio-[1-9][0-9]{0,9}$/.test(input.audioTrackId))
+          throw new Error('Invalid canonical audioTrackId');
+        body.audioTrackId = input.audioTrackId;
+      }
+      if (input.nativeMediaAccess !== undefined) {
+        if (typeof input.nativeMediaAccess !== 'boolean')
+          throw new Error('nativeMediaAccess must be a boolean');
+        body.nativeMediaAccess = input.nativeMediaAccess;
+      }
+      const path = browser ? '/api/v1/browser/recording-playback-sessions' : '/api/v1/recording-playback-sessions';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
+    function browserRecordingSessionId(input) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.sessionId !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(input.sessionId))
+        throw new Error('Browser Recording sessionId required');
+      return input.sessionId;
+    }
+
+    function browserRecordingControl(input, operation) {
+      const sessionId = browserRecordingSessionId(input);
+      if (typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+        throw new Error('Exact backendId required');
+      const body = {operation, backendId: input.backendId, sessionId};
+      if (operation === 'seek' || operation === 'select-audio-track') {
+        if (!Number.isInteger(input.positionSeconds) || input.positionSeconds < 0 ||
+            input.positionSeconds > 2147483647)
+          throw new Error('Valid absolute positionSeconds required');
+        body.positionSeconds = input.positionSeconds;
+      }
+      if (operation === 'select-audio-track') {
+        if (typeof input.audioTrackId !== 'string' ||
+            !/^audio-[1-9][0-9]{0,9}$/.test(input.audioTrackId))
+          throw new Error('Invalid canonical audioTrackId');
+        body.audioTrackId = input.audioTrackId;
+        body.capabilities = recordingPlaybackCapabilities(input);
+      }
+      const path = '/api/v1/browser/recording-playback-sessions/control';
       return fetchImpl(buildUrl(baseUrl, path), {
         method: 'POST',
         headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
@@ -1615,6 +2266,102 @@
       }));
     }
 
+    function playbackBackend(input) {
+      return f3CanonicalId(input.backendId, 'Playback backendId', 128);
+    }
+
+    function playbackPost(path, body, input, accept) {
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: accept || 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(function (response) {
+        if (!response.ok) {
+          return parseJsonBody(response).then(function (data) {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          });
+        }
+        return response;
+      });
+    }
+
+    function liveSessionCreate(input) {
+      const backendId = playbackBackend(input);
+      if (typeof input.channelId !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(input.channelId) ||
+          !input.capabilities || typeof input.capabilities !== 'object' ||
+          Array.isArray(input.capabilities))
+        throw new Error('Live playback requires exact channel and explicit capabilities');
+      if (input.replacesSessionId !== undefined)
+        throw new Error('Device live session switching uses STOP then CREATE');
+      return playbackPost('/api/v1/live-playback-sessions', {
+        resourceKind:'live-channel', backendId, channelId:input.channelId,
+        capabilities:input.capabilities
+      }, input).then(parseJsonBody);
+    }
+
+    function liveSessionStop(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      return playbackPost('/api/v1/live-playback-sessions/' + sessionId + '/stop', {
+        operation:'stop', resourceKind:'live-channel', backendId:playbackBackend(input), sessionId
+      }, input).then(parseJsonBody);
+    }
+
+    function recordingTrickplay(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      if (!Number.isInteger(input.seconds) || input.seconds < 0 || input.seconds > 43199)
+        throw new Error('Trickplay seconds must be an integer from 0 to 43199');
+      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/trickplay?seconds=' + input.seconds;
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method:'GET', headers:Object.assign({Accept:'image/jpeg'},defaultHeaders,copyHeaders(input.headers)),
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        cache:'no-store',signal:input.signal
+      }).then(function (response) {
+        if (!response.ok)
+          return parseJsonBody(response).then(data => {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          });
+        const contentType = headerValue(response,'Content-Type');
+        const sample = headerValue(response,'X-Trickplay-Sample-Seconds');
+        if (contentType !== 'image/jpeg' || sample === null || !/^\d+$/.test(sample))
+          throw new Error('Invalid trickplay image response');
+        return response.arrayBuffer().then(bytes => ({
+          contentType, sampleSeconds:Number(sample), bytes
+        }));
+      });
+    }
+
+    function selectRecordingSubtitle(input, browser = false) {
+      const sessionId = browser
+        ? browserRecordingSessionId(input) : recordingPlaybackSessionId(input);
+      const backendId = playbackBackend(input);
+      if (typeof input.subtitleTrackId !== 'string' ||
+          !/^(off|subtitle-[1-9][0-9]*)$/.test(input.subtitleTrackId) ||
+          !Number.isInteger(input.streamBasePositionSeconds) ||
+          input.streamBasePositionSeconds < 0 || input.streamBasePositionSeconds > 2147483647)
+        throw new Error('Subtitle selection requires a canonical track and stream base');
+      const path = browser ? '/api/v1/browser/recording-playback-sessions/control'
+        : '/api/v1/recording-playback-sessions/' + sessionId + '/subtitles';
+      return playbackPost(path, {
+        operation:'select-subtitle-track',backendId,sessionId,
+        subtitleTrackId:input.subtitleTrackId,
+        streamBasePositionSeconds:input.streamBasePositionSeconds
+      }, input, 'text/vtt, application/json').then(function(response) {
+        const contentType = headerValue(response,'Content-Type');
+        if (input.subtitleTrackId === 'off' && contentType &&
+            contentType.split(';')[0].trim() === 'application/json')
+          return parseJsonBody(response).then(data => ({contentType,data}));
+        if (input.subtitleTrackId !== 'off' && contentType &&
+            contentType.split(';')[0].trim() === 'text/vtt')
+          return response.text().then(text => {
+            if (!text.startsWith('WEBVTT')) throw new Error('Invalid WebVTT response');
+            return {contentType,text};
+          });
+        throw new Error('Unexpected subtitle Content-Type');
+      });
+    }
+
     function recordingProgressIdentity(input) {
       if (!input || typeof input !== 'object' ||
           typeof input.backendId !== 'string' ||
@@ -1626,12 +2373,49 @@
       return {backendId: input.backendId, recordingId: input.recordingId};
     }
 
-    function listDeviceContinueWatching(input) {
+    function listBrowserRecordingHistory(input, activity) {
+      const backendId = playbackBackend(input);
+      const path = activity ? '/api/v1/browser/recording-playback-sessions/activity' : '/api/v1/browser/recording-playback-sessions/progress';
+      return playbackPost(path, {operation:'list', backendId}, input).then(parseJsonBody);
+    }
+
+    function browserRecordingHistory(input, operation) {
+      const identity = recordingProgressIdentity(input);
+      const body = {operation, ...identity};
+      if (operation !== 'revision') {
+        if (typeof input.operationId !== 'string' || !/^[!-~]{1,128}$/.test(input.operationId))
+          throw new Error('Confirmed operationId required');
+        body.operationId = input.operationId;
+      }
+      if (operation === 'progress' || operation === 'clear') {
+        if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0)
+          throw new Error('Current progress revision required');
+        body.expectedRevision = input.expectedRevision;
+      }
+      if (operation === 'progress' || (operation === 'activity' && input.positionSeconds !== undefined)) {
+        if (!Number.isInteger(input.positionSeconds) || input.positionSeconds < 0 ||
+            input.positionSeconds > 2147483647)
+          throw new Error('Observed positionSeconds required');
+        body.positionSeconds = input.positionSeconds;
+      }
+      const flags = operation === 'progress' ? ['resumeSupported','notifyLive']
+        : operation === 'activity' ? ['resumeSupportKnown','resumeSupported','ended'] : [];
+      for (const name of flags) {
+        if (input[name] !== undefined) {
+          if (typeof input[name] !== 'boolean') throw new Error('Invalid history flag: ' + name);
+          body[name] = input[name];
+        }
+      }
+      const path = operation === 'activity' ? '/api/v1/browser/recording-playback-sessions/activity' : '/api/v1/browser/recording-playback-sessions/progress';
+      return playbackPost(path, body, input).then(parseJsonBody);
+    }
+
+    function listDevicePlaybackHistory(input, resource) {
       if (!input || typeof input.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
           input.backendId === '.' || input.backendId === '..')
         throw new Error('Continue Watching requires exact backendId');
-      return request('/api/v1/recording-playback-sessions/continue-watching?backendId=' +
+      return request('/api/v1/recording-playback-sessions/' + resource + '?backendId=' +
         encodeURIComponent(input.backendId), input);
     }
 
@@ -1841,6 +2625,7 @@
         // Mirror DeviceGrantAdministrationService's exact-backend fence
         // before issuing HTTP, while preserving wildcard read grants.
         if ([
+          'recordings.edit',
           'timers.create', 'timers.modify', 'timers.delete',
           'searchtimers.create', 'searchtimers.modify',
           'searchtimers.execute', 'searchtimers.delete'
@@ -1958,17 +2743,88 @@
       setDevicePlaybackAccount(options) {
         return setPlaybackAccountForDevice(options);
       },
+      getRecordingPlaybackCapabilities(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const keys = ['appVersion', 'firmwareVersion', 'playerVersion', 'engine'];
+        if (!keys.every(key => typeof input[key] === 'string' && input[key].length > 0))
+          throw new Error('Exact Device playback profile key required');
+        const query = new URLSearchParams();
+        keys.forEach(key => query.set(key, input[key]));
+        return request('/api/v1/recording-playback-sessions/capabilities?' +
+          query.toString(), input);
+      },
       createRecordingPlaybackSession(options) {
         return startDeviceRecordingPlayback(options);
       },
+      createBrowserRecordingPlaybackSession(options) {
+        return startDeviceRecordingPlayback(options, true);
+      },
+      stopBrowserRecordingPlaybackSession(options) {
+        return browserRecordingControl(options, 'stop');
+      },
+      seekBrowserRecordingPlaybackSession(options) {
+        return browserRecordingControl(options, 'seek');
+      },
+      getBrowserRecordingPlaybackStatus(options) {
+        return browserRecordingControl(options, 'playback-status');
+      },
+      getBrowserRecordingPlaybackTracks(options) {
+        return browserRecordingControl(options, 'track-status');
+      },
+      selectBrowserRecordingAudioTrack(options) {
+        return browserRecordingControl(options, 'select-audio-track');
+      },
+      selectBrowserRecordingSubtitle(options) {
+        return selectRecordingSubtitle(options, true);
+      },
+      getBrowserContinueWatching(options) {
+        return listBrowserRecordingHistory(options, false);
+      },
+      getBrowserRecentlyWatched(options) {
+        return listBrowserRecordingHistory(options, true);
+      },
+      getBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'revision');
+      },
+      updateBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'progress');
+      },
+      clearBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'clear');
+      },
+      recordBrowserRecordingActivity(options) {
+        return browserRecordingHistory(options, 'activity');
+      },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);
+      },
+      getRecordingPlaybackTracks(options) {
+        return request('/api/v1/recording-playback-sessions/' +
+          recordingPlaybackSessionId(options) + '/tracks', options);
       },
       stopRecordingPlaybackSession(options) {
         return deviceSessionStop(options);
       },
       getContinueWatching(options) {
-        return listDeviceContinueWatching(options);
+        return listDevicePlaybackHistory(options, 'continue-watching');
+      },
+      getRecentlyWatched(options) {
+        return listDevicePlaybackHistory(options, 'recently-watched');
+      },
+      createLivePlaybackSession(options) {
+        return liveSessionCreate(options);
+      },
+      getLivePlaybackSession(options) {
+        return request('/api/v1/live-playback-sessions/' + recordingPlaybackSessionId(options), options);
+      },
+      stopLivePlaybackSession(options) {
+        return liveSessionStop(options);
+      },
+      getRecordingTrickplay(options) {
+        return recordingTrickplay(options);
+      },
+      selectRecordingSubtitle(options) {
+        return selectRecordingSubtitle(options);
       },
       getRecordingProgress(options) {
         return readRecordingProgress(options);
@@ -1986,6 +2842,101 @@
           '/api/v1/recordings' + recordingCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+
+      validateRecordingAction(options) {
+        return recordingAction(options,false);
+      },
+      executeRecordingAction(options) {
+        return recordingAction(options,true);
+      },
+      searchRecordingMetadata(options) {
+        return postRecordingMetadata(options,'search',false);
+      },
+      getRecordingMetadataSeasons(options) {
+        return postRecordingMetadata(options,'seasons',false);
+      },
+      getRecordingMetadataEpisodes(options) {
+        return postRecordingMetadata(options,'episodes',false);
+      },
+      assignRecordingMetadata(options) {
+        return postRecordingMetadata(options,'assign',true);
+      },
+      refreshSearchTimerPreviewCache(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Preview cache refresh requires backendId');
+        const query = ['backendId=' + encodeURIComponent(input.backendId)];
+        for (const key of ['from','timespan','start','limit','channelEventLimit']) {
+          if (input[key] === undefined) continue;
+          if (!Number.isInteger(input[key]) || input[key] < -2147483648 || input[key] > 2147483647)
+            throw new Error('Invalid preview refresh integer: ' + key);
+          query.push(key + '=' + input[key]);
+        }
+        const path = '/api/v1/search-timers/preview-cache/refresh?' + query.join('&');
+        return fetchImpl(buildUrl(baseUrl,path), {
+          method:'POST', headers:Object.assign({Accept:'application/json'},defaultHeaders,copyHeaders(input.headers)),
+          cache:'no-store', credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+          signal:input.signal
+        }).then(response => parseJsonBody(response).then(data => {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return data;
+        }));
+      },
+      setRecordingSeriesHierarchy(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const body = input.payload;
+        if (!body || typeof body !== 'object' || Array.isArray(body) ||
+            !/^rec_[0-9a-f]{32}$/.test(body.recordingId || '') ||
+            (body.operation !== 'set' && body.operation !== 'clear') ||
+            Object.prototype.hasOwnProperty.call(body, 'resourceKey'))
+          throw new Error('Series hierarchy requires canonical rec_ ID and set or clear');
+        return requestPublicJsonPost(mediaImportPath(input,'recordings/series-hierarchy'),input,body)
+          .then(result => result.data);
+      },
+      withdrawRecordingMetadata(options) {
+        return postRecordingMetadata(options,'withdraw',true);
+      },
+      getRecordingMetadataTrailer(options) {
+        return readRecordingMetadata(options,'trailer');
+      },
+      getRecordingMetadataGenre(options) {
+        return readRecordingMetadata(options,'genre');
+      },
+      setRecordingMetadataGenre(options) {
+        return postRecordingMetadata(options,'genre',true);
+      },
+      getRecordingDetail(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f4RecordingDetailPath(o), o);
+      },
+      getRecordingMarks(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f6RecordingEditPath(o, 'marks'), o);
+      },
+      getRecordingCutState(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(f6RecordingEditPath(o, 'cut'), o);
+      },
+      submitRecordingMarksMutation(options) {
+        return requestRecordingEditMutation(options, 'marks');
+      },
+      submitRecordingCut(options) {
+        return requestRecordingEditMutation(options, 'cut');
+      },
+      getRecordingFolders(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/recordings' + f4PagedQuery(o.query, 'folders'), o);
+      },
+      getRecordingGenres(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres' + f4PagedQuery(o.query, 'genres'), o);
+      },
+      getGenreRecordings(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/recordings' +
+          f4PagedQuery(o.query, 'membership'), o);
       },
       getRecordingArtwork(options) {
         const input = options && typeof options === 'object' ? options : {};
@@ -2007,12 +2958,59 @@
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/channels' + channelQuery(normalizedOptions.query), normalizedOptions);
       },
+      // F3: explicit, backend-scoped Public-v1 reads; no Web route substitution.
+      getAdjacentChannel(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/channels' + f3AdjacentChannelQuery(input.query), input);
+      },
+      getEpgWindow(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/epg/window' + f3EpgQuery(input.query, true), input);
+      },
+      getEpgNowNext(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/epg/now-next' + f3EpgQuery(input.query, false), input);
+      },
+      getEpgEvent(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned('/api/v1/epg/event' + f3EpgEventQuery(input.query), input);
+      },
+      getEpgGenres(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/epg' + f3EpgGenreQuery(input.query, false), input);
+      },
+      getEpgGenreEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/genres/epg/events' + f3EpgGenreQuery(input.query, true), input);
+      },
+      searchCombined(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search' + f3SearchQuery(input.query), input);
+      },
+      searchEpg(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search/epg' + f3SearchQuery(input.query), input);
+      },
+      searchRecordings(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/search/recordings' + f3SearchQuery(input.query, true), input);
+      },
       getSearchTimers(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(
           '/api/v1/search-timers' + searchTimerCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+      previewSavedSearchTimer(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const detail = searchTimerDetailPath(input);
+        const queryStart = detail.indexOf('?');
+        const limit = input.limit;
+        if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 30))
+          throw new Error('SearchTimer preview limit must be 1..30');
+        return request(detail.slice(0,queryStart) + '/preview' +
+          detail.slice(queryStart) + (limit === undefined ? '' : '&limit=' + limit),input);
       },
       previewSearchTimerDraft(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
@@ -2039,6 +3037,53 @@
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(searchTimerDetailPath(normalizedOptions), normalizedOptions);
       },
+      getNativeTimers(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/native-timers' +
+          nativeTimerListQuery(input.query), input);
+      },
+      getNativeTimer(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(nativeTimerItemPath(input), input);
+      },
+      // Opaque VDR Aux changes independently of the Timer Binding ETag.
+      // This unconditional snapshot read deliberately uses request(), not
+      // requestRevisioned(), and cannot return a misleading 304.
+      getNativeTimerAux(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request(nativeTimerItemPath(input, '/aux'), input);
+      },
+      modifyNativeTimer(options) {
+        return submitNativeTimerMutation(options, 'POST');
+      },
+      deleteNativeTimer(options) {
+        return submitNativeTimerMutation(options, 'DELETE');
+      },
+      createNativeTimer(options) {
+        return submitDirectNativeTimerAction(options, 'create');
+      },
+      getLiveNativeTimers(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Canonical backendId required');
+        return request('/api/v1/native-timers/live/list?backendId=' +
+          encodeURIComponent(input.backendId), input);
+      },
+      getNativeTimerConflicts(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.backendId !== 'string' ||
+            !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+          throw new Error('Canonical backendId required');
+        return request('/api/v1/native-timers/conflicts/live?backendId=' +
+          encodeURIComponent(input.backendId), input);
+      },
+      updateExternalNativeTimer(options) {
+        return submitDirectNativeTimerAction(options, 'update');
+      },
+      deleteExternalNativeTimer(options) {
+        return submitDirectNativeTimerAction(options, 'delete');
+      },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(
@@ -2052,6 +3097,12 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      submitEpgTimerIntent(options) {
+        return submitEpgTimer(options);
+      },
+      submitManualTimerIntent(options) {
+        return submitManualTimerIntent(options);
       },
       submitTimerCreate(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
@@ -2169,6 +3220,24 @@
       },
       submitMediaImportBatch(options) {
         return requestMediaImportBatch(options);
+      },
+      openDeviceEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const query = input.query;
+        if (!query || typeof query !== 'object' || Array.isArray(query) ||
+            Object.keys(query).some(key => !['backendId','domain'].includes(key)) ||
+            !['timers','recordings','continueWatching'].includes(query.domain))
+          throw new Error('Device event stream requires one backend and one domain');
+        return requestEventStream('/api/v1/events?backendId=' +
+          f3CanonicalId(query.backendId, 'event backendId', 128) +
+          '&domain=' + query.domain, input);
+      },
+      openOperationEvents(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (typeof input.operationId !== 'string' ||
+            !/^op_[A-Za-z0-9_-]{1,157}$/.test(input.operationId))
+          throw new Error('Operation stream requires a public op_ identity');
+        return requestEventStream(operationItemPath(input) + '/events', input);
       },
       getOperation(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

@@ -352,7 +352,8 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
 
     // A Device-issued credential must never bypass a Device grant check by
     // requesting the *legacy* path instead. The callback can distinguish a
-    // legacy Browser session from a registered Public-v1 Device session.
+    // legacy Browser session from a registered Public-v1 Device session
+    // or the existing versioned Browser Recording session owner.
     if ((mediaPath.publicV1 && !publicSessionAuthorizer_) ||
         (publicSessionAuthorizer_ &&
          !publicSessionAuthorizer_(

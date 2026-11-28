@@ -43,17 +43,25 @@ EXPECTED_RUNTIME_OWNERS = {
 }
 
 EXPECTED_ROUTE_LITERALS = {
+    "/api/v1/browser/recording-playback-sessions/activity",
+    "/api/v1/browser/recording-playback-sessions/progress",
+    "/api/v1/recordings/",
     "/api/v1/recordings",
     "/api/v1/recordings/actions/validate",
     "/api/v1/recordings/actions/execute",
+    "/api/v1/search",
     "/api/v1/search/recordings",
     "/api/v1/search/epg",
     "/api/v1/epg/now-next",
     "/api/v1/epg/window",
     "/api/v1/epg/event",
     "/api/v1/epg/timer-intents",
+    "/api/v1/manual/timer-intents",
     "/api/v1/native-timers",
     "/api/v1/native-timers/",
+    "/api/v1/native-timers/actions/create",
+    "/api/v1/native-timers/conflicts/live",
+    "/api/v1/native-timers/live/list",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
     "/api/v1/genres/epg",
@@ -75,6 +83,7 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/v1/search-timers",
     "/api/v1/search-timers/",
     "/api/v1/search-timers/draft-preview",
+    "/api/v1/search-timers/preview-cache/refresh",
     "/api/backends",
     "/api/backends/",
     "/api/backends/default",
@@ -196,17 +205,25 @@ EXPECTED_ROUTE_LITERALS = {
 }
 
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
+    "/api/v1/browser/recording-playback-sessions/activity",
+    "/api/v1/browser/recording-playback-sessions/progress",
+    "/api/v1/recordings/",
     "/api/v1/recordings",
     "/api/v1/recordings/actions/validate",
     "/api/v1/recordings/actions/execute",
+    "/api/v1/search",
     "/api/v1/search/recordings",
     "/api/v1/search/epg",
     "/api/v1/epg/now-next",
     "/api/v1/epg/window",
     "/api/v1/epg/event",
     "/api/v1/epg/timer-intents",
+    "/api/v1/manual/timer-intents",
     "/api/v1/native-timers",
     "/api/v1/native-timers/",
+    "/api/v1/native-timers/actions/create",
+    "/api/v1/native-timers/conflicts/live",
+    "/api/v1/native-timers/live/list",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
     "/api/v1/genres/epg",
@@ -228,6 +245,7 @@ EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/search-timers",
     "/api/v1/search-timers/",
     "/api/v1/search-timers/draft-preview",
+    "/api/v1/search-timers/preview-cache/refresh",
 }
 
 # Phase 69.E retained pre-v1 compatibility classification.

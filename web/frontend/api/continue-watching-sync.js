@@ -8,8 +8,8 @@
 
   const RESUME_READY_POLL_MS = 100;
   const RESUME_READY_MAX_ATTEMPTS = 300;
-  const CONTINUE_ENDPOINT = '/api/media/continue-watching';
-  const HISTORY_ENDPOINT = '/api/media/recently-watched';
+  const PUBLIC_PROGRESS_ENDPOINT = '/api/v1/browser/recording-playback-sessions/progress';
+  const PUBLIC_ACTIVITY_ENDPOINT = '/api/v1/browser/recording-playback-sessions/activity';
   const pending = {backendId: '', recordingId: '', positionSeconds: 0, autoStart: false};
   let operationCounter = 0;
   let historyOperationCounter = 0;
@@ -18,6 +18,16 @@
 
   function text(value) { return value == null ? '' : String(value); }
   function recordingId(recording) { return text(recording && (recording.id || recording.recordingId)); }
+  function canonicalId(id) {
+    return /^rec_[0-9a-f]{32}$/.test(text(id));
+  }
+  function persistenceRecordingId(recording, backendId) {
+    if (recording && recording.backendId && recording.backendId !== backendId) return '';
+    const shared = global.VdrSuiteRecordings2Shared;
+    const canonical = shared && typeof shared.publicRecordingId === 'function'
+      ? shared.publicRecordingId(recording, backendId) : recordingId(recording);
+    return canonicalId(canonical) ? canonical : '';
+  }
   function nextOperationId(prefix) {
     operationCounter += 1;
     return 'cw-' + prefix + '-' + Date.now().toString(36) + '-' + operationCounter.toString(36);
@@ -33,6 +43,7 @@
     return headers && typeof headers === 'object' ? headers : {};
   }
   function postTo(endpoint, body, errorText) {
+    if (!body || !canonicalId(body.recordingId)) return Promise.reject(new Error(errorText));
     const fetcher = global.fetch || fetch;
     return fetcher(endpoint, {
       method: 'POST',
@@ -45,19 +56,20 @@
     });
   }
   function post(body) {
-    return postTo(CONTINUE_ENDPOINT, body, 'continue watching sync failed');
+    return postTo(PUBLIC_PROGRESS_ENDPOINT, body, 'continue watching sync failed');
   }
   function postHistory(body) {
-    return postTo(HISTORY_ENDPOINT, body, 'recently watched sync failed');
+    return postTo(PUBLIC_ACTIVITY_ENDPOINT, body, 'recently watched sync failed');
   }
 
   // Browser and Device checkpoints must share the SQLite CAS fence. Acquire
   // the baseline once for this playback owner, not immediately before every
   // position update (that would let a stale session overwrite a newer TV).
   function loadRevision(state, backendId, currentRecordingId) {
+    if (!canonicalId(currentRecordingId)) return Promise.resolve(null);
     if (state.loading) return state.loading;
     const fetcher = global.fetch || fetch;
-    state.loading = fetcher(CONTINUE_ENDPOINT, {
+    state.loading = fetcher(PUBLIC_PROGRESS_ENDPOINT, {
       method: 'POST',
       credentials: 'same-origin',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
@@ -83,13 +95,14 @@
   }
 
   function enqueueVersioned(body, state) {
+    if (!body || !canonicalId(body.recordingId)) return Promise.resolve(false);
     const operation = mutationQueue.catch(function () {}).then(function () {
       return loadRevision(state, body.backendId, body.recordingId);
     }).then(function () {
       if (state.blocked || !Number.isSafeInteger(state.revision)) return false;
       const fetcher = global.fetch || fetch;
       const request = Object.assign({}, body, {expectedRevision: state.revision});
-      return fetcher(CONTINUE_ENDPOINT, {
+      return fetcher(PUBLIC_PROGRESS_ENDPOINT, {
         method: 'POST', credentials: 'same-origin',
         headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
         body: JSON.stringify(request)
@@ -144,7 +157,7 @@
   }
   function clearCurrent(backendId, currentRecordingId, expectedRevision) {
     const id = text(currentRecordingId);
-    if (!id) return Promise.resolve(false);
+    if (!canonicalId(id)) return Promise.resolve(false);
     const pinned = expectedRevision !== undefined;
     if (pinned && (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0)) {
       return Promise.resolve(false);
@@ -305,6 +318,8 @@
     function syncProgress(forceClear, allowInactive) {
       if (disposed && !forceClear) return Promise.resolve(false);
       if (!forceClear && !allowInactive && !snapshotActive(latestSnapshot)) return Promise.resolve(false);
+      const id = persistenceRecordingId(recording, backendId);
+      if (!id) return Promise.resolve(false);
       const position = readPosition();
       const duration = readDuration();
       const complete = forceClear || (duration > 0 && position >= duration);
@@ -315,16 +330,16 @@
       const notifyLive = lastPosition < 0 || allowInactive === true;
       lastPosition = position;
       return enqueueVersioned(complete ? {
-        operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
+        operation: 'clear', backendId, recordingId: id, operationId: nextOperationId('clear')
       } : {
-        operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
+        operation: 'progress', backendId, recordingId: id, positionSeconds: position,
         resumeSupported: true, notifyLive: notifyLive, operationId: nextOperationId('progress')
       }, revisionState).then(function (success) { return success === true; }, function () { return false; });
     }
     function syncHistory(ended, allowInactive) {
       if (disposed && !ended) return Promise.resolve(false);
       if (!ended && !allowInactive && !snapshotActive(latestSnapshot)) return Promise.resolve(false);
-      const id = recordingId(recording);
+      const id = persistenceRecordingId(recording, backendId);
       if (!id) return Promise.resolve(false);
       const positionKnown = typeof owner.position === 'function';
       const position = readPosition();
@@ -421,7 +436,7 @@
         if (historyObserved) syncHistory(false, true);
       }
       if (active) {
-        loadRevision(revisionState, backendId, recordingId(recording));
+        loadRevision(revisionState, backendId, persistenceRecordingId(recording, backendId));
         ensureInitialHistory();
         ensureSampling();
       } else stopSampling();

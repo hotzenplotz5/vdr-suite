@@ -22,8 +22,12 @@ const index = read('web/frontend/index.html');
 const makefile = read('Makefile');
 const sliceMake = read('mk/phase66-recording-discovery.mk');
 
-// Newly Recorded consumes the existing bounded recording query and explicit backend scope.
-assert(source.includes("fetchClientRecordings({"));
+// Newly Recorded consumes the bounded public recording view; older servers
+// can still use the explicitly retained compatibility read.
+assert(source.includes("typeof client.fetchPublicHomeNew === 'function'"));
+assert(source.includes('? client.fetchPublicHomeNew : client.fetchClientRecordings'));
+assert(clientApi.includes("query: {backendId, view: 'new', limit, offset}"));
+assert(source.includes('fetchNewlyPage(client, backendId, cache)'));
 assert(source.includes("backend: backendId"));
 assert(source.includes("sort: 'startTime'"));
 assert(source.includes("order: 'desc'"));
@@ -31,7 +35,10 @@ assert(source.includes('limit: NEW_LIMIT'));
 assert(clientApi.includes("requestJson('/api/vdr/recordings/query', options)"));
 
 // Folder discovery consumes the existing recording hierarchy and canonical folder owner.
-assert(source.includes('fetchClientRecordingFolder({'));
+assert(source.includes('publicMode ? client.fetchPublicRecordingFolder : client.fetchClientRecordingFolder'));
+assert(source.includes('payload.publicFolder === true'));
+assert(source.includes('return requestPage(nextOffset)'));
+assert(clientApi.includes("view: 'folders'"));
 assert(source.includes("path: ''"));
 assert(source.includes('limit: FOLDER_LIMIT'));
 assert(source.includes("global.VdrSuiteRecordings2.openFolder(path)"));
@@ -39,11 +46,13 @@ assert(clientApi.includes("requestJson('/api/vdr/recordings/folder', backendQuer
 
 // Genre discovery consumes the existing metadata genre truth and existing genre browser.
 assert(source.includes("scope: 'recordings'"));
-assert(source.includes('fetchClientGenreRecordings({'));
+assert(source.includes('publicRead ? client.fetchPublicGenreRecordings : client.fetchClientGenreRecordings'));
 assert(source.includes("global.VdrSuiteGenres.openRecordingGenre(entry"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres'"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recordings'"));
-assert(genres.includes('client.fetchClientGenreRecordings(options)'));
+assert(genres.includes('client.fetchPublicGenreRecordings(options)'));
+assert(!genres.includes('client.fetchClientGenreRecordings('));
+assert(genreClientApi.includes("base.requestJson('/api/v1/genres/recordings'"));
 assert(genres.includes('openRecordingGenre: function (entry, options)'));
 
 // Series membership is projection-only: the canonical `series` endpoint remains the sole membership authority.
@@ -110,7 +119,8 @@ assert(source.includes('mountFolderSeries: mountFolderSeries'));
 assert(source.includes('!allowPartial && members.length !== expected'));
 assert(source.includes('appendOriginalFolderButton(surface)'));
 assert(source.includes('Alle Aufnahmen im Ordner'));
-assert(bootstrap.includes('discovery.mountFolderSeries(expansion, nextPath, backendId'));
+assert(bootstrap.includes('discovery.mountFolderSeries(expansion, seriesPath, backendId'));
+assert(bootstrap.includes('folderId:text(currentEntry() && currentEntry().folderId)'));
 assert(source.includes('prioritizeInlineRailArtwork(view.episodeRail)'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.

@@ -136,11 +136,6 @@
     return text(channel.channelId || channel.id || channel.nativeId).trim();
   }
 
-  function recordingId(recording) {
-    if (!recording || typeof recording !== 'object') return '';
-    return text(recording.recordingId || recording.id).trim();
-  }
-
   function safeLiveMediaPath(value) {
     const path = text(value).trim();
     if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
@@ -152,7 +147,7 @@
   function safeRecordingMediaPath(value) {
     const path = text(value).trim();
     if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
-    return /^\/api\/media\/sessions\/[A-Za-z0-9._:-]+\/recording\/stream\.mp4$/.test(path)
+    return /^\/api\/(?:v1\/)?media\/sessions\/[A-Za-z0-9._:-]+\/recording\/stream\.mp4$/.test(path)
       ? path
       : '';
   }
@@ -764,25 +759,27 @@
 
   function createRecordingSession(backendId, recording) {
     const api = global.VdrSuiteClientApi;
-    const id = recordingId(recording);
+    const shared = global.VdrSuiteRecordings2Shared;
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!id) {
-      return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+    if (!shared || typeof shared.resolvePublicRecordingId !== 'function') {
+      return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
     }
 
     return afterBrowserSessionRestore(function () {
-      return api.requestJson('/api/media/sessions', {
-        method: 'POST',
-        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-        body: JSON.stringify({
-          backendId: text(backendId || 'default'),
-          recordingId: id,
-          capabilities: recordingCapabilities()
-        }),
-        cache: 'no-store',
-        credentials: 'same-origin'
+      return shared.resolvePublicRecordingId(recording, backendId, api, function (id) {
+        return api.requestJson('/api/v1/browser/recording-playback-sessions', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+          body: JSON.stringify({
+            backendId: text(backendId || 'default'),
+            recordingId: id,
+            capabilities: recordingCapabilities()
+          }),
+          cache: 'no-store',
+          credentials: 'same-origin'
+        });
       });
     });
   }
@@ -829,7 +826,7 @@
     });
 
     if (keepalive && typeof global.fetch === 'function') {
-      return global.fetch('/api/media/sessions', {
+      return global.fetch('/api/v1/browser/recording-playback-sessions/control', {
         method: 'POST',
         headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
         body: body,
@@ -841,7 +838,7 @@
 
     const api = global.VdrSuiteClientApi;
     if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: body,
@@ -861,7 +858,7 @@
       return Promise.reject(new Error('Ungültige Recording-Seek-Anforderung.'));
     }
 
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -884,7 +881,7 @@
     if (!id) {
       return Promise.reject(new Error('Ungültige Recording-MediaSession-ID.'));
     }
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -2755,7 +2752,6 @@
       recordingCapabilities: recordingCapabilities,
       safeRecordingMediaPath: safeRecordingMediaPath,
       publicRecordingMediaPath: publicRecordingMediaPath,
-      recordingId: recordingId,
       recordingPlaybackStatus: recordingPlaybackStatus,
       supportsContinuousFmp4Mse: supportsContinuousFmp4Mse
     })

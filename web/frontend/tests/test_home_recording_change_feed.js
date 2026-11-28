@@ -514,5 +514,39 @@ function navigate(next) {
   assert(flatten(episodeRail).some(node =>
     typeof node.textContent === 'string' && node.textContent.includes('Gemeinsame Korrektur')));
 
+  const publicId = 'rec_' + 'a'.repeat(32), stableId = 'rec_' + 'b'.repeat(32);
+  const rows = [
+    {kind:'recording', recordingId:publicId, backendId:'B', title:'New public', recordedAt:'2026-11-27',
+      preferredArtworkId:'c'.repeat(32)},
+    {kind:'recording', recordingId:stableId, backendId:'B', title:'Stable public', recordedAt:'2026-11-26',
+      preferredArtworkId:'d'.repeat(32)}
+  ];
+  let publicReads = 0;
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'..','api','client-api.js'),'utf8'),
+    vm.createContext({window,URLSearchParams,fetch(url) {
+      assert(url.includes('/api/v1/recordings?') && url.includes('view=new'));
+      publicReads++;
+      return Promise.resolve({ok:true,text:()=>Promise.resolve(JSON.stringify({items:rows,
+        page:{limit:12,offset:0,totalCount:rows.length,hasMore:false},meta:{partial:false,cardPresentation:true}}))});
+    }}));
+  client.fetchPublicHomeNew = window.VdrSuiteClientApi.fetchPublicHomeNew;
+  third.emit(113, 'B', ['recordings']);
+  await tick();
+  assert.strictEqual(publicReads, 1);
+  const findCard = id => flatten(host).find(node => node.dataset.recordingId === id);
+  const unchanged = findCard(stableId);
+  assert(unchanged);
+  const imageBefore = flatten(unchanged).find(node=>node.src);
+  assert(imageBefore && imageBefore.src.includes('variant=home'));
+  const changed = findCard(publicId);
+  rows[0] = {...rows[0], title:'Corrected public', preferredArtworkId:'e'.repeat(32)};
+  third.handlers.update({data:JSON.stringify({sequenceNumber:114,backendId:'B',
+    changedDomains:['recordings'],recordingPublicIds:[publicId],recordingNativeIds:['/native/changed']})});
+  await tick();
+  assert.strictEqual(publicReads,2);
+  assert.strictEqual(findCard(publicId),changed);
+  assert.strictEqual(findCard(stableId),unchanged);
+  assert.strictEqual(flatten(unchanged).find(node=>node.src),imageBefore);
+  assert(flatten(changed).some(node=>node.src && node.src.includes('e'.repeat(32))));
   console.log('Home recording and Series SSE lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

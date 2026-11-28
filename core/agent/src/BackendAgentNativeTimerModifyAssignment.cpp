@@ -33,6 +33,10 @@ bool requestValid(const RequestSecurityContext& context,
   backendAgentCommandSafeIdentifier(r.backendNativeTimerId)&&
   backendAgentNativeTimerDeleteCanonicalFingerprintValid(r.expectedCurrentFingerprint)&&
   backendAgentNativeTimerCreateSpecificationValid(r.specification)&&
+  (!r.modifyAux ||
+   (r.kind==BackendAgentNativeTimerModifyKind::update &&
+    backendAgentNativeTimerDeleteFingerprintTokenValid(r.expectedAuxFingerprint) &&
+    r.desiredAux.size()<=1024U))&&
   r.expectedSpecificationFingerprint==
     backendAgentNativeTimerCreateSpecificationFingerprint(r.specification)&&
   r.controlPlaneClaimedAt>0&&r.controlPlaneClaimedAt<=now&&now>0&&
@@ -50,7 +54,9 @@ BackendAgentNativeTimerModifyPayload payloadFor(
  p.expectedCurrentFingerprint=backendAgentNativeTimerDeleteFingerprintToken(
     r.expectedCurrentFingerprint);
  p.expectedSpecificationFingerprint=r.expectedSpecificationFingerprint;
- p.specification=r.specification;p.controlPlaneClaimedAt=r.controlPlaneClaimedAt;
+ p.specification=r.specification;p.modifyAux=r.modifyAux;
+ p.expectedAuxFingerprint=r.expectedAuxFingerprint;p.desiredAux=r.desiredAux;
+ p.controlPlaneClaimedAt=r.controlPlaneClaimedAt;
  p.localProviderSelection=selection;return p;
 }
 BackendAgentNativeTimerModifyCommand domainCommand(
@@ -63,6 +69,8 @@ BackendAgentNativeTimerModifyCommand domainCommand(
  c.nativeTimerBindingId=p.nativeTimerBindingId;c.expectedBindingRevision=p.expectedBindingRevision;
  c.backendNativeTimerId=p.backendNativeTimerId;c.expectedCurrentFingerprint=p.expectedCurrentFingerprint;
  c.expectedSpecificationFingerprint=p.expectedSpecificationFingerprint;c.specification=p.specification;
+ c.modifyAux=p.modifyAux;c.expectedAuxFingerprint=p.expectedAuxFingerprint;
+ c.desiredAux=p.desiredAux;
  c.jobId=a.jobId;c.attemptId=a.attemptId;c.claimEpoch=a.claimEpoch;c.backendId=a.backendId;
  c.agentId=a.agentId;c.agentInstanceId=a.agentInstanceId;c.backendGeneration=a.backendGeneration;
  c.controlPlaneClaimedAt=p.controlPlaneClaimedAt;c.localProviderSelection=p.localProviderSelection;
@@ -70,7 +78,8 @@ BackendAgentNativeTimerModifyCommand domainCommand(
 }
 bool exactRequest(const BackendAgentNativeTimerModifyAssignmentRequest& r,
  const BackendAgentCommandAssignment& a,const BackendAgentNativeTimerModifyPayload& p) {
- return a.commandType==commandType(r.kind)&&a.payloadVersion==1&&
+ return a.commandType==commandType(r.kind)&&
+  a.payloadVersion==(r.modifyAux?2U:1U)&&
   a.verificationPolicy=="readback_required"&&a.operationId==r.operationId&&
   a.backendId==r.backendId&&a.backendGeneration==r.backendGeneration&&
   p.kind==r.kind&&p.operationRevision==r.operationRevision&&
@@ -82,6 +91,9 @@ bool exactRequest(const BackendAgentNativeTimerModifyAssignmentRequest& r,
   p.backendNativeTimerId==r.backendNativeTimerId&&
   p.expectedCurrentFingerprint==backendAgentNativeTimerDeleteFingerprintToken(r.expectedCurrentFingerprint)&&
   p.expectedSpecificationFingerprint==r.expectedSpecificationFingerprint&&
+  p.modifyAux==r.modifyAux &&
+  p.expectedAuxFingerprint==r.expectedAuxFingerprint &&
+  p.desiredAux==r.desiredAux &&
   p.controlPlaneClaimedAt==r.controlPlaneClaimedAt;
 }
 bool exactExisting(BackendAgentCommandRepository& repository,
@@ -170,7 +182,8 @@ BackendAgentNativeTimerModifyAssignmentService::assign(
  a.attemptId=backendAgentGenerateOpaqueId("att_",12);a.claimEpoch=1;
  a.commandId=backendAgentGenerateOpaqueId("cmd_",12);a.backendId=request.backendId;
  a.agentId=agent->agentId;a.agentInstanceId=agent->agentInstanceId;
- a.backendGeneration=agent->backendGeneration;a.commandType=type;a.payloadVersion=1;
+ a.backendGeneration=agent->backendGeneration;a.commandType=type;
+ a.payloadVersion=request.modifyAux?2:1;
  a.payload=backendAgentNativeTimerModifyPayload(payload);
  a.verificationPolicy="readback_required";a.assignedAt=now;a.deadline=deadline;
  a.requestFingerprint=backendAgentCommandFingerprint(a);

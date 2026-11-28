@@ -166,10 +166,13 @@ function buildSeriesSet() {
   return items;
 }
 
-function createHarness(seriesItems) {
+function createHarness(seriesItems, publicMode) {
   const host = new FakeElement('div');
   const calls = [];
   const pendingPages = new Map();
+  const folderCalls = [];
+  let publicNewReads = 0;
+  let liveSource = null;
 
   function pagePayload(request) {
     const serverLimit = Math.min(Number(request.limit || 0) || 48, 100);
@@ -209,6 +212,42 @@ function createHarness(seriesItems) {
     }
   };
 
+  if (publicMode) {
+    delete client.fetchClientRecordingFolder;
+    delete client.fetchClientRecordings;
+    client.fetchPublicHomeNew = function () {
+      publicNewReads += 1;
+      return Promise.resolve({publicView:'new',recordings:[]});
+    };
+    client.createClientLiveUpdateSource = function () {
+      liveSource = {handlers:{},addEventListener(type,listener){this.handlers[type]=listener;},close(){}};
+      return liveSource;
+    };
+    client.fetchPublicRecordingFolder = function (options) {
+      const offset=options.query.offset;
+      folderCalls.push(offset);
+      assert(!Object.hasOwn(options.query,'path'));
+      assert(!Object.hasOwn(options.query,'folderId'));
+      const folders=offset===0?[{folderId:'fld1_'+'a'.repeat(32),name:'Filme',recordingCount:2}]:[];
+      const recordings=Array.from({length:offset===0?99:1}, (_,i)=>({
+        recordingId:'rec_'+(offset+i+1000).toString(16).padStart(32,'0'),
+        backendId:'default',title:'Root recording '+(offset+i)}));
+      return Promise.resolve({publicFolder:true,folderCount:1,recordingCount:100,
+        offset,returnedCards:folders.length+recordings.length,
+        nextOffset:offset+folders.length+recordings.length,hasMore:offset===0,folders,recordings});
+    };
+    const legacyRead = client.fetchClientGenreRecordings;
+    delete client.fetchClientGenreRecordings;
+    client.fetchPublicGenreRecordings = function (request) {
+      return legacyRead(request).then(function (legacy) {
+        const page = {offset: legacy.offset, limit: legacy.limit, totalCount: legacy.total, hasMore: legacy.hasMore};
+        const payload = {items: legacy.items, page};
+        if (request.onPage) request.onPage(payload);
+        return Object.assign({}, payload, {recordings: legacy.items, total: legacy.total, hasMore: legacy.hasMore});
+      });
+    };
+  }
+
   const document = {
     readyState: 'loading',
     head: null,
@@ -227,6 +266,9 @@ function createHarness(seriesItems) {
   context.window.document = document;
   context.window.setTimeout = function () { return 1; };
   context.window.VdrSuiteHomeLivePreview = {cancel() {}};
+  const opened=[];
+  context.window.selectModule=()=>true;
+  context.window.VdrSuiteRecordings2={openFolder(){},openRecording(recording,options){opened.push({recording,options});}};
   context.window.VdrSuitePlatform = {
     getSelectedBackendId() { return 'default'; },
     getSelectedModule() { return 'overview'; },
@@ -240,6 +282,14 @@ function createHarness(seriesItems) {
     api: context.window.VdrSuiteHomeRecordingDiscovery,
     host,
     calls,
+    folderCalls,
+    opened,
+    publicNewReads: () => publicNewReads,
+    emitRecordingChange() {
+      assert(liveSource, 'Home SSE subscription missing');
+      liveSource.handlers.update({data:JSON.stringify({sequenceNumber:1,backendId:'default',
+        changedDomains:['recordings'],recordingNativeIds:['/native/changed']})});
+    },
     releasePage(offset) {
       const release = pendingPages.get(offset);
       if (!release) return false;
@@ -310,7 +360,47 @@ async function flushMicrotasks(turns) {
     14
   );
 
-  console.log('phase66 series projection renders progressively while pagination continues');
+  const opaque = buildSeriesSet().map(function (episode, index) {
+    const parts = episode.path.split('/');
+    const series = index < 145 ? 1 : Math.floor((index - 145) / 9) + 2;
+    const token = /S(\d+)E(\d+)/.exec(parts[2]);
+    return {recordingId: 'rec_' + (index + 1).toString(16).padStart(32, '0'), backendId: 'default',
+      recordedAt: '2026-11-20T12:00:00Z', title: parts[2],
+      seriesGrouping: {groupKey: 'sg1_' + series.toString(16).padStart(32, '0'), folderTitle: parts[1]},
+      cardMetadata: {title: parts[1], mediaType: 'series', seasonNumber: Number(token[1]), episodeNumber: Number(token[2])}};
+  });
+  const publicHarness = createHarness(opaque, true);
+  const publicRefresh = publicHarness.api.refresh();
+  await flushMicrotasks(20);
+  assert.deepStrictEqual(publicHarness.calls.map(call => Number(call.offset || 0)), [0, 100, 200]);
+  assert(publicHarness.releasePage(100));
+  assert.strictEqual(await publicRefresh, true);
+  assert.strictEqual(findSeriesCards(findRail(publicHarness.host, 'series')).length, 14);
+  assert.deepStrictEqual(publicHarness.folderCalls,[0,100]);
+  const rootFolders=findRail(publicHarness.host,'folders');
+  assert(rootFolders);
+  assert(findElement(rootFolders,element=>element.dataset && element.dataset.folderPath==='fld1_'+'a'.repeat(32)));
+  const rootGroup=findElement(rootFolders,element=>element.dataset && element.dataset.rootRecordingGroup==='true');
+  assert(rootGroup);
+  assert(findElement(rootGroup,element=>String(element.textContent).includes('100 Aufnahmen')));
+  rootGroup.listeners.click[0]();
+  const rootRecording=findElement(rootFolders,element=>element.dataset && /^rec_/.test(element.dataset.recordingId||''));
+  assert(rootRecording);
+  rootRecording.listeners.click[0]();
+  await flushMicrotasks(20);
+  assert.strictEqual(publicHarness.opened.length,1);
+  assert.strictEqual(publicHarness.opened[0].recording.recordingId,rootRecording.dataset.recordingId);
+  assert.strictEqual(publicHarness.opened[0].recording.backendNativeId,undefined);
+  assert.strictEqual(publicHarness.publicNewReads(),1);
+  await publicHarness.api._test.refreshForHome();
+  publicHarness.emitRecordingChange();
+  await flushMicrotasks(20);
+  assert.strictEqual(publicHarness.publicNewReads(),2,'public-only SSE must refresh new recordings');
+  assert.deepStrictEqual(publicHarness.calls.map(call => Number(call.offset || 0)),[0,100,200,0,100,200]);
+  assert(publicHarness.releasePage(100));
+  await flushMicrotasks(20);
+  assert.strictEqual(findSeriesCards(findRail(publicHarness.host,'series')).length,14);
+  console.log('phase66 series projection renders progressively while pagination continues, including Public v1');
 }()).catch((error) => {
   console.error(error);
   process.exitCode = 1;

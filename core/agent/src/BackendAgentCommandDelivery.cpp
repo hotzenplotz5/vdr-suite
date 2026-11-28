@@ -800,7 +800,8 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
     }
     else if((commandType==kBackendAgentNativeTimerUpdateCommandType||
              commandType==kBackendAgentNativeTimerToggleCommandType)&&
-            payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion)
+            payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion &&
+            payloadVersion!=2U)
     {
         result.reasonCode="local_provider_selection_required";
         return result;
@@ -978,11 +979,13 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     else if(commandType==kBackendAgentNativeTimerUpdateCommandType||
             commandType==kBackendAgentNativeTimerToggleCommandType)
     {
-        if(payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion)
+        if(payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion &&
+           payloadVersion!=2U)
         {result.reasonCode="local_provider_selection_required";return result;}
         BackendAgentNativeTimerModifyPayload modifyPayload;
         std::string payloadReason;
-        if(!backendAgentNativeTimerModifyParsePayload(payload,modifyPayload,payloadReason))
+        if(!backendAgentNativeTimerModifyParsePayload(payload,modifyPayload,payloadReason) ||
+           payloadVersion!=(modifyPayload.modifyAux ? 2U : 1U))
         {result.reasonCode="local_provider_selection_invalid";return result;}
         const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
             modifyPayload.localProviderSelection);

@@ -14,7 +14,7 @@ There are **no implicit pairing permissions and no direct SQLite writes**.
 
 The overview is the existing Web taxonomy, flattened for D-pad navigation
 (parent categories followed by their canonical movie children).
-The EPG window is the Web Genre default: now through the next 48 hours.
+The EPG window defaults to now through the next 48 hours. Optional paired Unix-second `fromTime` and `untilTime` (maximum seven days) preserve the Web selection across requests. Both responses provide the effective window; the overview additionally provides `totalItems` (distinct items) and `assignmentCount` from the same canonical index. The browser reconstructs its existing parent/child taxonomy from the flat rows. Event rows preserve channelName, description, durationSeconds, genreIds and the existing portrait/direct image choice from the same persistent index. Overview pages remain bounded to 30; event pages support the established Web size of 48. Portraits use the existing public preferred-artwork resource with variant=genre, and the direct artwork resource remains the image fallback.
 Events contain backend, channel and event IDs, title, subtitle and times,
 but never native paths, provider URLs or unauthenticated playback links.
 Pages are bounded to 30 records, and scope/permission denial fails closed.
@@ -25,3 +25,10 @@ Acceptance must compare EPG-category counts and EPG items with the Web
 Live-TV permissions are separate: `channels.view`, `epg.view` and
 `media.live.play` may all be assigned to an already paired Hisense device
 via administrator `/api/v1/devices/{deviceId}/grants` with ETag and CSRF.
+
+The existing OpenAPI and reference JavaScript client expose these reads as
+`getEpgGenres({query})` and `getEpgGenreEvents({query})`. The existing
+`GET /api/v1/epg/event` is also documented and available through
+`getEpgEvent({query, ifNoneMatch})`, returning `{status, etag, data}` so
+clients can retain the strong event revision and handle 304 without a
+second lookup. No new runtime path or grant is introduced.

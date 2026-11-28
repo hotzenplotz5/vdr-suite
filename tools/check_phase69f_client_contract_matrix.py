@@ -36,8 +36,8 @@ base_client = read("web/frontend/api/client-api.js")
 genre_client = read("web/frontend/api/genre-client-api.js")
 remote_client = read("web/frontend/api/live-remote-client-api.js")
 
-base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer)[A-Za-z0-9_]*)\s*\(", base_client))
-genre_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", genre_client))
+base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer|fetchPublicRecordingAction|fetchPublicHomeMovies|fetchPublicHomeNew|fetchPublicRecordingFolder)[A-Za-z0-9_]*)\s*\(", base_client))
+genre_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicRecordingGenres|fetchPublicGenreRecordings)[A-Za-z0-9_]*)\s*\(", genre_client))
 remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", remote_client))
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
 remote_operations.add("createClientLiveUpdateSource")
@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 65, f"expected 65 base client operations, found {len(base_operations)}")
-require(len(genre_operations) == 3, f"expected 3 Genre client operations, found {len(genre_operations)}")
+require(len(base_operations) == 70, f"expected 70 base client operations, found {len(base_operations)}")
+require(len(genre_operations) == 6, f"expected 6 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 72, f"expected 72 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 80, f"expected 80 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -87,6 +87,16 @@ for source_name, source in (
         source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
         source = source.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
                                 "'approved-searchtimer-resource' + encodeURIComponent(id)")
+        draft_route = "'/api/v1/search-timers/draft-preview'"
+        require(source.count(draft_route) == 1,
+                "browser SearchTimer draft preview GET must be exact")
+        source = source.replace(draft_route, "'approved-searchtimer-draft-preview'")
+        refresh_route = "'/api/v1/search-timers/preview-cache/refresh'"
+        require(source.count(refresh_route) == 1 and
+                "return requestJson(" + refresh_route in source and
+                "queryMutationOptions(Object.assign({}, input, {query, method:'POST'}))" in source,
+                "reviewed SearchTimer cache refresh POST drifted")
+        source = source.replace(refresh_route, "'approved-searchtimer-cache-refresh'")
         operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
         require(source.count(operation_route) == 1,
                 "browser SearchTimer Operation GET must be exact")
@@ -98,6 +108,57 @@ for source_name, source in (
             require(source.count(route) == 1,
                     "browser EPG timer v1 route must be exact: " + route)
             source = source.replace(route, "'approved-epg-timer'")
+        # Scoped recording action and trailer wrappers, not broad route prefixes.
+        for route in (
+            "'/api/v1/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'",
+            "'/api/v1/recordings/actions/' +\n      (input.execute === true ? 'execute' : 'validate')",
+        ):
+            require(source.count(route) == 1, "reviewed recording route drifted: " + route)
+            source = source.replace(route, "'approved-recording-route'")
+        # Reviewed combined-search successor: one exact read and its existing
+        # public artwork resources, never a general public prefix allowance.
+        for route in (
+            "'/api/v1/search'",
+            "'/api/v1/recordings/' + recordingId + '/artwork/' + artworkId",
+            "'/api/v1/epg/artwork?backendId='",
+        ):
+            require(source.count(route) == 1, "reviewed search route drifted: " + route)
+            source = source.replace(route, "'approved-global-search-route'")
+        # Cast search uses the same reviewed Recording search resource.
+        person_route = "'/api/v1/search/recordings'"
+        require(source.count(person_route) == 1,
+                "browser person search route must be exact")
+        require("match:'person'" in source,
+                "browser cast search must select only person matches")
+        source = source.replace(person_route, "'approved-recording-person-search'")
+        # Reviewed Home offset reads: exactly one dispatch for each view;
+        # the fourth literal is the cache proof restriction, not a dispatch.
+        home_route = "'/api/v1/recordings'"
+        require(source.count(home_route) == 4,
+                "Home movie/new read/cache evidence route drifted")
+        for view in ("movies", "new", "folders"):
+            require(source.count("query: {backendId, view: '" + view + "', limit, offset") == 1,
+                    "Home recording view must be exact: " + view)
+        source = source.replace(home_route, "'approved-home-recording-view'")
+    if source_name == "genre":
+        # Reviewed recording facet/membership and EPG overview/card reads.
+        for route in ("'/api/v1/genres/epg/events'", "'/api/v1/epg/artwork'", "'/api/v1/epg/preferred-artwork'"):
+            require(source.count(route) == 1, "EPG Genre result/artwork route must be exact: " + route)
+            source = source.replace(route, "'approved-epg-genre-result'")
+        epg_overview = "'/api/v1/genres/epg'"
+        require(source.count(epg_overview) == 1, "EPG Genre overview route must be exact")
+        require("return fetchPublicEpgGenreOverview(normalized);" in source,
+                "EPG Genre overview must use the reviewed public route")
+        source = source.replace(epg_overview, "'approved-epg-genre-overview'")
+        route = "'/api/v1/genres'"
+        require(source.count(route) == 1, "recording Genre overview route must be exact")
+        require("return fetchPublicRecordingGenres(normalized);" in source,
+                "recording Genre overview must use the reviewed public route")
+        source = source.replace(route, "'approved-recording-genre-overview'")
+        membership_route = "'/api/v1/genres/recordings'"
+        require(source.count(membership_route) == 1,
+                "recording Genre membership route must be exact")
+        source = source.replace(membership_route, "'approved-recording-genre-membership'")
     if source_name == "live-remote":
         # MT.EVENT: explicitly reviewed actor-owned, read-only Operation SSE.
         # Does not add a general browser public-v1 client migration.
@@ -293,7 +354,8 @@ timer_start = base_client.find("function fetchClientTimers(options)")
 timer_end = base_client.find("function fetchClientTimerConflicts(options)", timer_start)
 timer_body = base_client[timer_start:timer_end]
 require(
-    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "/api/vdr/timers/live" not in timer_body
+    and "publicNativeTimerClient().getLiveNativeTimers(" in timer_body,
     "Timer live route drifted after dedicated successor",
 )
 require(
@@ -393,6 +455,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 72 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
+print("Classified browser Client API operations: 80 exactly once (including recording actions, trailer, Genre membership and public folder/movies/new reads).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

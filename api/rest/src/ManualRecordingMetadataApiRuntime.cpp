@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -20,6 +21,7 @@ struct Route
 {
     std::string backendId;
     std::string operation;
+    bool publicApi = false;
 };
 
 std::string requestPath(const std::string& target)
@@ -43,7 +45,9 @@ bool parseRoute(const std::string& target, Route& route)
 {
     route = {};
     const std::string path = requestPath(target);
-    const std::string prefix(RoutePrefix);
+    const std::string publicPrefix = "/api/v1/backends/";
+    route.publicApi = path.compare(0, publicPrefix.size(), publicPrefix) == 0;
+    const std::string prefix = route.publicApi ? publicPrefix : RoutePrefix;
     const std::string segment(MetadataSegment);
     if (path.compare(0, prefix.size(), prefix) != 0) return false;
     const std::size_t operationStart = path.find(segment, prefix.size());
@@ -54,6 +58,11 @@ bool parseRoute(const std::string& target, Route& route)
     if (!validBackendId(route.backendId) || route.operation.empty() ||
         route.operation.find('/') != std::string::npos)
         return false;
+    if (route.publicApi)
+        return route.operation == "search" || route.operation == "seasons" ||
+            route.operation == "episodes" || route.operation == "assign" ||
+            route.operation == "withdraw" || route.operation == "genre" ||
+            route.operation == "trailer" || route.operation == "manual";
     return route.operation == "manual" ||
         route.operation == "trailer" ||
         route.operation == "genre" ||
@@ -62,6 +71,14 @@ bool parseRoute(const std::string& target, Route& route)
         route.operation == "episodes" ||
         route.operation == "assign" ||
         route.operation == "withdraw";
+}
+
+bool validPublicRecordingId(const std::string& id)
+{
+    return id.size() == 36U && id.compare(0, 4, "rec_") == 0 &&
+        std::all_of(id.begin() + 4, id.end(), [](char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        });
 }
 
 int hexValue(char character)
@@ -346,11 +363,27 @@ registerRecordingPresentationChangedCallback(
     recordingPresentationChangedCallback_ = std::move(callback);
 }
 
+void ManualRecordingMetadataApiRuntime::registerPublicRecordingNativeLookup(
+    PublicRecordingNativeLookup callback)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingNativeLookup_ = std::move(callback);
+}
+
+void ManualRecordingMetadataApiRuntime::registerPublicRecordingTrailerLookup(
+    PublicRecordingTrailerLookup callback)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    publicRecordingTrailerLookup_ = std::move(callback);
+}
+
 void ManualRecordingMetadataApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     controller_ = nullptr;
     recordingPresentationChangedCallback_ = {};
+    publicRecordingNativeLookup_ = {};
+    publicRecordingTrailerLookup_ = {};
 }
 
 MetadataController* ManualRecordingMetadataApiRuntime::controller() const
@@ -373,7 +406,8 @@ void ManualRecordingMetadataApiRuntime::notifyRecordingPresentationChanged(
 
 bool ManualRecordingMetadataApiRuntime::tryHandleGet(
     const std::string& requestTarget,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::vector<std::string>& authorizedBackendIds) const
 {
     Route route;
     if (!parseRoute(requestTarget, route) ||
@@ -392,12 +426,80 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
         return true;
     }
 
-    if (route.operation == "trailer")
+    if (route.operation == "trailer" && !route.publicApi)
     {
         response = metadata->getRecordingMetadataTrailer(
             route.backendId,
             queryValue(requestTarget, "mediaType"),
             queryValue(requestTarget, "externalId"));
+        return true;
+    }
+
+    if (route.publicApi)
+    {
+        if (authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != route.backendId)
+        {
+            response = errorResponse(403, "backend_scope_denied",
+                "The requested backend is not authorized");
+            return true;
+        }
+        const auto publicId = queryValue(requestTarget, "recordingId");
+        if (!validPublicRecordingId(publicId) ||
+            requestTarget != requestPath(requestTarget) + "?recordingId=" + publicId)
+        {
+            response = errorResponse(400, "invalid_metadata_request",
+                "Exactly one opaque recordingId is required");
+            return true;
+        }
+        PublicRecordingNativeLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            lookup = publicRecordingNativeLookup_;
+        }
+        if (!lookup)
+        {
+            response = errorResponse(503, "recording_identity_unavailable",
+                "Recording identity lookup is unavailable");
+            return true;
+        }
+        const auto native = lookup(route.backendId, publicId);
+        if (native.empty())
+        {
+            response = errorResponse(404, "recording_not_found",
+                "Recording is not available on the requested backend");
+            return true;
+        }
+        if (route.operation == "trailer")
+        {
+            PublicRecordingTrailerLookup trailerLookup;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                trailerLookup = publicRecordingTrailerLookup_;
+            }
+            if (!trailerLookup)
+            {
+                response = errorResponse(503, "metadata_trailer_runtime_unavailable",
+                    "Recording trailer lookup is unavailable");
+                return true;
+            }
+            const auto identity = trailerLookup(route.backendId, native);
+            if (identity.first.empty() || identity.second.empty())
+            {
+                response.statusCode = 200;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.body = "{\"available\":false}";
+                return true;
+            }
+            response = metadata->getRecordingMetadataTrailer(
+                route.backendId, identity.first, identity.second);
+            return true;
+        }
+        if (route.operation == "manual")
+            response = metadata->getPublicManualRecordingMetadata(route.backendId, native, publicId);
+        else
+            response = metadata->getManualRecordingGenre(route.backendId, native, publicId);
         return true;
     }
 
@@ -481,7 +583,9 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     const std::string& requestTarget,
     const std::string& body,
     const std::string& actorRef,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& authorizedBackendId,
+    const std::string& contentType) const
 {
     Route route;
     if (!parseRoute(requestTarget, route) ||
@@ -519,18 +623,135 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
         return true;
     }
 
+    std::string publicId;
+    if (route.publicApi)
+    {
+        if (authorizedBackendId != route.backendId)
+        {
+            response = errorResponse(403, "backend_scope_denied",
+                "The requested backend is not authorized");
+            return true;
+        }
+        if (requestTarget != requestPath(requestTarget))
+        {
+            response = errorResponse(400, "invalid_metadata_request",
+                "Public metadata POST accepts no query parameters");
+            return true;
+        }
+        std::string media = contentType.substr(0, contentType.find(';'));
+        while (!media.empty() && std::isspace(static_cast<unsigned char>(media.back())))
+            media.pop_back();
+        std::transform(media.begin(), media.end(), media.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (media != "application/json")
+        {
+            response = errorResponse(415, "unsupported_media_type",
+                "Public metadata requires application/json");
+            return true;
+        }
+
+        // The public variant has exactly the same domain owner, but the
+        // native resource key is exclusively server-resolved.
+        const bool assignment = route.operation == "assign";
+        const bool withdrawal = route.operation == "withdraw";
+        const bool genre = route.operation == "genre";
+        std::vector<std::string> stringFields;
+        std::vector<std::string> integerFields;
+        if (assignment)
+        {
+            stringFields = {"recordingId", "providerId", "externalNamespace",
+                "externalId", "mediaType", "title", "seriesTitle",
+                "originalTitle", "overview", "releaseDate", "posterReference"};
+            integerFields = {"seasonNumber", "episodeNumber", "expectedRevision"};
+        }
+        else if (withdrawal)
+        {
+            stringFields = {"recordingId"};
+            integerFields = {"expectedRevision"};
+        }
+        else if (genre)
+        {
+            stringFields = {"recordingId", "genreId"};
+        }
+        else if (route.operation == "search")
+        {
+            stringFields = {"query", "kind"};
+            integerFields = {"limit"};
+        }
+        else
+        {
+            stringFields = {"seriesExternalId"};
+            integerFields = route.operation == "episodes" ?
+                std::vector<std::string>{"seasonNumber", "limit"} :
+                std::vector<std::string>{"limit"};
+        }
+        const auto permitted = [](const auto& values, const auto& fields) {
+            return std::all_of(values.begin(), values.end(), [&](const auto& value) {
+                return std::find(fields.begin(), fields.end(), value.first) != fields.end();
+            });
+        };
+        if (!permitted(strings, stringFields) || !permitted(integers, integerFields))
+        {
+            response = errorResponse(400, "invalid_metadata_request",
+                "Unknown or incorrectly typed public metadata field");
+            return true;
+        }
+        if (assignment || withdrawal || genre)
+        {
+            publicId = stringValue(strings, "recordingId");
+            if (!validPublicRecordingId(publicId) ||
+                (genre ? strings.count("genreId") != 1U :
+                    integers.count("expectedRevision") != 1U ||
+                    intValue(integers, "expectedRevision", -1) < 0))
+            {
+                response = errorResponse(400, "invalid_metadata_request",
+                    genre ? "An opaque recordingId and explicit genreId are required" :
+                    "An opaque recordingId and expectedRevision are required");
+                return true;
+            }
+            PublicRecordingNativeLookup lookup;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                lookup = publicRecordingNativeLookup_;
+            }
+            if (!lookup)
+            {
+                response = errorResponse(503, "recording_identity_unavailable",
+                    "Recording identity lookup is unavailable");
+                return true;
+            }
+            const auto native = lookup(route.backendId, publicId);
+            if (native.empty())
+            {
+                response = errorResponse(404, "recording_not_found",
+                    "Recording is not available on the requested backend");
+                return true;
+            }
+            strings["resourceKey"] = native;
+        }
+    }
+
+    const auto notifyChange = [&]() {
+        if (response.statusCode < 200 || response.statusCode >= 300) return;
+        if (route.publicApi)
+        {
+            response.headers["Cache-Control"] = "no-store";
+            if (route.operation != "genre" && !publicId.empty() &&
+                !response.body.empty() && response.body.back() == '}')
+                response.body.insert(response.body.size() - 1,
+                    ",\"recordingId\":\"" + publicId + "\"");
+        }
+        notifyRecordingPresentationChanged(route.backendId, stringValue(strings, "resourceKey"));
+    };
+
     const int limit = intValue(integers, "limit", 10);
     if (route.operation == "genre")
     {
         response = metadata->setManualRecordingGenre(
             route.backendId,
             stringValue(strings, "resourceKey"),
-            stringValue(strings, "genreId"));
-        if (response.statusCode >= 200 && response.statusCode < 300)
-        {
-            notifyRecordingPresentationChanged(
-                route.backendId, stringValue(strings, "resourceKey"));
-        }
+            stringValue(strings, "genreId"), publicId);
+        notifyChange();
         return true;
     }
 
@@ -593,11 +814,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
         response = metadata->assignManualRecordingMetadata(
             std::move(selection),
             actorRef);
-        if (response.statusCode >= 200 && response.statusCode < 300)
-        {
-            notifyRecordingPresentationChanged(
-                route.backendId, stringValue(strings, "resourceKey"));
-        }
+        notifyChange();
         return true;
     }
 
@@ -608,11 +825,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             stringValue(strings, "resourceKey"),
             intValue(integers, "expectedRevision", 0),
             actorRef);
-        if (response.statusCode >= 200 && response.statusCode < 300)
-        {
-            notifyRecordingPresentationChanged(
-                route.backendId, stringValue(strings, "resourceKey"));
-        }
+        notifyChange();
         return true;
     }
 

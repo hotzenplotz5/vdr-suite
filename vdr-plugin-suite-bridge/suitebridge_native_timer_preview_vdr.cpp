@@ -21,7 +21,10 @@ bool validLocalProjection(const SuiteBridgeNativeTimerPreviewVdrRequest& r)
   // Project the exact minute-rounded one-shot boundaries in the owning VDR
   // process. Do not use the Suite Daemon's TZ or trust a Device projection.
   std::int64_t roundedStart = 0, roundedStop = 0;
-  if (!r.enabled || r.vps || r.weekdays != "-------" ||
+  // The first requested airing must be a real VDR-local occurrence of
+  // the canonical Monday..Sunday recurrence mask. Future recurrence is
+  // managed by VDR; this is NOT a universal future conflict proof.
+  if (!r.enabled || r.vps || r.weekdays.size() != 7U ||
       r.priority < 0 || r.priority > 99 ||
       !vdrsuite_native_timer_preview::nativeMinuteExpandedWindow(
           r.unixStart, r.unixStop, roundedStart, roundedStop))
@@ -43,6 +46,15 @@ bool validLocalProjection(const SuiteBridgeNativeTimerPreviewVdrRequest& r)
       start.tm_year + 1900 > 9999 ||
       stop.tm_year + 1900 > 9999)
     return false;
+  bool recurring = false;
+  constexpr char kWeekdays[] = "MTWTFSS";
+  for (std::size_t i = 0; i < 7; ++i) {
+    if (r.weekdays[i] == '-') continue;
+    if (r.weekdays[i] != kWeekdays[i]) return false;
+    recurring = true;
+  }
+  if (recurring && r.weekdays[(start.tm_wday + 6) % 7] == '-')
+    return false;
   char day[16]{}, startHhmm[8]{}, stopHhmm[8]{};
   if (std::snprintf(day, sizeof(day), "%04d-%02d-%02d",
           start.tm_year + 1900, start.tm_mon + 1, start.tm_mday) != 10 ||
@@ -62,8 +74,10 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
 {
   using namespace vdrsuite_native_timer_preview;
   NativeSnapshot result;
-  result.proposedOneShot = validLocalProjection(request);
-  if (!result.proposedOneShot ||
+  const bool projectable = validLocalProjection(request);
+  result.proposedOneShot = projectable && request.weekdays == "-------";
+  result.proposedRecurring = projectable && request.weekdays != "-------";
+  if (!projectable ||
       !nativeMinuteExpandedWindow(request.unixStart, request.unixStop,
                                   result.proposedStart, result.proposedStop))
     return result;

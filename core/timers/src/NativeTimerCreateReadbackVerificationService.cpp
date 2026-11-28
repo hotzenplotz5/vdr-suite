@@ -85,7 +85,8 @@ NativeTimerCreateReadbackVerificationService::verify(
 
     if (!nativeTimerObservationMatchesSpecification(
             expectation.expectedSpecification,
-            matched->observation.observedState))
+            matched->observation.observedState) ||
+        (!expectation.aux.empty() && matched->providerAux != expectation.aux))
     {
         return result(
             NativeTimerCreateReadbackVerificationStatus::reconciliationRequired);

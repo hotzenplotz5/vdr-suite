@@ -35,11 +35,6 @@
     return /^subtitle-[1-9][0-9]{0,9}$/.test(id) && id.length <= 20 ? id : '';
   }
 
-  function recordingId(recording) {
-    if (!recording || typeof recording !== 'object') return '';
-    return text(recording.recordingId || recording.id).trim();
-  }
-
   function csrfHeaders() {
     const session = global.VdrSuiteBrowserSession;
     if (!session || typeof session.csrfHeaders !== 'function') return {};
@@ -65,7 +60,7 @@
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body),
@@ -84,19 +79,17 @@
     });
   }
 
-  function selectAudioTrack(backendId, recording, sessionId, trackId, positionSeconds) {
+  function selectAudioTrack(backendId, sessionId, trackId, positionSeconds) {
     const id = safeSessionId(sessionId);
     const audioTrackId = safeAudioTrackId(trackId);
-    const sourceRecordingId = recordingId(recording);
     const position = Math.max(0, Math.floor(Number(positionSeconds) || 0));
-    if (!id || !audioTrackId || !sourceRecordingId) {
+    if (!id || !audioTrackId) {
       return Promise.reject(new Error('Ungültige Recording-Tonspurauswahl.'));
     }
     return request({
       operation: 'select-audio-track',
       backendId: text(backendId || 'default'),
       sessionId: id,
-      recordingId: sourceRecordingId,
       audioTrackId: audioTrackId,
       positionSeconds: position,
       capabilities: recordingCapabilities()
@@ -110,7 +103,7 @@
     if (!id || !subtitleTrackId || typeof global.fetch !== 'function') {
       return Promise.reject(new Error('Recording-Untertitelauswahl ist nicht verfügbar.'));
     }
-    return global.fetch('/api/media/sessions', {
+    return global.fetch('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -237,7 +230,7 @@
       : null;
   }
 
-  function decoratePanel(panel, recording, backendId) {
+  function decoratePanel(panel, backendId) {
     if (!panel || !panel.element || typeof panel.start !== 'function' ||
         typeof panel.sessionId !== 'function' || typeof panel.position !== 'function' ||
         typeof panel.state !== 'function' || typeof panel.seekAbsolute !== 'function') return panel;
@@ -761,7 +754,7 @@
         pausedForSelection = true;
       }
 
-      return selectAudioTrack(backendId, recording, id, targetTrackId, position).then(function (session) {
+      return selectAudioTrack(backendId, id, targetTrackId, position).then(function (session) {
         if (disposed) return false;
         const mediaSession = session && session.mediaSession;
         const returnedId = safeSessionId(mediaSession && mediaSession.id);
@@ -940,7 +933,7 @@
     Object.keys(value).forEach(function (key) { decorated[key] = value[key]; });
     const factory = value.createPanel;
     decorated.createPanel = function (recording, backendId) {
-      return decoratePanel(factory(recording, backendId), recording, backendId);
+      return decoratePanel(factory(recording, backendId), backendId);
     };
     decorated.__vdrSuiteRecordingTrackControlsDecorated = true;
     cachedSource = value;

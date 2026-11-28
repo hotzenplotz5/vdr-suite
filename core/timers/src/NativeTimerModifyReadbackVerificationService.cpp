@@ -113,6 +113,10 @@ NativeTimerModifyReadbackVerificationService::verify(
         return result(
             NativeTimerModifyReadbackVerificationStatus::reconciliationRequired,
             current);
+    if (payload.modifyAux && observation.observedAux != payload.desiredAux)
+        return result(
+            NativeTimerModifyReadbackVerificationStatus::reconciliationRequired,
+            current);
     if (alreadyVerified(current, expectation, observation))
         return result(
             NativeTimerModifyReadbackVerificationStatus::alreadyVerified,

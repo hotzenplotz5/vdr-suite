@@ -252,6 +252,39 @@ int main()
         },
         {"/tmp"});
 
+    controller.setPublicRecordingIdLookup(
+        [](const std::string& backendId, const std::string& nativeId)
+        {
+            return backendId == "default" &&
+                nativeId == "/srv/vdr/video/2026-07-03.20.15.1-0.rec"
+                ? std::string("rec_0123456789abcdef0123456789abcdef")
+                : std::string{};
+        });
+    controller.setPublicRecordingNativeLookup(
+        [](const std::string& backendId, const std::string& publicId)
+        {
+            return backendId == "default" &&
+                publicId == "rec_0123456789abcdef0123456789abcdef"
+                ? std::string("/srv/vdr/video/2026-07-03.20.15.1-0.rec")
+                : std::string{};
+        });
+    const auto publicId = "rec_0123456789abcdef0123456789abcdef";
+    const auto browserDetail = controller.getRecordingForBrowser("default", publicId);
+    assert(browserDetail.statusCode == 200);
+    assert(contains(browserDetail.body, "\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\""));
+    assert(contains(browserDetail.body, "\"id\":\"root-1\""));
+    assert(contains(browserDetail.body, "\"backendNativeId\":\"/srv/vdr/video/2026-07-03.20.15.1-0.rec\""));
+    assert(contains(browserDetail.body, "\"metadataDetail\":{"));
+    assert(contains(browserDetail.body, "Manuell ausgewählte Beschreibung"));
+    assert(controller.getRecordingForBrowser("other", publicId).statusCode == 404);
+    assert(controller.getRecordingForBrowser("default", "root-1").statusCode == 400);
+    assert(controller.getRecordingForBrowser("default",
+        "rec_ffffffffffffffffffffffffffffffff").statusCode == 404);
+    // Leave the existing folder batching assertions independent.
+    manualLookupCalls = 0;
+    manualBatchLookupCalls = 0;
+    nativeLookupCalls = 0;
+
     const ApiResponse status =
         controller.getStatus("default");
 
@@ -274,9 +307,12 @@ int main()
     assert(manualLookupCalls == 0);
     assert(contains(root.body, "\"recordingFolder\":true"));
     assert(contains(root.body, "\"Series\""));
+    const auto seriesId = VdrRecordingCacheRepository::publicFolderId("default", "Series");
+    assert(contains(root.body, "\"folderId\":\"" + seriesId + "\""));
     assert(contains(root.body, "\"Movies\""));
     assert(contains(root.body, "\"Drama\""));
     assert(contains(root.body, "\"Root Recording\""));
+    assert(contains(root.body, "\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\""));
     assert(contains(root.body, "\"metadata\":{"));
     assert(contains(root.body, "\"providerAvailable\":false"));
     assert(contains(root.body, "\"artworkPrepared\":false"));
@@ -308,6 +344,7 @@ int main()
     assert(manualLookupCalls == 0);
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
+    assert(contains(series.body, "\"folderId\":\"" + seriesId + "\""));
     assert(contains(series.body, "\"metadata\":{"));
 
     const int nativeCallsBeforeMovies =
@@ -464,6 +501,84 @@ int main()
     assert(!contains(legacySeries.body, "representativePosterUrl"));
     const auto otherPage = controller.getFolder("other", "Series", 1, 0, true);
     assert(!contains(otherPage.body, "representativePosterUrl"));
+
+    // Public detail artwork and the binary route share the same current
+    // recording-scoped asset ID and the already validated image reader.
+    VdrRecording artworkRecording = makeRecording("movie-public", "Movie",
+        "/Movies/Movie/2026-07-02.20.15.1-0.rec");
+    artworkRecording.backendId = "default";
+    const auto persisted = controller.findNativeMetadata(
+        artworkRecording.backendId, artworkRecording.backendNativeId);
+    auto trailerMetadata = persisted;
+    trailerMetadata.metadata.providerId = 13;
+    assert(controller.metadataTrailerIdentity(artworkRecording, {}, trailerMetadata) ==
+        std::make_pair(std::string("movie"), std::string("13")));
+    auto manualTrailer = rootManualAssignment();
+    manualTrailer.backendId = artworkRecording.backendId;
+    manualTrailer.providerId = "tmdb";
+    manualTrailer.externalId = "99";
+    manualTrailer.externalNamespace = "movie";
+    assert(controller.metadataTrailerIdentity(artworkRecording, manualTrailer, trailerMetadata) ==
+        std::make_pair(std::string("movie"), std::string("99")));
+    manualTrailer.externalNamespace = "tv-episode";
+    assert(controller.metadataTrailerIdentity(artworkRecording, manualTrailer, trailerMetadata).first.empty());
+    auto withPortrait = persisted;
+    withPortrait.metadata.people.front().image = withPortrait.metadata.images.front();
+    const auto assets = controller.publicMetadataArtwork(artworkRecording, {}, withPortrait);
+    assert(assets.size() == 3);
+    assert(assets[0].kind == "preferred" && assets[1].kind == "person" &&
+        assets[2].kind == "gallery");
+    assert(assets[1].artworkId != assets[2].artworkId);
+    const auto& preferred = withPortrait.metadata.preferredArtwork;
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        preferred.path, preferred.width, preferred.height, false, 0) ==
+        assets[0].artworkId);
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        "", 0, 0, true, 7).empty());
+    const auto portraitBytes = controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[1].artworkId);
+    assert(portraitBytes && portraitBytes->statusCode == 200 &&
+        portraitBytes->body == "PORTRAIT");
+    const auto galleryBytes = controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[2].artworkId);
+    assert(galleryBytes && galleryBytes->statusCode == 200 &&
+        galleryBytes->body == "PORTRAIT");
+    withPortrait.metadata.people.front().image.path = "/tmp/replaced-portrait.jpg";
+    assert(!controller.loadPublicMetadataArtwork(
+        artworkRecording, {}, withPortrait, assets[1].artworkId));
+    auto manualPortrait = manualTrailer;
+    manualPortrait.found = true;
+    manualPortrait.relationshipLocked = true;
+    manualPortrait.revision = 7;
+    manualPortrait.posterReference.clear();
+    manualPortrait.people.resize(2);
+    manualPortrait.people[0].profilePath.clear();
+    manualPortrait.people[1].profilePath =
+        "/var/cache/vdr-suite/recording-metadata/posters/person.jpg";
+    const auto manualImages = controller.publicMetadataArtwork(
+        artworkRecording, manualPortrait, {});
+    assert(manualImages.size() == 1U && manualImages[0].index == 1);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 1, 7,
+        manualPortrait.people[1].profilePath) == manualImages[0].artworkId);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 0, 7,
+        manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
+    assert(controller.publicManualPortraitArtworkId(artworkRecording, 1, 8,
+        manualPortrait.people[1].profilePath) != manualImages[0].artworkId);
+    manualPortrait.posterReference =
+        "/var/cache/vdr-suite/recording-metadata/posters/poster.jpg";
+    const auto manualPosterImages = controller.publicMetadataArtwork(
+        artworkRecording, manualPortrait, {});
+    assert(manualPosterImages.size() == 2U && manualPosterImages[0].kind == "preferred");
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        manualPortrait.posterReference, 0, 0, true, 7) ==
+        manualPosterImages[0].artworkId);
+    assert(controller.publicSearchPreferredArtworkId(artworkRecording,
+        manualPortrait.posterReference, 0, 0, true, 8) !=
+        manualPosterImages[0].artworkId);
+    auto foreign = artworkRecording;
+    foreign.backendId = "other";
+    assert(controller.publicMetadataArtwork(foreign, {}, withPortrait).empty());
+    assert(!controller.loadPublicMetadataArtwork(foreign, {}, withPortrait, assets[2].artworkId));
 
     std::remove("/tmp/vdr-suite-movie-landscape.jpg");
     std::remove("/tmp/vdr-suite-movie-poster.jpg");

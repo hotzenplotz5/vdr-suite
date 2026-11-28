@@ -184,37 +184,11 @@
     return root.dataset.recordings2HeroMode === 'playback';
   }
 
-  function positiveExternalId(value) {
-    const raw = text(value).trim();
-    return /^[1-9][0-9]{0,15}$/.test(raw) ? raw : '';
-  }
-
   function trailerIdentity(metadata) {
     if (!metadata || metadata.available !== true) return null;
-    const manual = metadata.manualAssignment;
-    if (manual && manual.active === true &&
-        text(manual.providerId).toLowerCase() === 'tmdb') {
-      const externalId = positiveExternalId(manual.externalId);
-      const externalNamespace = text(manual.externalNamespace).toLowerCase();
-      if (externalId && externalNamespace === 'movie') {
-        return {mediaType: 'movie', externalId: externalId};
-      }
-      if (externalId && externalNamespace === 'tv') {
-        return {mediaType: 'series', externalId: externalId};
-      }
-      return null;
-    }
-
-    const provider = text(metadata.provider).toLowerCase();
-    if (provider !== 'tvscraper' && provider !== 'recording-cache') return null;
-    const externalId = positiveExternalId(metadata.providerId);
-    if (!externalId) return null;
-    const mediaType = text(metadata.mediaType).toLowerCase();
-    if (mediaType === 'movie') return {mediaType: 'movie', externalId: externalId};
-    if (mediaType === 'series' || mediaType === 'episode') {
-      return {mediaType: 'series', externalId: externalId};
-    }
-    return null;
+    if (metadata.trailerLookupAvailable !== true ||
+        !/^rec_[0-9a-f]{32}$/.test(text(metadata.recordingId))) return null;
+    return {recordingId: metadata.recordingId};
   }
 
   function validYoutubeVideoId(value) {
@@ -282,10 +256,7 @@
 
     api.fetchClientRecordingTrailer({
       backendId: text(backendId) || 'default',
-      query: {
-        mediaType: identity.mediaType,
-        externalId: identity.externalId
-      },
+      query: {recordingId: identity.recordingId},
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
@@ -370,52 +341,8 @@
     });
   }
 
-  function resolveMediaCheckIdentity(client, recording, backendId) {
-    const direct = text(recording && recording.recordingId);
-    if (/^rec_[0-9a-f]{32}$/.test(direct)) return Promise.resolve(direct);
-    const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
-    if (!recordedAt) return Promise.reject(
-      new Error('Für diese Aufnahme ist keine eindeutige Aufnahme-ID verfügbar.'));
-    const expectedTitle = text(recording && recording.title);
-    let cursor = '';
-    let matches = [];
-    let pageCount = 0;
-    function page() {
-      if (++pageCount > 20) throw new Error(
-        'Die Aufnahmenliste ist zu groß; eindeutige Zuordnung nicht möglich.');
-      const query = {backendId: backendId, limit: 100};
-      if (cursor) query.cursor = cursor;
-      return client.getRecordings({query: query, credentials: 'same-origin',
-        cache: 'no-store'}).then(function (response) {
-        if (!response || !Array.isArray(response.items) || !response.page)
-          throw new Error('Ungültige Antwort der Aufnahme-API.');
-        // Legacy Recordings 2 can display a decoded or metadata-enriched
-        // title. Preserve a unique timestamp fallback instead of rejecting
-        // the same recording merely because its public title differs.
-        matches = matches.concat(response.items.filter(function (item) {
-          return item && item.backendId === backendId &&
-            item.recordedAt === recordedAt;
-        }));
-        if (matches.length > 100) throw new Error(
-          'Zu viele Aufnahmen mit gleichem Aufnahmezeitpunkt.');
-        if (response.page.hasMore) {
-          if (!/^rc1_[a-f0-9]+$/.test(response.page.nextCursor || '') ||
-              response.page.nextCursor === cursor)
-            throw new Error('Ungültiger Aufnahme-Seitencursor.');
-          cursor = response.page.nextCursor;
-          return page();
-        }
-        const byTitle = expectedTitle ? matches.filter(function (item) {
-          return item.title === expectedTitle;
-        }) : [];
-        const candidates = byTitle.length ? byTitle : matches;
-        if (candidates.length !== 1 ||
-            !/^rec_[0-9a-f]{32}$/.test(candidates[0].recordingId))
-          throw new Error('Kanonische Aufnahme-ID nicht eindeutig gefunden.');
-        return candidates[0].recordingId;
-      });
-    }
-    return page();
+  function resolvePublicRecordingId(recording, backendId) {
+    return shared.resolvePublicRecordingId(recording, backendId);
   }
 
   function mediaCheckSummary(report) {
@@ -514,7 +441,7 @@
         status.textContent = 'Aufnahme wird zugeordnet …';
         output.textContent = '';
         Promise.resolve().then(function () {
-          return resolveMediaCheckIdentity(client, recording, backendId);
+          return resolvePublicRecordingId(recording, backendId);
         }).then(function (recordingId) {
           const session = global.VdrSuiteBrowserSession;
           if (!session || typeof session.restore !== 'function' ||
@@ -618,7 +545,7 @@
         planStatus.hidden = false;
         planStatus.textContent = 'Aufnahme wird geprüft …';
         Promise.resolve().then(function () {
-          return resolveMediaCheckIdentity(client, recording, backendId);
+          return resolvePublicRecordingId(recording, backendId);
         }).then(function (identity) {
           recordingId = identity;
           const session = global.VdrSuiteBrowserSession;
@@ -1087,7 +1014,7 @@
       (actionHost || copy).appendChild(panel);
       // Restore the saved Operation at mount, not only after a new manual
       // "Vorprüfung starten" POST. This is a read-only operation + SSE path.
-      const directId = text(recording && recording.recordingId);
+      const directId = text(recording && (recording.publicRecordingId || recording.recordingId));
       if (/^rec_[0-9a-f]{32}$/.test(directId)) recordingId = directId;
       if (!recordingId) {
         try {
@@ -1109,7 +1036,7 @@
       // Always discover a completed Stage from the durable backend journal.
       // This works on a phone or after browser storage has been cleared.
       Promise.resolve(recordingId ||
-        resolveMediaCheckIdentity(client, recording, backendId)
+        resolvePublicRecordingId(recording, backendId)
       ).then(function (identity) {
         if (!/^rec_[0-9a-f]{32}$/.test(identity) ||
             !panel.parentNode) return;
@@ -1202,7 +1129,12 @@
 
   function syncHeroTrailerAction(actions, root, backendId, metadata) {
     const identity = trailerIdentity(metadata);
-    if (!identity || actions.querySelector('[data-recordings2-hero-trailer]')) return;
+    const existing = actions.querySelector('[data-recordings2-hero-trailer]');
+    if (!identity) {
+      if (metadata && existing) { existing.remove(); closeTrailer(root); }
+      return;
+    }
+    if (existing) return;
     const trailer = makeButton('▶ Trailer', function () { showTrailer(root, backendId, identity); });
     trailer.dataset.recordings2HeroTrailer = 'true';
     actions.insertBefore(trailer, actions.querySelector('button:not(.primary)'));
@@ -1317,10 +1249,15 @@
   }
 
   function sameRecording(left, right) {
+    const leftBackend = text(left && left.backendId), rightBackend = text(right && right.backendId);
+    if (leftBackend && rightBackend && leftBackend !== rightBackend) return false;
+    const a = shared.publicRecordingId(left), b = shared.publicRecordingId(right);
+    if (a && b) return a === b;
     const leftId = text(shared.first(left, ['backendNativeId'], ''));
     const rightId = text(shared.first(right, ['backendNativeId'], ''));
     if (leftId && rightId) return leftId === rightId;
-    return text(shared.first(left, ['path'], '')) === text(shared.first(right, ['path'], ''));
+    const leftPath = text(shared.first(left, ['path'], ''));
+    return Boolean(leftPath && leftPath === text(shared.first(right, ['path'], '')));
   }
 
   function createRelatedCard(recording, currentRecording, backendId) {
@@ -1614,6 +1551,7 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
+    resolvePublicRecordingId,
     enterPlaybackMode,
     __test: Object.freeze({
       backdropUrl,
@@ -1626,7 +1564,6 @@
       matchingGenre,
       trailerIdentity,
       validYoutubeVideoId,
-      resolveMediaCheckIdentity,
       mediaCheckSummary,
       placeTrailerAfterRelated
     })

@@ -213,6 +213,26 @@ bool nativeTimerObservedStateSameExceptEventId(
         nativeTimerObservedStateFingerprint(normalized);
 }
 
+bool nativeTimerObservedStateSameExceptRecordingAndEventId(
+    const NativeTimerObservedState& prior,
+    const NativeTimerObservedState& observed)
+{
+    constexpr std::int32_t RecordingFlag = 0x0008;
+    if (!nativeTimerObservedStateValid(prior) ||
+        !nativeTimerObservedStateValid(observed) ||
+        prior.pending || observed.pending ||
+        ((prior.flags ^ observed.flags) & ~RecordingFlag) != 0 ||
+        ((prior.flags & RecordingFlag) != 0) != prior.recording ||
+        ((observed.flags & RecordingFlag) != 0) != observed.recording)
+        return false;
+    NativeTimerObservedState normalized = observed;
+    normalized.eventId = prior.eventId;
+    normalized.flags = prior.flags;
+    normalized.recording = prior.recording;
+    return nativeTimerObservedStateFingerprint(prior) ==
+        nativeTimerObservedStateFingerprint(normalized);
+}
+
 bool nativeTimerBindingValid(const NativeTimerBinding& binding)
 {
     if (!nonEmptyBounded(

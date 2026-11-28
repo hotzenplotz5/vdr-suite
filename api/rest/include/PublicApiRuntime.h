@@ -295,6 +295,12 @@ struct PublicSearchTimerPreviewEvent
     std::string channelId;
     std::string startTime;
     std::string endTime;
+    // Existing EPG match metadata for the draft-preview technical view.
+    std::string description;
+    int durationSeconds = 0;
+    std::vector<std::string> contentDescriptors;
+    int parentalRating = 0;
+    std::vector<std::string> matchedFields;
 };
 
 struct PublicSearchTimerPreviewRequest
@@ -311,6 +317,18 @@ struct PublicSearchTimerPreviewRequest
     bool compareTitle = true;
     bool compareSubtitle = false;
     bool compareSummary = false;
+    int useChannel = 0;
+    std::string channels;
+    std::string channelMin;
+    std::string channelMax;
+    bool useDuration = false;
+    int durationMinMinutes = 0;
+    int durationMaxMinutes = 0;
+    bool useTime = false;
+    int startTime = 0;
+    int stopTime = 0;
+    bool useDayOfWeek = false;
+    int dayOfWeek = 0;
 };
 
 struct PublicSearchTimerPreviewResult
@@ -321,6 +339,10 @@ struct PublicSearchTimerPreviewResult
     std::string searchTimerId;
     int totalCount = 0;
     std::vector<PublicSearchTimerPreviewEvent> items;
+    std::vector<std::string> warnings;
+    int channelCount = 0;
+    std::string nextStartTime;
+    std::string latestStartTime;
 };
 
 enum class PublicRecordingCollectionStatus
@@ -328,6 +350,30 @@ enum class PublicRecordingCollectionStatus
     ok,
     invalid,
     unavailable,
+};
+
+struct PublicRecordingCardPresentation
+{
+    // Compact presentation only; no native identity, provider ID or path.
+    std::string cardTitle;
+    std::string cardMediaType;
+    // Page-independent grouping evidence for the existing Series UI.
+    std::string seriesGroupKey;
+    std::string seriesFolderTitle;
+    std::vector<std::string> seriesAncestorFolderIds;
+    bool seriesNativeMetadataAvailable = false;
+    std::string episodeName;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    // Existing optional presentation override, independent of native numbering.
+    bool seriesHierarchyOverrideAvailable = false;
+    std::string seriesHierarchyGroupType;
+    int seriesHierarchySeasonNumber = 0;
+    std::string seriesHierarchyGroupLabel;
+    int seriesHierarchySortOrder = 0;
+    int seriesHierarchyEpisodeStart = 0;
+    int seriesHierarchyEpisodeEnd = 0;
+    int seriesHierarchyRevision = 0;
 };
 
 struct PublicRecordingCollectionItem
@@ -343,6 +389,11 @@ struct PublicRecordingCollectionItem
     std::string description;
     long long sizeMb = 0;
     std::string subtitle;
+    // Additive Home card facts, selected by the existing Web query owner.
+    std::string releaseDate = {};
+    std::string preferredArtworkId = {};
+    PublicRecordingCardPresentation card = {};
+    std::vector<std::string> seriesCoverGroupKeys = {};
 };
 
 struct PublicRecordingFolderItem
@@ -354,6 +405,20 @@ struct PublicRecordingFolderItem
     // as recording leaves. Preserve that distinction in Public-v1.
     bool singleRecordingLeaf = false;
     PublicRecordingCollectionItem singleRecording;
+    PublicRecordingCollectionItem representativeRecording = {};
+};
+
+struct PublicRecordingFolderContext
+{
+    std::string folderId;
+    std::string parentFolderId;
+    // Ordered root-relative display labels and opaque navigation IDs.
+    std::vector<std::pair<std::string, std::string>> breadcrumbs;
+    int folderCount = 0;
+    int recordingCount = 0;
+    int catalogTotalCount = 0;
+    std::string cacheState;
+    bool cacheReady = false;
 };
 
 struct PublicRecordingCollectionRequest
@@ -376,6 +441,7 @@ struct PublicRecordingCollectionResult
     std::vector<PublicRecordingFolderItem> folders;
     std::size_t totalEntries = 0U;
     bool hasMore = false;
+    std::optional<PublicRecordingFolderContext> folderContext = {};
 };
 
 // M1: one public rec_ detail under an exact recordings.view backend grant.
@@ -415,6 +481,40 @@ struct PublicRecordingDetailItem
     std::string manualAssignmentId;
     std::string metadataEntityId;
     int manualRevision = 0;
+    // Optional detail facts from the existing persisted Scraper/manual read.
+    // No provider identity, local artwork reference or backend path.
+    std::string firstAired;
+    std::string statusText;
+    std::string collectionName;
+    std::string imdbId;
+    int absoluteEpisodeNumber = 0;
+    double voteAverage = 0.0;
+    int voteCount = 0;
+    std::vector<std::string> genres;
+    std::vector<std::string> productionCountries;
+    std::vector<std::string> networks;
+    struct Artwork
+    {
+        std::string artworkId;
+        int width = 0;
+        int height = 0;
+    };
+    struct Person
+    {
+        std::string role;
+        std::string name;
+        std::string characterName;
+        Artwork image;
+    };
+    struct GalleryImage
+    {
+        std::string orientation;
+        Artwork image;
+    };
+    std::vector<Person> people;
+    Artwork preferredArtwork;
+    std::vector<GalleryImage> images;
+    bool trailerLookupAvailable = false;
 };
 
 struct PublicRecordingDetailResult
@@ -452,18 +552,29 @@ struct PublicSearchRequest {
     std::string backendId, query;
     bool epg = false;
     std::size_t limit = 30U, offset = 0U;
+    bool combined = false;
+    bool personOnly = false;
 };
 struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;
     std::string title, subtitle, startTime, endTime;
     bool edited = false;
     std::string matchedPerson, matchedRole, matchReason, personKey, channelName, description;
+    int durationSeconds = 0;
+    std::int64_t sizeMb = 0;
+    bool artworkAvailable = false;
+    std::string personPortraitRecordingId, personPortraitArtworkId;
+    std::string preferredArtworkId;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;
     std::vector<PublicSearchItem> items;
     std::size_t totalCount = 0U;
     bool hasMore = false;
+    // Only populated for the combined search, with both existing read grants.
+    std::vector<PublicSearchItem> epgItems;
+    std::size_t epgTotalCount = 0U;
+    bool epgHasMore = false;
 };
 
 enum class PublicEpgGenreStatus { ok, unavailable, invalid };
@@ -471,6 +582,7 @@ struct PublicEpgGenreRequest {
     std::string backendId, contentClass, genreId, locale = "de";
     std::size_t limit = 30U, offset = 0U;
     bool events = false;
+    std::int64_t fromTime = 0, untilTime = 0;
 };
 struct PublicEpgGenreItem {
     std::string genreId, contentClass, label, labelDe, labelEn;
@@ -479,12 +591,19 @@ struct PublicEpgGenreItem {
 struct PublicEpgGenreEvent {
     std::string backendId, channelId, eventId, title, subtitle;
     std::string startTime, endTime;
+    std::string channelName, description, contentClass;
+    int durationSeconds = 0;
+    std::vector<std::string> genreIds;
+    bool artworkAvailable = false, portraitArtwork = false;
+    int artworkWidth = 0, artworkHeight = 0;
 };
 struct PublicEpgGenreResult {
     PublicEpgGenreStatus status = PublicEpgGenreStatus::unavailable;
     std::vector<PublicEpgGenreItem> genres;
     std::vector<PublicEpgGenreEvent> events;
     std::size_t totalCount = 0U;
+    std::int64_t fromTime = 0, untilTime = 0;
+    std::size_t totalItems = 0U, assignmentCount = 0U;
 };
 
 enum class PublicGenreCollectionStatus
@@ -511,6 +630,11 @@ struct PublicGenreItem
     std::string labelDe;
     std::string labelEn;
     std::size_t count = 0U;
+    bool known = false;
+    std::size_t activeCount = 0U;
+    std::size_t staleCount = 0U;
+    std::size_t conflictCount = 0U;
+    std::size_t displayOrder = 0U;
 };
 
 struct PublicGenreRecordingItem
@@ -522,6 +646,30 @@ struct PublicGenreRecordingItem
     int durationSeconds = 0;
     bool durationKnown = false;
     bool edited = false;
+    std::int64_t sizeMb = 0;
+    std::vector<std::string> genreIds;
+    // Compact presentation only; no native identity, provider ID or path.
+    std::string cardTitle;
+    std::string cardMediaType;
+    std::string preferredArtworkId;
+    std::vector<std::string> seriesCoverGroupKeys = {};
+    // Page-independent grouping evidence for the existing Series UI.
+    std::string seriesGroupKey;
+    std::string seriesFolderTitle;
+    std::vector<std::string> seriesAncestorFolderIds;
+    bool seriesNativeMetadataAvailable = false;
+    std::string episodeName;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    // Existing optional presentation override, independent of native numbering.
+    bool seriesHierarchyOverrideAvailable = false;
+    std::string seriesHierarchyGroupType;
+    int seriesHierarchySeasonNumber = 0;
+    std::string seriesHierarchyGroupLabel;
+    int seriesHierarchySortOrder = 0;
+    int seriesHierarchyEpisodeStart = 0;
+    int seriesHierarchyEpisodeEnd = 0;
+    int seriesHierarchyRevision = 0;
 };
 
 struct PublicGenreCollectionResult
@@ -530,6 +678,8 @@ struct PublicGenreCollectionResult
     std::vector<PublicGenreItem> genres;
     std::vector<PublicGenreRecordingItem> recordings;
     std::size_t totalCount = 0U;
+    std::size_t totalItems = 0U;
+    std::size_t assignmentCount = 0U;
 };
 
 enum class PublicChannelCollectionStatus
@@ -671,12 +821,21 @@ struct PublicNativeTimerItem
     std::string id;
     std::string channelId;
     std::string channelName;
+    std::string eventId;
     std::string title;
+    std::string directory;
+    // Raw VDR Aux belongs to the independent unconditional /aux resource,
+    // not the canonical native Binding fingerprint or Timer detail ETag.
+    std::string aux;
     std::string day;
     std::string weekdays;
     std::string startTime;
     std::string endTime;
+    int flags = 0;
+    int priority = 0;
+    int lifetime = 0;
     bool enabled = false;
+    bool vps = false;
     bool recording = false;
     bool pending = false;
 };
@@ -739,6 +898,11 @@ struct PublicNativeTimerChangeFields
     std::int32_t lifetime = 99;
     bool enabled = true;
     bool vps = false;
+    // An explicit raw AUX replacement is separate from ordinary UPDATE.
+    // The previous value is checked against the native provider under lock.
+    bool modifyAux = false;
+    std::string expectedAux;
+    std::string aux;
 };
 struct PublicNativeTimerModifyRequest {
     std::string actorRef;
@@ -1223,6 +1387,22 @@ struct PublicAccountSessionMutationResult
 
 // A new EPG intent is not an existing TimerAssignment and is never a
 // caller-supplied native Timer specification.
+
+// Manual one-shot/weekly CREATE carries the desired first window and
+// native weekday mask. Backend-local day/HHMM and CLOCK/preview are resolved
+// by the existing daemon and native Agent, never accepted from client JSON.
+struct PublicManualTimerIntentAdmissionRequest
+{
+    std::string actorRef, backendId, idempotencyKey;
+    std::string channelId, title, directory;
+    std::string aux;
+    // Native VDR weekdays, Monday through Sunday; ------- is one-shot.
+    std::string weekdays = "-------";
+    std::int64_t startAt = 0, stopAt = 0;
+    int priority = 50, lifetime = 99;
+    bool enabled = true, vps = false;
+};
+
 struct PublicEpgTimerIntentAdmissionRequest
 {
     std::string actorRef;
@@ -1240,7 +1420,9 @@ enum class PublicEpgTimerIntentAdmissionStatus
 {
     accepted, replayed, invalid, notFound, revisionConflict,
     generationConflict, stateConflict, idempotencyConflict,
-    backendUnavailable, serviceUnavailable
+    backendUnavailable, serviceUnavailable,
+    // Manual preview could not attest this request; no admission or write.
+    nativeEditorRequired
 };
 struct PublicEpgTimerIntentAdmissionResult
 {
@@ -1559,6 +1741,13 @@ public:
         const PublicNativeTimerDeleteRequest&)>;
     using NativeTimerModifyAdmission = std::function<PublicNativeTimerModifyResult(
         const PublicNativeTimerModifyRequest&)>;
+    // Existing VDR editor owner: native CREATE, external/unbound actions,
+    // and the backend-scoped read-only epgsearch conflict report.
+    // A direct write result is synchronous, never an ADR-0042 Operation.
+    using NativeTimerDirectAction = std::function<ApiResponse(
+        const std::string& action, const std::string& actorRef,
+        const std::string& backendId, const std::string& timerId,
+        const std::string& body)>;
     // A7.2: the Core actor/backend authority is the only source of truth.
     enum class MediaImportSourceStatus { ok, forbidden, unavailable };
     struct MediaImportSourceResult {
@@ -1698,6 +1887,13 @@ public:
         std::function<PublicDevicePairingDecisionResult(
             const PublicDevicePairingDecisionRequest& request)>;
 
+    using ManualTimerIntentReplayLookup =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicManualTimerIntentAdmissionRequest&)>;
+    using ManualTimerIntentSubmit =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicManualTimerIntentAdmissionRequest&)>;
+
     using EpgTimerIntentObservationLookup =
         std::function<PublicEpgTimerIntentObservationResult(
             const PublicEpgTimerIntentAdmissionRequest&)>;
@@ -1835,6 +2031,8 @@ public:
 
     void registerNativeTimerModifyAdmission(NativeTimerModifyAdmission admit);
     void resetNativeTimerModifyAdmission();
+    void registerNativeTimerDirectAction(NativeTimerDirectAction action);
+    void resetNativeTimerDirectAction();
     void registerNativeTimerDeleteAdmission(NativeTimerDeleteAdmission admit);
     void resetNativeTimerDeleteAdmission();
     bool tryHandleDelete(
@@ -1977,6 +2175,11 @@ public:
         DevicePairingDecision decision);
     void resetDevicePairingDecision();
     bool devicePairingDecisionConfigured() const;
+
+    void registerManualTimerIntentReplayLookup(ManualTimerIntentReplayLookup callback);
+    void resetManualTimerIntentReplayLookup();
+    void registerManualTimerIntentSubmit(ManualTimerIntentSubmit callback);
+    void resetManualTimerIntentSubmit();
 
     void registerEpgTimerIntentObservationLookup(EpgTimerIntentObservationLookup callback);
     void resetEpgTimerIntentObservationLookup();
@@ -2247,6 +2450,8 @@ private:
     NativeTimerDeleteAdmission nativeTimerDeleteAdmission_;
     mutable std::mutex nativeTimerModifyMutex_;
     NativeTimerModifyAdmission nativeTimerModifyAdmission_;
+    mutable std::mutex nativeTimerDirectMutex_;
+    NativeTimerDirectAction nativeTimerDirectAction_;
     mutable std::mutex mediaImportSourceLookupMutex_;
     MediaImportSourceLookup mediaImportSourceLookup_;
     mutable std::mutex mediaImportPreviewLookupMutex_;
@@ -2330,6 +2535,10 @@ private:
 
     mutable std::mutex devicePairingDecisionMutex_;
     DevicePairingDecision devicePairingDecision_;
+
+    mutable std::mutex manualTimerIntentMutex_;
+    ManualTimerIntentReplayLookup manualTimerIntentReplayLookup_;
+    ManualTimerIntentSubmit manualTimerIntentSubmit_;
 
     mutable std::mutex epgTimerIntentMutex_;
     EpgTimerIntentObservationLookup epgTimerIntentObservationLookup_;

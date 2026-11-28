@@ -84,6 +84,12 @@ bool nativeTimerObservedStateSameExceptEventId(
     const NativeTimerObservedState& prior,
     const NativeTimerObservedState& observed);
 
+// VDR's EPG association and tfRecording flag may change on their own.
+// Other native Timer configuration, flags and pending remain exact.
+bool nativeTimerObservedStateSameExceptRecordingAndEventId(
+    const NativeTimerObservedState& prior,
+    const NativeTimerObservedState& observed);
+
 bool nativeTimerBindingValid(const NativeTimerBinding& binding);
 bool nativeTimerBindingRevisionMatches(
     const std::string& expectedRevision,

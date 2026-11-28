@@ -1,10 +1,13 @@
 #include "GenreBrowserApiRuntime.h"
 
+#include "BackendRegistryService.h"
 #include "Database.h"
 #include "EpgMetadataMaterializationQueue.h"
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "PublicApiRuntime.h"
+#include "PublicRecordingDisplayName.h"
 #include "RestQueryParameters.h"
 #include "VdrEvent.h"
 
@@ -12,6 +15,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <codecvt>
+#include <locale>
+#include <locale.h>
+#include <wctype.h>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -520,12 +527,23 @@ bool GenreBrowserApiRuntime::epgPage(
         !GenreIndexRepository::isEpgBrowseContentClass(contentClass) ||
         (!genreId.empty() && (contentClass != "movie" ||
             !GenreIndexRepository::isFilmGenre(genreId))) ||
-        untilTime <= fromTime || limit < 1 || limit > 30 ||
+        untilTime <= fromTime || limit < 1 || limit > 48 ||
         offset < 0 || offset > 1000000)
         return false;
     result = repository->epgByBrowse(
         backendId, contentClass, genreId, fromTime, untilTime, limit, offset);
     return true;
+}
+
+GenreEpgArtworkSelection GenreBrowserApiRuntime::epgPortraitArtwork(
+    const std::string& backendId, const std::string& channelId,
+    const std::string& eventId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository) return {};
+    return repository->epgPortraitArtwork(backendId, channelId, eventId);
 }
 
 bool GenreBrowserApiRuntime::recordingOverview(
@@ -541,6 +559,57 @@ bool GenreBrowserApiRuntime::recordingOverview(
     return true;
 }
 
+PublicGenreCollectionResult GenreBrowserApiRuntime::recordingOverviewPage(
+    const PublicGenreCollectionRequest& request,
+    const BackendRegistryService& backends) const
+{
+    PublicGenreCollectionResult result;
+    const auto backend = backends.getBackend(request.backendId);
+    if (!backend.has_value() || !backend->enabled)
+        return result;
+    // Facets are a persisted index read, independent of live VDR snapshots
+    // and native recording identity resolution.
+    GenreOverview overview;
+    if (!recordingOverview(
+        request.backendId, request.locale, overview))
+        return result;
+    // Keep public ID pagination stable; expose the existing
+    // canonical Web index order independently.
+    std::vector<std::size_t> order;
+    for (std::size_t i = 0; i < overview.genres.size(); ++i)
+        order.push_back(i);
+    std::sort(order.begin(), order.end(),
+        [&overview](std::size_t a, std::size_t b) {
+            return overview.genres[a].genreId < overview.genres[b].genreId;
+        });
+    result.totalCount = overview.genres.size();
+    result.totalItems = static_cast<std::size_t>(overview.distinctItemCount);
+    result.assignmentCount = static_cast<std::size_t>(overview.assignmentCount);
+    const std::size_t end =
+        std::min(result.totalCount, request.offset + request.limit);
+    for (std::size_t index = request.offset; index < end; ++index)
+    {
+        const auto& item = overview.genres[order[index]];
+        if (item.genreId.empty() || item.label.empty() ||
+            item.itemCount < 0)
+            return PublicGenreCollectionResult{};
+        PublicGenreItem view;
+        view.genreId = item.genreId;
+        view.label = item.label;
+        view.labelDe = item.labelDe;
+        view.labelEn = item.labelEn;
+        view.count = static_cast<std::size_t>(item.itemCount);
+        view.known = item.known;
+        view.activeCount = static_cast<std::size_t>(item.activeCount);
+        view.staleCount = static_cast<std::size_t>(item.staleCount);
+        view.conflictCount = static_cast<std::size_t>(item.conflictCount);
+        view.displayOrder = order[index];
+        result.genres.push_back(std::move(view));
+    }
+    result.status = PublicGenreCollectionStatus::ok;
+    return result;
+}
+
 bool GenreBrowserApiRuntime::recordingPage(
     const std::string& backendId,
     const std::string& genreId,
@@ -551,11 +620,141 @@ bool GenreBrowserApiRuntime::recordingPage(
     GenreIndexRepository* repository = readRepository_ ?
         readRepository_.get() : writerRepository_.get();
     if (!repository || backendId.empty() || genreId.empty() ||
-        limit < 1 || limit > 30 || offset < 0 || offset > 1000000)
+        limit < 1 || limit > 100 || offset < 0 || offset > 1000000)
         return false;
     result = repository->recordingsByGenre(
         backendId, genreId, limit, offset);
     return true;
+}
+
+bool GenreBrowserApiRuntime::recordingCards(
+    const std::string& backendId, const std::vector<std::string>& nativeIds,
+    GenreRecordingPage& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository || backendId.empty() || nativeIds.size() > 100U)
+        return false;
+    result = repository->recordingCards(backendId, nativeIds);
+    return true;
+}
+
+std::string GenreBrowserApiRuntime::projectRecordingCard(
+    const GenreRecordingItem& source, PublicGenreRecordingItem& target)
+{
+    target.sizeMb = std::max<std::int64_t>(0, source.sizeMb);
+    target.genreIds = source.genreIds;
+    // Match the established Genre page's locked manual/native card selection.
+    // The index already selects the canonical metadata; do not resolve again.
+    if (source.seriesMetadataAvailable)
+    {
+        target.cardTitle = source.seriesTitle;
+        target.cardMediaType = "series";
+        target.episodeName = source.episodeName;
+        target.seasonNumber = source.seasonNumber;
+        target.episodeNumber = source.episodeNumber;
+    }
+    else if (source.nativeCardMetadataAvailable)
+    {
+        target.cardTitle = source.seriesTitle;
+        target.cardMediaType = source.nativeCardMediaType;
+        target.episodeName = source.episodeName;
+    }
+    if (source.seriesHierarchyOverrideAvailable)
+    {
+        target.seriesHierarchyOverrideAvailable = true;
+        target.seriesHierarchyGroupType = source.seriesHierarchyGroupType;
+        target.seriesHierarchySeasonNumber = source.seriesHierarchySeasonNumber;
+        target.seriesHierarchyGroupLabel = source.seriesHierarchyGroupLabel;
+        target.seriesHierarchySortOrder = source.seriesHierarchySortOrder;
+        target.seriesHierarchyEpisodeStart = source.seriesHierarchyEpisodeStart;
+        target.seriesHierarchyEpisodeEnd = source.seriesHierarchyEpisodeEnd;
+        target.seriesHierarchyRevision = source.seriesHierarchyRevision;
+    }
+
+    // Same initial Series membership evidence as the established Genre Web
+    // payload: its provider object is empty, and embedded native metadata
+    // supplies provider identity only if no folder can be used.
+    if (!source.seriesMetadataAvailable &&
+        std::find(source.genreIds.begin(), source.genreIds.end(), "series") ==
+            source.genreIds.end())
+        return {};
+
+    target.seriesNativeMetadataAvailable = source.seriesMetadataAvailable &&
+        !source.seriesProvider.empty() && source.seriesProviderId != 0;
+
+    // The old Web grouping key used Unicode lowercase. Keep persisted
+    // folder/title keys compatible independently of the daemon's locale.
+    const auto lowerText = [](std::string text) {
+        static const auto utf8 = newlocale(LC_CTYPE_MASK, "C.UTF-8", nullptr);
+        if (utf8)
+        {
+            try
+            {
+                std::wstring_convert<std::codecvt_utf8<wchar_t>> convert;
+                std::wstring lower;
+                for (wchar_t c : convert.from_bytes(text))
+                {
+                    if (c == L'\u0130') lower += L"i\u0307";
+                    else lower += static_cast<wchar_t>(towlower_l(c, utf8));
+                }
+                return convert.to_bytes(lower);
+            }
+            catch (const std::range_error&) { /* malformed legacy bytes */ }
+        }
+        for (char& c : text)
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
+        return text;
+    };
+    const std::string rawPath = source.path.empty() ? source.title : source.path;
+    std::vector<std::string> parts;
+    std::size_t start = 0;
+    while (start < rawPath.size())
+    {
+        const auto slash = rawPath.find('/', start);
+        const auto part = PublicRecordingDisplayName::trim(rawPath.substr(
+            start, slash == std::string::npos ? std::string::npos : slash - start));
+        if (!part.empty()) parts.push_back(part);
+        if (slash == std::string::npos) break;
+        start = slash + 1U;
+    }
+    // The Home Series root deliberately groups every season subfolder
+    // under Serien/<series>. Other paths use the immediate parent.
+    std::string folder;
+    for (std::size_t i = 0; i + 1U < parts.size(); ++i)
+    {
+        if (lowerText(parts[i]) == "serien")
+        {
+            folder = "Serien/" + parts[i + 1U];
+            target.seriesFolderTitle = parts[i + 1U];
+            break;
+        }
+    }
+    if (folder.empty() && parts.size() >= 2U)
+    {
+        target.seriesFolderTitle = parts[parts.size() - 2U];
+        for (std::size_t i = 0; i + 1U < parts.size(); ++i)
+        {
+            if (i) folder += '/';
+            folder += parts[i];
+        }
+    }
+    if (!folder.empty())
+        return "folder:" + lowerText(folder);
+
+    if (target.seriesNativeMetadataAvailable)
+        return "native:" + source.seriesProvider + ":" +
+            std::to_string(source.seriesProviderId);
+
+    // Without a folder or a native Series identity, retain the existing
+    // title-based fallback. Do not promote an explicit episode name.
+    const auto seriesTitle = PublicRecordingDisplayName::trim(source.seriesTitle);
+    const auto episodeName = PublicRecordingDisplayName::trim(source.episodeName);
+    const auto title = source.seriesMetadataAvailable && !seriesTitle.empty() &&
+        lowerText(seriesTitle) != lowerText(episodeName)
+        ? seriesTitle : PublicRecordingDisplayName::trim(source.title);
+    return "title:" + lowerText(title.empty() ? "Aufnahme" : title);
 }
 
 bool GenreBrowserApiRuntime::configured() const

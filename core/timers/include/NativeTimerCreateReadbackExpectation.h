@@ -32,6 +32,7 @@ struct NativeTimerCreateReadbackExpectation
 
     NativeTimerSpecification expectedSpecification;
     std::string expectedSpecificationFingerprint;
+    std::string aux;
 };
 
 bool nativeTimerCreateReadbackExpectationValid(

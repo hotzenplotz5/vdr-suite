@@ -1,4 +1,5 @@
 #include "NativeTimerCreateReadbackExpectation.h"
+#include "NativeTimerCreateOperationPayload.h"
 
 #include <cstddef>
 
@@ -50,6 +51,7 @@ bool nativeTimerCreateReadbackExpectationValid(
             kMaxIdentityLength)
         || expectation.backendGeneration == 0
         || expectation.readbackNotBefore <= 0
+        || !nativeTimerCreateAuxValid(expectation.aux)
         || !nativeTimerSpecificationValid(
             expectation.expectedSpecification)
         || !nonEmptyBounded(

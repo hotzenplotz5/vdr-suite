@@ -43,7 +43,9 @@ async function run(prefix) {
       if (holdMutation) { const waiting = holdMutation; await waiting.promise; }
       return new Response(null, {status:204});
     }
-    if (new URL(request.url).pathname.endsWith('/snapshot') || new URL(request.url).pathname.endsWith('/now-next-artwork')) {
+    const requestPath = new URL(request.url).pathname;
+    if (requestPath.endsWith('/snapshot') || requestPath.endsWith('/now-next-artwork') ||
+        ['/api/v1/recordings', '/api/v1/genres', '/api/v1/genres/recordings'].some(path => requestPath === prefix + path)) {
       proofReads++;
       clock += proofDelay;
       return new Response('{}', {status, headers: {
@@ -506,6 +508,63 @@ async function run(prefix) {
   assert(!JSON.stringify(proofFirst).includes('https://'));
   console.log('PWA.15.23 worker proof ordering and relative lifetime counters PASS');
 
+  // Public Home projections already carry the same server-issued partition.
+  // Use the real worker fetch handler and prove no second artwork HTTP read.
+  partition=scopeA; tag=tagA; recordingAuthorized=true; epgAuthorized=false;
+  const publicRoot = 'https://suite.test'+prefix+'/api/v1/';
+  const publicProofImage = 'https://suite.test'+prefix+'/recording-artwork/default/'+'e'.repeat(32)+'?variant=home';
+  await image(publicProofImage);
+  for (const [index, target] of [
+    'recordings?backendId=default&view=movies&limit=30',
+    'recordings?backendId=default&view=new&limit=12',
+    'recordings?backendId=default&view=folders&limit=1',
+    'genres?backendId=default',
+    'genres/recordings?backendId=default&genreId=series'
+  ].entries()) {
+    const tab = 'public-proof-'+index;
+    await proof(tab,publicRoot+target);
+    const readsBefore=imageReads;
+    assert.equal((await image(publicProofImage,tab)).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+    assert.equal(imageReads,readsBefore,'public Home proof must not add an artwork request');
+  }
+  for (const target of [
+    'recordings?backendId=default',
+    'recordings?backendId=default&view=movies&view=new',
+    'recordings?backendId=default&backendId=other&view=new',
+    'recordings?backendId=default&backend=other&view=new',
+    'recordings?backend%49d=default&view=new',
+    'genres?backendId=..',
+    'genres/recordings?backendId=default&genreId=crime'
+  ]) {
+    const request = new Request(publicRoot+target,{credentials:'same-origin'});
+    assert.equal(invoke('proofBackend',[request]),'','noncanonical read must not authorize artwork reuse');
+  }
+  recordingAuthorized=false;
+  await proof('public-denied',publicRoot+'recordings?backendId=default&view=new');
+  assert.notEqual((await image(publicProofImage,'public-denied')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  // The public binary URLs participate in the same cache, not a second store.
+  recordingAuthorized=true; epgAuthorized=true;
+  await proof('public-images');
+  const publicPoster = publicRoot+'recordings/rec_'+'a'.repeat(32)+'/artwork/'+'b'.repeat(32)+'?backendId=default&variant=home';
+  const publicEpg = publicRoot+'epg/artwork?backendId=default&channelId=C-1&eventId=42&variant=home';
+  const publicPreferred = publicEpg.replace('/artwork?', '/preferred-artwork?');
+  for (const address of [publicPoster, publicEpg, publicPreferred]) {
+    await image(address,'public-images');
+    const readsBefore=imageReads;
+    assert.equal((await image(address,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+    assert.equal(imageReads,readsBefore,'warm public image does not require another HTTP read');
+    for (const invalid of [address+'&backendId=other',address+'&variant=home',
+        address+'&unknown=1',address.replace('&variant=home','')]) {
+      const req=new Request(invalid,{credentials:'same-origin'});
+      Object.defineProperty(req,'destination',{value:'image'});
+      assert.equal(invoke('artworkRequest',[req]),false);
+    }
+  }
+  recordingAuthorized=false; epgAuthorized=true;
+  await proof('public-images');
+  assert.notEqual((await image(publicPoster,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await image(publicEpg,'public-images')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  console.log('Public-v1 Home cache proof and image parity PASS');
   console.log('PWA.15.20 proof readback and candidate lookup phases PASS');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -40,7 +40,17 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         !GlobalSearchApiRuntime::instance().configured() &&
         !GlobalSearchApiRuntime::instance().configure(
             database_,
-            *backendRegistryService_))
+            *backendRegistryService_,
+            [this](const std::string& backendId, const std::string& nativeId)
+            {
+                VdrRecording current;
+                if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_ ||
+                    !vdrRecordingCacheRepository_->findByBackendNativeId(
+                        backendId, nativeId, current))
+                    return std::string{};
+                return publicRecordingIdentities_->resolveOrCreate(backendId, nativeId)
+                    .value_or(std::string{});
+            }))
     {
         std::cerr << "failed to initialize global search runtime"
                   << std::endl;

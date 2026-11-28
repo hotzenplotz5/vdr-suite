@@ -2,6 +2,7 @@
 #include "Database.h"
 #include "GenreIndexRepository.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -249,6 +250,26 @@ int main()
         }
         assert(recordingSeriesHasDrama);
         assert(recordingSeriesHasSeries);
+
+        // A Home page selects native IDs independently of Genre membership.
+        // The same card owner must return the same effective Genre and cache
+        // identity, without including unknown or foreign backend recordings.
+        const auto cards = repository.recordingCards("a",
+            {"native7", "native4", "missing"});
+        assert(cards.totalCount == 1);
+        assert(cards.recordings.size() == 1);
+        const auto& card = cards.recordings.front();
+        const auto& genreCard = recordingSeries.recordings.front();
+        assert(card.backendId == "a");
+        assert(card.backendNativeId == genreCard.backendNativeId);
+        assert(card.resourceKey == genreCard.resourceKey);
+        assert(card.title == genreCard.title);
+        assert(card.seriesMetadataAvailable == genreCard.seriesMetadataAvailable);
+        assert(card.seriesTitle == genreCard.seriesTitle);
+        for (const auto& genreId : genreCard.genreIds)
+            assert(std::find(card.genreIds.begin(), card.genreIds.end(), genreId) != card.genreIds.end());
+        assert(repository.recordingCards("b", {"native7"}).recordings.empty());
+        assert(repository.recordingCards("a", {}).recordings.empty());
 
         GenreRecordingPage recordingDocumentary = repository.recordingsByGenre(
             "a", "documentary", 10, 0);

@@ -16,6 +16,7 @@ int main()
 
     bool persistentSearchCalled = false;
     std::string searchedBackendId;
+    int identityLookups = 0;
 
     RecordingPersonSearchController controller(
         fallbackSearchService,
@@ -59,6 +60,13 @@ int main()
                 1,
                 limit,
                 offset);
+        },
+        [&](const std::string& backend, const std::string& native)
+        {
+            ++identityLookups;
+            assert(backend == "remote");
+            assert(native == "/srv/vdr/video/Thriller/Inferno/2026-05-21.20.38.1-0.rec");
+            return std::string("rec_0123456789abcdef0123456789abcdef");
         });
 
     assert(controller.usesPersistentSearch());
@@ -77,6 +85,8 @@ int main()
             0);
 
     assert(persistentSearchCalled);
+    assert(identityLookups == 1);
+    assert(response.body.find("\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
     assert(searchedBackendId == "remote");
     assert(response.statusCode == 200);
     assert(response.contentType == "application/json");

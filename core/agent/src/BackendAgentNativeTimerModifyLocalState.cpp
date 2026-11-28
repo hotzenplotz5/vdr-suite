@@ -57,6 +57,8 @@ BackendAgentNativeTimerModifyPayload payloadFor(const BackendAgentNativeTimerMod
  p.backendId=c.backendId;p.backendGeneration=c.backendGeneration;
  p.backendNativeTimerId=c.backendNativeTimerId;p.expectedCurrentFingerprint=c.expectedCurrentFingerprint;
  p.expectedSpecificationFingerprint=c.expectedSpecificationFingerprint;p.specification=c.specification;
+ p.modifyAux=c.modifyAux;p.expectedAuxFingerprint=c.expectedAuxFingerprint;
+ p.desiredAux=c.desiredAux;
  p.controlPlaneClaimedAt=c.controlPlaneClaimedAt;p.localProviderSelection=c.localProviderSelection;return p;}
 BackendAgentNativeTimerModifyCommand commandFor(
  const std::string& commandId,const std::string& fingerprint,const std::string& operationId,
@@ -70,6 +72,8 @@ BackendAgentNativeTimerModifyCommand commandFor(
  c.nativeTimerBindingId=p.nativeTimerBindingId;c.expectedBindingRevision=p.expectedBindingRevision;
  c.backendNativeTimerId=p.backendNativeTimerId;c.expectedCurrentFingerprint=p.expectedCurrentFingerprint;
  c.expectedSpecificationFingerprint=p.expectedSpecificationFingerprint;c.specification=p.specification;
+ c.modifyAux=p.modifyAux;c.expectedAuxFingerprint=p.expectedAuxFingerprint;
+ c.desiredAux=p.desiredAux;
  c.jobId=job;c.attemptId=attempt;c.claimEpoch=claim;c.backendId=p.backendId;c.agentId=agent;
  c.agentInstanceId=instance;c.backendGeneration=p.backendGeneration;
  c.controlPlaneClaimedAt=p.controlPlaneClaimedAt;c.localProviderSelection=p.localProviderSelection;return c;}
@@ -89,7 +93,8 @@ bool backendAgentNativeTimerModifyCommandFromAssignment(
  if(!::backendAgentCommandValidAssignment(a)||
     (a.commandType!=kBackendAgentNativeTimerUpdateCommandType&&
      a.commandType!=kBackendAgentNativeTimerToggleCommandType)||
-    a.payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion||
+    a.payloadVersion!=(a.payload.compare(0,36,
+        "native-timer-modify-agent-payload/2|")==0 ? 2U : 1U)||
     a.verificationPolicy!="readback_required"){reason="invalid_native_timer_modify_assignment";return false;}
  BackendAgentNativeTimerModifyPayload p;
  if(!backendAgentNativeTimerModifyParsePayload(a.payload,p,reason)||

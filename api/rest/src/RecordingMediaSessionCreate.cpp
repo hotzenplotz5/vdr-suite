@@ -208,6 +208,17 @@ ApiResponse RecordingMediaSessionController::createSession(
     return createSessionInternal(body, actorId, nullptr, {}, {}, {}, nullptr, nullptr, nullptr);
 }
 
+ApiResponse RecordingMediaSessionController::createBrowserSession(
+    const std::string& body,
+    const std::string& actorId,
+    const VdrRecording& authorizedRecording,
+    const std::string& publicRecordingId) const
+{
+    return createSessionInternal(
+        body, actorId, &authorizedRecording, publicRecordingId,
+        {}, {}, nullptr, nullptr, nullptr);
+}
+
 ApiResponse RecordingMediaSessionController::createDeviceSession(
     const std::string& body,
     const std::string& actorId,
@@ -251,9 +262,15 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 ? "invalid_media_session_request"
                 : request.reasonCode);
     }
-    // Native media credential projection is never available on legacy Browser CREATE.
-    if (request.nativeMediaAccessRequested && authorizedRecording == nullptr)
+    // The authorized recording is shared by the Browser and Device paths.
+    // Only the Device path requests an activated ID and Device projection.
+    const bool deviceProjection = activatedSessionId != nullptr;
+    const bool publicBrowser = authorizedRecording != nullptr && !deviceProjection;
+    if (!deviceProjection && request.nativeMediaAccessRequested)
         return jsonError(403, "native_media_requires_device");
+    if (authorizedRecording != nullptr && !deviceProjection &&
+        request.deviceMediaProfileRequested)
+        return jsonError(403, "device_media_profile_context_invalid");
 
     const RecordingMediaSessionStartPosition requestedStart =
         RecordingMediaSessionStartPositionParser().parse(body);
@@ -277,8 +294,8 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
     }
 
     if (authorizedRecording != nullptr) {
-        // Never allow a Device to supply a VDR-native identifier. The
-        // admission boundary must have resolved the exact public ID.
+        // The versioned admission boundary must have resolved the exact
+        // public ID; neither Browser nor Device supplies a native identifier.
         if (request.recordingId != publicRecordingId ||
             authorizedRecording->backendId != request.backendId ||
             authorizedRecording->id.empty() ||
@@ -290,7 +307,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
 
     VdrRecording recording;
     if (authorizedRecording != nullptr) {
-        // Device admission already performed a backend-scoped indexed lookup,
+        // Public admission already performed a backend-scoped indexed lookup,
         // including a repeat identity binding check. Never run legacy
         // findRecordingById here: its cache path loads the whole backend
         // recording catalogue into memory for one requested recording.
@@ -543,7 +560,9 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 : issuance.reasonCode);
     }
 
-    const std::string cookie = authorizedRecording != nullptr
+    // Browser uses the daemon-root cookie path; the existing nginx
+    // proxy_cookie_path maps it to /vdr-suite exactly once.
+    const std::string cookie = (deviceProjection || publicBrowser)
         ? MediaAccessCredentialHttp::publicV1SessionCookie(
             issuance.session.sessionId,
             issuance.session.accessCredential,
@@ -564,6 +583,8 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
 
     RecordingMediaSessionProvisionResult provision;
     std::string mediaPath;
+    const std::string mediaPrefix = publicBrowser
+        ? "/api/v1/media/sessions/" : "/api/media/sessions/";
     if (profile.protocol == MediaDeliveryProtocol::Progressive) {
         if (profile.profileId == "progressive-direct") {
             if (directSourceRegistry_ == nullptr || sourceResolution.source.growing ||
@@ -588,7 +609,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 issuance.session.grantId,
                 profile,
                 registration);
-            mediaPath = "/api/media/sessions/" +
+            mediaPath = mediaPrefix +
                 issuance.session.sessionId + "/recording/stream.ts";
         }
         else if (profile.profileId == "progressive-fmp4") {
@@ -609,7 +630,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 timeSeekSupported
                     ? indexedSegmentDurations
                     : std::vector<double>{});
-            mediaPath = "/api/media/sessions/" +
+            mediaPath = mediaPrefix +
                 issuance.session.sessionId + "/recording/stream.mp4";
         }
         else {
@@ -639,7 +660,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 profile,
                 sourceResolution.source.segmentPaths);
         }
-        mediaPath = "/api/media/sessions/" +
+        mediaPath = mediaPrefix +
             issuance.session.sessionId + "/hls/master.m3u8";
     }
     else {
@@ -657,6 +678,14 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
             provision.reasonCode.empty()
                 ? "media_provision_failed"
                 : provision.reasonCode);
+    }
+
+    if (publicBrowser && !mediaSessionRuntime_->markPublicBrowserTransport(
+            issuance.session.sessionId)) {
+        mediaSessionRuntime_->stop(issuance.session.sessionId, "media_transport_unavailable");
+        mediaSessionRepository_.endBundle(issuance.session.sessionId, "media_transport_unavailable");
+        issuance.session.clearSecret();
+        return jsonError(503, "media_transport_unavailable");
     }
 
     {
@@ -713,7 +742,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
         << " total_server_ms=" << elapsedMilliseconds(requestStartedAt, provisionReadyAt)
         << std::endl;
 
-    if (authorizedRecording != nullptr) {
+    if (deviceProjection) {
         PublicRecordingDeviceMediaSessionReady ready;
         ready.sessionId = issuance.session.sessionId;
         ready.backendId = request.backendId;
@@ -755,7 +784,8 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
         "\"id\":\"" + jsonEscape(issuance.session.sessionId) + "\"," +
         "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(request.backendId) + "\"," +
-        "\"recordingId\":\"" + jsonEscape(request.recordingId) + "\"," +
+        "\"recordingId\":\"" + jsonEscape(authorizedRecording != nullptr
+            ? publicRecordingId : request.recordingId) + "\"," +
         "\"presentationProfileId\":\"" + jsonEscape(profile.profileId) + "\"," +
         "\"growing\":" + std::string(sourceResolution.source.growing ? "true" : "false") + "," +
         "\"readableBytes\":" + std::to_string(sourceResolution.source.readableBytes) + "," +

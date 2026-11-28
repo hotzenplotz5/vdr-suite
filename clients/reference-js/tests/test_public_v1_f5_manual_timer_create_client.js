@@ -1,0 +1,139 @@
+'use strict';
+
+const assert = require('assert').strict;
+const {createClient} = require('../public-v1-client.js');
+const calls = [];
+const payload = {
+  backendId:'default',channelId:'S19.2E-1-100',
+  title:'Köln, Spezial',directory:'News',
+  startAt:1795547700,stopAt:1795552200,
+  priority:0,lifetime:0,enabled:true,vps:false
+};
+const respond = (status, data, location) => ({
+  status, ok:status >= 200 && status < 300,
+  headers:{get:k=>k==='Location'?location:null},
+  text:async()=>JSON.stringify(data)
+});
+const client = createClient({baseUrl:'https://suite.example',credentials:'include',
+  fetch:async (url, options)=>{
+    calls.push({url,options});
+    assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
+    assert.strictEqual(options.method,'POST');
+    assert.strictEqual(options.cache,'no-store');
+    assert.strictEqual(options.credentials,'include');
+    assert.strictEqual(options.headers['Content-Type'],'application/json');
+    assert.strictEqual(options.headers['X-CSRF-Token'],'fixture-csrf');
+    assert.strictEqual(options.headers['If-Match'],undefined);
+    assert.strictEqual(options.headers['Idempotency-Key'],'manual-once-1');
+    assert.strictEqual(Object.keys(options.headers).filter(
+      name=>name.toLowerCase()==='idempotency-key').length,1);
+    assert.strictEqual(Object.keys(options.headers).filter(
+      name=>name.toLowerCase()==='content-type').length,1);
+    assert.deepStrictEqual(JSON.parse(options.body),payload);
+    if (calls.length===1)
+      return respond(202,{operationId:'op_1',state:'accepted',backendId:'default',
+        links:{self:'/api/v1/operations/op_1'}},
+        '/api/v1/operations/op_1');
+    if (calls.length===4)
+      return respond(202,{operationId:'op_1',state:'outcome_unknown',backendId:'default',
+        links:{self:'/api/v1/operations/op_1'}},
+        '/api/v1/operations/op_1');
+    return respond(409,{code:'idempotency_conflict'});
+  }
+});
+(async()=>{
+  const input={idempotencyKey:'manual-once-1',
+    headers:{'X-CSRF-Token':'fixture-csrf'},payload};
+  const accepted=await client.submitManualTimerIntent(input);
+  assert.strictEqual(accepted.status,202);
+  assert.strictEqual(accepted.location,'/api/v1/operations/op_1');
+  assert.strictEqual(accepted.data.operationId,'op_1');
+  assert.strictEqual(accepted.data.state,'accepted');
+  assert.strictEqual(accepted.data.backendId,'default');
+  assert.strictEqual(accepted.data.links.self,accepted.location);
+  assert.strictEqual(accepted.data.operation,undefined);
+  await assert.rejects(client.submitManualTimerIntent(input),
+    err=>err.status===409);
+  await assert.rejects(client.submitManualTimerIntent({...input,
+    headers:{...input.headers,'IDEMPOTENCY-KEY':'wrong-key','content-type':'text/plain'}}),
+    err=>err.status===409);
+  // The same committed Operation can be recovered without claiming a Timer
+  // exists; outcome_unknown must stay observable to the caller.
+  const recovered=await client.submitManualTimerIntent(input);
+  assert.strictEqual(recovered.status,202);
+  assert.strictEqual(recovered.location,accepted.location);
+  assert.strictEqual(recovered.data.operationId,accepted.data.operationId);
+  assert.strictEqual(recovered.data.state,'outcome_unknown');
+  const before=calls.length;
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,aux:'<vdr-suite-managed-timer-spoof/>'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,priority:undefined}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,lifetime:100}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,stopAt:payload.startAt}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,payload:{...payload,startAt:1.5}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,idempotencyKey:'has space'}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'If-Match':'"epg1"'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'IF-MATCH':'"epg1"'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,headers:{'iF-mAtCh':'"epg1"'}}));
+  // A Unicode string can be short in JS code units but exceed the
+  // server's 1024-byte decoded UTF-8 field limit.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'ö'.repeat(513)}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,directory:'🎥'.repeat(257)}}));
+  // JSON.stringify escapes invalid UTF-16; the C++ decoder rejects it.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'\uD800'}}));
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,directory:'\uDC00'}}));
+  // Both fields fit separately; JSON escaping may still exceed 4096 bytes.
+  assert.throws(()=>client.submitManualTimerIntent({...input,
+    payload:{...payload,title:'\\'.repeat(1024),directory:'\\'.repeat(1024)}}));
+  assert.strictEqual(calls.length,before,'invalid writes cannot dispatch');
+  assert(calls.every(call=>!call.url.includes('/api/vdr/')));
+  // Exactly 1024 UTF-8 bytes remain valid, including non-BMP characters.
+  let boundaryCalls=0;
+  const boundaryClient=createClient({baseUrl:'https://suite.example',
+    fetch:async (url, options)=>{
+      boundaryCalls++;
+      assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
+      const posted=JSON.parse(options.body);
+      assert.strictEqual(posted.title,'ö'.repeat(512));
+      assert.strictEqual(posted.directory,'🎥'.repeat(256));
+      return respond(202,{operationId:'op_limit',state:'accepted',backendId:'default',
+        links:{self:'/api/v1/operations/op_limit'}},
+        '/api/v1/operations/op_limit');
+    }});
+  const boundary=await boundaryClient.submitManualTimerIntent({...input,
+    payload:{...payload,title:'ö'.repeat(512),directory:'🎥'.repeat(256)}});
+  assert.strictEqual(boundary.status,202);
+  assert.strictEqual(boundary.data.operationId,'op_limit');
+  assert.strictEqual(boundary.data.state,'accepted');
+  assert.strictEqual(boundary.data.links.self,boundary.location);
+  assert.strictEqual(boundaryCalls,1);
+  // Recurring and one-shot submissions share the exact public route.
+  let recurringCalls=0;
+  const recurringClient=createClient({baseUrl:'https://suite.example',
+    fetch:async (url,options)=>{
+      recurringCalls++;
+      assert.strictEqual(url,'https://suite.example/api/v1/manual/timer-intents');
+      assert.strictEqual(options.method,'POST');
+      assert.deepStrictEqual(JSON.parse(options.body),
+        {...payload,weekdays:'MTWTF--',aux:'<epgsearch>plugin:data</epgsearch>'});
+      assert.strictEqual(options.headers['Idempotency-Key'],'manual-once-1');
+      return respond(202,{operationId:'op_week',state:'accepted',
+        backendId:'default',links:{self:'/api/v1/operations/op_week'}},
+        '/api/v1/operations/op_week');
+    }});
+  const weeklyInput={...input,payload:{...payload,weekdays:'MTWTF--',aux:'<epgsearch>plugin:data</epgsearch>'}};
+  const weekly=await recurringClient.submitManualTimerIntent(weeklyInput);
+  assert.strictEqual(weekly.status,202);
+  assert.strictEqual(weekly.data.operationId,'op_week');
+  assert.strictEqual(recurringCalls,1);
+  for(const bad of ['T------','MTWTFSSS','mtwtf--','x------','']){
+    assert.throws(()=>recurringClient.submitManualTimerIntent({
+      ...weeklyInput,payload:{...weeklyInput.payload,weekdays:bad}
+    }));
+  }
+  assert.strictEqual(recurringCalls,1);
+  console.log('Public-v1 F5.6 manual/weekly TimerIntent client PASS');
+})().catch(error=>{console.error(error);process.exitCode=1;});

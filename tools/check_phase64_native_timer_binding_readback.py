@@ -47,7 +47,8 @@ for token in [
     "current.missingSince != 0",
     "observation.observedFingerprint != current.observedFingerprint",
     "nativeTimerObservedStateSameExceptEventId(",
-    "eventIdOnlyDrift",
+    "transientDrift",
+    "nativeTimerObservedStateSameExceptRecordingAndEventId(",
     "NativeTimerBindingReadbackStatus::reconciliationRequired",
     "next.backendGeneration = observation.backendGeneration",
     "next.lastObservedAt = observation.observedAt",
@@ -77,22 +78,28 @@ for forbidden in [
     if forbidden in source + header:
         raise SystemExit(f"premature Slice-12 boundary crossing: {forbidden}")
 
-# Phase-69 successor: a VDR EPG event association is transient, not a
-# native timer configuration mutation. Exactly one narrowly fenced metadata
-# refresh may update eventId and its canonical fingerprint. Preserve the
-# historic ban against any other passive observed-state rewrite.
-epg_guard = """    if (eventIdOnlyDrift)
+# F5.6.4 successor: only VDR-owned transient EPG/recording changes
+# may refresh a managed Binding, never a native timer configuration edit.
+# The repository performs the same comparison under an SQLite transaction
+# and refuses revision changes during accepted/unknown operations.
+transient_guard = """    if (transientDrift)
     {
         next.observedState.eventId = observation.observedState.eventId;
+        next.observedState.recording = observation.observedState.recording;
+        next.observedState.flags = observation.observedState.flags;
         next.observedFingerprint = nativeTimerObservedStateFingerprint(
             next.observedState);
     }"""
 if source.count("next.observedFingerprint =") != 1 or (
         source.count("next.observedState.eventId =") != 1 or
-        epg_guard not in source or
+        source.count("next.observedState.recording =") != 1 or
+        source.count("next.observedState.flags =") != 1 or
+        transient_guard not in source or
         "passiveFreshnessRefresh &&" not in source or
-        "nativeTimerObservedStateSameExceptEventId(" not in source):
-    raise SystemExit("unfenced EPG-only native timer readback mutation")
+        "nativeTimerObservedStateSameExceptEventId(" not in source or
+        "nativeTimerObservedStateSameExceptRecordingAndEventId(" not in source or
+        "next, current.bindingRevision, passiveFreshnessRefresh" not in source):
+    raise SystemExit("unfenced transient native Timer readback mutation")
 
 for token in [
     "NativeTimerBindingReadbackStatus::refreshed",
@@ -173,5 +180,5 @@ for scan_root in [
 
 print("Phase-64 NativeTimerBinding present readback check passed")
 print(
-    "Slice-12 successor: unchanged/config-preserving EPG-only passive refresh; "
-    "changed/missing timer configuration and native mutation still deferred")
+    "Slice-12 successor: fenced EPG/recording-state passive refresh; "
+    "changed/missing timer configuration remains reconciliation work")

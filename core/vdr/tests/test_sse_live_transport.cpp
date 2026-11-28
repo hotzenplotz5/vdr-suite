@@ -246,8 +246,53 @@ static void test_browser_subscriber_live_replay_and_backpressure()
     subscriber->close();
 }
 
+static void test_browser_recording_public_id_projection()
+{
+    SseLiveTransport transport;
+    auto hub = std::make_shared<DeviceLiveEventHub>();
+    transport.setDeviceLiveEventHub(hub);
+    const std::string first = "rec_" + std::string(32, 'a');
+    const std::string second = "rec_" + std::string(32, 'b');
+    transport.setRecordingPublicIdLookup(
+        [&](const std::string& backend, const std::string& native)
+            -> std::optional<std::string> {
+            if (backend != "home") return std::nullopt;
+            if (native == "episode/1") return first;
+            if (native == "episode/2") return second;
+            return std::nullopt;
+        });
+    auto browser = transport.subscribeBrowser("");
+    auto device = hub->subscribe("home", {"recordings"});
+    assert(browser && device);
+    std::string frame;
+    assert(browser->next(frame, std::chrono::milliseconds(1)));
+    assert(device->next(frame, std::chrono::milliseconds(1)));
+    transport.publish(LiveUpdateEvent(1, 1, {"recordings"}, "home",
+                                      {"episode/1", "episode/2"}));
+    assert(browser->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("\"recordingPublicIds\":[\"" + first + "\",\"" + second + "\"]") !=
+           std::string::npos);
+    assert(frame.find("\"recordingNativeIds\":[\"episode/1\",\"episode/2\"]") !=
+           std::string::npos);
+    assert(device->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("recordingPublicIds") == std::string::npos);
+    transport.publish(LiveUpdateEvent(2, 2, {"recordings"}, "home",
+                                      {"episode/1", "unknown"}));
+    assert(browser->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("recordingPublicIds") == std::string::npos);
+    assert(frame.find("recordingNativeIds") != std::string::npos);
+    transport.publish(LiveUpdateEvent(3, 3, {"recordings"}, "other",
+                                      {"episode/1"}));
+    assert(browser->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("recordingPublicIds") == std::string::npos);
+    transport.publish(LiveUpdateEvent(4, 4, {"recordings"}, "home", {"episode/2"}));
+    const std::string replay = transport.replay(transport.daemonEpoch() + ":3");
+    assert(replay.find("\"recordingPublicIds\":[\"" + second + "\"]") != std::string::npos);
+}
+
 int main()
 {
+    test_browser_recording_public_id_projection();
     test_browser_subscriber_live_replay_and_backpressure();
     test_device_subscriber_filters_backend_and_grant_then_coalesces_cursor();
     test_device_subscriber_overload_requires_resync_not_silent_drop();

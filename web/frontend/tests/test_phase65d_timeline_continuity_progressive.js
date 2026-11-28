@@ -223,7 +223,7 @@ function createRuntime() {
           return Promise.resolve(recordingSession(
             body.sessionId,
             body.backendId,
-            'recording-42',
+            'rec_11111111111111111111111111111111',
             body.positionSeconds
           ));
         }
@@ -231,7 +231,7 @@ function createRuntime() {
           return Promise.resolve(recordingSession(
             body.sessionId,
             body.backendId,
-            'recording-42',
+            'rec_11111111111111111111111111111111',
             0
           ));
         }
@@ -270,6 +270,7 @@ function createRuntime() {
     setTimeout,
     clearTimeout
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
   vm.runInContext(lifecycleSource, context, {filename: 'playback-owner-lifecycle.js'});
   vm.runInContext(ownerSource, context, {filename: 'session-frontend-sync.js'});
   vm.runInContext(continuitySource, context, {filename: 'playback-timeline-continuity.js'});
@@ -280,7 +281,7 @@ function createRuntime() {
 (async function () {
   const runtime = createRuntime();
   const playback = runtime.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Timeline continuity'},
+    {id: 'rec_11111111111111111111111111111111', title: 'Timeline continuity'},
     'living-room'
   );
 

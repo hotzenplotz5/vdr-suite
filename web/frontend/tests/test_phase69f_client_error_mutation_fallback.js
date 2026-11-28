@@ -148,7 +148,7 @@ async function verifyBinaryErrorUsesSameRepresentation() {
   assert.strictEqual(error.message, 'Presentation backend is unavailable.');
 }
 
-async function verifyMutationDoesNotFallback(functionName, expectedPath) {
+async function verifyMutationDoesNotFallback(functionName, expectedPath, options) {
   const before = requests.length;
   responseFactory = function () {
     return jsonResponse(503, {
@@ -161,7 +161,7 @@ async function verifyMutationDoesNotFallback(functionName, expectedPath) {
   };
 
   const error = await captureFailure(function () {
-    return api[functionName]({
+    return api[functionName](options || {
       payload: {name: 'phase69f'},
       headers: {'X-Test': 'phase69f'}
     });
@@ -172,7 +172,7 @@ async function verifyMutationDoesNotFallback(functionName, expectedPath) {
   assert.strictEqual(error.status, 503);
   assert.strictEqual(error.code, 'backend_unavailable');
   assert.strictEqual(emitted.length, 1);
-  assert.strictEqual(emitted[0].url, expectedPath);
+  assert.strictEqual(emitted[0].url.split('?')[0], expectedPath);
   assert.strictEqual(emitted[0].options.method, 'POST');
 }
 
@@ -213,28 +213,75 @@ async function verifyStagedSearchTimerCreate() {
   assert.strictEqual(body.name, body.query);
 }
 
+async function verifyPublicHomeInventoryCount() {
+  const backendId = 'living-room';
+  const folderId = 'fld1_' + 'a'.repeat(32);
+  let state = 'ready', catalogTotalCount = 347, status = 200;
+  const snapshot = {recordingCount: 0, timerCount: 4, diskFreeMb: 12345};
+  responseFactory = function (url) {
+    if (url === '/api/backends/' + backendId + '/snapshot')
+      return jsonResponse(200, snapshot);
+    const query = new URL(url, 'https://suite.invalid').searchParams;
+    assert.strictEqual(url.split('?')[0], '/api/v1/recordings');
+    assert.strictEqual(query.get('backendId'), backendId);
+    assert.strictEqual(query.get('view'), 'folders');
+    assert.strictEqual(query.get('limit'), '1');
+    assert.strictEqual(query.get('offset'), '0');
+    if (status !== 200) return jsonResponse(status, {code:'permission_denied'});
+    const items = catalogTotalCount ? [{kind:'folder',folderId,name:'Filme',recordingCount:347}] : [];
+    return jsonResponse(200, {
+      items, page:{limit:1,offset:0,totalCount:items.length,hasMore:false},
+      meta:{partial:false},
+      folderContext:{folderId:'',parentFolderId:'',breadcrumbs:[],
+        folderCount:items.length,recordingCount:0,catalogTotalCount,
+        cacheState:state,cacheReady:catalogTotalCount > 0}
+    });
+  };
+  async function read() {
+    const before = requests.length;
+    const early = [];
+    const result = await api.fetchClientBackendSnapshot(backendId, {cache:'no-store'},
+      value => early.push(value));
+    assert.strictEqual(requests.length - before, 2, 'no private cache-status or extra inventory request');
+    assert.strictEqual(early.length,1);
+    assert.strictEqual(early[0].recordingCount,0);
+    assert.strictEqual(result.timerCount,4);
+    assert.strictEqual(result.diskFreeMb,12345);
+    return result;
+  }
+  let result = await read();
+  assert.strictEqual(result.recordingCount,347,'catalog total, not root card count');
+  assert.strictEqual(result.recordingCountUnavailable,false);
+  catalogTotalCount = 0;
+  result = await read();
+  assert.strictEqual(result.recordingCount,0);
+  assert.strictEqual(result.recordingCountUnavailable,false,'ready empty catalog is zero');
+  state = 'empty';
+  result = await read();
+  assert.strictEqual(result.recordingCountUnavailable,true,'cold catalog is unknown');
+  status = 403;
+  result = await read();
+  assert.strictEqual(result.recordingCountUnavailable,true,'permission denial is not an empty catalog');
+}
+
 async function run() {
+  await verifyPublicHomeInventoryCount();
   await verifyStagedSearchTimerCreate();
   await verifyProblemDetailsError();
   await verifyLegacyStructuredError();
   await verifyBinaryErrorUsesSameRepresentation();
 
   await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerExecute',
-    '/api/vdr/searchtimers/execute'
-  );
-  await verifyMutationDoesNotFallback(
     'fetchClientSearchTimerCreateAction',
     '/api/v1/search-timers'
   );
-  await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerUpdateAction',
-    '/api/vdr/searchtimers/update'
-  );
-  await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerDeleteAction',
-    '/api/vdr/searchtimers/delete'
-  );
+  const id = 'st_' + 'a'.repeat(32);
+  for (const action of ['update', 'activate', 'deactivate', 'delete']) {
+    await verifyMutationDoesNotFallback('mutatePublicSearchTimer',
+      '/api/v1/search-timers/' + id + '/mutations',
+      {backend: 'default', searchTimerId: id, revision: 'sr_' + 'b'.repeat(32),
+        idempotencyKey: 'failure-' + action, payload: {action, confirmed: true}});
+  }
 
   console.log('test_phase69f_client_error_mutation_fallback passed');
 }

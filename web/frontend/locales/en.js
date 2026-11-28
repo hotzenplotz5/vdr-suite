@@ -161,6 +161,7 @@
   "settings.accountAdminPermissionLabel.remote.control": "Use remote control",
   "settings.accountAdminPermissionLabel.osd.view": "View OSD",
   "settings.accountAdminPermissionLabel.osd.control": "Control OSD",
+  "settings.accountAdminPermissionLabel.recordings.edit": "Edit recordings (including cutting)",
   "settings.accountAdminPermissionLabel.recordings.rename": "Rename recordings",
   "settings.accountAdminPermissionLabel.recordings.move": "Move recordings",
   "settings.accountAdminPermissionLabel.recordings.delete": "Delete recordings",

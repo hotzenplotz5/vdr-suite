@@ -68,4 +68,124 @@ int main()
     status = PublicNativeTimerModifyStatus::serviceUnavailable;
     assert(post(path,toggle,etag).statusCode == 503);
     runtime.resetNativeTimerModifyAdmission();
+
+    // Raw Aux replacement is an opt-in extension of the existing native
+    // update route, using the caller's previous Aux for native CAS.
+    const std::string update =
+        R"json({"kind":"update","channelId":"S19.2E-1-2-3","title":"News","directory":"TV","day":"2026-11-24","weekdays":"-------","startTime":"2015","endTime":"2030","priority":0,"lifetime":0,"enabled":true,"vps":false})json";
+    const std::string auxUpdate = update.substr(0,update.size()-1) +
+        R"json(,"expectedAux":"<epgsearch/>","aux":"<tvscraper/>"})json";
+    assert(post(path,auxUpdate,etag).statusCode == 503);
+    assert(post(path,update.substr(0,update.size()-1) +
+        R"json(,"aux":"bad"})json",etag).statusCode == 400);
+    assert(post(path,update.substr(0,update.size()-1) +
+        R"json(,"expectedAux":"bad"})json",etag).statusCode == 400);
+    assert(post(path,toggle.substr(0,toggle.size()-1) +
+        R"json(,"expectedAux":"","aux":"new"})json",etag).statusCode == 400);
+    int auxAdmissions = 0;
+    runtime.registerNativeTimerModifyAdmission(
+        [&](const PublicNativeTimerModifyRequest& r) {
+            ++auxAdmissions;
+            assert(r.kind == PublicNativeTimerChangeKind::update);
+            assert(r.specification.modifyAux);
+            assert(r.specification.expectedAux == "<epgsearch/>");
+            assert(r.specification.aux == "<tvscraper/>");
+            assert(r.specification.priority == 0 && r.specification.lifetime == 0);
+            PublicNativeTimerModifyResult result;
+            result.status = PublicNativeTimerModifyStatus::accepted;
+            result.operation.operationId = "op_modify_aux";
+            result.operation.state = "accepted";
+            result.operation.backendId = "backend-one";
+            result.operation.resourceRevision = "2";
+            return result;
+        });
+    assert(post(path,auxUpdate,etag).statusCode == 202);
+    assert(auxAdmissions == 1);
+    runtime.resetNativeTimerModifyAdmission();
+
+    // Slice 3: externally created and unbound native VDR Timers use exactly
+    // one existing direct action callback, never a manufactured 202 Operation.
+    runtime.resetNativeTimerDirectAction();
+    runtime.resetNativeTimerDetailLookup();
+    const std::string directUpdate =
+        "/api/v1/native-timers/17/direct-update?backendId=backend-one";
+    const std::string directDelete =
+        "/api/v1/native-timers/17/direct-delete?backendId=backend-one";
+    const std::string directBody =
+        R"json({"backendId":"backend-one","timerId":"17","title":"AUX","aux":"<epgsearch/>"})json";
+    assert(post(directUpdate,directBody).statusCode == 503);
+    std::string bindingState = "binding_required";
+    std::string ownership = "unbound";
+    runtime.registerNativeTimerDetailLookup(
+        [&](const PublicNativeTimerDetailRequest& req) {
+            PublicNativeTimerDetailResult result;
+            result.status = PublicNativeTimerDetailStatus::ok;
+            result.backendId = req.backendId;
+            result.timer.id = req.timerId;
+            result.ownership = ownership;
+            result.bindingState = bindingState;
+            return result;
+        });
+    int directCalls = 0;
+    runtime.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor,
+            const std::string& backend, const std::string& nativeId,
+            const std::string& raw) {
+            ++directCalls;
+            assert((action == "update" || action == "delete"));
+            assert(actor == "tv-device");
+            assert(backend == "backend-one" && nativeId == "17");
+            assert(raw == directBody);
+            ApiResponse result;
+            result.statusCode = 200;
+            result.contentType = "application/json";
+            result.body = R"json({"success":true})json";
+            return result;
+        });
+    assert(post(directUpdate,directBody).statusCode == 200);
+    assert(directCalls == 1);
+    assert(post(directDelete,directBody).statusCode == 200);
+    assert(directCalls == 2);
+    ownership = "external";
+    bindingState = "adoption_required";
+    assert(post(directUpdate,directBody).statusCode == 200);
+    assert(directCalls == 3);
+    ownership = "managed";
+    bindingState = "verified";
+    assert(post(directUpdate,directBody).statusCode == 409);
+    assert(directCalls == 3);
+    ownership = "unbound";
+    bindingState = "binding_required";
+    assert(post(directUpdate+"&limit=1",directBody).statusCode == 400);
+    assert(post(directUpdate,directBody,"","","text/plain").statusCode == 415);
+    assert(post(directUpdate,directBody,"","", "application/json").statusCode == 200);
+    runtime.resetNativeTimerDirectAction();
+    runtime.resetNativeTimerDetailLookup();
+
+    const std::string createPath = "/api/v1/native-timers/actions/create";
+    const std::string createBody = R"json({"backendId":"backend-one","channelId":"C-1","title":"Weekly VPS","day":"","weekdays":"M-W-F--","start":2015,"stop":2030,"priority":0,"lifetime":0,"active":false,"vps":true,"aux":"<epgsearch/>"})json";
+    assert(post(createPath,createBody).statusCode == 503);
+    int creates = 0;
+    runtime.registerNativeTimerDirectAction(
+        [&](const std::string& action, const std::string& actor,
+            const std::string& backend, const std::string& nativeId,
+            const std::string& raw) {
+            ++creates;
+            assert(action == "create" && actor == "tv-device");
+            assert(backend == "backend-one" && nativeId.empty() && raw == createBody);
+            ApiResponse result;
+            result.statusCode = 200;
+            result.contentType = "application/json";
+            result.body = R"json({"success":true,"timerId":"73"})json";
+            return result;
+        });
+    assert(post(createPath+"?backendId=backend-one",createBody).statusCode == 400);
+    assert(post(createPath,"{").statusCode == 400);
+    assert(post(createPath,createBody,"","","text/plain").statusCode == 415);
+    assert(creates == 0);
+    const auto nativeCreated = post(createPath,createBody,"","");
+    assert(nativeCreated.statusCode == 200 && creates == 1);
+    assert(nativeCreated.headers.count("Location") == 0U);
+    assert(nativeCreated.body.find(R"json("timerId":"73")json") != std::string::npos);
+    runtime.resetNativeTimerDirectAction();
 }

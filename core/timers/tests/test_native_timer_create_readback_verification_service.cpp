@@ -111,7 +111,13 @@ int main()
     const auto expected = expectation();
     const auto observed = evidence({candidate("assignment:1", "binding:1", "timer:17")});
 
-    const auto verified = service.verify(expected, observed);
+    auto expectedAux = expected;
+    expectedAux.aux = "<epgsearch>plugin:data</epgsearch>";
+    assert(service.verify(expectedAux, observed).status ==
+        NativeTimerCreateReadbackVerificationStatus::reconciliationRequired);
+    auto actualAux = observed;
+    actualAux.candidates[0].providerAux = expectedAux.aux;
+    const auto verified = service.verify(expectedAux, actualAux);
     assert(verified.status == NativeTimerCreateReadbackVerificationStatus::verified);
     assert(verified.binding.bindingRevision == "1");
     assert(verified.binding.nativeTimerBindingId == "binding:1");

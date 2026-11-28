@@ -69,6 +69,8 @@ class RecordingMarksApiRuntime
 public:
     using RecordingLookup =
         std::function<std::vector<VdrRecording>(const std::string& backendId)>;
+    using PublicRecordingResolver =
+        std::function<bool(const std::string&, const std::string&, VdrRecording&)>;
     using BackendResolver =
         std::function<RecordingMarksBackendAccess(const std::string& backendId)>;
     using BackendWritePolicy =
@@ -86,6 +88,7 @@ public:
         MutationDispatcher mutationDispatcher = {});
 
     void reset();
+    void setPublicRecordingResolver(PublicRecordingResolver resolver);
     bool configured() const;
     bool mutationConfigured() const;
 
@@ -103,6 +106,7 @@ private:
 
     mutable std::mutex mutex_;
     RecordingLookup recordingLookup_;
+    PublicRecordingResolver publicRecordingResolver_;
     BackendResolver backendResolver_;
     BackendWritePolicy backendWritePolicy_;
     MutationDispatcher mutationDispatcher_;

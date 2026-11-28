@@ -132,7 +132,8 @@ NativeTimerModifyResultApplication applyDurableNativeTimerModifyResult(
         operations.findPayloadByOperationId(evidence.operationId);
     if (!found.ok() || !durablePayload.ok() ||
         durablePayload.payload.payloadType != "native.timer.modify" ||
-        durablePayload.payload.payloadVersion != 1)
+        (durablePayload.payload.payloadVersion != 1 &&
+         durablePayload.payload.payloadVersion != 2))
         return result(S::unavailable);
 
     NativeTimerModifyOperationPayload payload;
@@ -182,6 +183,9 @@ NativeTimerModifyResultApplication applyDurableNativeTimerModifyResult(
             backendAgentNativeTimerDeleteFingerprintToken(
                 payload.expectedCurrentFingerprint) ||
         !sameSpecification(payload.expectedSpecification, agentPayload.specification) ||
+        agentPayload.modifyAux != payload.modifyAux ||
+        agentPayload.expectedAuxFingerprint != payload.expectedAuxFingerprint ||
+        agentPayload.desiredAux != payload.desiredAux ||
         agentPayload.controlPlaneClaimedAt != assignment->assignedAt ||
         assignment->assignedAt > evidence.localStartingPersistedAt)
         return result(S::identityConflict);

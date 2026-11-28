@@ -1,5 +1,670 @@
 # Public API v1 coverage and client migration roadmap
 
+## Browser-Migration – CI und PWA-Cache-Restabgleich (28.11.2026)
+
+Draft PR #563, bestehender Branch `work/api-v1-finalisierung-f2-f8`.
+Kein Merge, keine Installation, keine Hardwarefreigabe.
+
+| Source-Commit | Änderung / Nachweis |
+| --- | --- |
+| `51dc6098e5e6413553d80b9d377abc5cf40a7afd` | Public-v1 SearchTimer-Preview-Refresh: standardisierte Problem Details und exakte interne Security-Audit-Assertions. Der folgende Fast-CI-Lauf erreichte den API-Router-Linkschritt; kein vollständiger Fast-CI-PASS. |
+| `a808c332a91133180db671071dca34c1df41a33c` | Service Worker erkennt bestehende serverseitige Home-Cache-Scope-Header auf öffentlichen Movie/New/Folder- und Genre-Reads. Haupt-CI [46167349143](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46167349143): Frontend, Packaging, Architektur, Docs und Make-Audit PASS; Fast-CI FAIL. Fünf von sieben Workflows erfolgreich. |
+| `a4eab3a34b125a40376bea97e2c77ae5f1365354` | Nachgewiesener Linkerfehler von `test-api-router`: bestehende RecentlyWatched-Implementierungen im Ziel ergänzen, analog zum HTTP-Server-Test. Keine Produktcodeänderung, kein abgeschwächter Test. |
+| `6f7ef01b101d3fa1c62bb1db9a2ee98bfe2001f2` | Public-v1 Recording-, EPG- und Preferred-Artwork-Home-Previews verwenden bestehenden Browser-Session-/Backend-Scope und Final-byte-Validator. Worker, HTTP-Scope- und Preview-Regressionen ergänzt. Keine zweite Cache-Implementierung, kein Polling, keine neue Berechtigung. |
+
+**P1 Timer-Writer:** `3e75226d742e7649cdb4c0cb3284cf67a1103d35` migriert den letzten im Audit von 95 produktiven Browser-JS/HTML-Dateien gefundenen privaten Timer-Schreibaufrufer (Remote REC-Stopp) zum bestehenden Public-v1 Timer-Owner. [Frontend-CI](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46170348397/job/141057186898) PASS einschließlich Cache- und Remote-Regressionen. Nachfolgender Cleanup entfernt zwölf nicht mehr verwendete private Browser-Wrapper; öffentliche Preview-, Operations- und Mutationstests sowie serverseitige Legacy-Verträge bleiben bestehen. CI des Cleanup steht aus.
+
+Finaler C++-/CI- und Real-VDR-Nachweis für die letzten beiden Kandidaten
+steht aus. Public-v1-Bild-Caching betrifft nur explizite `variant=home`
+und erfolgreiche, autorisierte Bild-Reads. Original-/Genre-Bilder und
+bestehende Device-Zugriffe bleiben unverändert; die bisherige getrennte
+Recording-/EPG-Cache-Isolation gilt weiter. Keine gemessene
+Hardware-Performance behauptet.
+
+**P1 Kanal-Editoren:** Die produktiven Timer- und Suchtimer-Editoren
+verwenden bereits den kompakten Public-Channel-Katalog mit nativem
+Kanalnummern-Sortiervertrag. Der private Kompatibilitätspfad ist noch
+nicht entfernt: der bisherige Legacy-Read verlangt Authentifizierung,
+während Public Channel `channels.view` bzw. `media.live.play` im
+Backend-Scope verlangt und nicht alle bisherigen Editor-Berechtigungen
+abbildet. Eine ersatzlose Entfernung wäre keine nachgewiesene Parität.
+Die vollständige Migration der produktiven Aufrufer bleibt offen.
+
+
+## Browser-Migration – Recording/Home-Restabgleich (28.11.2026)
+
+Repository `hotzenplotz5/vdr-suite`, Branch
+`work/api-v1-finalisierung-f2-f8`, Draft PR #563. Source-Kandidaten,
+keine Release-/Hardwarefreigabe. Diese Ergänzung aktualisiert den historischen
+F3-/F4-Paritätsbefund, ohne die darunter dokumentierten früheren Stände zu ändern.
+
+| Source-Commit | Web-Pfad und Regression |
+| --- | --- |
+| `bc4f24f217a0fd113902f955e5fc5a50d074b371` | Home-Serien-Metadatenkorrektur: Public-v1 manual/assign mit `rec_` und exaktem Backend, vorhandene Identitätsauflösung für alte Karten. `test_media_tools_metadata_backfill.js`, isolierte V8-Ausführung PASS |
+| `b577bffbf0a09a79c001b311c05d03aa294d1362` / `7bb63a96b527b641c70b647641e7041534a2c833` | Genre-Detailaufruf: Public-v1 Recording-Detail statt nativer Folder-Brücke; bestehender Detail-Owner. `test_genres_runtime.js`, isolierte V8-Ausführung PASS; Architekturvertrag aktualisiert |
+| `d4216d99ca58e751fbe808a9804aaf52a44eab32` | Home-Inline-Genre: öffentliche Membership und Detailmetadaten, unveränderte Artwork-/Paging-Owner; `test_phase66_home_inline_discovery.js`, isolierte V8-Ausführung PASS |
+| `32555af33ca2990f259680bd4e300d013c1d67a4` | Globale Suche: Public-v1 Recording-Detail ohne native Brücke für öffentliche Karten; Legacy-Suchtreffer vorläufig unverändert. Fokussierter V8-Navigationstest PASS |
+| `a19dbc1c032cb663e1ed6680496e2d02ce6a530f` | Home-Initialisierung und SSE-Reconciliation funktionieren auch ohne private Client-Methoden; `test_phase66_recording_discovery_progressive.js`, isolierte V8-Ausführung PASS |
+| `11f6cb8f14e4ab04a4742528fd574fc6374beb04` | Home-Bestandszahl: vorhandener Public-v1 Folder-Browse mit `limit=1` und globalem `catalogTotalCount` statt separatem privaten Cache-Status-Read. Kalter/unverfügbarer Bestand ist nicht null. `test_phase69f_client_error_mutation_fallback.js` (vier fokussierte Transportfälle in isoliertem V8 PASS) und `test_phase66_home_shell_composition.js` erweitert |
+
+**CI:** Auf `a19dbc1c032cb663e1ed6680496e2d02ce6a530f` alle sieben
+Workflows bestätigt erfolgreich: [Haupt-CI #13469](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382044),
+[Acceptance #375](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381978),
+[Recording/Genre #3033](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381979),
+[R2 #2992](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382012),
+[VIDAA #3014](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381994),
+[Native Timer #722](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154381969),
+[SuiteBridge #1610](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46154382026).
+Für `11f6cb8f14e4ab04a4742528fd574fc6374beb04` ist die
+[Haupt-CI #13470](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46157148508)
+noch separat abzunehmen. Keine installierte Daemon-Version oder neue
+VIDAA-Buildnummer verifiziert; reale yaVDR-/Hisense-Abnahme: **PENDING**.
+Der neue Bestandsread hat im normalen Public-Pfad dieselbe Anzahl HTTP-Aufrufe,
+aber seine Laufzeit wurde nicht auf realer Hardware verglichen. Die
+bereits vorhandene ältere Folder-Kompatibilität bleibt vorläufig erhalten.
+
+**Serien-Hierarchie:** Public-v1 POST für kanonische Karten nutzt die
+bestehende Hierarchie-Repository- und Identitätsauflösung sowie
+`metadata.recording.assign` und vorhandenes CSRF. Keine zweite Mutation,
+kein Polling; native-only Karten behalten vorerst ihren bisherigen
+Kompatibilitätspfad. OpenAPI, Referenzclient und fokussierte Regressionen
+ergänzt; finaler CI-/Hardware-Nachweis offen.
+
+**Timer-Editor-Schreibpfad (28.11.2026):** Die Browser-Session nutzt
+für CREATE, UPDATE/TOGGLE und DELETE ausschließlich die bereits vorhandenen
+Public-v1-Writer (durable für gebundene, direkt für externe/ungebundene Timer).
+Die vorhandene AuthorizationService-Grantauswertung ist auch für Human-
+Wildcard-Grants maßgeblich; Device-Exact-Grant und Browser-CSRF bleiben
+unverändert. Fehlende Public-v1-Capability oder Read-/Write-Ablehnung werden
+sichtbar gemeldet, nicht über private Writer umgangen. Die früheren
+unversionierten Wrapper bleiben bis zur vollständigen Aufrufer-Inventur
+bestehen; alte Daemons ohne Direct-Action-Contract sind keine
+Public-v1-Paritätskandidaten. CI und echte VDR-Abnahme sind separat offen.
+
+**Timer-Lesewege:** Auch bisher ungescopte Timerlisten-/Konfliktaufrufe
+verwenden ausschließlich Public v1 mit explizitem bisherigen Default-Backend.
+Die produktiven Home-/EPG-/Timer-Aufrufer liefern bereits die ausgewählte
+Backend-ID. Keine Legacy-Ausweichabfrage bei Transportfehlern.
+
+**Suchtimer-Preview-Cache (28.11.2026):** Aktiver Browser-Refresh
+über Public v1, derselbe Controller/Cache und vorhandene Scope-/CSRF-
+Autorisierung. 14-Tage-/96-pro-Kanal-Parameter bleiben erhalten.
+Keine zusätzlichen Provider-Abfragen, kein Polling, keine zweite
+Cache-Implementierung. OpenAPI, Referenzclient, Security- und Router-
+Regressionen ergänzt; finaler CI-/Hardware-Nachweis offen.
+
+**Nachweisbare Restlücken:**
+
+- `GET /api/v1/backends` liefert laut Backend-Discovery-Vertrag bewusst nur
+  Identität, Namen, enabled und online. Bestehende Browser-Selector-/Access-
+  und Schreibstatus-Anzeigen sowie Default-Auswahl nicht durch erfundene
+  Felder, falsche Negativanzeigen oder neue Grants ersetzen.
+- Backend-Snapshot für Speicher-/Kanal-/Timerdaten hat noch keinen
+  gleichwertigen öffentlichen Read-Vertrag.
+- `GET /api/v1/events` ist laut OpenAPI und Device-Live-Events-Vertrag
+  derzeit Device-only. Browser-SSE weiter benutzen, bis bestehender
+  Browser-Session-/Grant-Kontext und Ereignisparität nachgewiesen sind;
+  kein Polling und keine zweite Eventquelle hinzufügen.
+- Private Serien-Metadaten-/Artwork-Kompatibilität, native ID-Adapter und
+  Legacy-Fallbacks sind nicht vollständig entfernt. Produktive Aufrufer
+  einschließlich Live-TV, EPG, Kanalbearbeitung, HbbTV, Teletext und Addons
+  vollständig auditieren; interne Browser-/Betriebsrouten fachlich trennen.
+
+Keine Änderung an bestehender Security-Policy, kein neuer Branch, keine
+Installation und kein Merge. F8 bleibt offen.
+
+## API.V1.F5 – Abschließender Restabgleich (24.11.2026)
+
+Ausgangsstand `2688e36fb026`: alle 35 CI-Jobs / sieben Workflows PASS.
+Der Abgleich der produktiven Browser-Aufrufer ergibt zwei konkrete
+Restlücken: Human-Suchtimer-Session und native Live-Timerliste des
+ausgewählten Backends. Beide werden im vorhandenen Servicepfad geschlossen.
+
+| Funktion | Ergebnis des Restabgleichs |
+| --- | --- |
+| Normale Timer / EPG-Timer / Assignment / Operation | Bestehende Public-v1-Verträge und F5.6.1–6; kein neuer Schreibpfad |
+| Timerliste / Konfliktindizes / AUX / Untertitel | `GET /api/v1/native-timers/live/list?backendId=...` verwendet vorhandenen Live-Service und vollständigen Serializer; native Reihenfolge und Felder bleiben erhalten, bestehender paginierter Snapshot-Vertrag bleibt unverändert |
+| Suchtimer LIST / DETAIL / VERSION / CREATE / UPDATE / ACTIVATE / DEACTIVATE / DELETE | Bestehende Routen; Human-Session mit vorhandenen konkreten Grants statt Administratorpflicht, CSRF und Scope unverändert |
+| Gespeicherte Suchtimer-Vorschau | Public v1 mit vorhandenen EPG-/Live- und Suchtimer-Grants |
+| Entwurfs-/Bearbeitungs-Vorschau | Public-v1-Draft-Preview übernimmt die bestehenden Kanal-, Dauer-, Uhrzeit- und Wochentagsfilter über denselben SearchTimerPreviewService; Matcher-Warnungen bleiben sichtbar im API-Ergebnis. Browser-Neuanlage und Bearbeitung verwenden denselben Public-v1-GET ohne Legacy-Fallback. Regex, 40 sichtbare Treffer, Gesamtzahl/Kanalzahl und Matcher-Warnungen bleiben erhalten. HTTP-/Referenzclient-/Browser-Regressionen ergänzt; CI und reale Abnahme offen. Keine Prognose für Blacklists oder native Aufnahmeentscheidungen. |
+| MLD / reale Hardware | Vereinbarte externe Interop- und gemeinsame F8-Abnahme; keine Wiederholung bestätigter CRUD-Fälle |
+
+**Ergänzung 24.11.2026 – F5/F8-Quellabgleich:** Die technische
+Entwurfsvorschau erhält die bisherigen beschreibenden EPG-Metadaten
+(Beschreibung, Dauer, Content-Deskriptoren, Altersfreigabe, Trefferfelder,
+erste/letzte Startzeit) aus denselben Matches. Native interne IDs
+bleiben privat; die maximal 40 gelieferten Treffer sind von der
+Gesamtzahl getrennt. Der öffentliche Vertrag der gespeicherten
+Vorschau bleibt unverändert. OpenAPI und der vorhandene Read-only-
+Acceptance-Runner berücksichtigen die bestehende Browser-/Device-
+Authentifizierung und den exakten Draft-Pfad vor dem ID-Template.
+Keine neuen Grants, keine VDR-Mutation. Final-HEAD-CI und Real-VDR
+noch separat nachweisen.
+
+Der bisherige Live-Adapter liefert bei Providerfehler auch eine leere
+Liste; dieses bestehende Verhalten bleibt zunächst identisch, wird nicht
+als neue Fehler-/Vollständigkeitsgarantie ausgegeben. Keine neue
+Persistenz, kein neuer Grant, keine Änderung an Timer- oder SearchTimer-Writer.
+Vergleich: VDR/epgsearch-Editor ist die fachliche Baseline; native AUX-/
+VPS- und Suchtimer-Rechteparität von Kodi/Plex nicht verifiziert.
+CI auf dem neuen Kandidaten sowie F8 bleiben offen.
+
+## API.V1.F5.6.6 – Native Timereditor-Parität (Source-Kandidat)
+
+| Bestehender Webeditor | Public-v1-Pfad |
+| --- | --- |
+| Aktiver, eindeutig projizierbarer Timer, optionale Wochenmaske und AUX | Bestehender dauerhafter Manual-Intent mit NTPREVIEW, Agent, SuiteBridge und Readback |
+| Wochenmaske ohne Ersttermin, inaktiver Timer, VPS/PDC | `POST /api/v1/native-timers/actions/create` über exakt den bestehenden VDR-Aktionscontroller und RESTfulAPI-Executor; native Datum-/Masken-/Flag-/AUX-Felder unverändert |
+| Konflikt oder nicht attestierbare Preview | Nur explizites `409 native_editor_required` vor Admission erlaubt einmaligen direkten nativen CREATE; generische 409/503, verlorene Antworten und ungewisse Operationen niemals erneut dispatchen |
+| Konfliktliste | `GET /api/v1/native-timers/conflicts/live?backendId=...` über den vorhandenen epgsearch-Konfliktreport des ausgewählten Backends; unveränderte Konfliktzahlen/Einträge und Verfügbarkeitsstatus |
+| Rechte | Bestehendes `timers.create` / `timers.view`, Device-/Browser-Scope, CSRF, native Backend-Schreibpolicy |
+
+Keine neue DB, kein zusätzlicher nativer Executor, keine neue Konfliktsimulation.
+Die direkte Aktion liefert das vorhandene synchrone Resultat nach nativer
+CREATE-Preflight/Readback; sie ist keine verwaltete durable Operation.
+Die bestehende konservative EPG-/Manual-Admission bleibt unverändert.
+Konkurrenzvergleich: Der native VDR-/epgsearch-Editor bleibt fachliche
+Referenz für Wochenmasken, VPS und Konfliktberichte; Kodi/Plex-Verhalten
+für VPS und opaque VDR-AUX ist nicht verifiziert.
+CI und gezielte reale VDR-Abnahme sind offen.
+
+## API.V1.F5.6.5 – AUX-CREATE (Source, Abnahme offen)
+
+| Web-Editor-Feld / Vorgang | Public-v1 CREATE |
+| --- | --- |
+| One-shot / native Wochenmaske, Titel, Verzeichnis, Zeit | Bestehender Manual-Intent- und Preview-Pfad |
+| Optionales Plugin-AUX (z. B. epgsearch) | Durable CREATE-Payload, Agent, NTCREATE, native Korrelation und bytegenauer Readback ohne Suite-Marker |
+| Wiederholung desselben Keys | Gleiche Bytes: bestehende Operation; andere Bytes: Konflikt |
+| Normale Grants, CSRF, SSE | Unverändert; kein zweiter Writer |
+
+Konkurrenzvergleich: VDR-eigener Timereditor ist die verbindliche
+Baseline; Kodi/Plex-Kompatibilität für opaque VDR-Plugin-AUX ist nicht
+verifiziert. Kein fremdes AUX-Schema und keine zusätzliche Berechtigung.
+Die bereits bestehenden Preview-Grenzen bleiben unverändert. Der Browser
+behält für deaktivierte/VPS-Timer den bestehenden VDR-Editorpfad bei, bevor
+irgendein Public-v1-POST erfolgt; kein Fallback nach ungewissem Ausgang.
+Allgemeine Konflikt-/Wiederholungsparität bleibt offen. CI/Real-VDR
+und vollständige F5/F8-Abnahme bleiben offen.
+
+## API.V1.F5.6.4 – Laufende Aufnahme stoppen (24.11.2026; Source)
+
+Die bestehende Public-v1-Native-DELETE-Operation wird für verifiziert
+verwaltete/übernommene aufnehmende Timer verwendet: Die native
+SuiteBridge-DELETE-Ausführung stoppt unter VDR-Write-Lock zuerst den
+Recorder und entfernt anschließend den Timer. Die unveränderte dauerhafte
+Operation bestätigt den Abschluss erst durch tatsächlichen Native-Readback.
+Die passive Binding-Aktualisierung akzeptiert nur die explizit
+verifizierbaren VDR-eigenen `tfRecording`-/EPG-Statuswechsel;
+andere Timeränderungen bleiben Konflikte. Der Browser ruft auch beim
+Button „Aufnahme stoppen“ zuerst diesen Public-v1-Pfad auf.
+Externe/ungebundene Timer behalten den in Slice 3 eingebundenen
+direkten VDR-Writer. Plugin-ABI, vollständige Final-Head-CI und
+ein echter VDR-Stopp mit Testtimer sind noch nicht abgenommen.
+
+
+## API.V1.F5.6 – Web-Timer-Editor (Quellstand, unvollständig; 23.11.2026)
+
+**F5.6.1 – Native Wochenwiederholung (Source, finaler VDR-Test offen):**
+Die vorhandene manuelle Public-v1-CREATE-Route akzeptiert nun optional
+ein kanonisches natives `weekdays`-Muster. Die erste Ausführung wird
+gegen die VDR-eigene Lokalzeit und einen **separaten initial-only**
+NTPREVIEW-Befund geprüft; spätere Wiederholungen verwaltet ausschließlich
+VDR. Der vorhandene atomare Intent/Assignment/Operation-Writer und
+idempotente Offline-Replay erhalten `recurringSchedule` und die
+native Wochentagsmaske. C++-, HTTP-, Referenzclient- und
+Browser-Regressionen wurden als Quelle ergänzt; realer VDR und
+vollständige CI sind noch nicht als PASS bestätigt. Repeating-Formulare
+mit explizitem erstem Datum und kompatibler Preview verwenden Public v1
+(mit AUX seit F5.6.5), sonst bleibt die bestehende native Timeraktion. Die konservative
+Preview verweigert derzeit weiterhin bestehende aktive recurring
+Timer, VPS-/deaktivierte Kandidaten und unsichere Konkurrenz.
+**Keine allgemeine Wiederholungs-/Konflikt-Parität behaupten.**
+
+**F5.6 – Rechteparität (früherer Source-Stand; Hardware offen):**
+Der Public-v1-SecurityHttpGate erkennt für Human-Browser-Sessions nun
+vorhandene backendbezogene `timers.create`, `timers.modify` und
+`timers.delete` neben `role.admin` an. Bestehende CSRF-, Device-Grant-,
+Backend-Scope- und Audit-Prüfungen bleiben. Regressionen für nichtadministrative
+Human-Accounts und CSRF sind ergänzt (Commit `33e708238`).
+
+**F5.6.2 – Native AUX-Read und gezieltes MODIFY (Source; CI/HW offen):**
+`GET /api/v1/native-timers/{timerId}/aux?backendId=...` liefert den
+rohen VDR-AUX-Wert unabhängig von den nativen Binding-ETags, ohne
+veraltete 304-Antworten. Bei bereits verifiziert verwalteten/übernommenen
+Timern unterstützt `POST /api/v1/native-timers/{timerId}/modifications`
+für UPDATE optional **beide** `expectedAux` und `aux`; normale Updates
+ohne das Paar erhalten AUX unverändert. Die vorhandene Autorisierung
+`timers.modify`, If-Match, Idempotenz, Agent-/Provider-Fencing,
+Operation/SSE sowie Native-Readback bleiben bestehen.
+Die NTMOD-v2-Ausführung prüft den ursprünglichen AUX-Fingerprint
+direkt unter VDR-Write-Lock, bevor sie native Felder/AUX ändert;
+alte NTMOD-v1-Aufträge werden unverändert verarbeitet.
+Durable Payload und Agent-Recovery tragen die opt-in-AUX-Änderung;
+Readback bestätigt neben den Timerfeldern den tatsächlichen AUX-Wert.
+Die Browser-Form sendet hierfür eine Public-v1-Mutation, keinen zweiten
+Legacy-Writer. **Kein neuer Table, kein zweiter Timer-Schreiber.**
+Zum damaligen F5.6.2-Stand waren AUX beim CREATE und externe/ungebundene
+Timer noch offen; siehe F5.6.3 und F5.6.5 für die späteren Source-Schritte.
+Real-VDR-Acceptance bleibt offen.
+
+
+Auf PR #563 wurde die Browser-Komposition im bestehenden Timer-Modul
+schrittweise auf Public API v1 umgestellt. Manuelles einmaliges CREATE
+mit kompatibler Preview und optionalem plugin-spezifischem `aux` nutzt die vorhandene durable
+`/api/v1/manual/timer-intents`-Route und bestätigt den VDR-Zustand
+erst über Operation/SSE. UPDATE, TOGGLE und DELETE verwenden die
+Public-v1-Native-Timer-Routen für `verified` Managed/Adopted Bindings,
+mit serverseitigem ETag, Browser-Session/CSRF, stabilem
+Idempotency-Key und Operation/SSE. Auch Wiederholungstimer können
+als bereits gebundener Timer über Public-v1-UPDATE bearbeitet werden.
+Unverändertes natives VDR-`Aux()` bleibt beim NTMOD-UPDATE erhalten;
+`priority/lifetime=0` bleibt korrekt. Die bestehende
+Public-v1-SecurityHttpGate-Regel erlaubt Browser-Mutationen mit den
+vorhandenen backendbezogenen Timer-Grants oder Administratorrolle,
+jeweils unter CSRF (belegt durch `test_public_native_timer_admin_security.cpp`).
+Auf eine definitive HTTP-403-Ablehnung fällt der Web-Editor deshalb nur
+auf die **separat autorisierte bestehende** Timer-Aktion zurück; unbekannte
+Mutationsergebnisse lösen dagegen keinen zweiten Writer aus.
+
+**Keine Installationsfreigabe:** Unbeschränktes wiederkehrendes CREATE sowie
+konkurrierende/VPS-/inaktive Kandidaten bleiben außerhalb des konservativen
+Preview-Vertrags, werden aber im bestehenden nativen Editorpfad seit F5.6.6
+über Public v1 bedient. F5.6.3, F5.6.4 und F5.6.5 ergänzen die historischen
+Lücken für externe Timer, Aufnahme-Stopp und AUX beim CREATE im jeweils
+beschriebenen Source-Umfang. Der native Binding-Fingerprint bleibt frei
+von plugin-spezifischem `aux`; die CREATE-spezifische Operation verifiziert
+AUX separat. Die reale VDR-Abnahme steht aus.
+
+Regressionsnachweise im Branch: der Browser-Formular-/Karten-Test
+`test_timer_public_v1_browser_native_actions.js`, die reale
+Browser-Adapter/Referenzclient-Komposition im
+`test_timer_public_v1_browser_create.js` und die bestehende
+Public-v1-Acceptance-CI. Die Isolations- und Frontend-Tests sind keine
+Hardwareabnahme. PR #563 bleibt Draft; **F5.6 und F8 bleiben offen**.
+
+
+## API.V1.F5.5 – Timer-Schreibparität (Quellstand, noch nicht abgeschlossen; 23.11.2026)
+
+**F5.5.5.3 – Reference-JS-Client (keine Browser-Migration):**
+`submitManualTimerIntent` verwendet den unveränderten HTTP-POST
+ohne EPG-If-Match, mit vollständiger One-shot-Spezifikation,
+Client-CSRF, Idempotency-Key, Operation-Location und keinem Retry.
+Der bestehende `test-public-v1-native-timer-read-client`-Target
+enthält den fokussierten Regressionstest. F5.6-Webfrontend-Umstellung
+bleibt unabhängig.
+
+Der Reference-JS-Client prüft für Titel/Verzeichnis jetzt dieselben
+1024 UTF-8-Bytes wie die bestehende C++-Admission und behandelt
+`If-Match` unabhängig von der Header-Schreibweise. Der fokussierte
+JavaScript-Regressionstest ist in einer isolierten Laufzeit ausgeführt;
+GitHub-Actions- und Real-VDR-Abnahme bleiben davon unberührt.
+
+**F5.5.5.4 – Operation-Readback-Vertragsprüfung (Source-Stand):**
+Der Manual-CREATE-HTTP-Test prüft die tatsächliche flache Public-v1-
+`DurableOperation`-Antwort (`operationId`, `state`, `backendId`,
+`links.self`) ohne fiktives `operation`-Wrapperobjekt. Der
+Reference-JS-Test nutzt dieselbe Response-Form und prüft zusätzlich
+das explizite Wiederholen einer dauerhaft gespeicherten Operation mit
+`state=outcome_unknown`; HTTP 202 bestätigt weiterhin keine native
+Timer-Erstellung. Die drei bestehenden F5-Referenzclient-Tests wurden
+auf dem HEAD `438525b7` in einer isolierten JavaScript-Laufzeit mit
+`TextEncoder`-/`URLSearchParams`-Kompatibilität ausgeführt: alle PASS.
+Dies ist ausdrücklich **kein regulärer Node-Testlauf, kein C++-Build,
+keine GitHub-Actions-CI und keine Real-VDR-Abnahme**.
+
+**F5.5.5.2 – Public-v1 Manuell-CREATE (Source-Stand; CI/Hardware offen):**
+Die Route POST /api/v1/manual/timer-intents nimmt absolute Unix-Zeiten,
+Kanal, Titel/Verzeichnis, Priorität, Lebensdauer, Enabled und VPS an.
+Der Daemon löst Backend-Kanal, native VDR CLOCK und den verifizierten
+NTPREVIEW auf; der bestehende NativeTimerCreateAdmissionService nimmt
+Intent, ausgewählte Assignment und Operation in EINER Transaktion an.
+Browser-Administrator+CSRF oder Device mit exaktem timers.create-Grant
+nutzen die bisherige Sicherheitsprüfung. Read-only Replay der dauerhaften
+Operation funktioniert ohne Backendkontakt; kein zweiter Writer/DB-Schema.
+Regressionsfälle für HTTP, Auth, Idempotenz, Backend-Drift und native
+Konfliktnachweise ergänzt, aber **CI/real VDR noch nicht bestätigt**.
+Die native Preview belegt noch keine universelle VPS-, Recurrence- oder
+Kollisionsparität; provider-spezifisches Aux bleibt bewusst gesondert.
+
+
+
+**F5.5.5.1 – Manuelle TimerIntent-Abbildung (ohne öffentlichen Writer):**
+Der bestehende ADR-0044-`manualWindow`-Intent und die unveränderte
+`NativeTimerSpecification` erhalten eine gemeinsame, reine Draft-Projektion
+`ManualTimerIntentDraft`. Sie übernimmt eine serverseitig qualifizierte
+Backend-/Kanalquelle sowie bereits vom Backend ermittelte lokale Zeitbezüge;
+die Daemon-Zeitzone wird **nicht** für VDR-HHMM umgedeutet. Titel, Verzeichnis,
+Tag, HHMM, Priorität, Lebensdauer, Active und VPS bleiben vollständig in
+der gewünschten nativen Assignment-Spezifikation erhalten. Der bestehende
+TimerIntent-Domain-Test sichert diese Abbildung und abweichende
+Kanal-/Zeitevidenz ab. Keine neuen Tabellen, Dienste, Berechtigungen,
+Protokolle oder Timer-Writer.
+
+Der bereits bestehende Test `test-phase64-timer-assignment-planner`
+verwendet die manuelle Draft-Projektion mit derselben produktiven
+`planTimerAssignment`-Funktion und verifiziert die vollständigen
+gewünschten Native-Felder, die Ablehnung einer falschen
+Kanalquelle und einer veralteten Backend-Generation.
+
+Auch der vorhandene `test_timer_intent_application_service` führt
+den manuellen Draft über die existierende `submitAndSelectPrimary`-
+Anwendung in die persistierte, **noch nicht provisionierte** Assignment.
+Er prüft vollständige Titel-/Ordner-/Optionsfelder und den
+revisionsstabilen Readback/Replay. Keine künstliche Native-CREATE-Ausführung.
+
+Der vorhandene atomare CREATE-Regressionstest
+`test-phase69-atomic-timer-create-admission` führt den manuellen
+Draft mit einer aktuellen Backend-/Kanal-Planning-Candidate nun
+durch `submitAndSelectPrimaryInCurrentTransaction` und
+`NativeTimerCreateAdmissionService::admitInCurrentTransaction`.
+Er prüft die **eine** SQLite-Transaktion für Intent, Assignment und
+Operation inklusive vollständiger Rollback-Freiheit, exakter
+Wunsch-Spezifikation und idempotentem Operation-Replay.
+Der zunächst reine Domain-Teststand wurde inzwischen um die produktive Public-v1-HTTP-/Daemon-Komposition erweitert; CI und Hardwareabnahme stehen aus.
+
+**Weiter offen:** Final-HEAD-C++-Build/HTTP-Integrationstest, Real-VDR-Mutation und Operation-Readback, vollständig bewiesene Web-Parität. Kein Merge, keine Installation aus diesem Source-Stand.
+
+
+
+**F5.5.4 – Legacy JSON → Provider-Form-Transport:** Die bereits
+vorhandenen `VdrTimerActionRequestParser` und
+`RestfulApiVdrTimerActionRequestBuilder` werden in einem gemeinsamen
+Regressionstest für manuelles CREATE/UPDATE ausgeführt. Der Test sichert
+XML-artige `aux`-Metadaten, Sonderzeichen im Dateititel, korrekte
+Prozentkodierung und `priority/lifetime=0`. Er verändert keine
+Produktivroute und ersetzt keine fehlende Public-v1-Manuell-CREATE-Admission.
+
+
+**F5.5.3 – Nicht bearbeitete Native-Flags erhalten.** Der bestehende
+SuiteBridge-`NTMOD`-UPDATE überträgt die native Flag-Bitmaske aus dem
+CAS-verifizierten Timer und verändert darin ausschließlich `tfActive`
+und `tfVps`. Vorher wurde die Bitmaske vollständig aus diesen beiden
+Werten neu aufgebaut und konnte andere Flags (Instant/Spawned/Avoid)
+unbeabsichtigt löschen. Der bestehende Test `test-native-timer-modify`
+prüft mehrere Kombinationen; kein zweiter Writer, keine Berechtigungsänderung.
+
+
+**F5.5.2 (bestehender Web-Timer-Writer):** Der vorhandene
+`VdrTimerActionRequestParser` scannt JSON-Strings nun einschließlich
+escaped Quotes, Kommas, geschweifter Klammern und Unicode-Escapes korrekt.
+Vorher zerlegte er den `aux`-/Titelfeldwert bereits an einem internen
+Komma oder `}`; der produktive Timer-Controller bleibt unverändert.
+Fokussierte Tests verwenden pluginartige `aux`-Metadaten und
+`priority/lifetime=0`; die produktive Router-/Controller-/Executor-
+Komposition prüft nun zusätzlich die unveränderte Übergabe an den
+bestehenden Writer. Dies behebt **keine** noch fehlende
+Public-v1-Writer-/GET-Parität für Aux.
+
+**F5.5.1 (read-projection parity):** Native `eventId` und `flags` werden
+aus dem bestehenden `VdrTimer`-Snapshot in Liste und Detail projiziert.
+Beide Felder gehören bereits zum versionierten Binding-Fingerprint;
+Public API v1 führt weder neue Berechtigungen noch einen zweiten Timer-Writer
+ein. C++-Liste/Detail sowie Browser-Client-Regressionen prüfen die Felder.
+Die provider-spezifische `aux`-Bearbeitung ist damit **nicht** gelöst.
+
+
+Der bestehende Browser-Client stellt die bereits produktiv registrierten
+Public-v1-Native-Timer-Mutationen nun **explizit und getrennt** bereit:
+`fetchPublicNativeTimerModify` (UPDATE/TOGGLE) und
+`fetchPublicNativeTimerDelete`. Beide verwenden den unveränderten
+Referenzclient, das aktuelle Browser-CSRF, das vom Aufrufer gelieferte
+starke Binding-ETag und einen eindeutigen Idempotency-Key. HTTP 202 wird
+als asynchrone Operation zurückgegeben, niemals als synchrones `success`.
+`fetchPublicNativeTimerOperation` liest den bestehenden dauerhaften
+Operation-Status einmalig, inklusive ETag/304; kein neues Polling.
+OpenAPI beschreibt den bereits bestehenden Browser-Administrator-Zugang
+mit CSRF neben Device-Credentials korrekt. Keine neue Autorisierung,
+kein weiterer Writer und kein neuer Timer/Recording-Dispatch.
+
+Die Web-Formularwerte `priority=0` und `lifetime=0` bleiben beim
+Öffnen des Editors erhalten; zuvor ersetzte `||` diese gültigen Werte
+unbemerkt durch Defaults. Lese-/Schreib-Regressionen sichern dies ab.
+
+**Nicht gleichwertig / weiterhin offen für F5.5/F5.6:** manueller
+CREATE-Editor, extern/ungebunden verwaltete Timer, laufende Aufnahme
+stoppen/löschen, `aux` (plugin-spezifische Daten außerhalb des
+fingerprint-geschützten Binding-Modells), vollständiges
+Browser-SSE-/Operation-Ergebnisintegration und Rechteparität für Nicht-Administratoren.
+Der existierende synchron arbeitende Web-Timer-Editor bleibt deshalb
+auf `/api/vdr/timers/actions/*`; keine stille Migration. Real-VDR-
+und Installationsabnahme bleibt F8.
+
+| Fähigkeit des vorhandenen Web-Editors | Public-v1-Quellstand | F5.5/F5.6-Gate |
+| --- | --- | --- |
+| Liste/Detail, Sortierung, Status | GET /native-timers, Snapshot; F5.4-Grundfelder sowie eventId/native flags | Aux/Untertitel-/Sortierparität noch nicht vollständig |
+| Manuelles CREATE mit Kanal, Titel, Zeit, `aux` | Öffentlicher manueller One-shot-POST (source), native CLOCK/Preview/Operation, ohne `aux` | CI/Real-VDR und übrige Feld-/Aux-Parität noch offen |
+| UPDATE + aktiv/inaktiv für bestehende Timer | Nur verified managed/adopted Binding, ETag, Operation | Externe/ungeprüfte Timer bleiben nicht editierbar |
+| Timer löschen, bei Aufnahme ggf. Aufnahme stoppen | Native DELETE nur für gültige gebundene Timer, mit asynchronem Readback | Aufnahme-/externes-Timer-Verhalten fehlt |
+| Aux anzeigen/bearbeiten, EPGSearch-/TVScraper-Metadaten | Absichtlich nicht im Public DTO/Fingerprint; native MODIFY übernimmt bestehenden VDR-`Aux()`-Wert | Sichere Anzeige und Änderung nicht gleichwertig |
+| Synchrone Erfolgsmeldung und Refresh | HTTP 202 + einmaliges Operation GET vorhanden | UI-Ergebnisbestätigung über bestehende SSE-/Lifecycle-Anbindung fehlt |
+| Editorrechte von Human Accounts | Native Public-Write: Browser-Administrator + CSRF oder Device mit Backend-Grant | Nicht-Admin-Parität ungeprüft |
+
+Diese Tabelle ist ein **Quellcode-Abgleich**, kein Real-VDR-Abnahmebeleg.
+
+## API.V1.F5.4 – Native-Timer-Felder ohne neue Writer (22.11.2026)
+
+Die bestehenden öffentlichen GET-DTOs für Liste und Detail
+erhalten `directory`, `priority`, `lifetime` und `vps`
+direkt aus dem aktuellen `VdrTimer`. Diese vier Felder sind
+Teil der schon verifizierten `NativeTimerObservedState`-Fakten
+und damit vom Binding-Revision-/ETag-Modell abgedeckt.
+OpenAPI-Detailvertrag, HTTP-Serialisierung, Daemon-Projektion
+und JS-/Browser-Lese-Regressionen sind angepasst.
+
+Die alte Roadmap-Aussage unter F5.3 beschreibt den **damaligen**
+Feldstand. `aux` bleibt weiterhin bewusst aus Public v1
+ausgenommen: Es ist provider-/plugin-spezifisch und nicht Teil
+des autoritativen nativen Binding-Fingerprints. Der vollständige
+Browser-Editor bleibt unverändert. Offene Folgearbeit:
+explizit kontrollierte Abbildung von `aux` und semantische
+Parität des CREATE sowie der Revision-/Operation-basierten
+MODIFY/DELETE-Workflows; erst dann UI-Migration.
+Die gemeinsame Live-/Hardware-Abnahme bleibt F8.
+
+
+## API.V1.F5.3 – Browser-Client und Native-Timer-Parität (22.11.2026)
+
+Der Browser-Client kann die bereits implementierten Public-v1-
+Native-Timer-Liste und das ETag-gebundene Detail explizit über
+`fetchPublicNativeTimerPage` und `fetchPublicNativeTimerDetail`
+lesen. Die vorhandene `fetchClientTimers`-Liste und die drei
+Legacy-CRUD-Methoden werden nicht unbemerkt ersetzt.
+Der öffentliche `PublicNativeTimerItem` liefert ID, Kanal,
+Titel, Tag/Wochentage, Start/Ende und Status, aber nicht
+Verzeichnis, Aux, VPS, Priorität und Lebensdauer des
+Browser-Editors. Ein Public-v1-CREATE für denselben manuellen
+Editor und ein direkt äquivalentes synchrones UPDATE/DELETE
+sind nicht belegt; vorhandene Mutationen arbeiten stattdessen
+mit Binding, ETag, Idempotenz und asynchronem Operationsreadback.
+Der bestehende Timer-Live-Test prüft die separaten API-v1-Reads
+mit Browser-Cookie, ETag/304 und ohne Legacy-503-Fallback.
+**Noch offen:** Vollständiger äquivalenter API-v1-Bearbeitungsvertrag,
+anschließende Web-Timer-Migration und gemeinsame F8-Abnahme.
+Keine neue Schreibaktion, Berechtigung oder Timer-Änderung.
+
+
+## API.V1.F7 – Playback/Resume/Device (22.11.2026)
+
+**F7.1 Public-v1-Referenzclient (Quellkandidat):** Optionale
+`nativeMediaAccess`-/`audioTrackId`-Felder bei Device
+Recording Session CREATE und eine vorhandene geschützte
+`/tracks`-GET-Projektion im Reference-JS-Client abgebildet.
+Der Server besitzt diese Funktionen bereits; das ist keine neue
+MediaSession-Implementierung und keine neue Berechtigung.
+Die Default-Session bleibt ohne native Bearer-Projektion.
+Quelle/automatische Tests getrennt von realem TV-Playback bewerten.
+
+**F7.2 Public-v1-Referenzclient (Quellkandidat):**
+`getRecordingPlaybackCapabilities` exponiert den existierenden
+Device-authentifizierten Profilstatus-GET, ohne die Device-ID
+aus Clientdaten zu übernehmen. Keine Playback- oder Probe-Aktion;
+CI/Source bleibt getrennt von echter Decoder-Kompatibilität.
+
+**F7.3 kombinierter Contract-Test (Quellkandidat):** Ein einzelner
+Device-HTTP-Mock führt Profil-GET, Progress-Read, explizites
+Resume-Session-CREATE, Tracks-GET, gemessenen Progress-CAS,
+409-Konflikt ohne Redispatch, Continue-Watching-GET und STOP
+über die existierenden Public-v1-Referenzmethoden aus.
+Der Test wird in das bereits vorhandene
+`test-public-v1-recording-progress-client`-Ziel eingebunden;
+keine neue Runtime-Sperre und keine reale Wiedergabe.
+
+**F7 offen:** tatsächlicher Device-Playback-Fortschritt, Resume,
+Continue Watching und Browser-/Account-Abgleich, TV-Client-Verhalten
+sowie echte Medienwiedergabe werden erst bei F8 gemeinsam auf
+dem yaVDR und den verfügbaren Geräten abgenommen. Keine bereits
+akzeptierten Recording-/Timer-Schreibtests wiederholen.
+
+## API.V1.F6 – Marks/Cut in Public v1 integrieren (22.11.2026)
+
+**Korrektur:** Der vorherige pauschale Ausschluss von Marks/Cut
+aus Public API v1 war nicht vom Betreiber genehmigt und ist
+hiermit aufgehoben. [F6-Vertrag](../development/api-v1-f6-recording-marks-cut-scope.md).
+
+**F6.1 Berechtigungsmodell (Quellcode committed):**
+Ein backend-gebundenes `recordings.edit` gewährt
+`recordings.view`, `recordings.rename`, `recordings.move`,
+`recordings.delete`, `recordings.marks.modify` und
+`recordings.cut`; alte Einzelrechte bleiben gültig.
+Das Web-Kontoadmin-Picker zeigt nur noch die
+zusammengefasste Bearbeitungsoption, lässt bestehende
+Einzelrechte aber sichtbar und widerrufbar.
+Keine neue Rechteprüfung pro Schnitt; die bestehende
+Native-Operation-/CSRF-/Revision-/Provider-Sicherheit
+bleibt bestehen. Kein implizites Playback-/Timer-/Add-on-Recht.
+Bisher nur isolierter UI-Test PASS; C++-Build/CI und
+reale Installation ausstehend.
+
+**F6.2 Quellcode committed:** Vier öffentliche
+`/api/v1/recordings/{recordingId}/{marks|cut}` GET-/POST-
+Operationen nutzen unverändert den nativen SuiteBridge-Pfad.
+Strict `rec_`-Identity (über denselben persistierten Resolver
+wie bestehende Public Recording-Aktionen), `backendId`-Scope,
+POST-Body-Gleichheit, CSRF und existierende native Schutzprüfungen
+liegen in Code, OpenAPI und Referenzclient vor.
+JS-HTTP-Mock und Public-v1-Vertragsrunner PASS,
+isolierter C++-Header-Check PASS; expliziter
+Device-`recordings.edit`-Grant ohne Auto-Privilege;
+C++-Build, Native-/Security-Integrationstests und
+Web-vs-v1-/yaVDR-Endabnahme bleiben offen.
+F6 ist bis zu dieser Abnahme **nicht abgeschlossen**.
+F5 Timer/Suchtimer bleibt für MLD-Testfeedback zurückgestellt;
+F7 und F8 bleiben eigenständige Folgeslices.
+
+## API.V1.F5.2 – Native Timer UPDATE/TOGGLE/DELETE Client (22.11.2026)
+
+Quellseitig sind die **bereits vorhandenen** Public-v1-Routen
+`POST /api/v1/native-timers/{timerId}/modifications` und
+`DELETE /api/v1/native-timers/{timerId}` im Reference-JS-Client
+als explizite, einmalige Aktionen abgebildet. Der Aufrufer
+muss ETag und Idempotenzschlüssel selbst liefern; Browser-CSRF
+bleibt caller-owned. Der Quell-Mock testet HTTP 202 und 409,
+Operation-Rückgabe sowie ausbleibende Auto-Wiederholung.
+Kein realer Timer wurde erstellt, geändert oder gelöscht.
+Die Web-Timer-Oberfläche ist wegen anderer Semantik weiterhin
+nicht blind auf TimerAssignment/Intent umgestellt.
+
+## API.V1.F5.1 – Native Timer Reads im Reference-JS-Client (22.11.2026)
+
+Nach den F6-/F7-Quellkandidaten ist als enger, lesender
+F5-Abgleich `GET /api/v1/native-timers` und
+`GET /api/v1/native-timers/{timerId}` mit Offset/Limit,
+backendgebundener Identität und optionalem
+`If-None-Match` ergänzt. Ein Mock deckt GET/304 ab.
+Das **ändert weder den Timer im VDR noch die bestehenden
+Web-Timeraktionen**. Native Timer, TimerAssignments und
+TimerIntents werden ausdrücklich nicht gleichgesetzt.
+F5-Mutations- und MLD-Interop-Abgleich bleibt zurückgestellt;
+realer gemeinsamer Test erfolgt erst F8.
+
+## API.V1.F5 – Timer/Suchtimer bewusst zurückgestellt (21.11.2026)
+
+**Betreiberentscheidung:** F5 wird nicht als weiterer sofortiger Timer-/Suchtimer-
+Implementierungsslice gestartet. Stattdessen zuerst F6 (Marks/Cut,
+Scopeentscheidung) und F7 (Playback/Device/Resume) bearbeiten.
+Die bereits weitgehend entwickelte Timer-/SearchTimer-Domäne bleibt stabil;
+F5 später als gezielter Delta-/Interop-Abgleich aufgreifen, besonders mit
+Rückmeldungen der MLD-Entwickler. Die Entwickler haben hier noch keine
+neue Testzusage oder Ergebnisse abgegeben. F8 bleibt die **eine**
+gemeinsame API-v1-Release- und Hardware-Endabnahme; F5 ist
+**zurückgestellt, nicht gestrichen**.
+
+**Quell-/Real-VDR-Nachweise:** Die Suchtimer-Browser-Verwaltung verwendet
+bereits `POST /api/v1/search-timers`, GET-Liste/Detail/Version und
+`/api/v1/search-timers/{id}/mutations`; am 17.11.2026 waren
+inaktives CREATE, LIST, Suchbegriff-UPDATE, ACTIVATE, DEACTIVATE, DELETE
+auf dem echten yaVDR bestätigt. Der Browser-EPG-TimerIntent nutzt
+`POST /api/v1/epg/timer-intents` und hatte einen realen
+CREATE-Readback. Die allgemeinen Browser-Timerlisten/-Aktionen
+verwenden dagegen weiterhin `/api/vdr/timers/live` und
+`/api/vdr/timers/actions/{create,update,delete}`;
+es darf daher **keine vollständige Umstellung** der normalen
+Timer-Verwaltung auf Public v1 behauptet werden. Bestehende
+`/api/vdr/searchtimers`-Hilfswrapper belegen ebenfalls nicht,
+dass die aktiv genutzte Suchtimer-Verwaltung Legacy verwendet.
+
+**Spätere MLD-/Interop-Prüfung:** Die MLD-Nutzer sollten mit ihrer
+wirklichen Installation vorrangig Browser-äquivalente
+SearchTimer-LIST/DETAIL/VERSION, inaktives CREATE,
+UPDATE/ACTIVATE/DEACTIVATE/DELETE, Operation-Readback,
+Fehlersemantik, IDs, Backend-Scopes und Client-Credentials testen.
+Unbelegte Fälle (z. B. aktives CREATE, vollständiges
+Feld-UPDATE oder device-spezifische Grants) separat kennzeichnen;
+keine bereits bestätigten realen yaVDR-Schreibtests wiederholen.
+MLD-Tests sind wertvoll für Interoperabilität, ersetzen jedoch nicht
+die am Schluss vorgesehene gemeinsame Release-Abnahme.
+Einzelheiten und historische Testergebnisse bleiben in der
+[einzigen Hardware-Abnahmematrix](../development/public-v1-final-hardware-acceptance.md).
+
+
+## API.V1.F4 – Recording, Metadaten, Artwork (21.11.2026)
+
+**Reference-JS-Leseumfang umgesetzt** auf
+`work/api-v1-finalisierung-f2-f8`:
+`getRecordingDetail`, `getRecordingFolders`,
+`getRecordingGenres`, `getGenreRecordings`, ergänzend
+zum bestehenden Browse, Search, Artwork und Metadata-Resolve.
+[F4-Paritätsmatrix](../development/api-v1-f4-recording-metadata-artwork-parity.md)
+und [gezielter Test](../../clients/reference-js/tests/test_public_v1_f4_recording_read_client.js).
+Ordner-`fld1_`/Offset, flache Recording-`rec_`/Cursor und
+Genre-Offset sind getrennte Verträge; browserprivates Home,
+Metadatentitel, Zeitbereichs-Genre, Trailer und Cache
+bleiben mangels nachgewiesener Gleichwertigkeit unangetastet.
+Nur isolierte Source-/HTTP-Mockprüfung bestanden; reale
+Web-vs-Public-v1-Parität und Artwork-404-Ursachenabnahme
+**nicht** beansprucht. Kein Backend-Writer, keine
+Produktionsaufnahme, keine Änderung auf `main`.
+F5–F8 bleiben offen.
+
+
+## API.V1.F3 – Discovery, Channel, EPG und Suche (21.11.2026)
+
+**Referenzclient-Quellpfad umgesetzt:** öffentliche
+[Paritätsmatrix](../development/api-v1-f3-discovery-epg-search-parity.md)
+mit Web-gegen-v1-Grenzen sowie
+[Node-Transporttest](../../clients/reference-js/tests/test_public_v1_f3_epg_search_client.js).
+Neue `getAdjacentChannel`, `getEpgWindow`, `getEpgNowNext`,
+`searchEpg`, `searchRecordings` auf dem freigegebenen
+Finalisierungsbranch; vorhandene `getBackends`/`getChannels` bleiben.
+Die Web-Routen `/api/backends/default`, Backend-Snapshot, Channel-Move,
+Cache-EPG und globale Suche sind **fachlich nicht 1:1 identisch** und
+werden ohne nachgewiesene Parität **nicht** umgestellt.
+**F3-Browser-Migration offen**, keine F3-Live- oder Hardware-Abnahme.
+F4–F8 und API-v1-Release separat offen.
+
+
+## API.V1.F2 – OpenAPI/Reference-JS-Authentifizierung (21.11.2026)
+
+**F2-Quellvertrag auf `work/api-v1-finalisierung-f2-f8`:**
+[Security-Paritätsbericht](../development/api-v1-f2-security-parity.md),
+[lesender Reporter](../../tools/report_public_v1_f2_security.js),
+[Reference-JS-Test](../../clients/reference-js/tests/test_public_v1_f2_auth_transport.js).
+Die partielle OpenAPI hat 75 Methoden mit expliziten Auth-Transportprofilen;
+Client-Credentials bleiben caller-owned. Keine Änderung an Runtime,
+Grants, API-Routen oder akzeptierten Hardware-Tests.
+F3–F8 und ein gemeinsamer API-v1-Release bleiben offen.
+
+
 ## API.V1.F1 – Source-Inventur und Parität (21.11.2026)
 
 **F1 abgeschlossen (Quellinventur, keine API-v1-Releasefreigabe):**

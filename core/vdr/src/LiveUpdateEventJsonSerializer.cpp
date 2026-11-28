@@ -3,7 +3,8 @@
 #include <sstream>
 
 std::string LiveUpdateEventJsonSerializer::serializeEvent(
-    const LiveUpdateEvent& event) const
+    const LiveUpdateEvent& event,
+    const std::vector<std::string>& recordingPublicIds) const
 {
     std::ostringstream json;
 
@@ -50,6 +51,18 @@ std::string LiveUpdateEventJsonSerializer::serializeEvent(
                     json << static_cast<char>(character);
             }
             json << '"';
+        }
+        json << "]";
+    }
+    // Only validated opaque rec_ IDs from the browser transport; never
+    // expose a partial mapping as a complete targeted change.
+    if (!recordingPublicIds.empty())
+    {
+        json << ",\"recordingPublicIds\":[";
+        for (std::size_t index = 0; index < recordingPublicIds.size(); ++index)
+        {
+            if (index != 0) json << ",";
+            json << '"' << recordingPublicIds[index] << '"';
         }
         json << "]";
     }

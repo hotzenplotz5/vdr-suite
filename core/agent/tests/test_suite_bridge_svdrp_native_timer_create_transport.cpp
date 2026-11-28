@@ -268,6 +268,43 @@ int main()
             preview.consideredTimers == 0 && preview.consideredDevices == 1);
         assert(preview.specificationDigest == digest);
 
+        // Repeating schedules have a separate wire outcome. A one-shot
+        // reply must never authorize a recurring native specification.
+        auto recurringSpec = spec;
+        recurringSpec.weekdays = "MTWTF--";
+        const auto recurringDigest =
+            backendAgentNativeTimerDeleteFingerprintToken(
+                backendAgentNativeTimerCreateSpecificationFingerprint(
+                    recurringSpec));
+        assert(!recurringDigest.empty());
+        const std::string recurringReply =
+            "vdr-suite-ntpreview/1 vdr.timer.create 1 suitebridge " +
+            selection.providerInstanceEpoch + " 1 1 " +
+            recurringDigest + " 1792222800 1792226400 " +
+            std::to_string(now) + " " + revision +
+            " 0 1 isolated_initial_clear";
+        SuiteBridgeCommandReply recurringAccepted{
+            SuiteBridgeTransportStatus::Success, 900, recurringReply, {}};
+        assert(SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            recurringAccepted, recurringSpec, 1792222800, 1792226400,
+            selection, now, preview, reason));
+        assert(!preview.isolatedCandidateClear && preview.recurringInitialClear);
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            accepted, recurringSpec, 1792222800, 1792226400,
+            selection, now, preview, reason));
+        assert(!preview.isolatedCandidateClear && !preview.recurringInitialClear);
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            recurringAccepted, spec, 1792222800, 1792226400,
+            selection, now, preview, reason));
+        recurringSpec.weekdays = "T------";
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            recurringAccepted, recurringSpec, 1792222800, 1792226400,
+            selection, now, preview, reason));
+        // Restore the one-shot verdict for subsequent legacy assertions.
+        assert(SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            accepted, spec, 1792222800, 1792226400,
+            selection, now, preview, reason));
+
         auto wrongEpoch = accepted;
         wrongEpoch.payload = "vdr-suite-ntpreview/1 vdr.timer.create 1 suitebridge "
             "pie_restarted 1 1 " + digest +
@@ -537,6 +574,24 @@ int main()
         assert(server.request().find(
             "TV News") ==
             std::string::npos);
+    }
+
+    {
+        OneShotServer server(
+            "557 vdr-suite-ntcreate-result/1 "
+            "cmd_1 fp_1 vdr.timer.create 1 "
+            "pie_1 1 1 accepted_unverified "
+            "callback_applied "
+            "ntcreate:vdr:created-unverified:cmd_1\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        auto request = validRequest();
+        request.command.specification.aux = "<epgsearch>plugin:data</epgsearch>";
+        const auto reply = transport.createTimer(request);
+        server.wait();
+        assert(reply.disposition == BackendAgentNativeTimerCreateTransportDisposition::acceptedUnverified);
+        const auto suffix = " aux " + hexToken(request.command.specification.aux) + "\r\n";
+        assert(server.request().size() >= suffix.size());
+        assert(server.request().compare(server.request().size() - suffix.size(), suffix.size(), suffix) == 0);
     }
 
     {

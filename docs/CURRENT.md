@@ -1,5 +1,176 @@
 # VDR-Suite Current State
 
+## API.V1.F5 – Restabgleich (24.11.2026; SOURCE)
+
+Suchtimer-Reads und kanonische Mutationen erlauben vorhandene
+backendbezogene Human-Grants ohne Administratorpflicht; unveränderte
+CSRF-, Scope-, Read-only- und Device-Grenzen. Der aktive Timerlisten-
+und EPG-Status-Aufrufer verwendet jetzt die backendbezogene
+Public-v1-Live-Liste mit bestehender nativer Reihenfolge und allen
+Editorfeldern einschließlich AUX. Der paginierte Snapshot bleibt
+unverändert. Der volle Entwurfs-Preview-Pfad bleibt bis zur gesonderten
+Webmigration erhalten; Public-v1-Text-Preview ist nicht äquivalent.
+F8 und externe Interop bleiben offen; keine Installation oder Live-Mutation.
+[Restabgleich](planning/public-v1-coverage-roadmap.md#apiv1f5--abschließender-restabgleich-24112026).
+
+## API.V1.F5.6.6 – Native Timereditor-Parität (SOURCE, Abnahme offen)
+
+Native Wochenmasken ohne Ersttermin, inaktive Timer und VPS laufen nun über
+die Public-v1-Aktionsroute des bereits vorhandenen VDR-Timercontrollers
+und dessen CREATE-Preflight/Readback. Positive native Preview behält die
+bisherige durable Manual-Intent-Kette. Nur ein explizites
+`native_editor_required` vor Admission schaltet zum nativen Editorpfad;
+keine Wiederholung nach generischem oder ungewissem Ergebnis.
+Die bestehende epgsearch-Konfliktliste wird backendbezogen über Public v1
+gelesen. Bestehende Grants, CSRF, Backend-Schreibpolicy und native
+Timersemantik bleiben; keine neue Konfliktsimulation oder zweite Persistenz.
+HTTP-, Security-, Referenzclient- und Browser-Kompositionsregressionen
+ergänzt. Die exakte CI und reale VDR-Abnahme sind getrennt zu bestätigen.
+
+## API.V1.F5.6.5 – AUX beim manuellen/Weekly-CREATE (Source, Abnahme offen)
+
+Public v1 transportiert optionales natives Plugin-AUX vom Web-Timereditor
+über Referenzclient, REST, atomaren CREATE-Auftrag und Agent bis zum
+bestehenden SuiteBridge-NTCREATE-Writer. Der unveränderliche Payload und
+der Agent-Replay binden die Bytes; geändertes AUX mit demselben Key
+konfligiert. Ohne AUX bleibt das alte Wire-/Payload-Format erhalten.
+SuiteBridge ergänzt die bestehende Ownership-Korrelation; der autoritative
+Readback vergleicht die Plugin-Metadaten ohne diese Kennung. Die
+Binding- und Preview-Fingerprints bleiben unverändert. Keine zweite
+Mutation, keine neue Tabelle, keine zusätzlichen Grants.
+
+Quelltests: HTTP, durable Admission/Replay, Agent-Payload, SuiteBridge
+Replay, native Readback und reale Browser-/Referenzclient-Komposition.
+CI und Real-VDR-Abnahme sind noch nicht als bestanden bestätigt.
+Der Editor behält bei nachweislich nicht unterstützten deaktivierten/VPS-
+CREATE-Kandidaten den etablierten VDR-Pfad vor jedem Public-v1-POST bei.
+Unbeschränkte Wiederholungs-/Konfliktparität und F8 bleiben offen.
+
+## API.V1.F5.6.4 – Laufende native Timer-Aufnahme stoppen (24.11.2026; SOURCE)
+
+Der bestehende Public-v1-Native-DELETE-Pfad kann für eine exakt
+fingerprint-verifizierte laufende Aufnahme auch den VDR-eigenen
+Recording-Stop vor der Timer-Entfernung ausführen. SuiteBridge nutzt
+`cRecordControls::Stop(timer)` unter der VDR-Timer-Write-Lock,
+ohne einen zweiten Schreiber. Die vorhandene dauerhafte Timer-Operation,
+`timers.delete`-Berechtigung, Browser-CSRF, ETag, Idempotenz,
+Agent-/Provider-Fencing und Abwesenheits-Readback gelten weiter.
+
+Der passive native Readback aktualisiert ausschließlich VDR-eigene
+Recording-Statuswechsel und dynamische EPG-Identität; sonstige
+Timerfeld- oder Flag-Änderungen bleiben echte Drift. Pending-Zustände
+sind weiterhin von DELETE ausgeschlossen. Das Webfrontend versucht
+auch für „Aufnahme stoppen“ zuerst die Public-v1-Operation; alte Server
+behalten den vorherigen VDR-Editorpfad.
+
+**Nur Quellimplementierung; finales CI und echter VDR-Stopp offen.**
+Kein Merge und keine produktive Installation.
+
+
+## API.V1.F5.6.3 – Externe und ungebundene VDR-Timer (23.11.2026; SOURCE)
+
+PR #563 verwendet bei nativen Timern ohne Suite-Assignment den bereits
+vorhandenen direkten `VdrTimerActionController`, statt automatisch eine
+`TimerAssignment` oder einen zweiten nativen Schreiber zu erzeugen.
+`POST /api/v1/native-timers/{timerId}/direct-update?backendId=...` und
+`POST /api/v1/native-timers/{timerId}/direct-delete?backendId=...`
+sind bewusst **synchrone native Aktionen** mit dem bestehenden
+`success`-Ergebnis, **keine** künstlichen 202-/Operation-Antworten.
+Der Backend- und Timer-Identifier aus dem JSON-Body muss exakt der
+autorisierten URL entsprechen. Die bestehenden
+`timers.modify`-/`timers.delete`-Grants und Browser-CSRF bleiben
+unverändert. Managed/adopted Timer nutzen weiter ausschließlich ihre
+bereits bestehenden dauerhaften Public-v1-Operations.
+
+Ein nur lesend ermittelter `directActions:true`-Hinweis im Timer-Detail
+schaltet das Webfrontend auf die neue Public-v1-Direktroute. Fehlt die
+Kennzeichnung bei älteren Installationen, bleibt der bisherige
+funktionsfähige VDR-Editor erhalten. Die JS-Clients senden nicht
+automatisch erneut nach ungewissem Ergebnis. Opaque native Aux wird
+vom bestehenden VDR-Writer übernommen. Gezielte Regressionen prüfen
+HTTP-Routen, Browser-/Referenzclient-Komposition, Backend-ID/Timer-ID,
+bestehende Grants und CSRF sowie die Trennung von managed Operations.
+
+**Abgrenzung:** Diese direkte Aktion übernimmt externe Timer nicht
+stillschweigend in den Suite-Scheduler und behauptet keine atomare
+CAS-/dauerhafte Operation für ungebundene native Timer. Das ist
+absichtlich dieselbe Ausführungseigenschaft wie beim bisherigen
+VDR-Editor. **CI des finalen HEAD und realer VDR-Readback sind noch
+zu verifizieren; kein Merge oder produktiver Eingriff.**
+
+## API.V1.F5.6.2 – Gezielte VDR-AUX-Mutation (23.11.2026; SOURCE)
+
+PR #563 ergänzt `POST /api/v1/native-timers/{timerId}/modifications`
+für ausdrücklich verändertes natives AUX bei bereits verifiziert
+verwalteten/übernommenen Timern. Der UPDATE-Body akzeptiert das Feldpaar
+`expectedAux`/`aux`, während unverändertes AUX beim üblichen Timer-UPDATE
+weiterhin vollständig vom VDR übernommen wird. Das aktuelle AUX wird vor der
+Operation gegen den Backend-Timer-Snapshot geprüft; beim eigentlichen
+Schreibzugriff vergleicht SuiteBridge NTMOD EXEC v2 unter der vorhandenen
+VDR-Write-Lock den Fingerprint der alten AUX-Bytes. Es gibt **keinen
+zusätzlichen Timer-Writer**. Ein neuer v2-AUX-Auftrag wird im vorhandenen
+Operation-/Agent-Auftrag/Reconciliation- und Recovery-Pfad getragen, mit
+native RESTfulAPI-Readback des AUX-Inhalts und SSE im Browser. Frühere
+NTMOD-v1-Aufträge bleiben im alten Format unverändert.
+
+Der Web-Timereditor sendet das alte/neue AUX nur bei echter Änderung
+über Public API v1. Bereits vorhandene Plugin-Metadaten bleiben bei
+normalen Timeränderungen erhalten; geändertes AUX kann geleert oder ersetzt
+werden. Die Regressionen umfassen HTTP, Browser-Komposition, durable
+Payload-/Agent-Recovery und Native-NTMOD-Contract. **Realer VDR-Readback
+und vollständige Final-Head-CI sind noch separat zu belegen**. Noch keine
+Parität für AUX bei ungebundenen/externen Timern oder AUX beim CREATE;
+diese Grenzen werden nicht als fertig behauptet. Kein Merge oder Install.
+
+## API.V1.F5.6 – VDR-native wiederkehrende Timer (23.11.2026; SOURCE)
+
+PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält die erste
+durchgehende Public-v1-Quellimplementierung für wöchentliche native
+Timer: `POST /api/v1/manual/timer-intents` akzeptiert optional eine
+kanonische VDR-Wochentagsmaske (Montag–Sonntag, `MTWTFSS` mit `-`
+für ausgelassene Tage). `startAt/stopAt` kennzeichnen die **erste
+VDR-lokal verifizierte Ausführung**. Daemon-Clock/Agent-/Provider-Fence,
+atomare Intent/Assignment/Operation und idempotenter Replay bleiben
+der vorhandene Pfad; die Native-Preview besitzt den **separaten**
+Befund `isolated_initial_clear`, der ausdrücklich **keine**
+Konfliktfreiheit für alle künftigen Wiederholungen verspricht.
+Der TimerIntent speichert `recurringSchedule` mit kanonischer
+`BYDAY`-Regel; die tatsächliche Wochenplanung bleibt vollständig
+beim VDR, nicht bei einem neuen Scheduler.
+
+Reference-JS und OpenAPI sind erweitert. Das Web-Timerformular nutzt
+Public v1 für wiederkehrende Timer mit einem explizit gewählten Datum
+der ersten Ausführung und ohne opaque AUX; ansonsten bleibt der
+funktionierende alte Editorpfad. Die native Preview lehnt weiterhin
+nicht sicher prüfbare aktive Fremd-/Wiederholungstimer, native
+VPS-Kandidaten und derzeit inaktive Timer ab. **F5.6.1 ist damit
+noch nicht vollständig abgenommen oder uneingeschränkt paritätisch.**
+Die übrigen Lücken (AUX beim CREATE und bei nicht gebundenen Timern,
+externe/ungebundene Timer, Aufnahme-Stopp, vollständige Editor-Migration)
+bleiben offen.
+Kein realer VDR wurde geändert; PR Draft, kein Merge/Install.
+
+
+## API.V1.F5.6 – Rechteparität und natives Aux-Read (23.11.2026; SOURCE)
+
+PR #563 auf `work/api-v1-finalisierung-f2-f8` enthält seit
+`33e708238` die Public-v1-Human-Grant-Parität für `timers.create`,
+`timers.modify` und `timers.delete` bei unverändertem CSRF, Audit,
+Backend-Grant und Device-Check. Der darauf folgende F5.6.2-Schritt
+`b600f14e5` projiziert natives `aux` als **eigenes, unbedingtes
+GET-Subresource** aus dem bestehenden VDR-Snapshot, ohne den vorhandenen
+Binding-ETag zu verfälschen. OpenAPI und fokussierte Source-Regressionen
+sind ergänzt; der Reference-JS-Lesepfad und das Webfrontend-Client-API-Adapter-Interface
+sind ergänzt. Das Timer-Editor-Formular selbst verwendet für Aux-Änderungen
+weiterhin seine bestehende VDR-spezifische Schreibroute; dies ist keine
+Aux-Mutation über Public v1.
+
+**Noch offen:** Aux-Mutation, wiederkehrendes CREATE mit vollständiger
+SuiteBridge-Preview, externe/unge­bundene Timer-Writer, Aufnahme-Stopp,
+Legacy-Editor-Migration sowie weitere F3–F8-Vertrags-/Runtime- und
+Hardwareabnahmen. Neue Source-Commits sind weder installierte Kandidaten
+noch bestätigte native VDR-Readbacks. Kein Merge oder Runtime-Update.
+
 ## BAS – Backend-Agent Simplification (22.11.2026; getrennt von API v1)
 
 **Maintainer-Freigabe:** BAS.1–BAS.5 hat Vorrang und wird auf dem genehmigten Branch `work/bas-simplification` entwickelt, ab `main@c8c971b7cfa01032acc4511be0cc370bfb9f9650`. Public API v1 entwickelt parallel ausschließlich auf `work/api-v1-finalisierung-f2-f8`. **Kein Merge und keine Runtime-Installation.**
@@ -7,6 +178,208 @@
 BAS.1 dokumentiert die tatsächlichen Quell-/Preview-/Agent-/Operation-/SSE-Pfade. BAS.2 entfernt nachgewiesene doppelte volle Inventarscans in alten Agent-Lesemethoden und die doppelte Installationsverifikation innerhalb einer Heartbeat-Quellbeobachtung; bestehende Ausführungsautorisierung und Quellenprüfung bleiben. BAS.3 ergänzt konkrete, pfadfreie Preview-Fehlercodes und Webdiagnosen. BAS.4 hält die unabhängigen Authentifizierungs-/Autorisierungs-/Fencing-/Readback-Prüfungen ausdrücklich aufrecht. BAS.5 hat eine getrennte CI-/Hardware-Abnahmematrix; **Regressionen und realer yaVDR-Endlauf sind für den neuen BAS-Kandidaten noch nicht bestätigt**. Die noch offenen Media-Tools-Teilbereiche und produktive Paketmigration bleiben **OFFEN / ZURÜCKGESTELLT**, nicht durch BAS abgeschlossen.
 
 [Technischer BAS-Nachweis und Abnahmematrix](development/bas-backend-agent-simplification.md).
+
+
+## API.V1.F5.4 – Native-Timer-Feldparität (22.11.2026)
+
+Die bestehenden Public-v1-Listen- und Detail-GETs projizieren
+zusätzlich aus dem kanonischen `VdrTimer` die vier stabilen
+Felder `directory`, `priority`, `lifetime` und `vps`.
+Diese Werte sind bereits Teil des nativen
+`NativeTimerObservedState`-Fingerprints; der vorhandene
+Binding-/ETag-/304-Vertrag bleibt unverändert. HTTP-Tests
+für Liste und Detail, Referenz-JS und Browser-F5.3-Lesepfade
+sowie OpenAPI sind angepasst. Kein Timer-Writer, keine zusätzliche
+Sperre, keine neue Datenbank und keine Legacy-Route geändert.
+
+**Verbleibende Grenze:** Das plugin-spezifische rohe `aux`
+ist absichtlich nicht Teil des öffentlichen, revisionsgeprüften
+Native-Timer-Vertrags. Eine gleichwertige UI-Migration benötigt
+eine fachliche Entscheidung/Abbildung für `aux` sowie
+CREATE und die abweichenden asynchronen MODIFY/DELETE-Operationen.
+Der vollständige Web-Timer-Editor bleibt bis dahin auf seinem
+bisherigen funktionierenden Pfad. Kein echter Timer wurde
+geschrieben; die gemeinsame Hardware-Endabnahme bleibt F8.
+
+
+## API.V1.F5.3 – Browser-Client Native-Timer-Lesepfade (22.11.2026)
+
+Der vorhandene Browser-Client bietet nun `fetchPublicNativeTimerPage`
+und `fetchPublicNativeTimerDetail` über denselben Public-v1-Referenzclient an.
+Beide GETs verwenden die bestehende Browser-Session, ein ausdrückliches
+`backendId` und die native Timer-ID; der Detailaufruf bewahrt ETag/304.
+Die vorhandene Timer-Verwaltung bleibt vorerst auf den Legacy-Routen:
+Die Public-v1-Native-Timer-Projektion enthält aktuell kein Verzeichnis,
+Aux, Priorität, Lebensdauer oder VPS; außerdem verlangen Public-v1-
+MODIFY/DELETE einen aktuellen Binding-/ETag-Vertrag und antworten
+asynchron. Eine einfache URL-Umstellung würde die vorhandene
+vollständige Bearbeitung gefährden. Die bestehende Frontend-Regression
+prüft die separaten versionierten Reads, ETag/304 und fehlenden
+Fallback bei 503. Es gibt keinen neuen Writer, keinen Timer-Eingriff,
+keine Installation und keine reale Browser-/MLD-Abnahme. Die
+vollständige Timer-UI-Migration bleibt bis zur semantischen Parität offen;
+die gemeinsame Systemabnahme erfolgt in F8.
+
+
+## API.V1.F5.2 – Native-Timer-Mutationen im Referenzclient (22.11.2026)
+
+Die vorhandenen Public-v1-Routen für native Timer TOGGLE/UPDATE
+und DELETE sind als explizite `modifyNativeTimer`- und
+`deleteNativeTimer`-Methoden auf dem Reference-JS-Client
+verfügbar. Sie übernehmen die vom Aufrufer gelieferten
+`If-Match`-/`Idempotency-Key`-Werte sowie beim Browser
+bestehende CSRF-Header und lösen **keine** automatische
+Wiederholung aus. 202 bleibt ein asynchroner Operation-Auftrag,
+nicht der behauptete fertige VDR-Readback.
+Eine reine HTTP-Mock-Regression ist im F5.1-Testziel ergänzt.
+Web-Timer-UI, reale Timer und die bisherige Interop-Grenze
+bleiben unverändert.
+
+## API.V1.F5.1 – Public-v1 Native-Timer-Reads (22.11.2026)
+
+Der Reference-JS-Client erhält die bereits serverseitig existierenden
+Native-Timer-Snapshot-/Detail-GETs mit Offset/Limit und
+`If-None-Match`-/304-Vertrag. Ein reiner HTTP-Mock prüft
+Request-Pfade, exakt einen Backend-Scope und ETag-Verhalten
+im bestehenden `test-ci-fast`-Lauf. **Keine Timeränderung**,
+keine Web-Timer-Migration und keine Gleichsetzung von native
+Timer, TimerAssignment oder TimerIntent. F5-Interop-Deltas
+bleiben bis zur echten MLD-/Browser-Paritätsprüfung offen.
+
+## API.V1.F7.3 – Kombinierter Device-Resume-Vertrag (22.11.2026)
+
+Der vorhandene `test-public-v1-recording-progress-client`-Lauf
+prüft in einem neuen zusammenhängenden HTTP-Mock den Weg von
+Device-Profil und gesicherter Position über ausdrücklich gestartete
+Resume-Session, Audio-Tracks und Revision-gebundenes Fortschritts-
+Update bis zum einmaligen STOP. Ein stale 409 darf keinen
+zweiten Auftrag auslösen. **Kein realer VDR-/TV-Test**;
+die gemeinsame F8-Abnahme bleibt unverändert ausstehend.
+
+## API.V1.F7.2 – Device-Player-Profilstatus (22.11.2026)
+
+Der Public-v1-JavaScript-Client kann jetzt den vorhandenen
+authentifizierten `/recording-playback-sessions/capabilities`-
+Read aufrufen. Vier explizite Profileigenschaften werden
+transportiert; die Device-ID stammt weiterhin ausschließlich
+aus dem Server-Credential. Keine automatische Player-Umschaltung,
+keine neue Medienfreigabe und keine Hardware-Abnahme.
+Gezielte HTTP-Mock-Regression ergänzt.
+
+## API.V1.F7.1 – Device Recording Session: nativer Player und Tonspuren (22.11.2026)
+
+Der gemeinsame Public-v1-Referenzclient reicht die bereits serverseitig
+vorhandenen optionalen `nativeMediaAccess`- und `audioTrackId`-Felder
+für Device Recording CREATE weiter. `getRecordingPlaybackTracks`
+liest die vorhandene Device-only `/tracks`-Route mit exakt einer
+Session-ID. Die Standardantwort bleibt ohne native Medienfreigabe;
+kein Media-Server, keine neue Berechtigung oder automatische
+Session-Wiederholung. Gezielte Client-Mock-Regression ergänzt.
+**Quell-/CI-Kandidat:** reale VIDAA-/Tizen-/yaVDR-Abnahme bleibt
+gemeinsam für F8 vorgemerkt.
+
+## API.V1.F6 – öffentliche Marks/Cut-Anbindung als Quellkandidat (22.11.2026)
+
+Die vorherige nicht autorisierte F6-Scope-Ausnahme wurde
+korrigiert: Marks/Cut sollen ebenso über Public API v1
+bereitgestellt werden; keine zusätzliche Schneideberechtigung
+für einen bereits zum Bearbeiten berechtigten Benutzer.
+Die neue `recordings.edit`-Sammelberechtigung ist im
+AuthorizationService und Human-Account-Grants-Katalog
+sowie im Konto-UI (DE/EN) mit Tests committed;
+bestehende Einzelrechte bleiben erhalten. Edit umfasst
+Ansehen, Umbenennen, Verschieben, Löschen, Marks-Änderung
+und Cut-Start, aber **nicht** Playback, Timer, Add-ons
+oder unerkannte Recording-Aktionen.
+[Status und technische Grenzen](development/api-v1-f6-recording-marks-cut-scope.md).
+Zusätzlich sind nun vier öffentliche Marks-/Cut-GET/POST-Routen
+über dieselben nativen Runtime-Handler verdrahtet; passende
+OpenAPI-, JS-Client- und C++-Security-/Identitätstests liegen vor.
+Die gemeinsame persistente `rec_`-Zuordnung wird für native
+Marks/Cut-GET/POST wiederverwendet und per Mock-C++-Tests
+auf Antwort-IDs und Dispatch-Identität geprüft.
+Der optional vergebbare Device-Grant `recordings.edit@backendId`
+ist auf konkrete Backends begrenzt. Bei verifiziertem nativem
+Cut-Ergebnis wird auch die geschnittene Aufnahme über dieselbe
+persistente öffentliche `rec_`-Zuordnung projiziert; Public v1
+gibt weder native Ergebnis-IDs noch VDR-Pfade oder interne
+Schnittschlüssel aus. Die Webfrontend-Legacy-Antwort bleibt
+unverändert. Die vorhandenen Router-Verdrahtungsprüfungen
+(`check_recording_cut_runtime_wiring.py`) und die nativen
+Marks-/Cut-API-Regressionsfixtures decken die Public-v1-
+Weiterleitung und Legacy-/Public-Ergebnisprojektion ab.
+Ein zusätzlicher vollständiger Client-Router-Linktest wurde
+zurückgenommen, da er fremde, im isolierten Testziel
+absichtlich nicht gelinkte API-Runtimes erfordert.
+Die vollständige CI-Verifikation des aktuellen PR-Quellkandidaten
+und die reale Browser-/Device-/yaVDR-Abnahme sind **offen**.
+Kein produktiver Schnitt wurde ausgeführt.
+
+**API.V1.F6.3 – Webfrontend-Umstellung (Quellimplementierung):**
+Das bestehende Recordings-2-Marks-/Cut-UI nutzt nun die vier
+Public-v1-Routen statt der alten `/api/vdr/recordings/{marks|cut}`-
+Routen. Der Browser verwendet für den Legacy-Aufnahmeeintrag
+die bereits vorhandene Hero-`rec_`-Auflösung, nicht eine
+zweite ID-Datenbank; alle GET-/POST-Aufrufe tragen
+`backendId` in der Query, POST zusätzlich die identische
+öffentliche Aufnahme-ID im Body und den vorhandenen CSRF-Header.
+Die beiden Hero-Wrapper reichen die ID-Auflösung durch.
+Die UI-Schnittlogik, Einmal-Auftrags-ID und Readback-Prüfung
+sind unverändert; keine neue Sperre und keine Legacy-
+Mutations-Fallbacks. Frontend-/Router-/CI-Regressionen
+für den endgültigen PR-Kandidaten und die gemeinsame
+yaVDR-/Browser-Abnahme müssen nachgewiesen werden.
+Die Legacy-Endpunkte bleiben für ältere Clients erhalten.
+
+## API.V1.F5 – Timer-/Suchtimer-Interop verschoben (21.11.2026)
+
+Nach Betreiberentscheidung wird F5 hinter F6/F7 geschoben:
+die bewiesenen yaVDR-Native-Timer-/Suchtimer-Funktionen
+werden nicht neu entwickelt oder erneut destruktiv getestet.
+SearchTimer-CREATE/LIST/DETAIL/VERSION/MUTATION und
+EPG-TimerIntent-CREATE laufen im Browser bereits über Public v1;
+die allgemeinen Timer-Modul-Lese-/Schreibpfade nutzen noch
+`/api/vdr/timers/*`. MLD-Entwickler sollen später die
+tatsächliche Public-v1-Interoperabilität eigenständig testen;
+keine Zusage oder neue Testergebnisse voraussetzen.
+[Reihenfolge/Abgrenzung](planning/public-v1-coverage-roadmap.md).
+F8 bleibt der gemeinsame Releaseabschluss. Kein produktiver
+Code und keine Hardware-Abnahme geändert.
+
+
+## API.V1.F4 – Recording-/Metadata-/Artwork-Client-Parität (21.11.2026)
+
+Auf `work/api-v1-finalisierung-f2-f8` wurden vier
+Read-Methoden des Public-v1-Reference-JS-Clients ergänzt:
+Recording-Detail, Folder Browse, Genre-Facetten,
+Genre-Zugehörigkeit. Existing Search/Artwork/Metadata
+werden wiederverwendet.
+[Abnahmematrix](development/api-v1-f4-recording-metadata-artwork-parity.md)
+beschreibt verbleibende Unterschiede zum funktionierenden
+Webfrontend und nicht belegte Artwork-404-Ursachen;
+keine Webmigration, kein Server-/PWA-Change oder neue
+Hardwareabnahme. F5–F8 und API-v1-Release offen.
+
+
+## API.V1.F3 – Public-v1-Reads für Discovery, Sender, EPG und Suche (21.11.2026)
+
+Auf `work/api-v1-finalisierung-f2-f8` stehen im Reference-JS-Client
+neben bestehenden Backends/Channels fünf ergänzte Public-v1-GETs
+(Nachbarsender, EPG-Window, Now/Next, EPG-/Recording-Suche) bereit.
+Die [F3-Paritätsmatrix](development/api-v1-f3-discovery-epg-search-parity.md)
+hält nicht gleichwertige Web-Backend-/Sender-/EPG-/Global-Search-Routen
+ausdrücklich unverändert; keine unbewiesene Webmigration. Nur Reference-JS
+mit Mock-Transport geprüft, keine neue Hardware- oder API-Release-Abnahme.
+Der PWA-Performance-Freeze bleibt unberührt.
+
+
+## API.V1.F2 – dokumentierte Authentifizierungsparität (21.11.2026)
+
+Auf dem Finalisierungsbranch sind für die 75 bereits dokumentierten
+OpenAPI-Methoden fünf vorhandene Transportprofile erfasst.
+[F2-Bericht](development/api-v1-f2-security-parity.md) und
+Reference-JS-Test vorhanden. Kein Backend-/Host-/PWA-Eingriff;
+API-v1-Release weiterhin offen, F3–F8 folgen separat.
 
 
 ## API.V1.F1 – Quellinventur und Paritätsklassifikation (21.11.2026)

@@ -43,8 +43,9 @@ bool durablePayloadMatches(
     NativeTimerModifyOperationPayload& payload)
 {
     if (durable.payloadType != "native.timer.modify" ||
-        durable.payloadVersion != 1 ||
-        !parseNativeTimerModifyOperationPayload(durable.payload, payload))
+        (durable.payloadVersion != 1 && durable.payloadVersion != 2) ||
+        !parseNativeTimerModifyOperationPayload(durable.payload, payload) ||
+        durable.payloadVersion != (payload.modifyAux ? 2U : 1U))
         return false;
     return durable.payloadFingerprint ==
         nativeTimerModifyOperationPayloadFingerprint(payload) &&

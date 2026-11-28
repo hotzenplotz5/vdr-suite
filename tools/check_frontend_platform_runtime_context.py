@@ -128,9 +128,11 @@ def main() -> int:
             "function renderConflicts(report, timers, error)",
             "function timerActionPayload(timer, overrides)",
             "function validateTimerPayload(payload, requireTimerId)",
-            "fetchClientTimerCreateAction",
-            "fetchClientTimerUpdateAction",
-            "fetchClientTimerDeleteAction",
+            "fetchPublicNativeTimerDirectCreate",
+            "fetchPublicNativeTimerDirectUpdate",
+            "fetchPublicNativeTimerDirectDelete",
+            "fetchPublicNativeTimerModify",
+            "fetchPublicNativeTimerDelete",
             "const timerBrowserApi = Object.freeze({",
             "global.VdrSuiteTimerBrowser = timerBrowserApi;",
             "global.VdrSuitePlatform.registerModule('timers', timerBrowserApi);",
@@ -138,6 +140,9 @@ def main() -> int:
         ],
         "active Timer workflow contract missing: ",
     )
+    for token in ("fetchClientTimerCreateAction", "fetchClientTimerUpdateAction",
+                  "fetchClientTimerDeleteAction"):
+        require(token not in timer_module, "Timer editor must use Public-v1 writers: " + token)
     require_transport_free(timer_module, "Timer module")
 
     require_tokens(
@@ -154,7 +159,7 @@ def main() -> int:
             "function normalizeSearchTimer(searchTimer, index)",
             "function buildCreatePayload(form, template)",
             "function validateCreatePayload(payload)",
-            "fetchClientSearchTimerPreview",
+            "fetchPublicSearchTimerDraftPreview",
             "fetchClientSearchTimerCreateStaged",
             "fetchClientSearchTimerOperation",
             "mutatePublicSearchTimer",

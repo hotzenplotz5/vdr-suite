@@ -123,6 +123,81 @@ int main()
         "metadata.recording.assign",
         "living-room"));
 
+    // Public genre reads inherit the existing recordings.view scope, not
+    // the write grant and not a new role.
+    {
+        SecurityHttpGateBrowserTestFixture reader;
+        auto request = requestFor(reader, "living-room", "genre", false);
+        request.method = "GET";
+        request.path.insert(4, "/v1");
+        request.path += "?recordingId=rec_0123456789abcdef0123456789abcdef";
+        request.body.clear();
+        assert(!reader.gate.evaluate(request).allowed);
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "recordings.view", "living-room"));
+        const auto allowed = reader.gate.evaluate(request);
+        assert(allowed.allowed);
+        assert(allowed.authorizationDecision.permission == "recordings.view");
+        assert(allowed.authorizedBackendIds == std::vector<std::string>{"living-room"});
+        request.path.replace(request.path.find("living-room"), std::string("living-room").size(), "bedroom");
+        assert(!reader.gate.evaluate(request).allowed);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture reader;
+        auto request = requestFor(reader, "living-room", "manual", false);
+        request.method = "GET";
+        request.path.insert(4, "/v1");
+        request.path += "?recordingId=rec_0123456789abcdef0123456789abcdef";
+        request.body.clear();
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "recordings.view", "living-room"));
+        assert(!reader.gate.evaluate(request).allowed);
+        assert(reader.grantRepository.ensureGrant(reader.actorId, "metadata.recording.assign", "living-room"));
+        const auto allowed = reader.gate.evaluate(request);
+        assert(allowed.allowed);
+        assert(allowed.authorizationDecision.permission == "metadata.recording.assign");
+        assert(allowed.authorizedBackendIds == std::vector<std::string>{"living-room"});
+        request.path.replace(request.path.find("living-room"), std::string("living-room").size(), "bedroom");
+        assert(!reader.gate.evaluate(request).allowed);
+    }
+
+    // Hierarchy uses the same existing scoped grant and CSRF in both transports.
+    {
+        auto publicHierarchy = hierarchyRequestFor(fixture, "living-room", true);
+        publicHierarchy.path.insert(4, "/v1");
+        const auto admitted = fixture.gate.evaluate(publicHierarchy);
+        assert(admitted.allowed && admitted.protectedMutation);
+        assert(admitted.authorizationDecision.permission == "metadata.recording.assign");
+        assert(admitted.authorizationDecision.backendId == "living-room");
+        assert(admitted.authorizationDecision.action == "metadata.recording.hierarchy");
+        auto denied = hierarchyRequestFor(fixture, "bedroom", true);
+        denied.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(denied).allowed);
+        auto noCsrf = hierarchyRequestFor(fixture, "living-room", false);
+        noCsrf.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(noCsrf).allowed);
+        SecurityHttpGateBrowserTestFixture noGrant;
+        auto noPermission = hierarchyRequestFor(noGrant, "living-room", true);
+        noPermission.path.insert(4, "/v1");
+        assert(!noGrant.gate.evaluate(noPermission).allowed);
+    }
+
+    // The public variants use the exact same scoped permission and CSRF.
+    for (const std::string operation : {"search", "seasons", "episodes", "assign", "withdraw", "genre"})
+    {
+        auto request = requestFor(fixture, "living-room", operation, true);
+        request.path.insert(4, "/v1");
+        const auto decision = fixture.gate.evaluate(request);
+        assert(decision.allowed);
+        assert(decision.authorizationDecision.permission == "metadata.recording.assign");
+        assert(decision.authorizationDecision.backendId == "living-room");
+        auto wrongBackend = requestFor(fixture, "bedroom", operation, true);
+        wrongBackend.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(wrongBackend).allowed);
+        auto noCsrf = requestFor(fixture, "living-room", operation, false);
+        noCsrf.path.insert(4, "/v1");
+        assert(!fixture.gate.evaluate(noCsrf).allowed);
+    }
+
     for (const std::string operation : {
              "search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {

@@ -335,3 +335,17 @@ higher-level path is later enabled.
 The destructive real-machine acceptance requirement for this native
 SuiteBridge/VDR mutation gate is satisfied. Keep the stacked PR Draft until a
 separate explicit Ready/merge decision is made.
+
+
+## F5.6.4 recording-stop successor (24.11.2026)
+
+The statement above that a currently recording Timer is rejected describes
+the original Phase-64 source boundary. Under the subsequent explicitly
+requested F5.6.4 Public-v1 Timer-editor parity work, a verified managed or
+adopted recording Timer may now be deleted through the same durable
+`timer.delete` Operation. The native SuiteBridge callback uses VDR's
+`cRecordControls::Stop(timer)` before `Timers->Del(timer)`, following
+VDR's CmdDELT semantics under the same native write lock and fingerprint
+check. This is **not** a second writer, a recording-file delete, or evidence
+that a real VDR recording was stopped during CI. Pending and identity-drift
+cases remain rejected; native absence must be independently read back.

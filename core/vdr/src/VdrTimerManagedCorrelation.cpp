@@ -135,6 +135,8 @@ VdrTimerManagedCorrelationParseResult parseVdrTimerManagedCorrelation(
     VdrTimerManagedCorrelationParseResult result;
     result.status = VdrTimerManagedCorrelationStatus::ok;
     result.correlation = std::move(correlation);
+    result.providerAux = aux.substr(0, reserved) +
+        aux.substr(suffix + kMarkerSuffix.size());
     return result;
 }
 

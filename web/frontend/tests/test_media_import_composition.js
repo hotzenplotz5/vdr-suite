@@ -88,9 +88,12 @@ assert.deepStrictEqual(runtimeNav.children.map(x => x.id),
 assert(index.indexOf('modules/media-import.js') < index.indexOf('frontend/app.js'));
 assert(app.includes('refreshMediaImportVisibility(backendId);'));
 assert(app.includes('resetMediaImportVisibility(true);'));
-// The production gate is exercised below for both a negative capability
-// and a rejected capability request, including navigation and preserved DOM.
-// Do not require a particular internal helper name or return statement.
+// Navigation availability is checked against the extracted production shell
+// below (temporary capability loss, fresh session, tab state and logout).
+// Do not require a particular private helper name: the shell may combine
+// capability and installation observations without changing that behavior.
+assert(app.includes('function refreshMediaImportVisibility(backendId) {'),
+  'production Media Import navigation owner must exist');
 // The shell contains more than one Media Import branch. Inspect the
 // navigation click handler, not the first unrelated occurrence in the file.
 const mediaTabBranch = app.match(

@@ -13,10 +13,10 @@ function deferred() {
   return {promise, resolve, reject};
 }
 async function flush() {
-  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  for (let i = 0; i < 24; i += 1) await Promise.resolve();
 }
 
-function makeHarness() {
+function makeHarness(publicMode = false) {
   let now = 0;
   let nextTimer = 1;
   let backend = 'default';
@@ -46,7 +46,8 @@ function makeHarness() {
   const shared = {
     PAGE_SIZE: 2,
     selectedBackendId() { return backend; },
-    clientApi() { return {fetchClientRecordingFolder(options) {
+    clientApi() { return {fetchPublicRecordingFolder:publicMode ? window.VdrSuiteClientApi.fetchPublicRecordingFolder : undefined,
+      fetchClientRecordingFolder(options) {
       const pending = deferred();
       requests.push({options, pending});
       return pending.promise;
@@ -116,7 +117,17 @@ function makeHarness() {
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
     String, Number, Math, Array, JSON, Map, Set});
+  if (publicMode) vm.runInContext(fs.readFileSync('web/frontend/api/client-api.js','utf8'),
+    vm.createContext({window,URLSearchParams,fetch(url) {
+      const parsed = new URL(url,'https://test.invalid');
+      assert.strictEqual(parsed.pathname,'/api/v1/recordings');
+      assert.strictEqual(parsed.searchParams.get('view'),'folders');
+      const pending = deferred();
+      requests.push({options:{query:Object.fromEntries(parsed.searchParams)},pending});
+      return pending.promise.then(payload=>({ok:true,text:()=>Promise.resolve(JSON.stringify(payload))}));
+    }}));
   for (const path of [
+    'web/frontend/recordings2-folder-page.js',
     'web/frontend/recordings2-folder-refresh.js',
     'web/frontend/recordings2.js'
   ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
@@ -229,21 +240,30 @@ async function run() {
   assert.strictEqual(requests.length, 1);
   assert.strictEqual(requests[0].options.cache, 'no-store');
   await h.respond(0, root);
-  assert.strictEqual(h.timers.size, 1);
+  assert.strictEqual(h.timers.size, 0);
   const initialRenders = renders.length;
+  let sequence = 0;
+  async function hint() {
+    h.sources.at(-1).emit(++sequence, h.owner().getState().backendId, ['recordings']);
+    await h.advance(0);
+  }
+  // A healthy idle view does not poll, even over many former intervals.
+  await h.advance(90000);
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(h.timers.size, 0);
 
   // An unchanged folder is not rebuilt or made to flash a loading screen.
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests.length, 2);
   await h.respond(1, root);
   assert.strictEqual(renders.length, initialRenders);
 
-  // A native cut arriving in the canonical cache appears without manual refresh.
-  await h.advance(30000);
+  // A committed native cut SSE hint appears without manual refresh.
+  await hint();
   await h.respond(2, updated);
   assert.strictEqual(h.owner().getState().data.folders[0].path, '%Brisant');
   assert.strictEqual(renders.at(-1), 'folder');
-  assert.strictEqual(h.timers.size, 1);
+  assert.strictEqual(h.timers.size, 0);
 
   // An already-active owner checks immediately on reactivation.
   api.activate();
@@ -256,7 +276,7 @@ async function run() {
   await h.respond(4, h.page('%Brisant', [edited, original], [], 3));
   h.owner().loadMore();
   await h.respond(5, h.page('%Brisant', [{id: '1003', title: 'Extra'}], [], 3));
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests[6].options.query.limit, 3);
   await h.respond(6, h.page('%Brisant', [edited, original, {id: '1003'}], [], 3));
   assert.strictEqual(h.owner().getState().serverRecordings.length, 3);
@@ -274,7 +294,7 @@ async function run() {
   await h.respond(7, h.page('%Brisant', [edited], [], 1));
 
   // A request from an old folder must never overwrite a newer navigation.
-  await h.advance(30000);
+  await hint();
   assert.strictEqual(requests.length, 9);
   h.owner().openFolder('Brisant');
   assert.strictEqual(requests.length, 10);
@@ -282,8 +302,9 @@ async function run() {
   await h.respond(8, h.page('%Brisant', [edited]));
   assert.strictEqual(h.owner().getState().path, 'Brisant');
 
-  // Hidden tabs do not poll; visibility restoration checks the current folder.
+  // Hidden tabs retain hints; visibility restoration checks the current folder.
   h.document.hidden = true;
+  await hint();
   await h.advance(30000);
   assert.strictEqual(requests.length, 10);
   h.document.hidden = false;
@@ -291,19 +312,21 @@ async function run() {
   await h.advance(0);
   await h.respond(10, h.page('Brisant', [original]));
 
-  // Failed background requests keep the usable view and are retried.
-  await h.advance(30000);
+  // Failed background requests keep the usable view; the next committed hint retries.
+  await hint();
   const beforeFailure = renders.length;
   requests[11].pending.reject(new Error('temporary outage'));
   await flush();
   assert.strictEqual(renders.length, beforeFailure);
   assert.strictEqual(h.owner().getState().error, null);
-  await h.advance(30000);
+  await h.advance(90000);
+  assert.strictEqual(requests.length, 12, 'failed read must not start a retry poll');
+  await hint();
   h.failNextLeaves();
   await h.respond(12, h.page('Brisant', [original, edited]));
   assert.strictEqual(h.owner().getState().serverSignature, '');
   assert.strictEqual(renders.at(-1), 'folder');
-  await h.advance(30000);
+  await hint();
   await h.respond(13, h.page('Brisant', [original, edited]));
   assert.notStrictEqual(h.owner().getState().serverSignature, '');
 
@@ -320,7 +343,56 @@ async function run() {
   console.log('recordings2 automatic folder refresh lifecycle ok');
 }
 
-run().catch(error => {
+async function testPublicMixedPages() {
+  const h = makeHarness(true), api = h.api;
+  const fid = 'fld1_' + 'a'.repeat(32), rid = 'rec_' + 'b'.repeat(32);
+  const folder = {kind:'folder',folderId:fid,name:'Alpha',recordingCount:3};
+  const recording = {kind:'recording',recordingId:rid,backendId:'default',
+    title:'Title',recordedAt:'2026-11-27',preferredArtworkId:'c'.repeat(32)};
+  const wire = (items, offset, total, context, limit=2) => ({items,
+    page:{offset,limit,totalCount:total,hasMore:offset+items.length<total},
+    meta:{partial:false},folderContext:context});
+  const root = {folderId:'',parentFolderId:'',breadcrumbs:[],folderCount:1,
+    recordingCount:2,catalogTotalCount:3,cacheReady:true,cacheState:'ready'};
+  api.activate();
+  assert.strictEqual(h.requests.length,1);
+  await h.respond(0,wire([folder,recording],0,3,root));
+  let state=h.owner().getState();
+  assert.strictEqual(state.folderId,'');
+  assert.strictEqual(state.data.folderCount,1);
+  assert.strictEqual(state.data.nextOffset,2);
+  assert.strictEqual(state.serverRecordings.length,1);
+  assert.strictEqual(h.requests.length,1,'no leaf or metadata fanout');
+  h.owner().loadMore();
+  assert.strictEqual(h.requests[1].options.query.offset,'2');
+  const second={...recording,recordingId:'rec_'+'d'.repeat(32)};
+  await h.respond(1,wire([second],2,3,root));
+  assert.strictEqual(state.data.nextOffset,3);
+  assert.strictEqual(state.serverRecordings.length,2);
+  assert.strictEqual(state.data.folders[0].folderId,fid);
+  h.owner().openFolder({folderId:fid});
+  assert.strictEqual(h.requests[2].options.query.folderId,fid);
+  const nested={...root,folderId:fid,breadcrumbs:[{folderId:fid,name:'Alpha'}],folderCount:0,recordingCount:1};
+  await h.respond(2,wire([recording],0,1,nested));
+  assert.strictEqual(state.folderId,fid);
+  assert.strictEqual(state.path,'','public folder IDs are not native paths');
+  assert.strictEqual(state.breadcrumbs[0].name,'Alpha');
+  h.owner().selectRecording(state.serverRecordings[0]);
+  await flush();
+  assert.strictEqual(state.selectedRecording.recordingId,rid);
+  assert.strictEqual(state.selectedRecording.path,undefined);
+  assert.strictEqual(state.selectedRecording.backendNativeId,undefined);
+  assert.strictEqual(h.requests.length,3,'canonical selection requires no private detail read');
+  h.owner().closeDetail();
+  await h.advance(0);
+  assert.strictEqual(h.requests[3].options.query.folderId,fid);
+  await h.respond(3,wire([recording],0,1,nested));
+  const before=h.requests.length;
+  await h.advance(90000);
+  assert.strictEqual(h.requests.length,before,'public browse uses SSE/lifecycle, not polling');
+  api.deactivate();
+}
+run().then(testPublicMixedPages).catch(error => {
   console.error(error);
   process.exitCode = 1;
 });

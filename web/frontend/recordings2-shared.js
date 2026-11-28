@@ -80,6 +80,55 @@
     return fallback;
   }
 
+  // Remember successful old-card admission only for playback history.
+  const refreshedRecordingIds = new WeakMap();
+  function publicRecordingId(recording, playbackBackend) {
+    const id = [recording?.publicRecordingId, recording?.recordingId, recording?.id]
+      .find(value => /^rec_[0-9a-f]{32}$/.test(String(value || '')));
+    if (id) return String(id);
+    const mapping = recording && playbackBackend && refreshedRecordingIds.get(recording);
+    const native = String(recording?.backendNativeId || recording?.nativePath || '');
+    return mapping && mapping.backend === playbackBackend && mapping.native === native
+      ? mapping.id : '';
+  }
+
+  // Ordinary actions always resolve fresh; only admission supplies a consumer.
+  function resolvePublicRecordingId(recording, backendId, api, action) {
+    const backend = String(backendId || (action ? 'default' : ''));
+    const unavailable = () => new Error('Kanonische Aufnahme-ID nicht verfügbar. Bitte Aufnahme aktualisieren.');
+    if (!recording || !backend || (recording.backendId && recording.backendId !== backend))
+      return Promise.reject(unavailable());
+    const direct = publicRecordingId(recording);
+    if (direct) return action ? action(direct) : Promise.resolve(direct);
+    const native = String(recording.backendNativeId || recording.nativePath || '');
+    const client = api || clientApi();
+    if (!native || !client || typeof client.fetchClientRecordings !== 'function')
+      return Promise.reject(unavailable());
+    const path = String(recording.path || recording.recordingPath || '');
+    function page(offset) {
+      const query = {backend, limit: PAGE_SIZE, offset};
+      if (path) query.path = path;
+      return Promise.resolve(client.fetchClientRecordings({
+        query, cache: 'no-store', credentials: 'same-origin'
+      })).then(function (data) {
+        const rows = recordingList(data);
+        const match = rows.find(candidate => candidate.backendId === backend &&
+          candidate.backendNativeId === native && publicRecordingId(candidate));
+        if (match) return publicRecordingId(match);
+        const total = Number(data && data.totalCount);
+        if (!rows.length || !Number.isSafeInteger(total) || offset + rows.length >= total)
+          throw unavailable();
+        return page(offset + rows.length);
+      });
+    }
+    const resolved = page(0);
+    if (!action) return resolved;
+    return resolved.then(id => Promise.resolve(action(id)).then(result => {
+      refreshedRecordingIds.set(recording, {backend, native, id});
+      return result;
+    }));
+  }
+
   function normalizePath(value) {
     return text(value)
       .replace(/^\/+|\/+$/g, '')
@@ -157,7 +206,18 @@
     ));
   }
 
+  // A public read already contains a canonical display title and no native
+  // path. Do not split or VDR-decode that title a second time.
+  function isPublicRecording(recording) {
+    return Boolean(recording && /^rec_[0-9a-f]{32}$/.test(text(recording.recordingId)) &&
+      typeof recording.recordedAt === 'string' &&
+      !first(recording, ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'], ''));
+  }
+
   function recordingTitle(recording) {
+    if (isPublicRecording(recording))
+      return (recording.folderCard !== true && text(recording.cardMetadata && recording.cardMetadata.title)) ||
+        text(recording.title) || 'Aufnahme';
     const manualTitle = manualAssignment(recording).active === true
       ? recordingMetadataTitle(recording) : '';
     const titleFromPath = recordingPathTitle(recording);
@@ -173,6 +233,10 @@
   }
 
   function recordingSubtitle(recording) {
+    if (isPublicRecording(recording))
+      return (recording.folderCard === true && text(recording.subtitle)) ||
+        text(recording.cardMetadata && recording.cardMetadata.episodeName) ||
+        text(recording.subtitle || metadata(recording).episodeTitle || metadata(recording).subtitle);
     return decodeDisplayText(first(
       presentation(recording),
       ['subtitle', 'seasonEpisode'],
@@ -181,6 +245,8 @@
   }
 
   function recordingSummary(recording) {
+    if (isPublicRecording(recording))
+      return text(metadata(recording).overview || recording.description);
     return text(first(
       presentation(recording),
       ['summary'],
@@ -189,6 +255,13 @@
   }
 
   function recordingPosterUrl(recording) {
+    if (isPublicRecording(recording)) {
+      const id = text(recording.preferredArtworkId);
+      const backend = text(recording.backendId);
+      return /^[0-9a-f]{32}$/.test(id) && backend
+        ? '/api/v1/recordings/' + recording.recordingId + '/artwork/' + id +
+          '?backendId=' + encodeURIComponent(backend) : '';
+    }
     return text(first(
       presentation(recording),
       ['posterUrl'],
@@ -207,7 +280,12 @@
         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
       });
     }
-    return text(value) || 'Unbekannt';
+    const iso = text(value);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(iso)) {
+      const millis = Date.parse(iso);
+      if (Number.isFinite(millis)) return formatStart(millis / 1000);
+    }
+    return iso || 'Unbekannt';
   }
 
   function formatDuration(value) {
@@ -257,11 +335,13 @@
     return button;
   }
 
-  function createPoster(recording, className) {
+  function createPoster(recording, className, variant) {
     const poster = document.createElement('div');
     poster.className = className || 'recordings2-poster';
     poster.dataset.variant = String(recordingPlaceholderVariant(recording));
-    const url = recordingPosterUrl(recording);
+    const original = recordingPosterUrl(recording);
+    const url = variant === 'home' && isPublicRecording(recording) && original
+      ? original + '&variant=home' : original;
     if (!url) {
       poster.textContent = '▶';
       return poster;
@@ -289,6 +369,8 @@
     number,
     first,
     normalizePath,
+    publicRecordingId,
+    resolvePublicRecordingId,
     decodeDisplayText,
     folderList,
     recordingList,

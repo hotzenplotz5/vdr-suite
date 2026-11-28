@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <charconv>
+#include <map>
 #include "ApiRouter.h"
 
 #include "BackendRegistryController.h"
@@ -371,6 +373,88 @@ ApiRouter::ApiRouter(
 
 
 
+
+ApiResponse ApiRouter::handlePublicSearchTimerPreviewCacheRefresh(
+    const std::string& requestTarget, const std::string& body,
+    const std::string& actorRef, const std::string& authorizedBackendId,
+    const std::string& requestId, const std::string& correlationId)
+{
+    const auto problem = [&](int status, const char* code, const char* detail) {
+        PublicProblemDetails issue;
+        issue.statusCode = status;
+        issue.code = code;
+        issue.detail = detail;
+        issue.instance = "/api/v1/search-timers/preview-cache/refresh";
+        issue.requestId = requestId;
+        issue.correlationId = correlationId;
+        ApiResponse result;
+        result.statusCode = status;
+        result.contentType = PublicProblemDetails::contentType();
+        result.headers["Cache-Control"] = "no-store";
+        result.body = issue.serialize();
+        return result;
+    };
+    if (actorRef.empty())
+        return problem(401, "authentication_required", "An authenticated actor is required.");
+    if (!body.empty())
+        return problem(400, "invalid_request", "Refresh accepts query parameters only.");
+
+    // Public transport has a single explicit scope and the same refresh
+    // arguments/defaults as the established controller. No second cache.
+    const std::string query = requestQueryString(requestTarget);
+    std::map<std::string, int> values = {
+        {"from", -1}, {"timespan", 7200}, {"start", -1},
+        {"limit", 0}, {"channelEventLimit", 50}
+    };
+    std::vector<std::string> seen;
+    std::string backendId;
+    std::size_t offset = 0;
+    while (offset < query.size())
+    {
+        const auto end = query.find('&', offset);
+        const auto item = query.substr(offset, end == std::string::npos
+            ? std::string::npos : end - offset);
+        const auto separator = item.find('=');
+        if (separator == std::string::npos)
+            return problem(400, "invalid_request", "Invalid refresh query parameter.");
+        const auto name = item.substr(0, separator);
+        const auto value = item.substr(separator + 1);
+        if (std::find(seen.begin(), seen.end(), name) != seen.end())
+            return problem(400, "invalid_request", "Duplicate refresh query parameter.");
+        seen.push_back(name);
+        if (name == "backendId")
+            backendId = value;
+        else
+        {
+            const auto found = values.find(name);
+            if (found == values.end())
+                return problem(400, "invalid_request", "Unknown refresh query parameter.");
+            int parsed = 0;
+            const auto converted = std::from_chars(value.data(), value.data() + value.size(), parsed);
+            if (converted.ec != std::errc{} || converted.ptr != value.data() + value.size())
+                return problem(400, "invalid_request", "Refresh query requires integer values.");
+            found->second = parsed;
+        }
+        if (end == std::string::npos) break;
+        offset = end + 1;
+        if (offset == query.size())
+            return problem(400, "invalid_request", "Invalid refresh query parameter.");
+    }
+    if (backendId.empty() || backendId != authorizedBackendId)
+        return problem(403, "backend_scope_denied", "The selected backend is not authorized.");
+    if (!searchTimerPreviewEpgCacheRefreshController_)
+        return problem(503, "service_unavailable", "Preview cache refresh is unavailable.");
+    auto result = searchTimerPreviewEpgCacheRefreshController_->refreshBackend(
+        backendId, values["from"], values["timespan"], values["start"],
+        values["limit"], values["channelEventLimit"]);
+    if (result.statusCode == 404)
+        return problem(404, "backend_not_found", "The selected backend has no preview cache service.");
+    if (result.statusCode != 200)
+        return problem(503, "service_unavailable", "Preview EPG cache refresh failed.");
+    result.headers["Cache-Control"] = "no-store";
+    return result;
+}
+
 ApiResponse ApiRouter::handlePost(
     const std::string& requestTarget,
     const std::string& body,
@@ -735,6 +819,14 @@ ApiResponse ApiRouter::handleGet(
             return response;
         }
 
+        // This is the established private Web browse endpoint, not a
+        // Public-v1 response. Preserve its existing authorization boundary.
+        const std::string publicId = queryParameters.get("recordingId");
+        if (!publicId.empty())
+        {
+            return vdrRecordingFolderController_->getRecordingForBrowser(
+                normalizeBackendId(queryParameters.get("backend")), publicId);
+        }
         return vdrRecordingFolderController_->getFolder(
             normalizeBackendId(queryParameters.get("backend")),
             queryParameters.get("path"),

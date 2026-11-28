@@ -92,6 +92,41 @@ int main()
     assert(result->originalTitle == "Original");
     assert(result->providerTitle == "Explicit provider title");
 
+    VdrRecordingNativeMetadataRecord native;
+    native.backendId = original.backendId;
+    native.backendNativeId = original.backendNativeId;
+    native.recordingKey = "private-recording-key";
+    native.metadata.found = true;
+    native.metadata.voteAverage = 7.5;
+    native.metadata.voteCount = 123;
+    native.metadata.firstAired = "2026-10-19";
+    native.metadata.title = "Persisted scraper title";
+    native.metadata.imdbId = "tt1234567";
+    native.metadata.status = "Returning Series";
+    native.metadata.collectionName = "Collection";
+    native.metadata.absoluteEpisodeNumber = 24;
+    native.metadata.genres = {"Drama", "Mystery"};
+    native.metadata.productionCountries = {"DE"};
+    native.metadata.networks = {"Network"};
+    VdrRecordingNativePerson cast;
+    cast.name = "Example Actor";
+    cast.role = "actor";
+    cast.characterName = "Example Character";
+    cast.image.path = "/private/actor.jpg";
+    native.metadata.people.push_back(cast);
+    PublicRecordingMetadataDetailProjection::applyNativeDetails(original, native, *result);
+    assert(result->voteAverage == 7.5 && result->voteCount == 123);
+    assert(result->firstAired == "2026-10-19");
+    assert(result->providerTitle == "Persisted scraper title");
+    assert(result->imdbId == "tt1234567");
+    assert(result->genres.size() == 2 && result->networks.size() == 1);
+    assert(result->people.size() == 1 && result->people.front().name == "Example Actor");
+    auto wrongNative = native;
+    wrongNative.backendId = "backend-b";
+    wrongNative.metadata.people.front().name = "Other Backend";
+    PublicRecordingMetadataDetailProjection::applyNativeDetails(original, wrongNative, *result);
+    assert(result->people.front().name == "Example Actor");
+
     // Unknown / incomplete provider claims must not fabricate details.
     provider.title.clear();
     provider.originalTitle.clear();
@@ -148,12 +183,19 @@ int main()
     manual.releaseDate = "2025-03-09";
     manual.seasonNumber = 2;
     manual.episodeNumber = 5;
+    ManualRecordingMetadataPerson selectedPerson;
+    selectedPerson.name = "Selected Actor";
+    selectedPerson.characterName = "Selected Character";
+    selectedPerson.profilePath = "/private/manual-actor.jpg";
+    manual.people.push_back(selectedPerson);
     manual.posterReference = "/srv/private/untrusted-manual-poster.png";
     manual.providerId = "secret-provider";
     manual.externalId = "secret-remote-id";
     auto manualDetail = PublicRecordingMetadataDetailProjection::project(
         "backend-a", publicRecording.recordingId, original, publicRecording);
     assert(manualDetail.has_value());
+    PublicRecordingMetadataDetailProjection::applyNativeDetails(original, native, *manualDetail);
+    assert(manualDetail->people.size() == 1);
     assert(PublicRecordingMetadataDetailProjection::applyManualAssignment(
         "backend-a", manual, *manualDetail));
     assert(manualDetail->metadataSource == "manual");
@@ -167,6 +209,11 @@ int main()
     // Projection keeps native subtitle but applies its 1024-byte UTF-8 bound.
     assert(manualDetail->subtitle == std::string(1023, 'x'));
     assert(manualDetail->manualRevision == 4);
+    assert(manualDetail->people.size() == 1);
+    assert(manualDetail->people.front().name == "Selected Actor");
+    assert(manualDetail->voteAverage == 0.0 && manualDetail->genres.empty());
+    PublicRecordingMetadataDetailProjection::applyNativeDetails(original, native, *manualDetail);
+    assert(manualDetail->people.front().name == "Selected Actor");
     assert(manualDetail->manualAssignmentId == manual.metadataAssignmentId);
     assert(manualDetail->metadataEntityId == manual.metadataEntityId);
     assert(manualDetail->tagline.empty());

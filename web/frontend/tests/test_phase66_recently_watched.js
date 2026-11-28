@@ -14,8 +14,9 @@ const apiSource = fs.readFileSync(path.join(repositoryRoot, 'api', 'rest', 'src'
 const historyHeader = fs.readFileSync(path.join(repositoryRoot, 'core', 'media', 'include', 'RecentlyWatched.h'), 'utf8');
 const securitySource = fs.readFileSync(path.join(repositoryRoot, 'core', 'security', 'include', 'ContinueWatchingSecurityRequest.h'), 'utf8');
 
-assert(homeSource.includes('/api/media/recently-watched'));
-assert(syncSource.includes("const HISTORY_ENDPOINT = '/api/media/recently-watched'"));
+assert(homeSource.includes('/api/v1/browser/recording-playback-sessions/activity'));
+assert(syncSource.includes("const PUBLIC_ACTIVITY_ENDPOINT = '/api/v1/browser/recording-playback-sessions/activity'"));
+assert(!syncSource.includes('/api/media/recently-watched'));
 assert(syncSource.includes('snapshotActive(latestSnapshot)'));
 assert(syncSource.includes('owner.subscribe(lifecycleChanged)'));
 assert(syncSource.includes('syncHistory(!prematureEnd, true)'));
@@ -39,7 +40,8 @@ assert(apiSource.includes('recentlyWatchedService_->recordActivity'));
 assert(!apiSource.includes('bool isContinueWatchingRecording('));
 assert(!apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
 assert(!apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
-assert(apiSource.includes('serializeRecentlyWatched(items, currentRecordings)'));
+assert(apiSource.includes('serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_,') &&
+       apiSource.includes('publicBrowser, publicHistoryArtworkLookup_)'));
 assert(
   (apiSource.match(/VdrRecordingMetadataJsonSerializer::presentationTitle\(/g) || []).length >= 3,
   'History/Continue-Watching must use current canonical Recording titles'
@@ -77,7 +79,7 @@ assert(home && home._test);
 
 const base = {
   backendId: 'default',
-  recordingId: 'r1',
+  recordingId: 'rec_11111111111111111111111111111111',
   positionKnown: true,
   positionSeconds: 42,
   completionKnown: true,
@@ -85,11 +87,11 @@ const base = {
   resumeRelevanceKnown: true,
   resumeRelevant: true,
   sourceEvidence: 'canonical-recording-playback-owner',
-  recording: {id: 'r1', recordingId: 'r1', backendId: 'default', title: 'Film'}
+  recording: {id: 'rec_11111111111111111111111111111111', recordingId: 'rec_11111111111111111111111111111111', backendId: 'default', title: 'Film'}
 };
 const normalized = home._test.normalizeItem(base, 'default');
 assert(normalized);
-assert.strictEqual(normalized.recordingId, 'r1');
+assert.strictEqual(normalized.recordingId, 'rec_11111111111111111111111111111111');
 assert.strictEqual(home._test.activityLabel(normalized), 'Fortsetzbar · 0:42');
 assert.strictEqual(home._test.activityLabel({...normalized, completed: true}), 'Angesehen');
 assert.strictEqual(home._test.normalizeItem({...base, backendId: 'other'}, 'default'), null);
@@ -136,7 +138,7 @@ assert(sync && sync.__test);
   await sync.__test.postHistory({
     operation: 'activity',
     backendId: 'default',
-    recordingId: 'r1',
+    recordingId: 'rec_11111111111111111111111111111111',
     positionSeconds: 42,
     resumeSupportKnown: true,
     resumeSupported: true,
@@ -144,7 +146,7 @@ assert(sync && sync.__test);
     operationId: 'rw-test-1'
   });
   assert.strictEqual(syncRequests.length, 1);
-  assert.strictEqual(syncRequests[0].path, '/api/media/recently-watched');
+  assert.strictEqual(syncRequests[0].path, '/api/v1/browser/recording-playback-sessions/activity');
   assert.strictEqual(syncRequests[0].options.credentials, 'same-origin');
   assert.strictEqual(syncRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-history-csrf');
 
@@ -158,12 +160,12 @@ assert(sync && sync.__test);
   };
   await home._test.post({operation: 'list', backendId: 'default'});
   assert.strictEqual(historyRequests.length, 1);
-  assert.strictEqual(historyRequests[0].path, '/api/media/recently-watched');
+  assert.strictEqual(historyRequests[0].path, '/api/v1/browser/recording-playback-sessions/activity');
   assert.strictEqual(historyRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-history-home');
 
   assert.strictEqual(await home._test.openItem(normalized), true);
   assert.strictEqual(opened[0], 'module:recordings2');
-  assert.strictEqual(opened[1].recording.id, 'r1');
+  assert.strictEqual(opened[1].recording.id, 'rec_11111111111111111111111111111111');
   assert.strictEqual(opened[1].options.backendId, 'default');
   assert.strictEqual(opened[1].options.autoStartPlayback, undefined,
     'History opens the canonical Recording surface without inventing resume/playback ownership');

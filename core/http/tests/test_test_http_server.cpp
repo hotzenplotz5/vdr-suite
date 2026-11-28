@@ -1,4 +1,6 @@
 #include "BrowserLiveEventSubscription.h"
+#include "ContinueWatchingApiRuntime.h"
+#include "VdrRecordingCacheRepository.h"
 #include "ApiRouter.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryController.h"
@@ -147,6 +149,112 @@ static void assertEmptyDiscoveryResponse(
 int main()
 {
     {
+        Database historyDb;
+        assert(historyDb.open(":memory:"));
+        VdrRecordingCacheRepository historyCache(historyDb);
+        assert(historyCache.ensureSchema());
+        VdrRecording recording;
+        recording.backendId = "default";
+        recording.id = "history-r1";
+        recording.backendNativeId = "/video/history-r1.rec";
+        recording.path = recording.backendNativeId;
+        recording.title = "History fixture";
+        recording.durationSeconds = 1800;
+        recording.recordingDurationKnown = true;
+        assert(historyCache.upsertRecordingsForBackend("default", {recording}));
+
+        auto& runtime = ContinueWatchingApiRuntime::instance();
+        runtime.reset();
+        int lookups = 0;
+        assert(runtime.configure(historyDb, historyCache,
+            [&lookups](const std::string& backend, const std::string& native)
+            {
+                ++lookups;
+                assert(backend == "default");
+                assert(native == "/video/history-r1.rec");
+                return std::string("rec_0123456789abcdef0123456789abcdef");
+            }, [](const VdrRecording&, const ManualRecordingMetadataAssignment&) {
+                return std::string("0123456789abcdef0123456789abcdef");
+            }));
+        ApiResponse history;
+        const std::string actor = "history-actor";
+        const std::string cw = "/api/media/continue-watching";
+        const std::string rw = "/api/media/recently-watched";
+        const std::string list = R"({"operation":"list","backendId":"default"})";
+        assert(runtime.tryHandlePost(cw,
+            R"({"operation":"progress","backendId":"default","recordingId":"history-r1","operationId":"history-progress","positionSeconds":120,"resumeSupported":true})",
+            actor, history));
+        assert(history.statusCode == 200);
+        assert(runtime.tryHandlePost(rw,
+            R"({"operation":"activity","backendId":"default","recordingId":"history-r1","operationId":"history-activity","positionSeconds":120,"resumeSupportKnown":true,"resumeSupported":true})",
+            actor, history));
+        assert(history.statusCode == 200);
+        for (const auto& route : {cw, rw}) {
+            assert(runtime.tryHandlePost(route, list, actor, history));
+            assert(history.statusCode == 200);
+            assert(history.body.find("\"recording\":{\"publicRecordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("\"recordingId\":\"history-r1\"") != std::string::npos);
+            assert(runtime.tryHandlePost(route, list, "other-actor", history));
+            assert(history.statusCode == 200);
+            assert(history.body.find("publicRecordingId") == std::string::npos);
+        }
+        assert(lookups == 2);
+        const auto resolve = [&recording](const std::string& backend,
+            const std::string& id, VdrRecording& out) {
+            if (backend != "default" || id != "rec_0123456789abcdef0123456789abcdef")
+                return false;
+            out = recording;
+            return true;
+        };
+        const std::string progress = "/api/v1/browser/recording-playback-sessions/progress";
+        const std::string activity = "/api/v1/browser/recording-playback-sessions/activity";
+        const std::string revisionRead = R"({"operation":"revision","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef"})";
+        assert(runtime.tryHandlePost(progress, revisionRead, actor, history, "other", resolve));
+        assert(history.statusCode == 403);
+        assert(runtime.tryHandlePost(progress, revisionRead, actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        // Legacy and Public-v1 observe the same repository revision. Read the
+        // actual baseline instead of assuming the legacy initial revision.
+        const auto baseline = history.body;
+        assert(runtime.tryHandlePost(cw,
+            R"({"operation":"revision","backendId":"default","recordingId":"history-r1"})", actor, history));
+        assert(history.body == baseline);
+        const std::string revision = baseline.substr(baseline.find(':') + 1,
+            baseline.size() - baseline.find(':') - 2);
+        const std::string write = std::string(R"({"operation":"progress","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"public-history-progress","positionSeconds":240,"resumeSupported":true,"notifyLive":true,"expectedRevision":)") + revision + "}";
+        assert(runtime.tryHandlePost(progress, write, actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        assert(history.body.find("history-r1") == std::string::npos);
+        assert(runtime.tryHandlePost(cw, list, actor, history));
+        assert(history.body.find("\"resumePositionSeconds\":240") != std::string::npos);
+        assert(runtime.tryHandlePost(progress,
+            R"({"operation":"clear","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"stale-clear","expectedRevision":0})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 409);
+        assert(runtime.tryHandlePost(progress,
+            R"({"operation":"revision","backendId":"default","recordingId":"history-r1"})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 400);
+        assert(runtime.tryHandlePost(activity,
+            R"({"operation":"activity","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"public-history-activity","positionSeconds":240,"resumeSupportKnown":true,"resumeSupported":true})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        assert(runtime.tryHandlePost(rw, list, actor, history));
+        assert(history.body.find("\"positionSeconds\":240") != std::string::npos);
+        for (const auto& route : {progress, activity}) {
+            assert(runtime.tryHandlePost(route, list, actor, history, "default", resolve));
+            assert(history.statusCode == 200);
+            assert(history.body.find("\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("\"preferredArtworkId\":\"0123456789abcdef0123456789abcdef\"") != std::string::npos);
+            assert(history.body.find("/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork/0123456789abcdef0123456789abcdef?backendId=default") != std::string::npos);
+            assert(history.body.find("\"backendNativeId\"") == std::string::npos);
+            assert(history.body.find("history-r1") == std::string::npos);
+            assert(runtime.tryHandlePost(route, list, "other-actor", history, "default", resolve));
+            assert(history.statusCode == 200 && history.body == "{\"items\":[]}");
+        }
+        runtime.reset();
+    }
+    {
         RequestSecurityContext context;
         context.authenticationState = AuthenticationState::Authenticated;
         context.actor = {"home-a", ActorType::User, "Home A", true};
@@ -197,6 +305,51 @@ int main()
         assert(response.headers.empty());
         request.path = "/api/vdr/recordings/query?backend=default";
         vdrsuite::http::addHomeCacheScope(request, response, context, false, {});
+        assert(response.headers.empty());
+        // Public-v1 genre pages use the same session/backend/grant proof as
+        // the legacy overview, but only after the Public-v1 scope was admitted.
+        context.grants = {{"recordings.view", "default"}};
+        const auto genreScope = vdrsuite::http::browserHomeCacheScope(context, "default");
+        for (const auto& target : {
+            "/api/metadata/genres?backend=default&scope=recordings",
+            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=0",
+            "/api/v1/genres?backendId=default&locale=de&limit=30&offset=30",
+            "/api/v1/recordings?backendId=default&view=folders&limit=100&offset=0",
+            "/api/v1/recordings?backendId=default&view=folders&folderId=fld1_0123456789abcdef0123456789abcdef&limit=12&offset=0"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.body = "{}";
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+            assert(response.headers.at("X-VDR-Suite-Home-Recording-Scope") == genreScope);
+            assert(response.headers.at("X-VDR-Suite-Home-Backend") == "default");
+            assert(response.headers.at("Cache-Control") == "private, no-store");
+            assert(response.headers.count("X-VDR-Suite-Home-History-Scope") == 0);
+            assert(response.body == "{}" && response.statusCode == 200);
+        }
+        for (const auto& target : {
+            "/api/v1/genres?backendId=default&backendId=other",
+            "/api/v1/genres?backendId=default&backend=default",
+            "/api/v1/genres?backend=default",
+            "/api/v1/genres?%62ackendId=default",
+            "/api/v1/genres?backendId=other",
+            "/api/v1/genres/epg?backendId=default"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+            assert(response.headers.empty());
+        }
+        request.path = "/api/v1/genres?backendId=default";
+        response = HttpServerResponse{};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "other");
+        assert(response.headers.empty());
+        vdrsuite::http::addHomeCacheScope(request, response, context, false, "default");
+        assert(response.headers.empty());
+        response.statusCode = 503;
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.empty() && response.statusCode == 503);
+        response = HttpServerResponse{};
+        context.grants = {{"epg.view", "default"}};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
         assert(response.headers.empty());
         context.grants = {{"recordings.view", "default"}};
         request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
@@ -268,6 +421,45 @@ int main()
             vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
             assert(response.headers.at("X-VDR-Suite-Home-Epg-Scope") == epgScope);
             assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
+        }
+
+        // Public previews reuse the same exact domain and session partition.
+        const std::string publicRecording =
+            "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork/0123456789abcdef0123456789abcdef?backendId=default&variant=home";
+        const std::string publicEpg =
+            "/api/v1/epg/artwork?backendId=default&channelId=C-1&eventId=42&variant=home";
+        const std::string publicPreferred =
+            "/api/v1/epg/preferred-artwork?backendId=default&channelId=C-1&eventId=42&variant=home";
+        for (const auto& target : {publicRecording, publicEpg, publicPreferred}) {
+            const bool recordingImage = target == publicRecording;
+            const std::string permission = recordingImage ? "recordings.view" : "epg.view";
+            request.path = target;
+            context.grants = {{permission, "default"}};
+            response = HttpServerResponse{};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+                vdrsuite::http::browserHomeCacheScope(context, "default"));
+            assert(response.headers.at("Cache-Control") == "private, no-cache");
+            for (const auto& invalid : {target + "&backendId=other", target + "&variant=home",
+                    target + "&unknown=1", target.substr(0, target.find("&variant=home"))}) {
+                request.path = invalid;
+                response = HttpServerResponse{};
+                vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+                assert(response.headers.empty());
+            }
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"other"});
+            assert(response.headers.empty());
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, false, {"default"});
+            assert(response.headers.empty());
+            response.statusCode = 404;
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.empty());
+            response = HttpServerResponse{};
+            context.grants = {{recordingImage ? "epg.view" : "recordings.view", "default"}};
+            vdrsuite::http::addPublicHomeArtworkScope(request, response, context, true, {"default"});
+            assert(response.headers.empty());
         }
 
         const std::string seriesTarget =
@@ -681,7 +873,9 @@ int main()
         std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&channelId=other"),
         std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&eventId=43"),
         std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&%65ventId=43"),
-        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&unknown=1")
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&unknown=1"),
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=other"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=home&variant=home")
     })
     {
         HttpServerRequest artworkRequest;
@@ -694,6 +888,35 @@ int main()
         assert(artworkResponse.body.find("invalid_epg_artwork_scope") !=
             std::string::npos);
     }
+
+    for (const auto* route : {"/api/v1/epg/artwork", "/api/v1/epg/preferred-artwork"})
+    {
+        HttpServerRequest artworkRequest;
+        artworkRequest.method = "GET";
+        artworkRequest.path = std::string(route) +
+            "?backendId=default&channelId=S19.2E-1-100&eventId=42";
+        authorize(artworkRequest);
+        const auto original = server.handleRequest(artworkRequest);
+        artworkRequest.path += "&variant=home";
+        const auto previewSource = server.handleRequest(artworkRequest);
+        assert(original.statusCode != 400);
+        assert(previewSource.statusCode == original.statusCode);
+        assert(previewSource.body == original.body);
+    }
+
+    // The Genre variant is valid only on preferred-artwork and reuses
+    // the direct image owner if no portrait is materialized in the index.
+    HttpServerRequest genreArtworkRequest;
+    genreArtworkRequest.method = "GET";
+    genreArtworkRequest.path = "/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42";
+    authorize(genreArtworkRequest);
+    const auto directGenreFallback = server.handleRequest(genreArtworkRequest);
+    genreArtworkRequest.path = "/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=genre";
+    const auto selectedGenreArtwork = server.handleRequest(genreArtworkRequest);
+    assert(selectedGenreArtwork.statusCode == directGenreFallback.statusCode);
+    assert(selectedGenreArtwork.body == directGenreFallback.body);
+    genreArtworkRequest.path = "/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&variant=genre";
+    assertJsonResponse(server.handleRequest(genreArtworkRequest), 400);
 
     HttpServerRequest anonymousFrontendRequest;
     anonymousFrontendRequest.method = "GET";

@@ -26,7 +26,9 @@
 
   function isPublicRecordingImageUrl(value) {
     const url = shared.text(value);
-    return url.startsWith('/recording-artwork/') ||
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return (helpers && helpers.isPublicRecordingMetadataImageUrl(url)) ||
+      url.startsWith('/recording-artwork/') ||
       url.startsWith('/api/vdr/recordings/artwork') ||
       url.startsWith('/api/recordings/artwork') ||
       url.startsWith('/api/vdr/recordings/metadata/image?') ||
@@ -47,7 +49,7 @@
       return poster;
     }
     const image = document.createElement('img');
-    image.src = url;
+    image.src = shared.publicPath(url);
     image.alt = 'Poster zu ' + shared.recordingTitle(recording);
     image.loading = 'lazy';
     image.decoding = 'async';
@@ -73,7 +75,7 @@
     copy.appendChild(shared.node(
       'span',
       'recordings2-person-recording-meta',
-      shared.formatStart(shared.first(recording, ['startTime'], '')) + ' · ' +
+      shared.formatStart(shared.first(recording, ['recordedAt', 'startTime'], '')) + ' · ' +
         shared.formatDuration(shared.first(recording, ['durationSeconds'], 0))
     ));
     button.appendChild(copy);
@@ -85,8 +87,7 @@
     details.appendChild(shared.node(
       'p',
       '',
-      'Größe: ' + shared.formatSize(shared.first(recording, ['sizeMb'], 0)) +
-        ' · Pfad: ' + shared.text(shared.first(recording, ['path'], ''))
+      'Größe: ' + shared.formatSize(shared.first(recording, ['sizeMb'], 0))
     ));
     button.addEventListener('click', function () {
       details.hidden = !details.hidden;

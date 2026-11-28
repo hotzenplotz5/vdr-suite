@@ -90,6 +90,7 @@ bool requestMatches(
         payload.nativeTimerBindingId == request.nativeTimerBindingId &&
         payload.expectedSpecificationFingerprint ==
             request.expectedSpecificationFingerprint &&
+        payload.specification.aux == request.expectedSpecification.aux &&
         backendAgentNativeTimerCreateSpecificationFingerprint(payload.specification) ==
             request.expectedSpecificationFingerprint;
 }

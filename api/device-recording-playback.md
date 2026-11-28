@@ -158,3 +158,9 @@ against competing older clients.
 ### Recently Watched Device read
 
 `GET /api/v1/recording-playback-sessions/recently-watched?backendId=...` projects the existing canonical RecentlyWatched service, not Continue Watching or a new history store. It uses the same verified Device credential, exact-backend playback grant, explicit playback-account binding and current per-recording admission as Continue Watching. It returns up to 100 public recording IDs in canonical activity order, title/subtitle, position and completion known flags and last activity. Native IDs and paths remain private. This read alone does not create activity, provide a native playback mapping or establish live SSE delivery.
+
+The reference JavaScript client additionally exposes `getRecentlyWatched`,
+`getRecordingTrickplay` (JPEG bytes and index-derived sampleSeconds) and
+`selectRecordingSubtitle` (WebVTT text, or JSON data for off). These are
+transport wrappers over the existing Device runtime and do not add media
+paths, playback profiles, permissions or a second subtitle converter.

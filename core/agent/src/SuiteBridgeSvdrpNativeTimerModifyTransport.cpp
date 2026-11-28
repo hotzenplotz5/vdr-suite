@@ -62,7 +62,8 @@ SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::executeNativeTimerModifyContr
 {
  const auto& c=request.command;const auto& q=c.localProviderSelection;const auto& s=c.specification;
  std::ostringstream wire;wire<<"PLUG suitebridge NTMOD EXEC vdr-suite-native/1 "
- <<backendAgentNativeTimerModifyCapability(c.kind)<<" 1 "<<c.commandId<<' '
+ <<backendAgentNativeTimerModifyCapability(c.kind)<<
+ (c.modifyAux?" 2 ":" 1 ")<<c.commandId<<' '
  <<c.requestFingerprint<<' '<<c.operationId<<' '<<c.operationRevision<<' '
  <<c.nativeTimerBindingId<<' '<<c.expectedBindingRevision<<' '
  <<c.expectedCurrentFingerprint<<' '<<c.timerAssignmentId<<' '<<c.backendNativeTimerId<<' '
@@ -74,7 +75,10 @@ SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::executeNativeTimerModifyContr
  <<c.backendGeneration<<' '<<c.controlPlaneClaimedAt<<' '<<q.authorityDomain<<' '
  <<q.providerId<<' '<<q.providerKind<<' '<<q.ownershipGeneration<<' '
  <<q.providerInstanceEpoch<<' '<<q.providerGeneration<<' '<<q.capabilityRevision<<' '
- <<q.requiredCapability<<' '<<request.localStartingPersistedAt<<"\r\n";
+ <<q.requiredCapability<<' '<<request.localStartingPersistedAt;
+ if(c.modifyAux)
+   wire<<" 1 "<<c.expectedAuxFingerprint<<' '<<hexText(c.desiredAux);
+ wire<<"\r\n";
  return executeRequest(wire.str());
 }
 

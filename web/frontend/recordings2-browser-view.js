@@ -22,7 +22,8 @@
           getState: getState,
           closeDetail: options.closeDetail,
           reload: options.reload,
-          completeDelete: options.completeDelete
+          completeDelete: options.completeDelete,
+          completeAction: options.completeAction
         })
       : null;
     let activePlayback = null; let detailStartRevealed = false;
@@ -61,15 +62,16 @@
       breadcrumbs.className = 'recordings2-breadcrumbs';
       breadcrumbs.setAttribute('aria-label', 'Aufnahmeordner');
       breadcrumbs.appendChild(shared.createButton('Aufnahmen', function () { options.openFolder(''); }));
-      const parts = shared.normalizePath(currentState.path).split('/').filter(Boolean);
       let current = '';
-      parts.forEach(function (part) {
-        current = current ? current + '/' + part : part;
-        const target = current;
-        const separator = shared.node('span', 'recordings2-separator', '›');
-        breadcrumbs.appendChild(separator);
-        breadcrumbs.appendChild(shared.createButton(
-          shared.decodeDisplayText(part), function () { options.openFolder(target); }));
+      const crumbs = typeof currentState.folderId === 'string'
+        ? (currentState.breadcrumbs || []).map(crumb=>({name:crumb.name,target:{folderId:crumb.folderId}}))
+        : shared.normalizePath(currentState.path).split('/').filter(Boolean).map(function (part) {
+          current = current ? current + '/' + part : part;
+          return {name:shared.decodeDisplayText(part),target:current};
+        });
+      crumbs.forEach(function (crumb) {
+        breadcrumbs.appendChild(shared.node('span', 'recordings2-separator', '›'));
+        breadcrumbs.appendChild(shared.createButton(crumb.name, function () { options.openFolder(crumb.target); }));
       });
       return breadcrumbs;
     }
@@ -94,9 +96,10 @@
         toolbar.appendChild(shared.createButton(
           currentState.detailReturnLabel || '← Zum Ordner', options.closeDetail, 'recordings2-primary'));
         if (typeof options.goHome === 'function') toolbar.appendChild(shared.createButton(currentState.detailHomeLabel || '⌂ Home', options.goHome, 'recordings2-primary recordings2-home'));
-      } else if (currentState.path) {
+      } else if (currentState.path || currentState.folderId) {
         toolbar.appendChild(shared.createButton('← Zurück',
-          function () { options.openFolder(currentState.parentPath || ''); }, 'recordings2-primary'));
+          function () { options.openFolder(typeof currentState.folderId === 'string'
+            ? {folderId:currentState.parentFolderId || ''} : currentState.parentPath || ''); }, 'recordings2-primary'));
       }
       toolbar.appendChild(shared.createButton('Neu laden', options.reload));
       header.appendChild(toolbar);
@@ -144,8 +147,8 @@
       const status = createStatus('Aufnahmeordner wird geladen …',
         currentState.path
           ? 'Ordner: ' + shared.decodeDisplayText(currentState.path)
-          : 'Lade den Hauptordner.',
-        false, '/api/vdr/recordings/folder · Backend ' + currentState.backendId);
+          : currentState.folderId ? 'Lade den ausgewählten Ordner.' : 'Lade den Hauptordner.',
+        false, 'Backend ' + currentState.backendId);
       const progress = document.createElement('progress');
       progress.className = 'recordings2-progress';
       progress.setAttribute('aria-label', 'Aufnahmeordner wird geladen');
@@ -167,8 +170,7 @@
         : String(currentState.error || 'Unbekannter Fehler');
       const status = createStatus('Aufnahmeordner konnte nicht geladen werden',
         message, true, 'Backend: ' + currentState.backendId +
-          ' · Pfad: ' + (currentState.path || '<Hauptordner>') +
-          ' · Endpunkt: /api/vdr/recordings/folder');
+          ' · Ordner: ' + (currentState.folderId || currentState.path || '<Hauptordner>'));
       status.appendChild(shared.createButton('Erneut versuchen', options.reload, 'recordings2-primary'));
       root.appendChild(status);
       target.appendChild(root);
@@ -194,12 +196,14 @@
       const copy = document.createElement('span');
       copy.className = 'recordings2-folder-copy';
       copy.appendChild(shared.node('span', 'recordings2-folder-name',
-        shared.decodeDisplayText(shared.first(folder, ['name'], 'Ordner'))));
+        folder.kind === 'folder' ? shared.first(folder, ['name'], 'Ordner') :
+          shared.decodeDisplayText(shared.first(folder, ['name'], 'Ordner'))));
       copy.appendChild(shared.node('span', 'recordings2-folder-meta',
         String(shared.number(folder.recordingCount, 0)) + ' Aufnahme(n) · antippen zum Öffnen'));
       button.append(icon, copy, shared.node('span', 'recordings2-chevron', '›'));
       button.addEventListener('click', function () {
-        options.openFolder(shared.normalizePath(shared.first(folder, ['path'], '')));
+        options.openFolder(folder.kind === 'folder' && folder.folderId
+          ? {folderId:folder.folderId} : shared.normalizePath(shared.first(folder, ['path'], '')));
       });
       return button;
     }
@@ -276,7 +280,7 @@
 
       const returned = shared.number(data.returnedCount, shared.recordingList(data).length);
       const totalRecordings = shared.number(data.recordingCount, recordings.length);
-      if (recordings.length < totalRecordings && returned > 0) {
+      if (data.publicFolder === true ? data.hasMore === true : recordings.length < totalRecordings && returned > 0) {
         const more = shared.createButton(
           currentState.loadingMore
             ? 'Weitere Aufnahmen werden geladen …'
@@ -326,10 +330,10 @@
       const provider = shared.provider(recording);
       const details = document.createElement('section');
       details.className = 'recordings2-detail-grid';
-      details.appendChild(detailField('Aufgenommen', shared.formatStart(shared.first(recording, ['startTime', 'start'], ''))));
+      details.appendChild(detailField('Aufgenommen', shared.formatStart(shared.first(recording, ['recordedAt', 'startTime', 'start'], ''))));
       details.appendChild(detailField('Dauer', shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0))));
       details.appendChild(detailField('Größe', shared.formatSize(shared.first(recording, ['sizeMb'], 0))));
-      details.appendChild(detailField('Ordner', shared.first(recording, ['path'], currentState.path || 'Hauptordner')));
+      details.appendChild(detailField('Ordner', shared.first(recording, ['path'], (currentState.breadcrumbs || []).map(crumb => crumb.name).join(' / ') || currentState.path || 'Hauptordner')));
       details.appendChild(detailField('Genre', shared.first(provider, ['genreText'], '')));
       details.appendChild(detailField('Veröffentlichung', shared.first(provider, ['releaseDate'], '')));
       details.appendChild(detailField(

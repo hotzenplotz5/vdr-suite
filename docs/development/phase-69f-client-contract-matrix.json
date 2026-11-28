@@ -96,7 +96,7 @@
         "fetchClientTimerUpdateAction",
         "fetchClientTimerDeleteAction"
       ],
-      "note": "Legacy/native Timer browser semantics are not equivalent to public TimerAssignment resources."
+      "note": "Native Timer browser semantics are not equivalent to TimerAssignment resources. The active editor and live/conflict readers now use Public-v1 native Timer contracts, while retained legacy mutation wrappers await final caller inventory and removal."
     },
     {
       "domain": "channels",
@@ -106,7 +106,7 @@
         "fetchClientChannels",
         "fetchClientChannelMoveAction"
       ],
-      "note": "The public Channel collection is explicit-source/federated and is not a drop-in replacement for the browser channel route; move mutation has no public-v1 equivalent."
+      "note": "Timer editors, channel sorter list and EPG detail sender-name resolution use the compact public Channel collection with numeric order and cursor traversal. The full browser channel projection and move mutation remain pre-v1; the catalog retains its independently authorized browser compatibility read."
     },
     {
       "domain": "broadcast-companion",
@@ -166,11 +166,11 @@
     {
       "domain": "global-search",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "scoped-public-v1",
       "exports": [
         "fetchClientGlobalSearch"
       ],
-      "note": "Current global search is a first-party transition route, not a public-v1 search contract."
+      "note": "Combined Public-v1 search and existing public Recording/EPG artwork are source candidates. The existing authenticated browser route remains a narrow compatibility path; recording detail opens through the existing opaque-to-private bridge. Historical accepted reference inventory is unchanged."
     },
     {
       "domain": "epg-cache",
@@ -188,13 +188,13 @@
     {
       "domain": "metadata-persons",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientMetadata",
         "fetchClientPersons",
         "fetchClientRecordingPersons"
       ],
-      "note": "Metadata and people reads remain pre-v1 until stable resource identity and representation are defined."
+      "note": "Recording and EPG cast-related Recording search now use GET /api/v1/search/recordings with match=person, the existing recordings.view backend scope and opaque artwork/Recording IDs. General metadata and persons reads remain pre-v1."
     },
     {
       "domain": "recordings",
@@ -205,7 +205,7 @@
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution"
       ],
-      "note": "Recording collection/action contracts are not yet public-v1."
+      "note": "Legacy recording collection/action wrappers remain transition surfaces; the scoped public action wrapper is inventoried separately."
     },
     {
       "domain": "recording-support",
@@ -214,9 +214,22 @@
       "exports": [
         "fetchClientRecordingCacheStatus",
         "fetchClientRecordingFolder",
-        "fetchClientRecordingTrailer"
+        "fetchClientRecordingForPublicId"
       ],
-      "note": "Cache/folder/trailer helpers are first-party support surfaces and are not public compatibility promises."
+      "note": "Cache/folder and opaque-to-private recording detail helpers remain first-party support surfaces, not public compatibility promises."
+    },
+    {
+      "domain": "recording-public-candidates",
+      "classification": "bounded-domain-plane",
+      "publicV1Relation": "partial-non-equivalent",
+      "exports": [
+        "fetchPublicRecordingAction",
+        "fetchClientRecordingTrailer",
+        "fetchPublicHomeMovies",
+        "fetchPublicHomeNew",
+        "fetchPublicRecordingFolder"
+      ],
+      "note": "Scoped Public-v1 recording action validate/execute, backend-scoped metadata trailer and Home movie, newly-recorded and mixed folder offset read wrappers. Source candidates, not new accepted compatibility promises."
     },
     {
       "domain": "search-timers",
@@ -234,7 +247,7 @@
         "fetchClientSearchTimerUpdateAction",
         "fetchClientSearchTimerDeleteAction"
       ],
-      "note": "New Public-v1 read-only Device SearchTimer collection does not implement the Web's legacy preview or write operations; retained aliases remain pre-v1."
+      "note": "Retained legacy wrappers remain pre-v1; the active Browser SearchTimer editor now uses the scoped Public-v1 reads, previews and writes."
     },
     {
       "domain": "search-timer-cache",
@@ -243,18 +256,20 @@
       "exports": [
         "fetchClientSearchTimerPreviewCacheRefresh"
       ],
-      "note": "Preview-cache refresh is first-party cache maintenance, not a public client contract."
+      "note": "Historical first-party cache maintenance classification. The active Browser wrapper now uses POST /api/v1/search-timers/preview-cache/refresh with the existing permission and cache service; legacy server aliases remain transition surfaces. Final acceptance pending."
     },
     {
       "domain": "genre-extension",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientGenres",
+        "fetchPublicRecordingGenres",
         "fetchClientGenreRecordings",
-        "fetchClientGenreEpg"
+        "fetchClientGenreEpg",
+        "fetchPublicGenreRecordings"
       ],
-      "note": "Genre extension routes remain pre-v1 metadata/browse helpers."
+      "note": "Recording overview/membership and EPG overview/result cards use Public v1. The public result includes the persisted sender, description and canonical portrait selection; the 48-card Web page and exact time window are preserved. Explicit older-daemon/independently authorized browser compatibility reads remain; the selected-recording identity bridge is separately classified."
     },
     {
       "domain": "live-remote-extension",
@@ -280,9 +295,10 @@
         "fetchPublicSearchTimerDetail",
         "fetchPublicSearchTimerVersion",
         "fetchPublicSearchTimerPreview",
+        "fetchPublicSearchTimerDraftPreview",
         "mutatePublicSearchTimer"
       ],
-      "note": "Browser administrators use scoped Public-v1 SearchTimer reads, CREATE, and version-fenced native mutations with existing CSRF, idempotency and actor-owned Operation GET/SSE. Legacy mutation wrappers remain transition-only and are no longer used by the SearchTimer cards."
+      "note": "Browser sessions use scoped Public-v1 SearchTimer reads, saved and draft EPG previews, CREATE, and version-fenced native mutations with existing CSRF, idempotency and actor-owned Operation GET/SSE. Legacy mutation wrappers remain transition-only and are no longer used by the SearchTimer cards."
     },
     {
       "domain": "epg-timer-create",

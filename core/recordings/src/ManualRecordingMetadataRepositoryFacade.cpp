@@ -246,18 +246,34 @@ struct StoredProfile
     std::string path;
 };
 
-std::map<std::string, StoredProfile> loadStoredProfiles(Database& database)
+std::map<std::string, StoredProfile> loadStoredProfiles(
+    Database& database, const std::string& assignmentId = {})
 {
     std::map<std::string, StoredProfile> profiles;
     if (!database.tableExists("suite_metadata_person_profiles")) return profiles;
 
     sqlite3_stmt* statement = nullptr;
-    const char* sql =
+    // The individual read uses the same stored-profile owner but reads only
+    // the people in the already resolved assignment, not the entire cache.
+    const std::string sql =
         "SELECT provider_id,external_namespace,external_id,"
-        "profile_reference,local_path FROM suite_metadata_person_profiles;";
+        "profile_reference,local_path FROM suite_metadata_person_profiles profile" +
+        (assignmentId.empty() ? std::string(";") :
+            " WHERE EXISTS(SELECT 1 FROM suite_metadata_recording_person_relations r "
+            "JOIN suite_metadata_person_values p ON p.metadata_entity_id=r.person_entity_id "
+            "WHERE r.metadata_assignment_id=? AND p.provider_id=profile.provider_id "
+            "AND p.external_namespace=profile.external_namespace "
+            "AND p.external_id=profile.external_id);");
     if (sqlite3_prepare_v2(
-            database.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+            database.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
         return profiles;
+    if (!assignmentId.empty() &&
+        sqlite3_bind_text(statement, 1, assignmentId.c_str(),
+            -1, SQLITE_TRANSIENT) != SQLITE_OK)
+    {
+        sqlite3_finalize(statement);
+        return profiles;
+    }
 
     while (sqlite3_step(statement) == SQLITE_ROW)
     {
@@ -511,13 +527,18 @@ MetadataRepository::getManualRecordingMetadataReadOnly(
     const std::string& backendId,
     const std::string& resourceKey)
 {
-    // Resolve the SAME canonical cache identity as Web manual metadata,
-    // but never run metadata schema initialization or person-image lookups.
-    // No DDL, network access or provider candidate search is permitted here.
+    // Resolve the SAME canonical cache identity as Web manual metadata.
+    // Existing locally persisted portrait facts are read-only data: no
+    // schema initialization, materialization, network or provider search.
     const std::string backend = normalizedBackendId(backendId);
-    return manualRepository().findSelectedReadOnly(
+    auto result = manualRepository().findSelectedReadOnly(
         backend,
         resolveResourceKey(database_, backend, resourceKey));
+    if (result.found && !result.metadataAssignmentId.empty() &&
+        !result.people.empty())
+        applyStoredProfiles(result,
+            loadStoredProfiles(database_, result.metadataAssignmentId));
+    return result;
 }
 
 std::map<std::string, ManualRecordingMetadataAssignment>

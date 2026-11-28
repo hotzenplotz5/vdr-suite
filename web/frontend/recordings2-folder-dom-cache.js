@@ -12,7 +12,8 @@
     let backend = null;
 
     function folderKey(value) {
-      return String(value.backendId || 'default') + '\u0000' + shared.normalizePath(value.path);
+      return String(value.backendId || 'default') + '\u0000' + (typeof value.folderId === 'string'
+        ? 'public:' + value.folderId : shared.normalizePath(value.path));
     }
 
     function recordingIdentity(recording) {

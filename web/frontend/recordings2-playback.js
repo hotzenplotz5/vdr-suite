@@ -50,24 +50,26 @@
 
   function createSession(backendId, recording) {
     const api = global.VdrSuiteClientApi;
-    const id = recordingId(recording);
+    const shared = global.VdrSuiteRecordings2Shared;
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
-    if (!id) {
-      return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+    if (!shared || typeof shared.resolvePublicRecordingId !== 'function') {
+      return Promise.reject(new Error('Die öffentliche Recording-ID ist nicht verfügbar.'));
     }
 
-    return api.requestJson('/api/media/sessions', {
-      method: 'POST',
-      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-      body: JSON.stringify({
-        backendId: text(backendId || 'default'),
-        recordingId: id,
-        capabilities: capabilities()
-      }),
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return shared.resolvePublicRecordingId(recording, backendId, api, function (id) {
+      return api.requestJson('/api/v1/browser/recording-playback-sessions', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+        body: JSON.stringify({
+          backendId: text(backendId || 'default'),
+          recordingId: id,
+          capabilities: capabilities()
+        }),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
     });
   }
 
@@ -116,7 +118,7 @@
     if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
     if (!id) return Promise.resolve(null);
 
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -157,7 +159,7 @@
     const id = safeSessionId(sessionId);
     if (!id || typeof global.fetch !== 'function') return Promise.resolve(null);
 
-    return global.fetch('/api/media/sessions', {
+    return global.fetch('/api/v1/browser/recording-playback-sessions/control', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({
@@ -199,7 +201,7 @@
   function safeMediaPath(value) {
     const path = text(value).trim();
     if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
-    return /^\/api\/media\/sessions\/[A-Za-z0-9._:-]+\/hls\/master\.m3u8$/.test(path)
+    return /^\/api\/(?:v1\/)?media\/sessions\/[A-Za-z0-9._:-]+\/hls\/master\.m3u8$/.test(path)
       ? path
       : '';
   }

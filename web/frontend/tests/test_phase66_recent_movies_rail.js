@@ -471,6 +471,67 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(await api._test.loadMoreMovies(), true);
   assert.strictEqual(calls.length, beforeSaver + 2);
   assert.strictEqual(timers.length, 0);
+  // Same film rail and DOM owner, now composed with the actual public JSON
+  // client. Compare ordered public cards against the native baseline.
+  // The earlier speculative-page test used only a partial cache double.
+  // Full raw HTTP provenance is exercised in test_home_cache_runtime.js.
+  window.VdrSuiteHomeCache = null;
+  const publicRequests = [];
+  const publicRows = allRecordings.map((recording, index) => ({
+    kind: 'recording', recordingId: 'rec_' + String(index + 1).padStart(32, '0'),
+    backendId: 'default', title: recording.metadata.presentation.title,
+    recordedAt: '2026-11-27T10:00:00Z',
+    releaseDate: recording.metadata.provider.releaseDate,
+    preferredArtworkId: 'a'.repeat(32)
+  }));
+  const wrapper = fs.readFileSync(path.join(frontendRoot, 'api/client-api.js'), 'utf8');
+  let publicFailure = 0;
+  vm.runInNewContext(wrapper, {window, URLSearchParams, fetch(url) {
+    const parsed = new URL(url, 'https://test.invalid');
+    publicRequests.push(parsed);
+    assert.strictEqual(parsed.pathname, '/api/v1/recordings');
+    assert.strictEqual(parsed.searchParams.get('view'), 'movies');
+    assert.strictEqual(parsed.searchParams.get('backendId'), 'default');
+    if (publicFailure) return Promise.resolve({ok:false, status:publicFailure,
+      text:()=>Promise.resolve('{"code":"permission_denied"}')});
+    const offset = Number(parsed.searchParams.get('offset'));
+    const limit = Number(parsed.searchParams.get('limit'));
+    const items = publicRows.slice(offset, offset + limit);
+    return Promise.resolve({ok:true, text:()=>Promise.resolve(JSON.stringify({
+      items, page:{limit,offset,totalCount:publicRows.length,
+        hasMore:offset+items.length<publicRows.length}, meta:{partial:false}
+    }))});
+  }});
+  window.VdrSuitePlatform.getClientApi = () => window.VdrSuiteClientApi;
+  window.VdrSuiteHomeRecordingDiscovery._test.recordingPosterUrl = recording =>
+    '/api/v1/recordings/' + recording.recordingId + '/artwork/' +
+      recording.preferredArtworkId + '?backendId=' + recording.backendId;
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot, 'platform/helpers.js'), 'utf8'), {window});
+  assert.strictEqual(await api.refresh(), true);
+  assert.strictEqual(publicRequests.length, 1);
+  const publicCards = findElements(movieSection, el => Boolean(el.dataset && el.dataset.recordingId));
+  assert.deepStrictEqual(publicCards.map(card => card.dataset.recordingId),
+    publicRows.slice(0,12).map(row => row.recordingId));
+  assert.strictEqual(publicCards[0].dataset.movieYear, String(currentYear));
+  assert.strictEqual(findElement(publicCards[0], el => el.tagName === 'IMG').src,
+    '/api/v1/recordings/' + publicRows[0].recordingId + '/artwork/' +
+      'a'.repeat(32) + '?backendId=default&variant=home');
+  publicCards[0].listeners.click[0]();
+  await Promise.resolve();
+  assert.strictEqual(opened.at(-1).recording.recordingId, publicRows[0].recordingId);
+  assert.strictEqual(await api._test.loadMoreMovies(), true);
+  assert.strictEqual(publicRequests.length, 2);
+  assert.strictEqual(publicRequests[1].searchParams.get('offset'), '12');
+  assert.deepStrictEqual(findElements(movieSection, el => Boolean(el.dataset && el.dataset.recordingId))
+    .map(card => card.dataset.recordingId), publicRows.map(row => row.recordingId));
+  // Authorization errors never invoke the legacy route.
+  publicFailure = 403;
+  const beforeDenied = publicRequests.length;
+  await assert.rejects(window.VdrSuiteClientApi.fetchPublicHomeMovies({
+    query:{backend:'default',offset:0,limit:12,
+      movieReleaseYearFrom:currentYear-4,movieReleaseYearTo:currentYear}
+  }), err => err.status === 403);
+  assert.strictEqual(publicRequests.length, beforeDenied + 1);
   console.log('phase66 recent movies rail contract ok');
 }()).catch(function (error) {
   console.error(error);

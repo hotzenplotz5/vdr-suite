@@ -1,6 +1,9 @@
 /* Read-only, opt-in browser artwork measurement. No URLs or credentials in reports. */
 (function (root) {
   'use strict';
+  function publicRecordingArtworkPath(path) {
+    return /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}$/.test(path);
+  }
   function summarizeResources(entries, baseUrl) {
     const rows = new Map();
     const bounds = [0, 16384, 65536, 262144, 1048576, Infinity];
@@ -18,10 +21,12 @@
       if (/^\/api\/(?:vdr\/)?recordings\/metadata\/image(?:\/|$)/.test(path)) return 'recording-metadata-image';
       if (/^\/api\/epg\/cache\/metadata\/image(?:\/|$)/.test(path)) return 'epg-metadata-image';
       if (/^\/channel-logos(?:\/|$)/.test(path)) return 'channel-logo';
-      if (/^\/recording-artwork(?:\/|$)/.test(path)) return 'recording-artwork';
+      if (publicRecordingArtworkPath(path) || /^\/recording-artwork(?:\/|$)/.test(path)) return 'recording-artwork';
       if (/^\/api\/backends\/[^/]+\/settings\/series-artwork\/image$/.test(path)) return 'series-artwork';
       if (/^\/api\/epg\/cache(?:\/|$)/.test(path)) return 'epg-cache-api';
-      if (/^\/api\/(?:vdr\/)?recordings(?:\/|$)/.test(path)) return 'recordings-api';
+      if (/^\/api\/(?:vdr\/|v1\/)?recordings(?:\/|$)/.test(path) ||
+          path === '/api/v1/search/recordings' ||
+          /^\/api\/v1\/backends\/[^/]+\/recordings\/metadata(?:\/|$)/.test(path)) return 'recordings-api';
       if (/^\/api\/(?:vdr\/)?channels(?:\/|$)/.test(path)) return 'channels-api';
       if (/^\/api\//.test(path)) return 'other-api';
       if (/^\/frontend\//.test(path)) return 'frontend-static';
@@ -96,7 +101,16 @@
         return b.transferBytes - a.transferBytes || a.category.localeCompare(b.category) || a.status.localeCompare(b.status) || a.initiator.localeCompare(b.initiator);
       });
     }
-    function recordingCategory(path) {
+    function recordingCategory(path, url) {
+      if (publicRecordingArtworkPath(path)) return null;
+      if (path === '/api/v1/recordings') {
+        const view = url.searchParams.get('view');
+        return view === 'folders' ? 'public-folder-read' : 'public-recording-list';
+      }
+      if (/^\/api\/v1\/recordings\/rec_[0-9a-f]{32}$/.test(path)) return 'public-recording-detail';
+      if (path === '/api/v1/search/recordings') return 'public-recording-search';
+      if (/^\/api\/v1\/backends\/[^/]+\/recordings\/metadata(?:\/|$)/.test(path)) return 'public-manual-metadata-workflow';
+      if (/^\/api\/v1\/recordings(?:\/|$)/.test(path)) return 'other-public-recording-api';
       const normalized = path.replace(/^\/api\/(?:vdr\/)?/, '/api/');
       if (normalized === '/api/recordings/metadata') return 'metadata-read';
       if (normalized === '/api/recordings/query') return 'recording-query';
@@ -129,7 +143,7 @@
       try { url = new URL(entry.name, base); } catch (_) { return; }
       if (url.origin !== base.origin) return;
       const path = url.pathname.replace(/^\/vdr-suite(?=\/)/, '');
-      const recording = recordingCategory(path);
+      const recording = recordingCategory(path, url);
       if (recording) addRow(recordingRows, [recording, status, initiator], entry, entry.name);
       if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image' || route === 'series-artwork') {
         const revision = url.searchParams.has(route === 'series-artwork' ? 'revision' : 'assignmentRevision') ? 'revisioned' : 'unversioned';
@@ -263,7 +277,7 @@
             path.startsWith('/api/recordings/metadata/image') ||
             path.startsWith('/api/epg/cache/metadata/image') ||
             path.startsWith('/api/epg/cache/artwork') ||
-            path.startsWith('/recording-artwork/') ||
+            path.startsWith('/recording-artwork/') || publicRecordingArtworkPath(path) ||
             (path.startsWith('/api/backends/') && path.endsWith('/settings/series-artwork/image'))))
         return false;
       const rect = image.getBoundingClientRect();

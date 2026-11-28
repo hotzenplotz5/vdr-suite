@@ -224,11 +224,19 @@ const trailerContext = vm.createContext({
     VdrSuiteRecordings2Shared: {
       text(value) {
         return value === undefined || value === null ? '' : String(value);
+      },
+      first(recording, keys, fallback) {
+        for (const key of keys) {
+          if (recording && recording[key] !== undefined && recording[key] !== null)
+            return recording[key];
+        }
+        return fallback;
       }
     }
   },
   console
 });
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), trailerContext);
 vm.runInContext(source, trailerContext, {filename: 'recordings2-hero-detail.js'});
 const trailerRuntime = trailerContext.window.VdrSuiteRecordings2HeroDetail;
 assert(trailerRuntime && trailerRuntime.__test);
@@ -257,65 +265,73 @@ trailerRuntime.__test.showMode({
 assert.strictEqual(unchangedExits, 0, 'Already-visible Details should not recreate the owner');
 
 const trailerIdentity = trailerRuntime.__test.trailerIdentity;
-
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    manualAssignment: {
-      active: true,
-      providerId: 'tmdb',
-      externalNamespace: 'movie',
-      externalId: '11120'
-    }
-  }))),
-  {mediaType: 'movie', externalId: '11120'}
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    manualAssignment: {
-      active: true,
-      providerId: 'tmdb',
-      externalNamespace: 'tv',
-      externalId: '19885'
-    }
-  }))),
-  {mediaType: 'series', externalId: '19885'}
-);
-assert.strictEqual(trailerIdentity({
-  available: true,
-  manualAssignment: {
-    active: true,
-    providerId: 'tmdb',
-    externalNamespace: 'tv-episode',
-    externalId: '123'
-  }
-}), null, 'episode assignments must not guess a parent TMDB series identity');
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    provider: 'tvscraper',
-    mediaType: 'movie',
-    providerId: 11120
-  }))),
-  {mediaType: 'movie', externalId: '11120'}
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(trailerIdentity({
-    available: true,
-    provider: 'tvscraper',
-    mediaType: 'episode',
-    providerId: 19885
-  }))),
-  {mediaType: 'series', externalId: '19885'}
-);
-assert.strictEqual(trailerIdentity({
-  available: true,
-  provider: 'tvscraper',
-  mediaType: 'series',
-  providerId: -74205
-}), null, 'negative TVDB identity must not be sent to TMDB');
+const trailerRecordingId = 'rec_' + 'a'.repeat(32);
+assert.deepStrictEqual(JSON.parse(JSON.stringify(trailerIdentity({
+  available:true, trailerLookupAvailable:true, recordingId:trailerRecordingId
+}))), {recordingId:trailerRecordingId});
+assert.strictEqual(trailerIdentity({available:true, recordingId:trailerRecordingId}), null);
+assert.strictEqual(trailerIdentity({available:true, trailerLookupAvailable:true,
+  recordingId:'/private/recording.rec'}), null);
+assert.strictEqual(trailerIdentity({available:true, provider:'tvscraper',
+  providerId:11120,mediaType:'movie'}), null);
+assert(source.includes('query: {recordingId: identity.recordingId}'));
+assert(!source.includes('externalId: identity.externalId'));
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('abcdefghijk'), true);
 assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
+
+// The actual Hero owner delegates identity resolution to the shared server
+// binding, including old cached cards; never guess from title or timestamp.
+const publicId = 'rec_fedcba9876543210fedcba9876543210';
+const compareRecording = trailerRuntime.__test.sameRecording;
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:publicId, backendId:'default'}), true);
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:'rec_' + 'a'.repeat(32), backendId:'default'}), false);
+assert.strictEqual(compareRecording({recordingId:publicId, backendId:'default'},
+  {recordingId:publicId, backendId:'other'}), false);
+assert.strictEqual(compareRecording({}, {}), false);
+const legacyRecording = {
+  id: '7', backendId: 'default', startTime: '1788696000',
+  title: 'Original', backendNativeId: '/private/video/Original.rec'
+};
+const publicRequests = [];
+let pages = [
+  {recordings: [{backendId: 'default', backendNativeId: '/private/video/Other.rec',
+    title: 'Original', publicRecordingId: 'rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}], totalCount: 2},
+  {recordings: [Object.assign({}, legacyRecording, {publicRecordingId: publicId})], totalCount: 2}
+];
+trailerContext.window.VdrSuiteClientApi = {
+  fetchClientRecordings(options) {
+    publicRequests.push(options);
+    assert(pages.length, 'unexpected Recording page');
+    return Promise.resolve(pages.shift());
+  }
+};
+(async function () {
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'), publicId);
+  assert.strictEqual(publicRequests.length, 2);
+  assert.strictEqual(publicRequests[0].query.backend, 'default');
+  assert.strictEqual(publicRequests[1].query.offset, 1);
+  assert(publicRequests.every(request => request.credentials === 'same-origin'));
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId({recordingId: publicId}, 'default'), publicId);
+  assert.strictEqual(await trailerRuntime.resolvePublicRecordingId({
+    publicRecordingId: publicId, id: 'native-7', backendNativeId: '/private/video/Original.rec'
+  }, 'default'), publicId);
+  assert.strictEqual(publicRequests.length, 2, 'already bound IDs must not scan the collection');
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId({
+    title: 'Original', startTime: '1788696000'
+  }, 'default'), /Kanonische Aufnahme-ID/);
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId({
+    recordingId: publicId, backendId: 'other'
+  }, 'default'), /Kanonische Aufnahme-ID/);
+  pages = [{recordings: [{backendId: 'default', backendNativeId: '/private/video/Other.rec',
+    title: 'Original', publicRecordingId: publicId}], totalCount: 1}];
+  await assert.rejects(trailerRuntime.resolvePublicRecordingId(legacyRecording, 'default'),
+    /Kanonische Aufnahme-ID/);
+  console.log('recordings2 hero public identity binding contract ok');
+})().catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 console.log('recordings2 hero/playback placement contract ok');

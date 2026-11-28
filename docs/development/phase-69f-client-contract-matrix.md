@@ -1,5 +1,9 @@
 # Phase 69.F — Client Contract Matrix and Stable Integration Boundary
 
+**2026-11-27 browser inventory reconciliation:** 80 classified operations (70 base, six Genre, four Live Remote). Home movie and newly-recorded reads use the existing `view=movies` and `view=new` Public-v1 contracts. Their explicit older-daemon compatibility branches are read-only and never retry on authorization/provider failure. The new-recordings view uses compact cached card metadata and event-driven page reconciliation, preserving the previous card DOM and public-ID cache provenance. Recordings2 folder navigation consumes the public mixed page with opaque breadcrumbs, retains the current selected-detail compatibility bridge and keeps its MOVE target editor as a separately private workflow.
+
+**2026-11-26 browser inventory reconciliation:** 77 classified operations (67 base, six Genre, four Live Remote). Public recording action, metadata trailer and Genre membership wrappers are source candidates; the legacy opaque-to-private recording detail bridge remains explicitly private. This does not expand the historical accepted reference-client contracts or establish hardware acceptance.
+
 **2026-10-11 reconciliation:** The Phase-69.F **original eight accepted method/resource contracts** and their accepted reference-client coverage remain the frozen closeout baseline. Subsequent Account work extends the accepted inventory; the later Recording R2 collection is represented in the machine-readable `publicV1Resources` inventory as a separately gated candidate. The 2026-10-11 matrix currently contains **10 entries: nine accepted plus one named Recording candidate**; inclusion in the JSON array or merge into `main` does not itself promote R2 to accepted compatibility. The historical slice-specific statements below retain their acceptance-time meaning. See [Current State](../CURRENT.md).
 
 ## Status
@@ -391,3 +395,15 @@ playback. No real-yaVDR native-effect acceptance is required.
 
 Acceptance requires the exact branch head to pass the complete repository CI
 graph. Merge still requires explicit user approval.
+
+## API-v1 finalization successor: combined search
+
+The browser's `fetchClientGlobalSearch` now uses the scoped GET
+`/api/v1/search` for its standard query, with existing public Recording and
+EPG artwork resources. Both existing read grants apply to the same backend.
+The historic accepted resource/reference counts above remain unchanged;
+this is a source candidate until exact-head CI and deployed parity are proven.
+The old authenticated browser route is retained for unsupported legacy query
+shapes, older daemons, and explicitly typed browser-only permission cases;
+no retry on authentication loss, revoked actors, transport or server failures.
+Recording detail continues through the existing opaque-ID private bridge.

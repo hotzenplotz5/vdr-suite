@@ -6,6 +6,128 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
+
+async function testPublicEpgOverview() {
+  const calls = [];
+  const from = 1792060000, until = from + 172800;
+  const items = [
+    {genreId:'movie',contentClass:'movie',label:'Film',labelDe:'Film',labelEn:'Movie',count:3},
+    {genreId:'adventure',contentClass:'movie',label:'Film › Abenteuer',labelDe:'Film › Abenteuer',labelEn:'Movie › Adventure',count:2},
+    {genreId:'series',contentClass:'series',label:'Serie',labelDe:'Serie',labelEn:'Series',count:4}
+  ];
+  const window = {VdrSuiteClientApi:{requestJson(route, options) {
+    calls.push({route, options});
+    return Promise.resolve({items,fromTime:from,untilTime:until,totalItems:7,assignmentCount:9,
+      page:{limit:30,offset:0,totalCount:3,hasMore:false},meta:{partial:false}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot,'api','genre-client-api.js'),'utf8'),{window,console});
+  const result = await window.VdrSuiteClientApi.fetchClientGenres({backendId:'default',scope:'epg',locale:'de',from,until});
+  assert.strictEqual(calls.length,1);
+  assert.strictEqual(calls[0].route,'/api/v1/genres/epg');
+  assert.strictEqual(calls[0].options.query.fromTime,from);
+  assert.strictEqual(calls[0].options.query.untilTime,until);
+  assert.strictEqual(result.totalItems,7);
+  assert.strictEqual(result.assignmentCount,9);
+  assert.strictEqual(result.categories.length,2);
+  assert.strictEqual(result.categories[0].children[0].id,'adventure');
+  assert.strictEqual(result.categories[0].children[0].label,'Abenteuer');
+  assert.strictEqual(result.categories[0].children[0].labelEn,'Adventure');
+  assert.strictEqual(result.from,from);
+  assert.strictEqual(result.until,until);
+}
+
+async function testPublicEpgCards() {
+  const calls = [];
+  const from = 1792060000, until = from + 172800;
+  const window = {VdrSuiteClientApi:{requestJson(route,options) {
+    calls.push({route,options});
+    return Promise.resolve({fromTime:from,untilTime:until,
+      items:[{backendId:'default',channelId:'C-1',eventId:'100',title:'Film',
+        channelName:'Das Erste HD',description:'Beschreibung',startTime:String(from),
+        endTime:String(from+3600),genreIds:['thriller'],
+        artwork:{available:true,portrait:true,width:500,height:750}}],
+      page:{limit:48,offset:0,totalCount:1,hasMore:false},
+      meta:{partial:false,cardPresentation:true}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot,'api','genre-client-api.js'),'utf8'),{window,console});
+  const result = await window.VdrSuiteClientApi.fetchClientGenreEpg({
+    backendId:'default',contentClass:'movie',genreId:'thriller',from,until,limit:48,offset:0
+  });
+  assert.strictEqual(calls.length,1);
+  assert.strictEqual(calls[0].route,'/api/v1/genres/epg/events');
+  assert.strictEqual(calls[0].options.query.limit,48);
+  assert.strictEqual(calls[0].options.query.fromTime,from);
+  assert.strictEqual(result.total,1);
+  assert.strictEqual(result.items[0].channelName,'Das Erste HD');
+  assert.strictEqual(result.items[0].description,'Beschreibung');
+  assert.strictEqual(result.items[0].startTime,from);
+  assert.strictEqual(result.items[0].artwork.url,'/api/v1/epg/preferred-artwork?backendId=default&channelId=C-1&eventId=100&variant=genre');
+  assert.strictEqual(result.items[0].artwork.fallbackUrl,'/api/v1/epg/artwork?backendId=default&channelId=C-1&eventId=100');
+}
+
+async function testPublicMembershipPage() {
+  const requests = [];
+  const id = 'rec_' + '1'.repeat(32);
+  const item = {recordingId:id, backendId:'default', title:'Der Fall',
+    cardMetadata:{mediaType:'series', title:'Serie', episodeName:'Der Fall'},
+    preferredArtworkId:'2'.repeat(32), seriesGrouping:{groupKey:'sg1_' + '3'.repeat(32)}};
+  const pages = [
+    {items:[item], page:{limit:1, offset:0, totalCount:2, hasMore:true}, meta:{partial:false}},
+    {items:[], page:{limit:1, offset:2, totalCount:2, hasMore:false}, meta:{partial:false}}
+  ];
+  const error = new Error('403');
+  const window = {VdrSuiteClientApi:{requestJson(route, options) {
+    requests.push({route, options});
+    if (requests.length > pages.length) return Promise.reject(error);
+    return Promise.resolve(pages[requests.length - 1]);
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot, 'api', 'genre-client-api.js'), 'utf8'), {window, console});
+  const api = window.VdrSuiteClientApi;
+  const proofs = [];
+  const first = await api.fetchPublicGenreRecordings({backendId:'default', genreId:'series',
+    limit:1, offset:0, onPage:page => proofs.push(page)});
+  assert.strictEqual(requests[0].route, '/api/v1/genres/recordings');
+  assert.strictEqual(requests[0].options.query.backendId, 'default');
+  assert.strictEqual(requests[0].options.query.genreId, 'series');
+  assert.strictEqual(requests[0].options.query.locale, 'de');
+  assert.strictEqual(requests[0].options.query.limit, 1);
+  assert.strictEqual(requests[0].options.query.offset, 0);
+  assert.strictEqual(first.items, pages[0].items);
+  assert.strictEqual(first.recordings, first.items);
+  assert.strictEqual(first.recordings[0], item);
+  assert.strictEqual(first.recordings[0].backendNativeId, undefined);
+  assert.strictEqual(first.total, 2);
+  assert.strictEqual(first.totalCount, 2);
+  assert.strictEqual(first.hasMore, true);
+  assert.strictEqual(proofs[0], pages[0]);
+  const empty = await api.fetchPublicGenreRecordings({backendId:'default', genreId:'series', limit:1, offset:2});
+  assert.strictEqual(empty.recordings.length, 0);
+  assert.strictEqual(empty.total, 2);
+  assert.strictEqual(empty.hasMore, false);
+  assert.strictEqual(requests[1].options.query.offset, 2);
+  await assert.rejects(api.fetchPublicGenreRecordings({backendId:'default', genreId:'series'}),
+    e => e === error);
+  assert.strictEqual(requests.length, 3, '403 must not trigger a legacy fallback');
+  const native = {id:'native-list-id', backendId:'default', backendNativeId:'/video/exact.rec'};
+  const bridgeRequests = [];
+  const bridgeWindow = {VdrSuiteClientApi:{requestJson(route, options) {
+    bridgeRequests.push({route, options});
+    return Promise.resolve({publicRecordingId:id, recording:native, metadataDetail:{available:true}});
+  }}};
+  vm.runInNewContext(fs.readFileSync(path.join(frontendRoot, 'api', 'genre-client-api.js'), 'utf8'), {window:bridgeWindow, console});
+  const detail = await bridgeWindow.VdrSuiteClientApi.fetchClientRecordingForPublicId({backendId:'default', recordingId:id});
+  assert.strictEqual(bridgeRequests[0].route, '/api/vdr/recordings/folder');
+  assert.strictEqual(bridgeRequests[0].options.query.recordingId, id);
+  assert.strictEqual(detail.recording.backendNativeId, native.backendNativeId);
+  assert.strictEqual(detail.recording.id, native.id);
+  assert.strictEqual(detail.recording.publicRecordingId, id);
+  await assert.rejects(bridgeWindow.VdrSuiteClientApi.fetchClientRecordingForPublicId({
+    backendId:'other', recordingId:id
+  }), e => /Aufnahmeidentität/.test(e.message));
+  assert.strictEqual(bridgeRequests.length, 2);
+}
+
+
 const source = [
   fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
   fs.readFileSync(path.join(frontendRoot, 'modules', 'genres.js'), 'utf8')
@@ -129,48 +251,26 @@ function recording(nativeId, title, pathValue) {
   };
 }
 
-function richMetadata(nativeId, title) {
-  return {
-    available:true,
-    provider:'tvscraper',
-    mediaType:'movie',
-    providerId:14400,
-    title:title,
-    episodeName:'',
-    overview:'TVScraper-Beschreibung zu ' + title,
-    preferredArtwork:{
-      available:true,
-      url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-        encodeURIComponent(nativeId) + '&kind=preferred&index=0',
-      width:1920,
-      height:1080
-    },
-    images:[
-      {
-        orientation:'landscape',
-        image:{
-          available:true,
-          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-            encodeURIComponent(nativeId) + '&kind=gallery&index=0',
-          width:1920,
-          height:1080
-        }
-      },
-      {
-        orientation:'portrait',
-        image:{
-          available:true,
-          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-            encodeURIComponent(nativeId) + '&kind=gallery&index=1',
-          width:500,
-          height:750
-        }
-      }
-    ]
-  };
+function publicDetail(member, title, absent) {
+  const artworkUrl = id => '/api/v1/recordings/' + member.recordingId +
+    '/artwork/' + id + '?backendId=' + member.backendId;
+  return Object.assign({}, member, {
+    metadata:absent ? {state:'absent'} : {
+      state:'available', source:'restfulapi-scraper-bridge', contentKind:'movie',
+      providerTitle:title, overview:'TVScraper-Beschreibung zu ' + title,
+      preferredArtwork:{available:true, url:artworkUrl('a'.repeat(32)), width:1920, height:1080},
+      images:[
+        {orientation:'landscape', image:{available:true, url:artworkUrl('b'.repeat(32)), width:1920, height:1080}},
+        {orientation:'portrait', image:{available:true, url:artworkUrl('c'.repeat(32)), width:500, height:750}}
+      ]
+    }
+  });
 }
 
 (async function main() {
+  await testPublicMembershipPage();
+  await testPublicEpgOverview();
+  await testPublicEpgCards();
   const mount = new FakeElement('main');
   const elementsById = Object.create(null);
   const head = new FakeElement('head');
@@ -197,6 +297,9 @@ function richMetadata(nativeId, title) {
   const recordingCards = [];
   const openedRecordings = [];
   const recordingMetadataCalls = [];
+  const recordingOpenCalls = [];
+  let wrongDetailScope = false;
+  const membershipCalls = [];
   let activeMetadataCalls = 0;
   let maximumActiveMetadataCalls = 0;
 
@@ -217,6 +320,11 @@ function richMetadata(nativeId, title) {
     recording('native-bond', 'Thriller/James Bond 007 - Dr. No', '/Thriller/James_Bond/example.rec')
   ];
 
+  const publicMembers = genreRecordings.map((item, index) => ({
+    recordingId:'rec_' + String(index + 1).repeat(32),
+    backendId:'default', title:item.title.split('/').pop(),
+    recordedAt:'2026-08-16T01:00:00Z', durationSeconds:3600, durationKnown:true
+  }));
   const client = {
     fetchClientGenres: options => {
       overviewRequests += 1;
@@ -262,11 +370,28 @@ function richMetadata(nativeId, title) {
       channelRequests += 1;
       return new Promise(() => {});
     },
-    fetchClientGenreRecordings: () => Promise.resolve({
-      items: genreRecordings,
-      total: genreRecordings.length,
-      hasMore:false
-    }),
+    fetchClientGenreRecordings: () => { throw new Error('legacy membership must not be called'); },
+    fetchPublicGenreRecordings: options => {
+      membershipCalls.push(options);
+      return Promise.resolve({items:publicMembers, total:publicMembers.length, hasMore:false});
+    },
+    requestJson(route, options) {
+      assert.strictEqual(options.query.backendId, 'default');
+      const index = publicMembers.findIndex(item => route === '/api/v1/recordings/' + item.recordingId);
+      assert(index >= 0, 'metadata must use the exact public member identity');
+      const item = genreRecordings[index];
+      recordingMetadataCalls.push(publicMembers[index].recordingId);
+      activeMetadataCalls += 1;
+      maximumActiveMetadataCalls = Math.max(maximumActiveMetadataCalls, activeMetadataCalls);
+      const detail = publicDetail(publicMembers[index],
+        item.title.replace(/^[^/]+\//, ''), item.backendNativeId === 'native-no-match');
+      if (wrongDetailScope) detail.backendId = 'other';
+      return Promise.resolve(detail).finally(() => { activeMetadataCalls -= 1; });
+    },
+    fetchClientRecordingForPublicId(options) {
+      recordingOpenCalls.push(options.recordingId);
+      throw new Error('private recording detail must not be called');
+    },
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
       epgQueries.push({
@@ -334,9 +459,8 @@ function richMetadata(nativeId, title) {
     VdrSuiteRecordings2BrowserView: {
       createRecordingCard(projected, onSelect) {
         const card = new FakeElement('button');
-        const presentation = projected && projected.metadata &&
-          projected.metadata.presentation || {};
-        card.textContent = presentation.title || projected.title || 'Aufnahme';
+        card.textContent = projected.cardMetadata && projected.cardMetadata.title ||
+          projected.title || 'Aufnahme';
         card.addEventListener('click', function () {
           if (typeof onSelect === 'function') onSelect(projected);
         });
@@ -350,26 +474,7 @@ function richMetadata(nativeId, title) {
       }
     },
     VdrSuiteRecordings2MetadataDetail: {
-      fetchMetadata(item, backendId) {
-        assert.strictEqual(backendId, 'default');
-        recordingMetadataCalls.push(item.backendNativeId);
-        activeMetadataCalls += 1;
-        maximumActiveMetadataCalls = Math.max(
-          maximumActiveMetadataCalls,
-          activeMetadataCalls
-        );
-        const result = item.backendNativeId === 'native-no-match'
-          ? {available:false, status:'not-found'}
-          : richMetadata(
-              item.backendNativeId,
-              item.backendNativeId === 'native-largo'
-                ? 'Largo Winch - Tödliches Erbe'
-                : item.title.replace(/^[^/]+\//, '')
-            );
-        return Promise.resolve(result).finally(function () {
-          activeMetadataCalls -= 1;
-        });
-      }
+      fetchMetadata() { throw new Error('Genre membership must enrich by public identity'); }
     }
   };
   context.window = context;
@@ -397,6 +502,9 @@ function richMetadata(nativeId, title) {
   await flush();
   await flush();
 
+  assert.strictEqual(membershipCalls.length, 1);
+  assert.strictEqual(membershipCalls[0].limit, 30);
+  assert.strictEqual(membershipCalls[0].genreId, 'action');
   assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length);
   assert(
     maximumActiveMetadataCalls <= 4,
@@ -405,44 +513,39 @@ function richMetadata(nativeId, title) {
   assert.strictEqual(recordingCards.length, genreRecordings.length);
 
   const largoCard = recordingCards.find(entry =>
-    entry.projected.backendNativeId === 'native-largo');
+    entry.projected.recordingId === publicMembers[0].recordingId);
   assert(largoCard, 'enriched Largo Winch card was not rendered');
-  assert.strictEqual(largoCard.projected.path, '');
-  assert.strictEqual(
-    largoCard.projected.metadata.presentation.title,
-    'Largo Winch - Tödliches Erbe'
-  );
-  const portraitUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-    'native-largo&kind=gallery&index=1';
-  assert.strictEqual(
-    largoCard.projected.metadata.presentation.posterUrl,
-    portraitUrl
-  );
-  assert(!largoCard.projected.metadata.presentation.posterUrl.includes('kind=preferred'));
+  assert.strictEqual(largoCard.projected.backendNativeId, undefined);
+  assert.strictEqual(largoCard.projected.path, undefined);
+  assert.strictEqual(largoCard.projected.cardMetadata.title, 'Largo Winch - Tödliches Erbe');
+  assert.strictEqual(largoCard.projected.preferredArtworkId, 'c'.repeat(32));
+  assert.strictEqual(largoCard.projected.metadata.overview,
+    'TVScraper-Beschreibung zu Largo Winch - Tödliches Erbe');
 
   const fallbackCard = recordingCards.find(entry =>
-    entry.projected.backendNativeId === 'native-no-match');
+    entry.projected.recordingId === publicMembers[1].recordingId);
   assert(fallbackCard, 'no-match fallback card was not rendered');
-  assert.strictEqual(
-    fallbackCard.projected.path,
-    genreRecordings[1].path
-  );
-  assert.strictEqual(
-    fallbackCard.projected.metadata.presentation.title,
-    'Action/Todliche Weihnachten'
-  );
+  assert.strictEqual(fallbackCard.projected, publicMembers[1]);
+  assert.strictEqual(recordingOpenCalls.length, 0, 'rendering cards must not resolve private paths');
 
   largoCard.card.dispatch('click');
+  await flush();
+  await flush();
   assert.strictEqual(openedRecordings.length, 1);
-  assert.strictEqual(
-    openedRecordings[0].item.path,
-    genreRecordings[0].path,
-    'genre card click must hand the original recording to Recordings 2'
-  );
-  assert.strictEqual(
-    openedRecordings[0].item.backendNativeId,
-    'native-largo'
-  );
+  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length + 1);
+  assert.strictEqual(recordingMetadataCalls.at(-1), publicMembers[0].recordingId);
+  assert.deepStrictEqual(recordingOpenCalls, []);
+  assert.strictEqual(openedRecordings[0].item.recordingId, publicMembers[0].recordingId);
+  assert.strictEqual(openedRecordings[0].item.backendId, 'default');
+  assert.strictEqual(openedRecordings[0].item.path, undefined);
+  assert.strictEqual(openedRecordings[0].item.backendNativeId, undefined);
+  wrongDetailScope = true;
+  largoCard.card.dispatch('click');
+  await flush();
+  await flush();
+  assert.strictEqual(openedRecordings.length, 1, 'mismatched backend must not open a different recording');
+  assert.deepStrictEqual(recordingOpenCalls, []);
+  wrongDetailScope = false;
 
   const epgButton = findButton(mount, 'EPG', false);
   assert(epgButton, 'EPG scope button was not rendered');

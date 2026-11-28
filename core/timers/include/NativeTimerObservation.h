@@ -19,6 +19,9 @@ struct NativeTimerObservation
     std::int64_t observedAt = 0;
     NativeTimerObservedState observedState;
     std::string observedFingerprint;
+    // Direct VDR readback only; excluded from Binding fingerprint and DB.
+    // Used to verify an explicit Aux edit without changing normal Timer CAS.
+    std::string observedAux;
 };
 
 bool nativeTimerObservationValid(const NativeTimerObservation& observation);

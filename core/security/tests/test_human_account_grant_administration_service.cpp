@@ -166,6 +166,12 @@ int main()
         "addons.media.shrink", "*"));
     assert(!HumanAccountGrantAdministrationService::supportedGrant(
         "addons.media.import", "../unsafe"));
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "recordings.edit", "default"));
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "recordings.edit", "*"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "recordings.edit", "../unsafe"));
 
     {
         const std::vector<std::string> permissions =
@@ -187,6 +193,10 @@ int main()
             permissions.begin(),
             permissions.end(),
             "accounts.view") == permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "recordings.edit") != permissions.end());
 
         const std::vector<std::string> scopes =
             HumanAccountGrantAdministrationService::

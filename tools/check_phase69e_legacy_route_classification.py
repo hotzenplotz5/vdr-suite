@@ -85,7 +85,8 @@ require(
 
 timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerConflicts")
 require(
-    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "publicNativeTimerClient().getLiveNativeTimers(" in timer_body
+    and "/api/vdr/timers/live" not in timer_body,
     "Timer browser read must keep the live route",
 )
 require(
@@ -97,7 +98,7 @@ require(
 read_alias_contracts = (
     ("fetchClientVdrOverview","fetchClientVdrStatus","/api/vdr/overview","/api/vdr"),
     ("fetchClientPersons","fetchClientRecordingPersons","/api/vdr/persons","/api/persons"),
-    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","/api/vdr/recordings/persons/search","/api/recordings/persons/search"),
+    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","/api/v1/search/recordings","/api/vdr/recordings/persons/search"),
 )
 for function_name, next_name, primary_route, alternate_route in read_alias_contracts:
     body = function_body(client_api, function_name, next_name)
@@ -108,22 +109,17 @@ for function_name, next_name, primary_route, alternate_route in read_alias_contr
         f"{function_name} must not probe the alternate read alias",
     )
 
-searchtimer_contracts = (
-    ("fetchClientSearchTimers","fetchClientSearchTimerDiscovery","/api/vdr/searchtimers","/api/searchtimers"),
-    ("fetchClientSearchTimerDiscovery","fetchClientSearchTimerPreview","/api/vdr/searchtimers/discovery","/api/searchtimers/discovery"),
-    ("fetchClientSearchTimerPreview","fetchClientSearchTimerPreviewCacheRefresh","/api/vdr/searchtimers/preview","/api/searchtimers/preview"),
-    ("fetchClientSearchTimerPreviewCacheRefresh","fetchClientSearchTimerPlan","/api/vdr/searchtimers/preview/cache/refresh","/api/searchtimers/preview/cache/refresh"),
-    ("fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","/api/vdr/searchtimers/plan","/api/searchtimers/plan"),
-    ("fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","/api/vdr/searchtimers/validate","/api/searchtimers/validate"),
-    ("fetchClientSearchTimerExecute","fetchClientSearchTimerRealTest","/api/vdr/searchtimers/execute","/api/searchtimers/execute"),
-    ("fetchClientSearchTimerRealTest","fetchClientSearchTimerCreateStaged","/api/vdr/searchtimers/real-test","/api/searchtimers/real-test"),
-    ("fetchClientSearchTimerUpdateAction","fetchClientSearchTimerDeleteAction","/api/vdr/searchtimers/update","/api/searchtimers/update"),
+for route in ("/api/vdr/searchtimers", "/api/searchtimers", "/api/vdr/timers/actions/"):
+    require(route not in client_api, "retired browser transport returned: " + route)
+
+refresh_body = function_body(client_api, "fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerCreateStaged")
+require(
+    "requestJson(" in refresh_body
+    and "/api/v1/search-timers/preview-cache/refresh" in refresh_body
+    and "queryMutationOptions(" in refresh_body
+    and "requestJsonWithFallback" not in refresh_body,
+    "Public-v1 preview refresh must remain one-shot and CSRF-bound",
 )
-for function_name, next_name, primary_route, alternate_route in searchtimer_contracts:
-    body = function_body(client_api, function_name, next_name)
-    require("requestJson(" in body and primary_route in body, f"{function_name} primary SearchTimer route drifted")
-    require("requestJsonWithFallback" not in body, f"{function_name} must not restore SearchTimer fallback probing")
-    require(alternate_route not in body, f"{function_name} must not probe the alternate SearchTimer alias")
 
 # Public-v1 SearchTimer CREATE is an intentional newer contract. Legacy
 # same-handler aliases remain only for the separate pre-v1 read/update/delete.
@@ -145,13 +141,18 @@ require(
     "Browser CREATE must delegate to one Public-v1 route",
 )
 
-delete_start = client_api.find("function fetchClientSearchTimerDeleteAction(options)")
-delete_end = client_api.find("window.VdrSuiteClientApi", delete_start)
-delete_body = client_api[delete_start:delete_end]
-require(delete_start >= 0 and delete_end > delete_start, "cannot bound SearchTimer delete request")
-require("requestJson(" in delete_body and "/api/vdr/searchtimers/delete" in delete_body, "SearchTimer delete primary route drifted")
-require("requestJsonWithFallback" not in delete_body, "SearchTimer delete must not restore fallback probing")
-require("/api/searchtimers/delete" not in delete_body, "SearchTimer delete must not probe the alternate alias")
+mutation_start = client_api.index("function mutatePublicSearchTimer(options)")
+mutation_end = client_api.index("window.VdrSuiteClientApi", mutation_start)
+mutation_body = client_api[mutation_start:mutation_end]
+require(
+    "publicSearchTimerPath(normalized, '/mutations')" in mutation_body
+    and "queryMutationOptions(jsonPostOptions(" in mutation_body
+    and "'Idempotency-Key'" in mutation_body
+    and "'If-Match'" in mutation_body
+    and "requestJsonWithFallback" not in mutation_body,
+    "Public-v1 SearchTimer mutations must remain version-fenced and one-shot",
+)
+
 require("/api/vdr/searchtimers/live" not in client_api, "speculative SearchTimer live client probe returned")
 require("/api/vdr/searchtimers/live" not in EXPECTED_ROUTE_LITERALS, "speculative SearchTimer live probe unexpectedly became a server route")
 

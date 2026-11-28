@@ -34,10 +34,27 @@ void SseLiveTransport::publish(const LiveUpdateEvent& event)
         const bool gap = latestSequenceNumber_ > 0 &&
             sequence != latestSequenceNumber_ + 1;
         latestSequenceNumber_ = sequence;
+        // The browser still needs native IDs for unmigrated consumers.
+        // A missing binding (new/deleted Recording) deliberately leaves the
+        // opaque list absent so a client can reconcile its canonical page.
+        std::vector<std::string> publicIds;
+        if (recordingPublicIdLookup_) {
+            for (const auto& nativeId : event.recordingNativeIds()) {
+                const auto id = recordingPublicIdLookup_(event.backendId(), nativeId);
+                if (!id || id->size() != 36 || id->compare(0, 4, "rec_") != 0 ||
+                    !std::all_of(id->begin() + 4, id->end(), [](char c) {
+                        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                    })) {
+                    publicIds.clear();
+                    break;
+                }
+                publicIds.push_back(*id);
+            }
+        }
         std::ostringstream frame;
         frame << "event: update\n"
               << "id: " << daemonEpoch_ << ":" << sequence << "\n"
-              << "data: " << serializer_.serializeEvent(event) << "\n\n";
+              << "data: " << serializer_.serializeEvent(event, publicIds) << "\n\n";
         std::string serialized = frame.str();
 
         if (serialized.size() > maxRetainedBytes) {

@@ -195,19 +195,36 @@
   function openRecording(recording) {
     rememberScroll();
     closeDialog(false);
-    ensureDetailRuntimes().then(function () {
+    return ensureDetailRuntimes().then(function () {
       const owner = global.VdrSuiteRecordings2;
       if (!owner || typeof owner.openRecording !== 'function') {
         throw new Error('Recordings 2 Detail-Owner ist nicht verfügbar.');
       }
-      owner.openRecording(recording, {
-        backendId: selectedBackendId(),
+      const backendId = recording.backendId || selectedBackendId();
+      const open = value => owner.openRecording(value, {
+        backendId: backendId,
         backLabel: '← Zurück zur Suche',
         homeLabel: '⌂ Home',
         focusNavigation: true,
         onClose: openDialog,
         onHome: returnHome
       });
+      // Re-read the current public identity without reconstructing a native
+      // path. The established Recording owner handles detail and playback.
+      if (/^rec_[0-9a-f]{32}$/.test(String(recording.recordingId || ''))) {
+        const api = global.VdrSuiteClientApi;
+        const recordingId = recording.recordingId;
+        if (!api || typeof api.requestJson !== 'function')
+          throw new Error('Aufnahmeidentität konnte nicht aufgelöst werden.');
+        return api.requestJson('/api/v1/recordings/' + encodeURIComponent(recordingId), {
+          query:{backendId}, cache:'no-store', credentials:'same-origin'
+        }).then(detail => {
+          if (!detail || detail.recordingId !== recordingId || detail.backendId !== backendId)
+            throw new Error('Aufnahmeidentität konnte nicht eindeutig zugeordnet werden.');
+          return open(Object.assign({}, recording, detail));
+        });
+      }
+      return open(recording);
     }).catch(showNavigationError);
   }
 
@@ -240,7 +257,8 @@
   function publicPersonImageUrl(value) {
     const url = text(value);
     return url.startsWith('/api/vdr/recordings/metadata/image?') ||
-      url.startsWith('/api/recordings/metadata/image?');
+      url.startsWith('/api/recordings/metadata/image?') ||
+      /^\/api\/v1\/recordings\/rec_[0-9a-f]{32}\/artwork\/[0-9a-f]{32}\?backendId=[A-Za-z0-9._-]+$/.test(url);
   }
 
   function personPlaceholder() {
@@ -308,7 +326,11 @@
       const wrap = node('article', 'global-search-recording-wrap');
       const cardOwner = global.VdrSuiteRecordings2BrowserView;
       if (cardOwner && typeof cardOwner.createRecordingCard === 'function') {
-        wrap.appendChild(cardOwner.createRecordingCard(recording, openRecording));
+        const shared = global.VdrSuiteRecordings2Shared;
+        const createPoster = recording.recordingId && !recording.backendNativeId &&
+          shared && typeof shared.createPoster === 'function'
+          ? value => shared.createPoster(value, undefined, 'home') : undefined;
+        wrap.appendChild(cardOwner.createRecordingCard(recording, openRecording, createPoster));
       } else {
         wrap.appendChild(button(recording.title || 'Ohne Titel', 'recordings2-recording', function () { openRecording(recording); }));
       }
@@ -317,6 +339,36 @@
     });
     group.appendChild(list);
     root.appendChild(group);
+  }
+
+  // The direct Public-v1 EPG image is the same cached artwork owner as
+  // the established search image URL. Prefer its existing Home preview;
+  // retain the old browser image on failure for existing browser access.
+  function epgArtworkSources(event) {
+    const artwork = event && event.artwork;
+    if (!artwork || !artwork.available || !artwork.url) return [];
+    const legacy = text(artwork.url);
+    if (!event.backendId || !event.channelId || !event.eventId) return [legacy];
+    const publicUrl = '/api/v1/epg/artwork?backendId=' +
+      encodeURIComponent(event.backendId) + '&channelId=' +
+      encodeURIComponent(event.channelId) + '&eventId=' +
+      encodeURIComponent(event.eventId) + '&variant=home';
+    return publicUrl === legacy ? [legacy] : [publicUrl, legacy];
+  }
+
+  function setEpgArtworkImage(image, sources, unavailable) {
+    let index = 0;
+    function failed() {
+      index += 1;
+      if (index < sources.length) {
+        image.addEventListener('error', failed, {once: true});
+        image.src = sources[index];
+      } else {
+        unavailable();
+      }
+    }
+    image.addEventListener('error', failed, {once: true});
+    image.src = sources[0];
   }
 
   function renderEpg(root, payload) {
@@ -333,16 +385,15 @@
     const list = node('div', 'global-search-epg');
     events.forEach(function (event) {
       const card = button('', 'global-search-epg-card', function () { openEpg(event); });
-      const artwork = event.artwork && event.artwork.available && event.artwork.url;
-      if (artwork) {
+      const artwork = epgArtworkSources(event);
+      if (artwork.length) {
         const image = node('img', 'global-search-epg-image');
-        image.src = artwork;
         image.alt = '';
         image.loading = 'lazy';
         image.decoding = 'async';
-        image.addEventListener('error', function () {
+        setEpgArtworkImage(image, artwork, function () {
           image.replaceWith(node('span', 'global-search-epg-fallback', '◉'));
-        }, {once: true});
+        });
         card.appendChild(image);
       } else {
         card.appendChild(node('span', 'global-search-epg-fallback', '◉'));
@@ -543,11 +594,14 @@
     __test: Object.freeze({
       createRequestCoordinator: createRequestCoordinator,
       publicPersonImageUrl: publicPersonImageUrl,
+      epgArtworkSources: epgArtworkSources,
+      setEpgArtworkImage: setEpgArtworkImage,
       renderPeople: renderPeople,
       minimumQueryLength: MINIMUM_QUERY_LENGTH,
       debounceMs: DEBOUNCE_MS,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
       returnHome: returnHome,
+      openRecording: openRecording,
       state: state
     })
   });

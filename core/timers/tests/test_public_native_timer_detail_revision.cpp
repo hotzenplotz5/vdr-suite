@@ -77,6 +77,16 @@ int main()
     auto recording = timer;
     recording.recording = true;
     assert(verify(recording, &binding).status == S::unsafeEvidence);
+    // A recording is readable with a strong binding ETag only when the
+    // durable observed recording flag and native flags agree exactly.
+    auto recordedBinding = binding;
+    recordedBinding.observedState.recording = true;
+    recordedBinding.observedState.flags |= 0x0008;
+    recordedBinding.observedFingerprint =
+        nativeTimerObservedStateFingerprint(recordedBinding.observedState);
+    recording.flags |= 0x0008;
+    assert(nativeTimerBindingValid(recordedBinding));
+    assert(verify(recording, &recordedBinding).status == S::verifiedManaged);
     auto pending = timer;
     pending.pending = true;
     assert(verify(pending, &binding).status == S::unsafeEvidence);

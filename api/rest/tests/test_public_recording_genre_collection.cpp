@@ -28,12 +28,40 @@ int main()
                 item.title = "Aufnahme";
                 item.edited = true;
                 item.recordedAt = "2026-10-09";
+                item.sizeMb = 2048;
+                item.genreIds = {"crime", "series"};
+                item.cardTitle = "Testserie";
+                item.cardMediaType = "series";
+                if (i == 0U)
+                {
+                    item.preferredArtworkId = "fedcba9876543210fedcba9876543210";
+                    item.seriesGroupKey = "sg1_0123456789abcdef0123456789abcdef";
+                    item.seriesFolderTitle = "Testserie";
+                    item.seriesAncestorFolderIds = {
+                        "fld1_0123456789abcdef0123456789abcdef",
+                        "fld1_fedcba9876543210fedcba9876543210"};
+                    item.seriesNativeMetadataAvailable = true;
+                    item.seriesHierarchyOverrideAvailable = true;
+                    item.seriesHierarchyGroupType = "special";
+                    item.seriesHierarchyGroupLabel = "Pilot / Miniserie";
+                    item.seriesHierarchySortOrder = -100;
+                    item.seriesHierarchyEpisodeStart = 1;
+                    item.seriesHierarchyEpisodeEnd = 2;
+                    item.seriesHierarchyRevision = 3;
+                }
+                if (i == 1032U)
+                    item.preferredArtworkId = "/private/poster.jpg";
+                item.episodeName = "Folge sieben";
+                item.seasonNumber = 2;
+                item.episodeNumber = 7;
                 result.recordings.push_back(std::move(item));
             }
         }
         else
         {
             result.totalCount = 1U;
+            result.totalItems = 1033U;
+            result.assignmentCount = 1050U;
             if (request.offset == 0U)
             {
                 PublicGenreItem item;
@@ -42,6 +70,10 @@ int main()
                 item.labelDe = "Krimi";
                 item.labelEn = "Crime";
                 item.count = 1033U;
+                item.known = true;
+                item.activeCount = 1000U;
+                item.staleCount = 20U;
+                item.conflictCount = 13U;
                 result.genres.push_back(std::move(item));
             }
         }
@@ -57,7 +89,13 @@ int main()
         "actor:tv","genre","",genres,"","",{"home"}));
     assert(genres.statusCode == 200);
     assert(genres.body.find("Krimi") != std::string::npos);
-    assert(genres.body.find("1033") != std::string::npos);
+    assert(genres.body.find("\"totalItems\":1033") != std::string::npos);
+    assert(genres.body.find("\"assignmentCount\":1050") != std::string::npos);
+    assert(genres.body.find("\"known\":true") != std::string::npos);
+    assert(genres.body.find("\"activeCount\":1000") != std::string::npos);
+    assert(genres.body.find("\"staleCount\":20") != std::string::npos);
+    assert(genres.body.find("\"conflictCount\":13") != std::string::npos);
+    assert(genres.body.find("\"displayOrder\":0") != std::string::npos);
     assert(genres.body.find("backendNativeId") == std::string::npos);
     ApiResponse recordings;
     assert(api.tryHandleGet(
@@ -69,9 +107,47 @@ int main()
     assert(recordings.body.find("recordingId") != std::string::npos);
     assert(recordings.body.find("backendNativeId") == std::string::npos);
     assert(recordings.body.find("recordingPath") == std::string::npos);
+    assert(recordings.body.find("assignmentCount") == std::string::npos);
+    assert(recordings.body.find("displayOrder") == std::string::npos);
     assert(recordings.body.find("\"edited\":true") != std::string::npos);
+    assert(recordings.body.find("\"sizeMb\":2048") != std::string::npos);
+    assert(recordings.body.find("\"genreIds\":[\"crime\",\"series\"]") != std::string::npos);
+    assert(recordings.body.find("\"cardMetadata\":{\"mediaType\":\"series\",\"title\":\"Testserie\"") != std::string::npos);
+    assert(recordings.body.find("\"episodeName\":\"Folge sieben\"") != std::string::npos);
+    assert(recordings.body.find("\"seasonNumber\":2,\"episodeNumber\":7") != std::string::npos);
+    assert(recordings.body.find("resourceKey") == std::string::npos);
+    assert(recordings.body.find("providerId") == std::string::npos);
+    const std::string artworkField =
+        "\"preferredArtworkId\":\"fedcba9876543210fedcba9876543210\"";
+    const auto artworkPos = recordings.body.find(artworkField);
+    assert(artworkPos != std::string::npos);
+    assert(recordings.body.find("\"preferredArtworkId\"", artworkPos + artworkField.size()) ==
+        std::string::npos);
+    ApiResponse largePage;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=100&offset=100",
+        "actor:tv","members-large-page","",largePage,"","",{"home"}));
+    assert(largePage.statusCode == 200);
+    assert(largePage.body.find("\"limit\":100") != std::string::npos);
+    ApiResponse withoutArtwork;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=1&offset=1",
+        "actor:tv","members-no-artwork","",withoutArtwork,"","",{"home"}));
+    assert(withoutArtwork.statusCode == 200);
+    assert(withoutArtwork.body.find("preferredArtworkId") == std::string::npos);
+    assert(withoutArtwork.body.find("seriesHierarchyOverride") == std::string::npos);
+    assert(withoutArtwork.body.find("seriesGrouping") == std::string::npos);
+    assert(recordings.body.find("\"seriesGrouping\":{\"groupKey\":\"sg1_0123456789abcdef0123456789abcdef\",\"folderTitle\":\"Testserie\",\"nativeMetadataAvailable\":true,\"ancestorFolderIds\":[\"fld1_0123456789abcdef0123456789abcdef\",\"fld1_fedcba9876543210fedcba9876543210\"]}") != std::string::npos);
+    assert(recordings.body.find("\"seriesHierarchyOverride\":{\"available\":true,\"groupType\":\"special\",\"seasonNumber\":0,\"groupLabel\":\"Pilot / Miniserie\",\"sortOrder\":-100,\"episodeStart\":1,\"episodeEnd\":2,\"revision\":3}") != std::string::npos);
+    ApiResponse badArtwork;
+    assert(api.tryHandleGet(
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=1&offset=1032",
+        "actor:tv","members-invalid-artwork","",badArtwork,"","",{"home"}));
+    assert(badArtwork.statusCode == 503);
+    assert(badArtwork.body.find("/private/poster.jpg") == std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
+        "/api/v1/genres/recordings?backendId=home&genreId=crime&limit=101",
         "/api/v1/genres?backendId=home&genreId=crime",
         "/api/v1/genres/recordings?backendId=home&genreId=/private",
         "/api/v1/genres/recordings?backendId=home&limit=30",
@@ -93,6 +169,10 @@ int main()
         PublicEpgGenreResult result;
         if (request.backendId != "home") return result;
         result.status = PublicEpgGenreStatus::ok;
+        result.fromTime = request.fromTime ? request.fromTime : 1792060000;
+        result.untilTime = request.untilTime ? request.untilTime : 1792232800;
+        result.totalItems = 7U;
+        result.assignmentCount = 10U;
         if (request.events)
         {
             result.totalCount = 2U;
@@ -107,6 +187,15 @@ int main()
                     item.subtitle = "Hobbits und die Wissenschaftspause";
                     item.startTime = "1792060000";
                     item.endTime = "1792062000";
+                    item.channelName = "Das Erste HD";
+                    item.description = "Beschreibung";
+                    item.contentClass = "series";
+                    item.durationSeconds = 2000;
+                    item.genreIds = {"comedy"};
+                    item.artworkAvailable = true;
+                    item.portraitArtwork = true;
+                    item.artworkWidth = 500;
+                    item.artworkHeight = 750;
                     result.events.push_back(item);
                 }
         }
@@ -137,17 +226,26 @@ int main()
     assert(epgCaps.body.find("public-api.epg-genres-read") != std::string::npos);
     ApiResponse epgGenres;
     assert(api.tryHandleGet(
-        "/api/v1/genres/epg?backendId=home&limit=30&offset=0",
+        "/api/v1/genres/epg?backendId=home&limit=30&offset=0&fromTime=1792060000&untilTime=1792232800",
         "actor:tv","epg-genres","",epgGenres,"","",{"home"}));
     assert(epgGenres.statusCode == 200);
+    assert(epgGenres.body.find("\"fromTime\":1792060000") != std::string::npos);
+    assert(epgGenres.body.find("\"untilTime\":1792232800") != std::string::npos);
+    assert(epgGenres.body.find("\"totalItems\":7") != std::string::npos);
+    assert(epgGenres.body.find("\"assignmentCount\":10") != std::string::npos);
     assert(epgGenres.body.find("Film") != std::string::npos);
     assert(epgGenres.body.find("Abenteuer") != std::string::npos);
     assert(epgGenres.body.find("backendNativeId") == std::string::npos);
     ApiResponse epgEvents;
     assert(api.tryHandleGet(
-        "/api/v1/genres/epg/events?backendId=home&contentClass=series&limit=30&offset=0",
+        "/api/v1/genres/epg/events?backendId=home&contentClass=series&limit=48&offset=0",
         "actor:tv","epg-events","",epgEvents,"","",{"home"}));
     assert(epgEvents.statusCode == 200);
+    assert(epgEvents.body.find("\"channelName\":\"Das Erste HD\"") != std::string::npos);
+    assert(epgEvents.body.find("\"description\":\"Beschreibung\"") != std::string::npos);
+    assert(epgEvents.body.find("\"genreIds\":[\"comedy\"]") != std::string::npos);
+    assert(epgEvents.body.find("\"cardPresentation\":true") != std::string::npos);
+    assert(epgEvents.body.find("\"portrait\":true") != std::string::npos);
     assert(epgEvents.body.find("\"totalCount\":2") != std::string::npos);
     assert(epgEvents.body.find("Hobbits und die Wissenschaftspause") !=
         std::string::npos);
@@ -158,6 +256,8 @@ int main()
         "/api/v1/genres/epg/events?backendId=home&genreId=adventure",
         "/api/v1/genres/epg/events?backendId=home&contentClass=series&genreId=adventure",
         "/api/v1/genres/epg?backendId=home&limit=31",
+        "/api/v1/genres/epg?backendId=home&fromTime=1792060000",
+        "/api/v1/genres/epg?backendId=home&fromTime=1792060000&untilTime=1792060000",
         "/api/v1/genres/epg?backendId=other"})
     {
         ApiResponse bad;

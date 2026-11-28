@@ -24,7 +24,75 @@ DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 # Each anchor is an actual branch in the corresponding C++ GET/POST dispatcher.
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
 # This explicit inventory must be reviewed when already-audited routes move.
+ADDON_ADMIN_AUDITED = {
+    "/api/v1/addons/rectools/activation": {
+        "get": ("addonActivationLookup_", "isAddonActivationRead"),
+        "post": ("addonActivationMutation_", "isAddonActivationMutation"),
+    },
+    "/api/v1/addons/rectools/sources": {
+        "get": ("addonSourceLookup_", "isAddonSourceRead"),
+        "post": ("addonSourceMutation_", "isAddonSourceMutation"),
+    },
+    "/api/v1/addons/media-tools/encoding": {
+        "get": ("local_encoding_admin::read(", "isAddonEncodingRead"),
+        "post": ("local_encoding_admin::save(", "isAddonEncodingMutation"),
+    },
+}
+
+MEDIA_TRANSPORT_AUDITED = {
+    "/api/v1/media/sessions/{sessionId}/hls/{artifact}": {"get": "HlsMarker"},
+    "/api/v1/media/sessions/{sessionId}/live/stream.mp4": {"get": "LiveSuffix"},
+    "/api/v1/media/sessions/{sessionId}/recording/stream.mp4": {"get": "RecordingStreamSuffix"},
+    "/api/v1/media/sessions/{sessionId}/recording/stream.ts": {"get": "RecordingDirectSuffix"},
+}
+
+MEDIA_PROCESSING_AUDITED = {
+    "/api/v1/backends/{backendId}/capabilities/media-check": {
+        "get": ("MediaCheck", "isPublicMediaCheckCapabilityResource", "/capabilities/media-check"),
+    },
+    "/api/v1/backends/{backendId}/media-checks": {
+        "post": ("MediaCheck", "isPublicMediaCheckCreate", "/media-checks"),
+    },
+    "/api/v1/backends/{backendId}/media-checks/{checkId}": {
+        "get": ("MediaCheck", "isPublicMediaCheckStatusResource", "/media-checks/"),
+    },
+    "/api/v1/backends/{backendId}/capabilities/media-shrink": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkCapabilityResource", "/capabilities/media-shrink"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-plans": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkPlanCreate", "/media-shrink-plans"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-stages": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkStageCreate", "/media-shrink-stages"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-publications": {
+        "post": ("MediaShrinkPlan", "isPublicMediaShrinkPublishCreate", "/media-shrink-publications"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-reviews/{reviewId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkReviewResource", "/media-shrink-reviews/"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-operations/{operationId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkOperationResource", "/media-shrink-operations/"),
+    },
+    "/api/v1/backends/{backendId}/media-shrink-recordings/{recordingId}": {
+        "get": ("MediaShrinkPlan", "isPublicMediaShrinkRecordingResource", "/media-shrink-recordings/"),
+    },
+}
+
 AUDITED = {
+    "/api/v1/backends/{backendId}/capabilities/media-import": {
+        "get": "if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))",
+    },
+    "/api/v1/backends/{backendId}/media-import-sources": {
+        "get": "if (publicMediaImportSourcesPath(path, sourceBackendId))",
+    },
+    "/api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview": {
+        "get": "if (publicMediaImportPreviewPath(path, previewBackendId, previewSourceId))",
+    },
+    "/api/v1/backends/{backendId}/media-imports": {
+        "get": "if (publicMediaImportCollectionPath(path, mediaImportBackend))",
+        "post": "if (publicMediaImportCollectionPath(path, mediaImportBackend))",
+    },
     "/api/v1": {"get": 'if (path == "/api/v1")'},
     "/api/v1/capabilities": {"get": 'if (path == "/api/v1/capabilities")'},
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
@@ -38,21 +106,38 @@ AUDITED = {
     "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
     "/api/v1/recordings/{recordingId}/artwork": {"get": "if (isRecordingArtworkPath)"},
     "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {"get": "if (isRecordingArtworkPath)"},
-    "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
-    "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
+    "/api/v1/search": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath || path == PublicSearchCombinedPath)"},
+    "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath || path == PublicSearchCombinedPath)"},
+    "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath || path == PublicSearchCombinedPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/genres/recordings": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
+    "/api/v1/epg/event": {"get": "if (path == PublicEpgEventDetailPath)"},
+    "/api/v1/genres/epg": {"get": "if (path == PublicEpgGenrePath ||"},
+    "/api/v1/genres/epg/events": {"get": "if (path == PublicEpgGenrePath ||"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
+    "/api/v1/native-timers/actions/create": {"post": "if (path == PublicNativeTimerDirectCreatePath)"},
+    "/api/v1/native-timers/conflicts/live": {"get": "if (path == PublicNativeTimerConflictsPath ||"},
+    "/api/v1/native-timers/live/list": {"get": "path == PublicNativeTimerLiveListPath)"},
     "/api/v1/native-timers/{timerId}": {
-        "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
+        "get": "if (publicNativeTimerItemPath(path, nativeTimerId) ||",
         "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",
+    },
+    "/api/v1/native-timers/{timerId}/aux": {
+        "get": "publicNativeTimerAuxPath(path, nativeTimerId))",
+    },
+    "/api/v1/native-timers/{timerId}/direct-update": {
+        "post": "if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))",
+    },
+    "/api/v1/native-timers/{timerId}/direct-delete": {
+        "post": "if (publicNativeTimerDirectActionPath(path, directTimerId, directAction))",
     },
     "/api/v1/native-timers/{timerId}/modifications": {
         "post": "if (publicNativeTimerModificationPath(path, modifiedTimerId))",
     },
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
+    "/api/v1/manual/timer-intents": {"post": "if (path == PublicManualTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
     "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, savedSearchTimerId))"},
@@ -130,6 +215,17 @@ EPG_ARTWORK_AUDITED = {
     "/api/v1/epg/preferred-artwork": {
         "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
 }
+SSE_AUDITED = {
+    "/api/v1/events": {
+        "get": ('pathWithoutQuery(request.path) == "/api/v1/events"',
+                "if (isPublicDeviceEventRead)", "deviceEventHub_->subscribe("),
+    },
+    "/api/v1/operations/{operationId}/events": {
+        "get": ('const std::string eventSuffix = "/events";',
+                "if (isPublicOperationRead || isPublicOperationEventRead)",
+                "deviceEventHub_->subscribeOperation("),
+    },
+}
 EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
 DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED = {
     "/api/v1/devices/{deviceId}/playback-account": {
@@ -149,6 +245,75 @@ RECORDING_ACTION_AUDITED = {
     },
     "/api/v1/recordings/actions/execute": {
         "post": 'if (path == "/api/v1/recordings/actions/execute")',
+    },
+}
+
+# Existing manual metadata service, shared by private and public Browser
+# callers. Audit its actual router owner and scoped permission dispatch.
+RECORDING_METADATA_RUNTIME = ROOT / "api/rest/src/ManualRecordingMetadataApiRuntime.cpp"
+RECORDING_METADATA_AUDITED = {
+    "/api/v1/backends/{backendId}/recordings/metadata/" + operation: {
+        "post": 'route.operation == "' + operation + '"'
+    }
+    for operation in ("search", "seasons", "episodes", "assign", "withdraw")
+}
+RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/trailer"] = {
+    "get": 'const auto identity = trailerLookup(route.backendId, native);',
+}
+RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/manual"] = {
+    "get": "metadata->getPublicManualRecordingMetadata(route.backendId, native, publicId)",
+}
+RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/genre"] = {
+    "get": 'metadata->getManualRecordingGenre(route.backendId, native, publicId)',
+    "post": 'route.operation == "genre"',
+}
+
+SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH = "/api/v1/search-timers/preview-cache/refresh"
+RECORDING_METADATA_AUDITED[SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH] = {
+    "post": "searchTimerPreviewEpgCacheRefreshController_->refreshBackend(",
+}
+
+SERIES_HIERARCHY_PATH = "/api/v1/backends/{backendId}/recordings/series-hierarchy"
+RECORDING_METADATA_AUDITED[SERIES_HIERARCHY_PATH] = {
+    "post": "recordingKey = lookup(backendId, publicId);",
+}
+
+# F6 Public-v1 operations reuse the existing native RecordingMarks/Cut
+# owners. Audit both dispatch reachability and URL/body identity checks.
+RECORDING_NATIVE_EDITING_AUDITED = {
+    "/api/v1/recordings/{recordingId}/marks": {
+        "get": ("RecordingMarksApiRuntime::instance().tryHandleGet(",
+                "isPublicRecordingMarks", "RecordingMarksApiRuntime.cpp"),
+        "post": ("RecordingMarksApiRuntime::instance().tryHandlePost(",
+                 "isRecordingMarksModifyAction", "RecordingMarksApiRuntime.cpp"),
+    },
+    "/api/v1/recordings/{recordingId}/cut": {
+        "get": ("RecordingCutApiRuntime::instance().tryHandleGet(",
+                "isPublicRecordingCut", "RecordingCutApiRuntime.cpp"),
+        "post": ("RecordingCutApiRuntime::instance().tryHandlePost(",
+                 "isRecordingCutAction", "RecordingCutApiRuntime.cpp"),
+    },
+}
+
+RECORDING_NATIVE_ROUTER = ROOT / "api/rest/include/ApiRouter.h"
+RECORDING_NATIVE_MARKS = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
+RECORDING_NATIVE_CUT = ROOT / "api/rest/src/RecordingCutApiRuntime.cpp"
+
+# Browser CREATE uses the existing Browser media owner, not the Device registry.
+BROWSER_PLAYBACK_AUDITED = {
+    "/api/v1/browser/recording-playback-sessions": {
+        "post": ("handleBrowserRecordingPlayback(",
+                 "isPublicBrowserRecordingSessionCreate"),
+    },
+    "/api/v1/browser/recording-playback-sessions/control": {
+        "post": ("handleBrowserRecordingPlayback(",
+                 "isPublicBrowserRecordingSessionControl"),
+    },
+    "/api/v1/browser/recording-playback-sessions/progress": {
+        "post": ("handleBrowserRecordingPlayback(", "isPublicBrowserRecordingHistory"),
+    },
+    "/api/v1/browser/recording-playback-sessions/activity": {
+        "post": ("handleBrowserRecordingPlayback(", "isPublicBrowserRecordingHistory"),
     },
 }
 
@@ -235,9 +400,13 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/backends/{backendId}/media-shrink-stages"),
+    ("post", "/api/v1/backends/{backendId}/media-shrink-publications"),
+    ("post", "/api/v1/backends/{backendId}/media-imports"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
+    ("post", "/api/v1/manual/timer-intents"),
     ("post", "/api/v1/search-timers"),
     ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/accounts"),
@@ -326,6 +495,10 @@ def validate(
     security_source: str | None = None,
     recording_router_source: str | None = None,
     epg_artwork_http_source: str | None = None,
+    native_router_source: str | None = None,
+    native_marks_source: str | None = None,
+    native_cut_source: str | None = None,
+    recording_metadata_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -337,6 +510,14 @@ def validate(
         recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
     if epg_artwork_http_source is None:
         epg_artwork_http_source = EPG_ARTWORK_HTTP.read_text(encoding="utf-8")
+    if native_router_source is None:
+        native_router_source = RECORDING_NATIVE_ROUTER.read_text(encoding="utf-8")
+    if native_marks_source is None:
+        native_marks_source = RECORDING_NATIVE_MARKS.read_text(encoding="utf-8")
+    if native_cut_source is None:
+        native_cut_source = RECORDING_NATIVE_CUT.read_text(encoding="utf-8")
+    if recording_metadata_source is None:
+        recording_metadata_source = RECORDING_METADATA_RUNTIME.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -352,7 +533,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(RECORDING_NATIVE_EDITING_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(SSE_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED) | set(RECORDING_METADATA_AUDITED) | set(MEDIA_PROCESSING_AUDITED) | set(MEDIA_TRANSPORT_AUDITED) | set(ADDON_ADMIN_AUDITED) | set(BROWSER_PLAYBACK_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -386,9 +567,13 @@ def validate(
     # Registration plus cleanup are expected: cleanup alone is NOT a live route.
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
+    if device_source.count('apiRouter.setBrowserRecordingPlaybackHandler(') != 2:
+        errors.append("Browser Recording playback composition handler disappeared")
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED
+        **RECORDING_NATIVE_EDITING_AUDITED,
+        **EPG_ARTWORK_AUDITED, **SSE_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED,
+        **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED, **BROWSER_PLAYBACK_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -407,6 +592,12 @@ def validate(
                           else "isPublicDevicePlaybackAccountRead")
                 if needed not in security_source:
                     errors.append(f"{where}: administrator Browser security gate missing")
+            elif path in SSE_AUDITED:
+                route_marker, gate_marker, owner_marker = marker
+                if (route_marker not in epg_artwork_http_source or
+                    owner_marker not in epg_artwork_http_source or
+                    gate_marker not in security_source):
+                    errors.append(f"{where}: existing SSE route/owner/security anchor missing")
             elif path in EPG_ARTWORK_AUDITED:
                 if marker not in epg_artwork_http_source:
                     errors.append(
@@ -422,6 +613,149 @@ def validate(
                     '/api/v1/recordings/actions/validate' not in security_source):
                     errors.append(
                         f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in ADDON_ADMIN_AUDITED:
+                owner_marker, gate_marker = marker
+                if (path not in epg_artwork_http_source or
+                    owner_marker not in epg_artwork_http_source or
+                    gate_marker not in security_source):
+                    errors.append(f"{where}: existing Add-on administration route/owner/security anchor missing")
+                expected_security = ([{"browserSession": [], "browserCsrf": []}]
+                                     if method == "post" else [{"browserSession": []}])
+                if data.get(method, {}).get("security") != expected_security:
+                    errors.append(f"{where}: existing administrator Browser authentication drifted")
+            elif path in MEDIA_TRANSPORT_AUDITED:
+                gateway = (ROOT / "core/http/src/MediaGatewayHttpServer.cpp").read_text(encoding="utf-8")
+                if (marker not in gateway or
+                    '"/api/v1/media/sessions/"' not in gateway or
+                    'authenticator_.authenticate(credential, mediaPath.sessionId)' not in gateway or
+                    'routeLeaseRepository_.findActive(' not in gateway or
+                    '!publicSessionAuthorizer_(' not in gateway):
+                    errors.append(f"{where}: session-bound media gateway anchor missing")
+                media_op = data.get(method, {})
+                if media_op.get("security") != [{"mediaSessionCookie": []}, {"mediaAuthorization": []}]:
+                    errors.append(f"{where}: session-bound media authentication drifted")
+            elif path in MEDIA_PROCESSING_AUDITED:
+                owner, gate_marker, suffix = marker
+                verb = "Get" if method == "get" else "Post"
+                router_marker = owner + "ApiRuntime::instance().tryHandle" + verb + "("
+                public_dispatch = "PublicApiRuntime::instance().tryHandle" + verb + "("
+                owner_source = (ROOT / ("api/rest/include/" + owner + "ApiRuntime.h")).read_text(encoding="utf-8")
+                if (native_router_source.count(router_marker) != 1 or
+                    public_dispatch not in native_router_source or
+                    native_router_source.find(router_marker) > native_router_source.find(public_dispatch) or
+                    gate_marker not in security_source or suffix not in owner_source):
+                    errors.append(f"{where}: Media Tools route/owner/security anchor missing")
+            elif path == SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH:
+                if (path not in native_router_source or
+                    "return handlePublicSearchTimerPreviewCacheRefresh(" not in native_router_source or
+                    marker not in recording_router_source or
+                    "backendId != authorizedBackendId" not in recording_router_source or
+                    path not in security_source or
+                    "isPublicSearchTimerPreviewCacheRefresh" not in security_source or
+                    'requestToAuthorize.permission = "searchtimers.preview-cache.refresh"' not in security_source):
+                    errors.append(f"{where}: preview cache refresh owner or existing grant missing")
+            elif path == SERIES_HIERARCHY_PATH:
+                owner = (ROOT / "api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp").read_text(encoding="utf-8")
+                router_marker = "RecordingSeriesHierarchyApiRuntime::instance().tryHandlePost("
+                if (native_router_source.count(router_marker) != 1 or
+                    'PublicRoutePrefix = "/api/v1/backends/"' not in owner or
+                    '"/recordings/series-hierarchy"' not in owner or
+                    'authorizedBackendId != backendId' not in owner or
+                    'strings.count("recordingId")' not in owner or
+                    marker not in owner or
+                    'repository.set(mutation)' not in owner or
+                    'repository.clear(' not in owner):
+                    errors.append(f"{where}: public series hierarchy owner or identity binding missing")
+                if ('isRecordingSeriesHierarchyAction' not in security_source or
+                    'recordingSeriesHierarchyRoute(' not in security_source or
+                    '"/recordings/series-hierarchy"' not in security_source or
+                    'requestToAuthorize.action = "metadata.recording.hierarchy"' not in security_source or
+                    'requestToAuthorize.permission = "metadata.recording.assign"' not in security_source):
+                    errors.append(f"{where}: existing series hierarchy authorization missing")
+                if data.get(method, {}).get("security") != [
+                    {"browserSession": [], "browserCsrf": []},
+                    {"deviceCredential": []}, {"managedBasic": []}
+                ]:
+                    errors.append(f"{where}: series hierarchy actor/CSRF contract drifted")
+            elif path in RECORDING_METADATA_AUDITED:
+                router_marker = "ManualRecordingMetadataApiRuntime::instance().tryHandle" + (
+                    "Get(" if method == "get" else "Post(")
+                if method == "get" and (
+                    "isPublicManualMetadataRead" not in security_source or
+                    '(manualMetadataOperation == "genre" || manualMetadataOperation == "trailer" ||' not in security_source or
+                    'manualMetadataOperation == "manual")' not in security_source or
+                    '? "metadata.recording.assign" : "recordings.view"' not in security_source or
+                    'std::vector<std::string>{manualMetadataBackendId}' not in security_source or
+                    'std::vector<std::string>{"recordings.view"}' not in security_source or
+                    'recordingReadRequest.permission = permission' not in security_source or
+                    native_router_source.find(router_marker) >
+                    native_router_source.find("PublicApiRuntime::instance().tryHandleGet(")
+                ):
+                    errors.append(f"{where}: public metadata read scope or routing missing")
+                if method == "get" and (
+                    'authorizedBackendIds.front() != route.backendId' not in recording_metadata_source or
+                    'const auto native = lookup(route.backendId, publicId);' not in recording_metadata_source or
+                    'validPublicRecordingId(publicId)' not in recording_metadata_source
+                ):
+                    errors.append(f"{where}: public metadata GET identity binding missing")
+                if native_router_source.count(router_marker) != 1:
+                    errors.append(f"{where}: manual metadata router owner missing")
+                if marker not in recording_metadata_source or (
+                    'publicPrefix = "/api/v1/backends/"' not in recording_metadata_source or
+                    'authorizedBackendId != route.backendId' not in recording_metadata_source or
+                    'strings["resourceKey"] = native' not in recording_metadata_source):
+                    errors.append(f"{where}: public metadata handler/identity binding missing")
+                if ('publicPrefix = "/api/v1/backends/"' not in security_source or
+                    'isManualRecordingMetadataAction' not in security_source or
+                    'requestToAuthorize.permission = "metadata.recording.assign"' not in security_source):
+                    errors.append(f"{where}: existing metadata assignment authorization missing")
+            elif path in RECORDING_NATIVE_EDITING_AUDITED:
+                router_marker, gate_marker, native_owner = marker
+                native_source = (
+                    native_marks_source if native_owner == "RecordingMarksApiRuntime.cpp"
+                    else native_cut_source
+                )
+                if native_router_source.count(router_marker) != 1:
+                    errors.append(f"{where}: expected exactly one native Editing router owner")
+                if gate_marker not in security_source or (
+                    "isPublicRecordingEditRead" not in security_source or
+                    "isPublicRecordingRead" not in security_source):
+                    errors.append(f"{where}: Recording SecurityHttpGate scope/permission admission missing")
+                if 'PublicRecordingEditRoute::matchPath(' not in native_source or (
+                    'request.request.recordingId != publicRecordingId' not in native_source or
+                    'request.request.backendId != backendId' not in native_source):
+                    errors.append(f"{where}: public Recording path/body identity check absent")
+                public_dispatch = "PublicApiRuntime::instance().tryHandle" + (
+                    "Get(" if method == "get" else "Post("
+                )
+                if public_dispatch not in native_router_source or (
+                    native_router_source.index(router_marker) >
+                    native_router_source.index(public_dispatch)):
+                    errors.append(f"{where}: native Recording owner must precede v1 fallback")
+            elif path in BROWSER_PLAYBACK_AUDITED:
+                http_marker, gate_marker = marker
+                if (path not in epg_artwork_http_source or
+                    http_marker not in epg_artwork_http_source or
+                    "gate.authorizationDecision.backendId" not in epg_artwork_http_source or
+                    path not in security_source or gate_marker not in security_source or
+                    'requestToAuthorize.permission = "media.recording.play"' not in security_source or
+                    'targetResolver.resolve(authorizedBackendId, request.recordingId)' not in device_source or
+                    'authorizedBackendId != request.backendId' not in device_source or
+                    'recordingMediaSessionController.createBrowserSession(' not in device_source):
+                    errors.append(f"{where}: Browser playback route/owner/scope anchor missing")
+                if path.endswith("/control") and (
+                    'recordingMediaSessionController.handleBrowserControl(' not in device_source
+                ):
+                    errors.append(f"{where}: Browser control owner missing")
+                if path.endswith(("/progress", "/activity")) and (
+                    'ContinueWatchingApiRuntime::instance().tryHandlePost(' not in device_source
+                    or 'targetResolver.resolveForRead(backend, id)' not in device_source
+                ):
+                    errors.append(f"{where}: Browser history owner/identity missing")
+                if data.get(method, {}).get("security") != [
+                    {"browserSession": [], "browserCsrf": []}
+                ]:
+                    errors.append(f"{where}: Browser Session/CSRF contract drifted")
             elif path in DEVICE_AUDITED:
                 device_marker, gate_marker = marker
                 if device_marker not in device_source:
@@ -488,7 +822,10 @@ def validate(
             elif any(not isinstance(v, dict) or not v.get("description") for v in responses.values()):
                 errors.append(f"{where}: response missing description")
             if method == "post":
-                should_have_body = path != "/api/v1/device-pairings/{pairingRequestId}/credential"
+                should_have_body = path not in {
+                    "/api/v1/device-pairings/{pairingRequestId}/credential",
+                    SEARCH_TIMER_PREVIEW_CACHE_REFRESH_PATH,
+                }
                 body = op.get("requestBody")
                 if should_have_body and (not isinstance(body, dict) or body.get("required") is not True):
                     errors.append(f"{where}: required POST body missing")
@@ -515,7 +852,8 @@ def main() -> int:
             print(f"- {message}")
         return 1
     paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-             **EPG_ARTWORK_AUDITED}
+             **RECORDING_NATIVE_EDITING_AUDITED, **EPG_ARTWORK_AUDITED, **SSE_AUDITED,
+             **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED, **RECORDING_METADATA_AUDITED, **MEDIA_PROCESSING_AUDITED, **MEDIA_TRANSPORT_AUDITED, **ADDON_ADMIN_AUDITED, **BROWSER_PLAYBACK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

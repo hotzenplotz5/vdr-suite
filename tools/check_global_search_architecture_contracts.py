@@ -84,6 +84,12 @@ for forbidden in (
     require(forbidden not in frontend, f"frontend search leaks or depends on {forbidden}")
 require("VdrSuiteRecordings2.openRecording" not in frontend, "recording detail call must remain owner-resolved")
 require("VdrSuiteRecordings2" in frontend and "openRecording" in frontend, "Recordings 2 detail owner is missing")
+require(
+    "fetchClientRecordingForPublicId" not in frontend
+    and "'/api/v1/recordings/' + encodeURIComponent(recordingId)" in frontend
+    and "detail.recordingId !== recordingId || detail.backendId !== backendId" in frontend,
+    "public search recording clicks must use the scoped public detail without native identity resolution",
+)
 require("VdrSuiteEpgDetailOwner" in frontend and "owner.open(event" in frontend, "EPG detail owner is missing")
 require("createRecordingCard" in frontend, "Recordings 2 card owner is not reused")
 require("createRequestCoordinator" in frontend and "AbortController" in frontend, "stale-response protection is missing")

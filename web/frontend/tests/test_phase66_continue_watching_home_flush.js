@@ -25,10 +25,10 @@ const syncContext = {
   clearTimeout,
   MutationObserver: class { observe() {} disconnect() {} },
   fetch(requestPath) {
-    if (requestPath === '/api/media/continue-watching') {
+    if (requestPath === '/api/v1/browser/recording-playback-sessions/progress') {
       return new Promise(resolve => { releaseContinue = () => resolve({ok: true}); });
     }
-    if (requestPath === '/api/media/recently-watched') {
+    if (requestPath === '/api/v1/browser/recording-playback-sessions/activity') {
       return new Promise(resolve => { releaseHistory = () => resolve({ok: true}); });
     }
     return Promise.resolve({ok: true});
@@ -59,11 +59,11 @@ function flushMicrotasks(count = 8) {
 
 (async function () {
   const continueWrite = sync.__test.enqueue({
-    operation: 'progress', backendId: 'default', recordingId: 'r1',
+    operation: 'progress', backendId: 'default', recordingId: 'rec_11111111111111111111111111111111',
     positionSeconds: 42, resumeSupported: true, operationId: 'cw-flush-test'
   });
   const historyWrite = sync.__test.enqueueHistory({
-    operation: 'activity', backendId: 'default', recordingId: 'r1',
+    operation: 'activity', backendId: 'default', recordingId: 'rec_11111111111111111111111111111111',
     positionSeconds: 42, resumeSupportKnown: true, resumeSupported: true,
     ended: false, operationId: 'rw-flush-test'
   });
@@ -99,7 +99,7 @@ function flushMicrotasks(count = 8) {
     setTimeout(callback, delay) { scheduled.push({callback, delay}); return scheduled.length; },
     clearTimeout() {},
     fetch: async function (requestPath, options) {
-      if (requestPath === '/api/media/continue-watching') {
+      if (requestPath === '/api/v1/browser/recording-playback-sessions/progress') {
         continueLists += 1;
         const body = JSON.parse(options.body);
         assert.strictEqual(body.operation, 'list');
