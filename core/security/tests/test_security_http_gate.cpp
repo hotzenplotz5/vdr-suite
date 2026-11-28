@@ -87,6 +87,50 @@ int main()
     assert(fixture.grantRepository.revokeGrant(fixture.actorId,"recordings.view","default"));
     assert(fixture.grantRepository.revokeGrant(fixture.actorId,"epg.view","default"));
 
+    // The gallery uses the existing backend-scoped media read permission.
+    // Neither a source ID nor knowledge of a photo URL bypasses it.
+    assert(fixture.grantRepository.ensureGrant(fixture.actorId,"recordings.view","default"));
+    for (const std::string endpoint : {"library","browse","photo","preview"}) {
+        HttpServerRequest picture = getRequest();
+        picture.path = "/api/v1/addons/image/" + endpoint + "?backendId=default";
+        if (endpoint != "library") picture.path += "&sourceId=pictures&path=Urlaub.jpg";
+        const auto anon = fixture.gate.evaluate(picture);
+        assert(!anon.allowed && anon.rejection.statusCode == 401);
+        fixture.addBrowserAuthentication(picture);
+        const auto allowed = fixture.gate.evaluate(picture);
+        assert(allowed.allowed && allowed.authorizationDecision.permission == "recordings.view");
+        assert(allowed.authorizationDecision.backendId == "default");
+        const auto valid = picture.path;
+        picture.path = valid + "&backendId=default";
+        assert(fixture.gate.evaluate(picture).rejection.statusCode == 400);
+        picture.path = valid;
+        picture.path.replace(picture.path.find("backendId=default"),17,"backendId=secondary");
+        assert(fixture.gate.evaluate(picture).rejection.statusCode == 403);
+    }
+    assert(fixture.grantRepository.revokeGrant(fixture.actorId,"recordings.view","default"));
+    auto galleryRead = getRequest();
+    galleryRead.path = "/api/v1/addons/image/library?backendId=default";
+    fixture.addBrowserAuthentication(galleryRead);
+    assert(fixture.gate.evaluate(galleryRead).rejection.statusCode == 403);
+
+    // Existing admin/CSRF rules, not a new gallery-specific role.
+    for (const std::string endpoint : {"activation","sources"}) {
+        const auto path = "/api/v1/addons/image/" + endpoint;
+        auto read = getRequest();
+        read.path = path + "?backendId=default";
+        fixture.addBrowserAuthentication(read);
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
+        auto mutation = fixture.mutationRequest(path,"default");
+        fixture.addBrowserAuthentication(mutation,true);
+        assert(fixture.gate.evaluate(mutation).rejection.statusCode == 403);
+        assert(fixture.grantRepository.ensureGrant(fixture.actorId,"role.admin","*"));
+        assert(fixture.gate.evaluate(read).allowed);
+        assert(fixture.gate.evaluate(mutation).allowed);
+        mutation.headers.erase("X-CSRF-Token");
+        assert(fixture.gate.evaluate(mutation).rejection.statusCode == 403);
+        assert(fixture.grantRepository.revokeGrant(fixture.actorId,"role.admin","*"));
+    }
+
     const SecurityGateDecision anonymous =
         fixture.gate.evaluate(getRequest());
     assert(!anonymous.allowed);

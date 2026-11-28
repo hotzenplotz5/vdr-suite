@@ -299,6 +299,8 @@
       display: block;
     }
 
+    #detail [data-home-zone="image-gallery"][hidden] { display: none; }
+
     .media-home-hero {
       position: relative;
       isolation: isolate;
@@ -790,6 +792,7 @@
           <button type="button" class="module-tab" data-module="channelsort" data-i18n="module.channelSort">Kanäle sortieren</button>
           <button type="button" class="module-tab" data-module="timers" data-i18n="module.timers">Timer</button>
           <button type="button" class="module-tab" data-module="searchtimers" data-i18n="module.searchTimers">Suchtimer</button>
+          <button type="button" class="module-tab" data-module="image-gallery" data-i18n="module.imageGallery" hidden disabled>Bilder</button>
         </nav>
         <section class="media-home-only media-home-hero" data-home-zone="hero" aria-labelledby="media-home-title">
           <div class="media-home-hero-copy">
@@ -800,10 +803,11 @@
         </section>
         <section class="media-home-only media-home-section-heading" data-home-zone="primary-rail" aria-labelledby="media-home-primary-title">
           <h3 id="media-home-primary-title">Aktueller Bestand</h3>
-          <p>Reale Backend-Daten in einer wiederverwendbaren horizontalen Home-Rail.</p>
+          <p>Aufnahmen und Speicher des ausgewählten Backends</p>
         </section>
         <section id="detail-data" class="metric-grid" data-i18n="shell.clickBackend"><div class="media-home-state">Wähle ein Backend, um Media Home zu laden.</div></section>
         <section class="media-home-only media-home-additional-sections" data-home-zone="additional-sections" aria-label="Weitere Media-Home-Bereiche"></section>
+        <section class="media-home-only media-home-discovery" data-home-zone="image-gallery" hidden></section>
       </section>
     </section>
   </main>

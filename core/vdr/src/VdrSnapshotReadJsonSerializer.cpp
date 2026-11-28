@@ -405,7 +405,8 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     std::size_t eventCount,
     std::size_t timerCount,
     std::size_t recordingCount,
-    const std::string& backendId) const
+    const std::string& backendId,
+    std::int64_t diskFreeMb) const
 {
     std::ostringstream json;
 
@@ -416,8 +417,10 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
         << ",\"channelCount\":" << channelCount
         << ",\"eventCount\":" << eventCount
         << ",\"timerCount\":" << timerCount
-        << ",\"recordingCount\":" << recordingCount
-        << "}";
+        << ",\"recordingCount\":" << recordingCount;
+    if (snapshotAvailable && diskFreeMb >= 0)
+        json << ",\"diskFreeMb\":" << diskFreeMb;
+    json << "}";
 
     return json.str();
 }

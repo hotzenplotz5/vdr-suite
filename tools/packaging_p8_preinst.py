@@ -10,6 +10,7 @@ import argparse
 import re
 import shlex
 import sys
+from itertools import permutations
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = {
@@ -83,6 +84,16 @@ def render(package, repo=ROOT, test_root=""):
     def path(entry):
         return prefix + "/" + entry
 
+    # dpkg may list the shared directory owners in any order. Only the
+    # already supported Suite packages participate, not arbitrary co-owners.
+    suite_packages = ("vdr-suite-daemon", "vdr-suite-addon-media-tools",
+                      "vdr-suite-addon-image")
+    def shared_cases(variable, exclude_daemon_only=False):
+        owners = (", ".join(group)
+                  for size in range(1, len(suite_packages) + 1)
+                  for group in permutations(suite_packages, size)
+                  if not (exclude_daemon_only and group == ("vdr-suite-daemon",)))
+        return "|".join('"' + owner + ': $' + variable + '"' for owner in owners)
     out = [
         "#!/bin/sh",
         "# GENERATED from tools/packaging_p8_preinst.py and debian/*.install.",
@@ -117,7 +128,7 @@ def render(package, repo=ROOT, test_root=""):
         "    shared_owner=$(dpkg-query -S -- \"$shared_child\" 2>/dev/null) ||",
         "      deny OWNERSHIP_UNKNOWN \"$shared_child\"",
         "    case \"$shared_owner\" in",
-        "      \"vdr-suite-daemon: $shared_child\"|\"vdr-suite-addon-media-tools: $shared_child\"|\"vdr-suite-daemon, vdr-suite-addon-media-tools: $shared_child\"|\"vdr-suite-addon-media-tools, vdr-suite-daemon: $shared_child\") ;;",
+        "      " + shared_cases("shared_child") + ") ;;",
         "      *) deny FOREIGN_OR_AMBIGUOUS_OWNER \"$shared_child\" ;;",
         "    esac",
         "    if [ -d \"$shared_child\" ]; then",
@@ -141,7 +152,7 @@ def render(package, repo=ROOT, test_root=""):
         "      if [ \"$package\" = vdr-suite-daemon ] &&",
         "         [ \"$target\" = " + shlex.quote(path("usr/share/vdr-suite")) + " ]; then",
         "        case \"$owner\" in",
-        "          \"vdr-suite-addon-media-tools: $target\"|\"vdr-suite-daemon, vdr-suite-addon-media-tools: $target\"|\"vdr-suite-addon-media-tools, vdr-suite-daemon: $target\")",
+        "          " + shared_cases("target", exclude_daemon_only=True) + ")",
         "            check_shared_suite_tree \"$target\" ;;",
         "          *) deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\" ;;",
         "        esac",

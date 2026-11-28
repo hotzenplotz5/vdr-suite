@@ -22,6 +22,9 @@
 #include "AddonAdministrationService.h"
 #include "AddonActivationHttpPayload.h"
 #include "LocalMediaImportSourceAdmin.h"
+#include "../../../modules/image/ImageGalleryApi.h"
+#include <fstream>
+#include <filesystem>
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
@@ -7071,8 +7074,23 @@ bool DaemonRuntime::initialize()
     // The ONLY writable activation path: authenticated browser administrator
     // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
     // No user-supplied RuntimeEvidence and no automatic installation/exec.
-    auto addonActivationMutation = [this](
-        const RequestSecurityContext& actor, const std::string& body)
+    // Descriptive local UI payload observation, not a new permission or Agent gate.
+    const auto imagePayloadAvailable = []() {
+        std::vector<std::filesystem::path> roots{
+            "web/frontend", "/usr/share/vdr-suite/web/frontend",
+            "/usr/local/share/vdr-suite/web/frontend"};
+        if (const char* root = std::getenv("VDR_SUITE_FRONTEND_ROOT"))
+            roots.emplace_back(root);
+        for (const auto& root : roots) {
+            std::error_code error;
+            if (std::filesystem::is_regular_file(root / "modules/image-gallery.js", error))
+                return true;
+        }
+        return false;
+    };
+    auto addonActivationMutation = [this, imagePayloadAvailable](
+        const RequestSecurityContext& actor, const std::string& body,
+        const std::string& moduleId)
         -> ApiResponse
     {
         const auto problem = [](int status, const char* code) {
@@ -7088,8 +7106,7 @@ bool DaemonRuntime::initialize()
             return problem(422, "invalid_activation_request");
         if (!mediaImportActivationIntents_ ||
             !backendAgentAccountabilityRepository_ ||
-            !backendAgentRepository_ ||
-            !backendAgentCommandRepository_ ||
+            (moduleId == "rectools" && (!backendAgentRepository_ || !backendAgentCommandRepository_)) ||
             !backendRegistryService_ || !backendAccessPolicy_)
             return problem(503, "activation_unavailable");
         // Only an authenticated administrator may save desired state.
@@ -7101,12 +7118,16 @@ bool DaemonRuntime::initialize()
             [this](const std::string& moduleId, const std::string& backendId)
               -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
             {
-                if (moduleId != "rectools") return std::nullopt;
+                if (moduleId != "rectools" && moduleId != "image") return std::nullopt;
                 const auto access = backendAccessPolicy_->canWriteToBackend(
                     *backendRegistryService_, backendId);
                 if (!access.backendFound || !access.allowed || access.readOnly)
                     return std::nullopt;
                 RuntimeEvidence evidence;
+                if (moduleId == "image") {
+                    if (backendId != config_.suiteBridge().backendId) return std::nullopt;
+                    return AddonAdministrationService::TrustedActivationSnapshot{access, evidence};
+                }
                 const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count();
                 const auto agent = backendAgentRepository_->findAgentForBackend(
@@ -7156,7 +7177,7 @@ bool DaemonRuntime::initialize()
         if (std::strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", &utc) != 20)
             return problem(503, "audit_clock_unavailable");
         const auto result = service.setDesiredState(
-            actor, {"rectools", parsed.backendId, parsed.enabled,
+            actor, {moduleId, parsed.backendId, parsed.enabled,
                     parsed.expectedRevision}, {}, {},
             {auditId.str(), stamp});
         int code = 503;
@@ -7175,21 +7196,24 @@ bool DaemonRuntime::initialize()
         ApiResponse response;
         response.statusCode = 200;
         response.contentType = "application/json";
-        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+        response.body = std::string("{\"moduleId\":\"") + moduleId + "\",\"backendId\":\"" +
             parsed.backendId + "\",\"desiredEnabled\":" +
             (result.intent.desiredEnabled ? "true" : "false") +
-            ",\"revision\":" + std::to_string(result.intent.revision) + "}";
+            ",\"revision\":" + std::to_string(result.intent.revision) +
+            (moduleId == "image" ? std::string(",\"installationState\":\"") +
+                (imagePayloadAvailable() ? "present" : "absent") + "\"" : "") + "}";
         return response;
     };
-    auto addonActivationLookup = [this](
-        const RequestSecurityContext& actor, const std::string& requestPath)
+    auto addonActivationLookup = [this, imagePayloadAvailable](
+        const RequestSecurityContext& actor, const std::string& requestPath,
+        const std::string& moduleId)
         -> ApiResponse
     {
         ApiResponse response;
         response.contentType = "application/json";
         std::string backendId;
         if (!vdrsuite::addons::parseActivationHttpBackendQuery(
-                requestPath, backendId))
+                requestPath, backendId, moduleId))
         {
             response.statusCode = 422;
             response.body = "{\"error\":\"invalid_backend_id\"}";
@@ -7202,7 +7226,7 @@ bool DaemonRuntime::initialize()
             return response;
         }
         const auto current = mediaImportActivationIntents_->read(
-            actor, "rectools", backendId);
+            actor, moduleId, backendId);
         if (current.status != vdrsuite::addons::IntentStatus::ok)
         {
             response.statusCode =
@@ -7212,6 +7236,13 @@ bool DaemonRuntime::initialize()
             return response;
         }
         response.statusCode = 200;
+        if (moduleId == "image") {
+            response.body = std::string("{\"moduleId\":\"image\",\"backendId\":\"") + backendId +
+                "\",\"desiredEnabled\":" + (current.intent.desiredEnabled ? "true" : "false") +
+                ",\"revision\":" + std::to_string(current.intent.revision) +
+                ",\"installationState\":\"" + (imagePayloadAvailable() ? "present" : "absent") + "\"}";
+            return response;
+        }
         // Explicit administrative installation plus independent Core approval
         // and current verified Agent/handler enable revision zero by default.
         // A later explicit disable wins; no local file alone permits use.
@@ -7299,15 +7330,56 @@ bool DaemonRuntime::initialize()
         return vdrsuite::mediatools::local_source_admin::read(
             uri, trustedLocalMediaVideoRoot());
     };
+    auto browserHttpServer = std::make_unique<TestHttpServer>(
+        *apiRouter_, deviceLiveEventHub_, std::move(addonGrantEligibility),
+        [addonActivationMutation](const RequestSecurityContext& actor, const std::string& body) {
+            return addonActivationMutation(actor, body, "rectools");
+        },
+        [addonActivationLookup](const RequestSecurityContext& actor, const std::string& uri) {
+            return addonActivationLookup(actor, uri, "rectools");
+        },
+        std::move(addonSourceMutation), std::move(addonSourceLookup));
+    browserHttpServer->setImageGalleryActivation(
+        [addonActivationMutation](const RequestSecurityContext& actor, const std::string& body) {
+            return addonActivationMutation(actor, body, "image");
+        },
+        [addonActivationLookup](const RequestSecurityContext& actor, const std::string& uri) {
+            return addonActivationLookup(actor, uri, "image");
+        });
+    // The local picture provider is independent of VDR or Agent availability.
+    // Store configuration next to the daemon's existing state database.
+    const auto imageBackend = config_.suiteBridge().backendId;
+    std::vector<vdrsuite::imagegallery::Source> imageDefaults;
+    std::ifstream distro("/etc/os-release");
+    std::string distroLine;
+    while (std::getline(distro, distroLine)) {
+        if (distroLine == "ID=ubuntu" || distroLine == "ID=\"ubuntu\"") {
+            imageDefaults.push_back(vdrsuite::imagegallery::yavdrDefaultSource());
+            break;
+        }
+    }
+    auto imagePreviews = std::make_shared<ArtworkPreviewCache>("/var/cache/vdr-suite/image-previews");
+    auto imageApi = std::make_shared<vdrsuite::imagegallery::ImageGalleryApi>(
+        imageBackend, vdrsuite::imagegallery::ImageGallerySourceSettings(
+            std::filesystem::path(config_.databasePath()).parent_path() / "image-sources.tsv",
+            std::move(imageDefaults)),
+        [imagePreviews](const std::string& type, const std::string& bytes) {
+            return imagePreviews->gallery(type, bytes);
+        });
+    browserHttpServer->setImageGalleryApi(
+        [imageApi](const RequestSecurityContext&, const std::string& body) {
+            return imageApi->save(body);
+        },
+        [this, imageApi, imageBackend, imagePayloadAvailable](const RequestSecurityContext&, const std::string& uri) {
+            if (!mediaImportActivationIntents_)
+                return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
+            const auto intent = mediaImportActivationIntents_->readForAdmission("image", imageBackend);
+            if (intent.status != vdrsuite::addons::IntentStatus::ok)
+                return ApiResponse{503, "application/json", "{\"error\":\"activation_unavailable\"}", {}};
+            return imageApi->get(uri, intent.intent.desiredEnabled && imagePayloadAvailable());
+        });
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
-        std::make_unique<TestHttpServer>(
-            *apiRouter_, deviceLiveEventHub_,
-            std::move(addonGrantEligibility),
-            std::move(addonActivationMutation),
-            std::move(addonActivationLookup),
-            std::move(addonSourceMutation),
-            std::move(addonSourceLookup)),
-        recordingArtworkService_);
+        std::move(browserHttpServer), recordingArtworkService_);
     auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,

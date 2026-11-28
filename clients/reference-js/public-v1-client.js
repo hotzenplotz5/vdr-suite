@@ -880,6 +880,23 @@
     return '/api/v1/backends/' + options.backendId + '/' + suffix;
   }
 
+  function imageGalleryPath(options, resource) {
+    if (!options || typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId))
+      throw new Error('Image Gallery requires canonical backendId');
+    let path = '/api/v1/addons/image/' + resource + '?backendId=' +
+      encodeURIComponent(options.backendId);
+    if (resource === 'library' && options.sample === true) path += '&sample=1';
+    if (resource !== 'library') {
+      if (typeof options.sourceId !== 'string' || !options.sourceId ||
+          typeof options.path !== 'string')
+        throw new Error('Image Gallery requires sourceId and relative path');
+      path += '&sourceId=' + encodeURIComponent(options.sourceId) +
+        '&path=' + encodeURIComponent(options.path);
+    }
+    return path;
+  }
+
   function operationItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('Operation item options must be an object');
@@ -2986,6 +3003,18 @@
           throw new Error('Media Check requires opaque checkId');
         }
         return request(mediaImportPath(value, 'media-checks/' + value.checkId), value);
+      },
+      getImageGalleryLibrary(options) {
+        return request(imageGalleryPath(options, 'library'), options);
+      },
+      getImageGalleryFolder(options) {
+        return request(imageGalleryPath(options, 'browse'), options);
+      },
+      imageGalleryPhotoUrl(options) {
+        return buildUrl(baseUrl, imageGalleryPath(options, 'photo'));
+      },
+      imageGalleryPreviewUrl(options) {
+        return buildUrl(baseUrl, imageGalleryPath(options, 'preview'));
       },
       getMediaImportCapability(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

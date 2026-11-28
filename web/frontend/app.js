@@ -12,6 +12,79 @@ let mediaImportCapabilityEpoch = 0;
 let mediaImportKnownBackendId = '';
 let mediaToolsHomeAllowedBackendId = '';
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
+const imageGalleryTab = document.querySelector('.module-tab[data-module="image-gallery"]');
+let imageGalleryMount = null, imageGalleryEpoch = 0, imageGalleryBackend = '';
+let imageGalleryHome = null, imageGalleryInitialPhoto = null;
+function disposeImageGallery() {
+  if (imageGalleryMount) imageGalleryMount.dispose();
+  imageGalleryMount = null;
+}
+function clearImageGalleryHome() {
+  if (imageGalleryHome) imageGalleryHome.dispose();
+  imageGalleryHome = null;
+}
+function renderImageGalleryHome() {
+  const gallery = window.VdrSuiteImageGallery;
+  if (!browserSessionFrontendActive || selectedModule !== 'overview' ||
+      !imageGalleryBackend || imageGalleryBackend !== selectedBackendId || !gallery) {
+    clearImageGalleryHome();
+    return;
+  }
+  if (imageGalleryHome) return;
+  const host = document.querySelector('[data-home-zone="image-gallery"]');
+  if (!host) return;
+  const backendId = selectedBackendId;
+  imageGalleryHome = gallery.mountHome(host,gallery.adapterFor(backendId),{
+    locale:document.documentElement.lang,
+    open(photo) {
+      if (selectedModule !== 'overview' || backendId !== selectedBackendId ||
+          imageGalleryBackend !== backendId) return;
+      imageGalleryInitialPhoto = photo || null;
+      selectModule('image-gallery');
+    }
+  });
+}
+function resetImageGalleryVisibility() {
+  ++imageGalleryEpoch;
+  imageGalleryBackend='';
+  imageGalleryInitialPhoto=null;
+  clearImageGalleryHome();
+  disposeImageGallery();
+  if (imageGalleryTab) {imageGalleryTab.hidden=true;imageGalleryTab.disabled=true;}
+}
+function refreshImageGalleryVisibility(backendId) {
+  const factory=window.VdrSuitePublicV1Client;
+  if (!imageGalleryTab || !factory || !browserSessionFrontendActive || !backendId) return;
+  const epoch=++imageGalleryEpoch;
+  const api=factory.createClient({baseUrl:window.location.origin,credentials:'same-origin'});
+  api.getImageGalleryLibrary({backendId,cache:'no-store'}).then(async data=>{
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId || !browserSessionFrontendActive) return;
+    if (data.enabled===true && !window.VdrSuiteImageGallery) {
+      try { await window.VdrSuiteDeferredFrontendRuntimes.loadImageGallery(); }
+      catch (_) { data.enabled=false; }
+    }
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId || !browserSessionFrontendActive) return;
+    imageGalleryBackend=data.enabled===true && window.VdrSuiteImageGallery ? backendId : '';
+    imageGalleryTab.hidden=!imageGalleryBackend;
+    imageGalleryTab.disabled=!imageGalleryBackend;
+    renderImageGalleryHome();
+    if (!imageGalleryBackend && selectedModule==='image-gallery') selectModule('overview');
+  }).catch(error=>{
+    if (epoch!==imageGalleryEpoch || backendId!==selectedBackendId) return;
+    if ([401,403,404].includes(error.status)) {
+      resetImageGalleryVisibility();
+      if (selectedModule==='image-gallery') selectModule('overview');
+    }
+  });
+}
+if (typeof window.addEventListener==='function') {
+  window.addEventListener('vdr-suite:image-gallery-activation-changed',event=>{
+    if (event.detail && event.detail.backendId===selectedBackendId) {
+      clearImageGalleryHome();
+      refreshImageGalleryVisibility(selectedBackendId);
+    }
+  });
+}
 
 // Keep the live tab order independent of addon activation and delayed capability
 // responses. The shipped HTML already has the correct order; an addon or older
@@ -25,6 +98,14 @@ function placeMediaImportTab() {
     nav.insertBefore(mediaImportTab, recordingsTab.nextElementSibling);
 }
 placeMediaImportTab();
+function placeImageGalleryTab() {
+  const nav = document.getElementById('module-nav');
+  const search = nav && nav.querySelector('.module-tab[data-module="searchtimers"]');
+  if (search && imageGalleryTab && imageGalleryTab.parentNode === nav &&
+      search.nextElementSibling !== imageGalleryTab)
+    nav.insertBefore(imageGalleryTab,search.nextElementSibling);
+}
+placeImageGalleryTab();
 
 function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
@@ -337,7 +418,8 @@ const moduleLabels = {
   timers: frontendTranslate('module.timers', 'Timer'),
   recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
   searchtimers: frontendTranslate('module.searchTimers', 'Suchtimer'),
-  'media-import': 'Media Tools'
+  'media-import': 'Media Tools',
+  'image-gallery': frontendTranslate('module.imageGallery', 'Bilder')
 };
 
 function addText(element, text) {
@@ -649,16 +731,46 @@ function formatRecordingStart(value) {
 }
 
 function renderSnapshotMetrics(data) {
+  if (typeof window !== 'undefined' && renderSnapshotMetrics.clockTimer != null) {
+    window.clearTimeout(renderSnapshotMetrics.clockTimer);
+    renderSnapshotMetrics.clockTimer = null;
+  }
   detailDataElement.replaceChildren();
   const count = key => data ? valueOrZero(data[key]) : '…';
-  detailDataElement.appendChild(createMetric('Snapshot', data ? (data.snapshotAvailable ? 'ja' : 'nein') : '…'));
-  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
-  detailDataElement.appendChild(createMetric('Events', count('eventCount')));
-  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
+  const mb = data && data.diskFreeMb;
+  const free = Number.isSafeInteger(mb) && mb >= 0
+    ? new Intl.NumberFormat('de-DE', {maximumFractionDigits: mb >= 1048576 ? 2 : 1})
+        .format(mb / (mb >= 1048576 ? 1048576 : 1024)) + (mb >= 1048576 ? ' TiB' : ' GiB')
+    : (data ? '–' : '…');
+  detailDataElement.appendChild(createMetric('Freier Aufnahmespeicher', free));
   const recordingMetric = createMetric('Aufnahmen',
     !data || data.recordingCountPending ? '…' : count('recordingCount'));
   recordingMetric.id = 'home-recording-count';
   detailDataElement.appendChild(recordingMetric);
+  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
+  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
+  const timeText = date => date.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  const dateText = date => date.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const now = new Date();
+  const clock = createMetric(dateText(now), timeText(now));
+  clock.id = 'home-local-clock';
+  clock.title = 'Datum und lokale Uhrzeit';
+  detailDataElement.appendChild(clock);
+  // Only the local clock is updated, never a backend/network poll.
+  if (typeof window !== 'undefined' && typeof window.setTimeout === 'function' &&
+      clock.firstElementChild && clock.lastElementChild) {
+    const tick = () => {
+      renderSnapshotMetrics.clockTimer = null;
+      if (!clock.isConnected || selectedModule !== 'overview' || !browserSessionFrontendActive) return;
+      const date = new Date();
+      clock.firstElementChild.textContent = timeText(date);
+      clock.lastElementChild.textContent = dateText(date);
+      renderSnapshotMetrics.clockTimer = window.setTimeout(tick,
+        60000 - date.getSeconds() * 1000 - date.getMilliseconds());
+    };
+    renderSnapshotMetrics.clockTimer = window.setTimeout(tick,
+      60000 - now.getSeconds() * 1000 - now.getMilliseconds());
+  }
 }
 
 
@@ -3938,7 +4050,10 @@ function renderSettingsView(data) {
 
   const addonsSettings = window.VdrSuiteAddonSettings;
   if (addonsSettings && typeof addonsSettings.render === 'function') {
-    inCategory('addons', panel => { addonsSettings.render(panel, selectedBackendId); });
+    inCategory('addons', panel => {
+      addonsSettings.render(panel, selectedBackendId);
+      if (typeof addonsSettings.renderImageGallery === 'function') addonsSettings.renderImageGallery(panel, selectedBackendId);
+    });
   }
 
   const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
@@ -4238,10 +4353,22 @@ document.addEventListener('vdr-suite:hevc-activity-changed', function () {
 });
 
 function renderSelectedModule(data) {
+  if (selectedModule === 'image-gallery') {
+    if (!imageGalleryMount && imageGalleryBackend===selectedBackendId && window.VdrSuiteImageGallery) {
+      detailDataElement.replaceChildren();
+      const gallery=window.VdrSuiteImageGallery;
+      imageGalleryMount=gallery.mount(detailDataElement,gallery.adapterFor(selectedBackendId),{
+        locale:document.documentElement.lang, initialPhoto:imageGalleryInitialPhoto
+      });
+      imageGalleryInitialPhoto=null;
+    }
+    return;
+  }
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
     renderHevcHomeActivity();
     renderMediaToolsHomeShortcut();
+    renderImageGalleryHome();
     return;
   }
 
@@ -4368,9 +4495,12 @@ function shouldPublishHomeResume(previousModule) {
 
 function selectModule(moduleName) {
   placeMediaImportTab();
+  placeImageGalleryTab();
   if (moduleName === 'media-import' &&
       (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
+  if (moduleName === 'image-gallery' && (!imageGalleryTab || imageGalleryTab.hidden || imageGalleryTab.disabled)) return;
   const previousModule = selectedModule;
+  if (previousModule === 'image-gallery' && moduleName !== 'image-gallery') disposeImageGallery();
   if (previousModule === 'media-import') {
     const moduleApi = mediaImportModule();
     if (moduleApi && typeof moduleApi.deactivate === 'function') moduleApi.deactivate();
@@ -4386,7 +4516,7 @@ function selectModule(moduleName) {
   }
 
   selectedModule = moduleName;
-  if (moduleName !== 'overview') closeHomeHevcStream();
+  if (moduleName !== 'overview') { closeHomeHevcStream(); clearImageGalleryHome(); }
   renderMediaToolsHomeShortcut();
 
   if (moduleName === 'channels') {
@@ -4451,6 +4581,7 @@ function markHomeStartup(stage) {
 function loadBackendDetails(backend) {
   const sequence = ++backendDetailSequence;
   resetMediaImportVisibility(false);
+  resetImageGalleryVisibility();
   selectedBackend = backend;
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
@@ -4466,6 +4597,7 @@ function loadBackendDetails(backend) {
     refreshDetailButton.disabled = false;
     markHomeStartup('home-navigation-ready');
     refreshMediaImportVisibility(backendId);
+    refreshImageGalleryVisibility(backendId);
   }
 
   if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
@@ -4733,6 +4865,7 @@ let browserSessionFrontendBound = false;
 function renderAuthenticationRequiredFrontend() {
   closeHomeHevcStream();
   resetMediaImportVisibility(true);
+  resetImageGalleryVisibility();
   selectedBackendId = '';
   selectedBackend = null;
   currentSnapshot = null;

@@ -308,6 +308,7 @@ const item = {
     const end = appSource.indexOf('function renderBackend(', begin);
     assert(begin >= 0 && end > begin);
     const statusReplies = [], snapshots = [], renders = [], frames = [], events = [];
+    const galleryEvents = [];
     const marks = new Map();
     const metric = {firstElementChild: {textContent: ''}};
     const slow = clientApiRuntime(async url => {
@@ -324,6 +325,8 @@ const item = {
       backendDetailSequence: 0, selectedBackend: null, selectedBackendId: '',
       selectedModule: 'overview', currentSnapshot: null,
       resetMediaImportVisibility() {}, markSelected(id) {ctx.selectedBackendId = id;},
+      resetImageGalleryVisibility() {galleryEvents.push('reset');},
+      refreshImageGalleryVisibility(id) {galleryEvents.push(id);},
       selectModule(name) {ctx.selectedModule = name; events.push(['home', snapshots.length]);}, refreshMediaImportVisibility() {},
       refreshDetailButton: {disabled: false}, detailMetaElement: {},
       detailDataElement: {replaceChildren() {}, getClientRects() {return [{}];}},
@@ -335,6 +338,7 @@ const item = {
     vm.runInContext(appSource.slice(begin, end), ctx);
     const flush = () => new Promise(resolve => setImmediate(resolve));
     const first = ctx.loadBackendDetails({backendId:'default'});
+    assert.deepStrictEqual(galleryEvents, ['reset','default']);
     assert.equal(statusReplies.length, 1);
     assert.deepStrictEqual(events[0], ['home', 1], 'snapshot starts before Home-resume discovery');
     assert.equal(ctx.refreshDetailButton.disabled, false);
@@ -403,7 +407,7 @@ const item = {
     const modules = [];
     Object.assign(ctx, {
       document:{querySelectorAll(){return [];}, querySelector(){return null;}},
-      placeMediaImportTab(){}, closeHomeHevcStream(){},
+      placeMediaImportTab(){}, placeImageGalleryTab(){}, clearImageGalleryHome(){}, closeHomeHevcStream(){},
       renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
       shouldPublishHomeResume(){return false;}
     });

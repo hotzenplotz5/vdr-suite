@@ -229,8 +229,8 @@ assert(continueSource.includes('.media-home-continue-artwork{border-radius:0}'))
 assert(continueSource.includes('@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}'));
 assert(continueSource.includes('#detail:has(.module-tab.active[data-module="overview"]){display:flex;flex-direction:column}'));
 assert(continueSource.includes('[data-home-zone="additional-sections"]{order:40}'));
-assert(continueSource.includes('[data-home-zone="primary-rail"]{order:50}'));
-assert(continueSource.includes('#detail-data{order:60}'));
+assert(continueSource.includes('[data-home-zone="primary-rail"]{order:110}'));
+assert(continueSource.includes('#detail-data{order:120}'));
 
 // Existing discovery / series / history rails keep their established focus,
 // geometry, lazy-loading and canonical owner boundaries. Slice 66.7 must not

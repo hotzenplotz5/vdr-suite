@@ -316,7 +316,7 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
     // a currently leased Agent or a freshly published installation snapshot.
     // An offline enable stores no executable provider binding. The actual
     // operation still requires a live, independently verified provider.
-    if (mutation.moduleId != "rectools" ||
+    if ((mutation.moduleId != "rectools" && mutation.moduleId != "image") ||
         backend.backendId != mutation.backendId ||
         !backend.backendFound || !backend.allowed || backend.readOnly)
         return false;
@@ -329,6 +329,7 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
         !evidence.versionCompatible && !evidence.handlerRegistered &&
         !evidence.handlerHealthy;
     if (unbound) return true;
+    if (mutation.moduleId == "image") return false; // Local read-only provider, never Agent-pinned.
     return evidence.moduleId == "rectools" &&
         evidence.packageName == "vdr-suite-addon-media-tools" &&
         evidence.backendId == mutation.backendId &&
@@ -394,7 +395,7 @@ IntentResult AddonActivationIntentRepository::updateInternal(
     if (current.intent.revision != mutation.expectedRevision)
         return outcome(IntentStatus::revisionConflict, mutation.moduleId, mutation.backendId);
 
-    if (mutation.desiredEnabled) {
+    if (mutation.desiredEnabled && mutation.moduleId == "rectools") {
         // A package freeze owns the WHOLE Media Tools activation boundary,
         // not just new Import/HEVC reservations. Disabling still works
         // during maintenance, even with missing handler or backend facts.

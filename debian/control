@@ -45,3 +45,12 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, ffmpeg, vdr
 Description: Inactive VDR-Suite Media Tools workers
  Import, read-only check and optional shrink workers from the sealed runtime.
  Package installation does not activate rights, jobs, or services.
+
+Package: vdr-suite-addon-image
+Architecture: any
+Build-Profiles: <!plugin-only>
+Depends: vdr-suite-daemon (>= ${source:Version}), ${misc:Depends}
+Recommends: ffmpeg
+Description: Optional VDR-Suite Image Gallery
+ Browse local picture sources in grid and cover-flow views with slideshow.
+ The package is not activated automatically and requires no Backend Agent.

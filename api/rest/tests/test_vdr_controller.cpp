@@ -648,7 +648,12 @@ static void test_vdr_controller_returns_backend_snapshot_summary()
 
     VdrSnapshot snapshot = makeControllerSnapshot();
     snapshot.backendId = "default";
+    snapshot.status.diskFreeMb = 1572864;
     cache.update(snapshot);
+    auto remote = snapshot;
+    remote.backendId = "remote";
+    remote.status.diskFreeMb = 0;
+    cache.update(remote);
 
     VdrOverviewService overviewService(accessService);
     VdrOverviewJsonSerializer jsonSerializer;
@@ -678,6 +683,9 @@ static void test_vdr_controller_returns_backend_snapshot_summary()
            != std::string::npos);
     assert(response.body.find("\"recordingCount\":1")
            != std::string::npos);
+    assert(response.body.find("\"diskFreeMb\":1572864") != std::string::npos);
+    assert(controller.getSnapshotSummaryForBackend("remote").body.find("\"diskFreeMb\":0") != std::string::npos);
+    assert(controller.getSnapshotSummaryForBackend("missing").body.find("\"diskFreeMb\"") == std::string::npos);
 }
 
 static void test_vdr_controller_returns_backend_snapshot_health()

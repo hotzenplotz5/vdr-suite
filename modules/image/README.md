@@ -1,13 +1,32 @@
-# Images – optional VDR-Suite add-on
+# Image Gallery – optional VDR-Suite add-on
 
-**State:** source/packaging scaffold only; no image library, routes, UI or worker is available.
+Local-first gallery for the browser and CEF frontend. No running VDR, Backend Agent or Image Next plugin is required. Remote backend transport is a later integration, not implemented here.
 
-Scope: photo browsing, albums and slideshow through Suite clients, eventually backed by registered media sources, indexed metadata and safe thumbnail generation. Image identity and collection/album metadata are a distinct domain: do not disguise photos as VDR recordings or require a running VDR.
+## Local installation and configuration
 
-The daemon owns access control, credentials, library metadata boundaries and APIs. Generated thumbnails and scans must have bounded resource usage, backend/source authorization and path confinement; never recursively scan arbitrary mounts or disclose private filesystem paths through clients.
+The optional `vdr-suite-addon-image` Debian binary package stages its UI separately from the daemon. Its Core handler is compiled into the daemon. Installation does not enable the gallery; enable it in Settings → Add-ons → Image Gallery. Add named local directories or mounted NAS paths there. On Ubuntu the initial source is `/srv/picture`; saved sources, including an explicitly empty list, take precedence. Sources are stored next to the daemon database in `image-sources.tsv`. The daemon needs read access to the selected directories. Originals are never modified.
 
-`addon.json` declares no callable capabilities and no entrypoints. Stage metadata only with `make stage-addon MODULE=image DESTDIR=/isolated/root PREFIX=/usr`. See [AGENTS.md](AGENTS.md) and [ADR-0068](../../docs/adr/ADR-0068-optional-addons-and-source-packaging.md).
+Home shows a final horizontal picture rail (after all existing Home sections, including delayed rails) with a permanent gallery/folder shortcut using the approved camera artwork from `assets/gallery-camera.webp` and up to nine randomly sampled local photos. The sample is refreshed on entering Home, uses preview URLs, and opens the existing gallery viewer at the selected photo. Discovery is best-effort and bounded (64 folders, 8192 directory entries total, 1024 per folder, depth 12); it is not a uniform sample of an unbounded library. No polling or index is introduced.
 
-To build a distinct, **inactive** metadata-only `.deb` from sources, use the explicit `make build-addon-deb MODULE=image OUTPUT_DIR=/isolated/output ADDON_MAINTAINER='Name <valid@example.org>'` target from the repository root. This does not install or enable any runtime functionality.
+The browser loads the gallery runtime only when enabled and available. Grid and Cover Flow, keyboard/D-pad, mouse/touch navigation, fullscreen rotation/zoom/info, slideshow and device-local display preferences are implemented; actual TV/CEF visual acceptance is pending. Thumbnails use the shared FFmpeg artwork preview implementation with a separate cache directory and 896px profile. FFmpeg is recommended. Unsupported or unavailable previews do not substitute full originals. A single original is limited to 64 MiB. The gallery does not recursively enumerate arbitrary mounts.
 
-The installed catalog recognizes this module metadata only through the [read-only registry](../../docs/development/addon-installed-registry-contract.md). Installation and C++ binaries do **not** activate it, grant privileges or expose API operations.
+## Public API v1
+
+All gallery endpoints use the existing Core HTTP authorization path. The existing addon administration permission protects settings and activation; existing backend-scoped recording-view permission is used for read-only gallery access. No new role, database, Agent channel or polling loop is introduced.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET/POST | /api/v1/addons/image/activation | Existing audited desired-state and revision contract |
+| GET/POST | /api/v1/addons/image/sources | Admin-only local source configuration |
+| GET | /api/v1/addons/image/library | Enabled state and source IDs/titles; optional `sample=1` returns up to nine source-relative photos |
+| GET | /api/v1/addons/image/browse | Current source-relative folder entries and covers |
+| GET | /api/v1/addons/image/preview | Bounded JPEG preview |
+| GET | /api/v1/addons/image/photo | Original bytes on demand |
+
+GET requests carry `backendId`; browse/preview/photo also carry `sourceId` and `path`. The provider confines relative paths to configured roots. Admin source mutation uses the same percent-encoded TSV snapshot pattern as the source editor. Absolute source roots are returned only to administrators. Only local backend requests are implemented.
+
+## Development / staging
+
+`make stage-image-gallery-runtime DESTDIR=/isolated/root PREFIX=/usr` stages the metadata plus the gallery UI in an explicitly selected isolated destination. The ordinary base install excludes the UI. The generic `make stage-addon MODULE=image ...` and `make build-addon-deb MODULE=image ...` remain **metadata-only** contracts; they are not functional gallery package builds. See [AGENTS.md](AGENTS.md), [ADR-0068](../../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) and the [roadmap](ROADMAP.md). Metadata retains the existing inert manifest schema and does not grant rights or register arbitrary executable code.
+
+Focused tests: `test-addon-image-catalog`, `test-addon-image-local-browse`, `test-addon-image-source-settings`, `test-addon-image-api`, `test-addon-image-gallery-frontend`. Full CI, actual package installation/upgrade and device acceptance must be recorded separately. No live installation is part of this work.

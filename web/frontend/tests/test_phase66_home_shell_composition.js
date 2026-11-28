@@ -68,23 +68,30 @@ const metricContext = vm.createContext({
     appendChild(metric) { metrics.push(metric); }
   },
   createMetric(label, value) { return {label, value}; },
-  valueOrZero(value) { return Number.isFinite(Number(value)) ? Number(value) : 0; }
+  valueOrZero(value) { return Number.isFinite(Number(value)) ? Number(value) : 0; },
+  Date: class extends Date { constructor() { super(2026,10,27,13,16,0); } }
 });
 function checkMetrics(data, expected) {
   metricContext.input = data;
   vm.runInContext(appSource.slice(metricsStart, metricsEnd) +
     '\nrenderSnapshotMetrics(input);', metricContext);
   assert.deepStrictEqual(metrics.map(metric => [metric.label, metric.value]), expected);
-  assert.strictEqual(metrics[4].id, 'home-recording-count');
+  assert.strictEqual(metrics[1].id, 'home-recording-count');
+  assert.strictEqual(metrics[4].id, 'home-local-clock');
 }
-checkMetrics(null, [['Snapshot', '…'], ['Kanäle', '…'], ['Events', '…'],
-  ['Timer', '…'], ['Aufnahmen', '…']]);
+const clockMetric = ['27.11.2026', '13:16'];
+checkMetrics(null, [['Freier Aufnahmespeicher', '…'], ['Aufnahmen', '…'],
+  ['Kanäle', '…'], ['Timer', '…'], clockMetric]);
 checkMetrics({snapshotAvailable: true, channelCount: 42, eventCount: 100,
-  timerCount: 3, recordingCountPending: true}, [['Snapshot', 'ja'],
-  ['Kanäle', 42], ['Events', 100], ['Timer', 3], ['Aufnahmen', '…']]);
+  timerCount: 3, recordingCountPending: true, diskFreeMb:1572864},
+  [['Freier Aufnahmespeicher', '1,5 TiB'], ['Aufnahmen', '…'],
+  ['Kanäle', 42], ['Timer', 3], clockMetric]);
 checkMetrics({snapshotAvailable: true, channelCount: 42, eventCount: 100,
-  timerCount: 3, recordingCount: 0}, [['Snapshot', 'ja'], ['Kanäle', 42],
-  ['Events', 100], ['Timer', 3], ['Aufnahmen', 0]]);
+  timerCount: 3, recordingCount: 0, diskFreeMb:0},
+  [['Freier Aufnahmespeicher', '0 GiB'], ['Aufnahmen', 0],
+  ['Kanäle', 42], ['Timer', 3], clockMetric]);
+checkMetrics({channelCount: 42, timerCount: 3, recordingCount: 9},
+  [['Freier Aufnahmespeicher', '–'], ['Aufnahmen', 9], ['Kanäle', 42], ['Timer', 3], clockMetric]);
 
 // Home composition is driven only by that existing UI state. The primary
 // content shell reuses real snapshot data as a horizontal rail rather than
@@ -148,6 +155,11 @@ function productionNodes(source, tag, attribute) {
 const moduleTabs = productionNodes(indexSource, 'button', 'data-module');
 const brandButtons = productionNodes(indexSource, 'article', 'data-brand-module');
 assert(moduleTabs.length >= 8);
+assert.equal(moduleTabs.at(-1).dataset.module,'image-gallery');
+assert.equal(moduleTabs.at(-2).dataset.module,'searchtimers');
+const additionalZone = indexSource.indexOf('<section class="media-home-only media-home-additional-sections" data-home-zone="additional-sections"');
+const galleryZone = indexSource.indexOf('<section class="media-home-only media-home-discovery" data-home-zone="image-gallery"');
+assert(additionalZone >= 0 && galleryZone > additionalZone, 'gallery rail follows the existing additional Home sections');
 assert(brandButtons.length >= 5);
 
 const shortcutStart = appSource.indexOf('function renderMediaToolsHomeShortcut()');
@@ -209,6 +221,8 @@ const context = {
   // Media Import tab placement is covered by its own real-DOM composition
   // test. This isolated Phase-66 Home navigation fixture has no module-nav.
   placeMediaImportTab() {},
+  placeImageGalleryTab() {},
+  clearImageGalleryHome() {},
   renderMediaToolsHomeShortcut() {}
 };
 vm.createContext(context);

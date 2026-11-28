@@ -75,8 +75,27 @@ static void test_status_mapper_accepts_empty_json_object()
     assert(status.state == "restfulapi");
 }
 
+static void test_disk_capacity_uses_the_backend_info_object()
+{
+    const auto config = make_restfulapi_config();
+    const auto parse = [&](const std::string& body, int code = 200) {
+        return RestfulApiStatusMapper::parseStatus(body, config, code).diskFreeMb;
+    };
+    assert(parse(R"({"diskusage":{"free_mb":1572864,"used_percent":45}})") == 1572864);
+    assert(parse(R"({"diskusage":{"free_mb":0}})") == 0);
+    assert(parse(R"({"diskusage":{"free_mb":-1}})") == -1);
+    assert(parse(R"({"diskusage":{"free_mb":1.5}})") == -1);
+    assert(parse(R"({"diskusage":{"free_mb":"42"}})") == -1);
+    assert(parse(R"({"diskusage":{"free_mb":9999999999999999999999}})") == -1);
+    assert(parse(R"({"other":{"diskusage":{"free_mb":42}}})") == -1);
+    assert(parse(R"({"diskusage":{"other":{"free_mb":42}}})") == -1);
+    assert(parse(R"({"diskusage":{"free_mb":42}})", 500) == -1);
+    assert(parse("{}") == -1);
+}
+
 int main()
 {
+    test_disk_capacity_uses_the_backend_info_object();
     test_status_mapper_maps_valid_info_response();
     test_status_mapper_reports_error_for_http_error();
     test_status_mapper_reports_error_for_invalid_json();
