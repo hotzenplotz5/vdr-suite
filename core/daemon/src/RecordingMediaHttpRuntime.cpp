@@ -915,9 +915,15 @@ int runRecordingMediaHttpRuntime(
         mediaHlsArtifactReader,
         MediaSessionWorkspaceRoot,
         &recordingDirectSourceRegistry,
-        [&deviceSessions](const std::string& sessionId,
+        [&deviceSessions, &recordingMediaSessionController](const std::string& sessionId,
             const std::string& actorId,
             const std::string& backendId, bool publicV1Path) {
+            // Gateway already verified the session-bound media credential
+            // and active lease. Only the existing Browser recording owner
+            // can mark its own versioned transport. Device authorization
+            // (including revocation checks on legacy URLs) stays unchanged.
+            if (recordingMediaSessionController.usesPublicBrowserTransport(sessionId))
+                return publicV1Path;
             return deviceSessions.authorized(
                 sessionId, actorId, backendId, publicV1Path);
         });

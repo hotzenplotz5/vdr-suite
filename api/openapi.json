@@ -1448,7 +1448,7 @@
         ],
         "operationId": "getPublicHlsArtifact",
         "summary": "Read session-bound HLS artifact",
-        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only hls-fmp4 or hls-ts presentation. Allowed names are master.m3u8, init.mp4 and segment-NNNNNN.m4s or .ts. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only hls-fmp4 or hls-ts presentation. Allowed names are master.m3u8, init.mp4 and segment-NNNNNN.m4s or .ts. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every Device GET. Versioned Browser recording sessions use their existing active session owner.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
@@ -1713,7 +1713,7 @@
         ],
         "operationId": "getPublicLiveMediaStream",
         "summary": "Read live fragmented MP4 stream",
-        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only live-progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only live-progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every Device GET. Versioned Browser recording sessions use their existing active session owner.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
@@ -1932,7 +1932,7 @@
         ],
         "operationId": "getPublicRecordingMediaStream",
         "summary": "Read recording fragmented MP4 stream",
-        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-fmp4 presentation; response streams bytes from the active session. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every Device GET. Versioned Browser recording sessions use their existing active session owner.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
@@ -2151,7 +2151,7 @@
         ],
         "operationId": "getPublicRecordingDirectRange",
         "summary": "Read direct recording transport-stream range",
-        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-direct presentation. One byte range required; no multi-range. Response may be shorter than requested and Content-Range gives the actual returned bytes. Never assume a full 200 response. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every GET.",
+        "description": "Source: MediaGatewayHttpServer.cpp / MediaHlsArtifactReader.cpp. Only progressive-direct presentation. One byte range required; no multi-range. Response may be shorter than requested and Content-Range gives the actual returned bytes. Never assume a full 200 response. Use only the mediaPath/manifest returned by the authorized session. No query credentials, browser-session or Device control-plane credential as substitute; the media grant is reauthenticated, the route lease checked and current Public-v1 Device authorization rechecked on every Device GET. Versioned Browser recording sessions use their existing active session owner.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Existing session-bound media grant, active route lease and current Device/resource grant, not the generic API actor credential."
@@ -17797,7 +17797,7 @@
         ],
         "operationId": "createBrowserRecordingPlaybackSession",
         "summary": "Create a Browser recording playback session from a canonical Recording ID",
-        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser stop, seek, status and track operations use the versioned control route; media-byte URLs remain on their existing paths during the staged migration. Device playback contract unchanged.",
+        "description": "Uses the existing Browser MediaSession owner and media cookie; accepts only canonical rec_ identity. Browser stop, seek, status and track operations use the versioned control route. CREATE returns versioned media-byte URLs and a matching scoped media cookie. Legacy sessions keep their original transport until stopped. Device playback contract unchanged.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."

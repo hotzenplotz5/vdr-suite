@@ -55,7 +55,7 @@ ApiResponse jsonError(int statusCode, const std::string& code)
     return response;
 }
 
-ApiResponse stoppedResponse(const std::string& sessionId)
+ApiResponse stoppedResponse(const std::string& sessionId, bool publicTransport)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -63,7 +63,9 @@ ApiResponse stoppedResponse(const std::string& sessionId)
     response.headers["Cache-Control"] = "no-store";
     response.headers["X-Content-Type-Options"] = "nosniff";
     const std::string expiredCookie =
-        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+        publicTransport
+            ? MediaAccessCredentialHttp::expiredPublicV1SessionCookie(sessionId, {})
+            : MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
     if (!expiredCookie.empty()) {
         response.headers["Set-Cookie"] = expiredCookie;
     }
@@ -76,11 +78,14 @@ ApiResponse stoppedResponse(const std::string& sessionId)
 
 ApiResponse stopFailureResponse(
     const std::string& sessionId,
-    const std::string& code)
+    const std::string& code,
+    bool publicTransport)
 {
     ApiResponse response = jsonError(503, code);
     const std::string expiredCookie =
-        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+        publicTransport
+            ? MediaAccessCredentialHttp::expiredPublicV1SessionCookie(sessionId, {})
+            : MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
     if (!expiredCookie.empty()) {
         response.headers["Set-Cookie"] = expiredCookie;
     }
@@ -91,7 +96,8 @@ ApiResponse seekedResponse(
     const StoredMediaSession& stored,
     int positionSeconds,
     int durationSeconds,
-    bool publicResponse)
+    bool publicResponse,
+    bool publicTransport)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -109,7 +115,8 @@ ApiResponse seekedResponse(
             "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"progressive-fmp4\"," +
         "\"growing\":false," +
-        "\"mediaPath\":\"/api/media/sessions/" +
+        "\"mediaPath\":\"" + (publicTransport
+            ? std::string("/api/v1/media/sessions/") : std::string("/api/media/sessions/")) +
             jsonEscape(stored.sessionId) + "/recording/stream.mp4\"," +
         "\"playback\":{"
             "\"positionSeconds\":" + std::to_string(position) + "," +
@@ -163,6 +170,11 @@ RecordingMediaSessionController::RecordingMediaSessionController(
 }
 
 RecordingMediaSessionController::~RecordingMediaSessionController() = default;
+
+bool RecordingMediaSessionController::usesPublicBrowserTransport(const std::string& sessionId) const
+{
+    return mediaSessionRuntime_->usesPublicBrowserTransport(sessionId);
+}
 
 std::size_t RecordingMediaSessionController::reapInactiveSessions(
     int idleTimeoutSeconds) const
@@ -393,8 +405,9 @@ ApiResponse RecordingMediaSessionController::stopSession(
         selectedSubtitleStreamIndexes_.erase(request.sessionId);
     }
 
+    const bool publicTransport = usesPublicBrowserTransport(request.sessionId);
     if (stored->state == "ended" || stored->state == "failed") {
-        return stoppedResponse(request.sessionId);
+        return stoppedResponse(request.sessionId, publicTransport);
     }
 
     if (!mediaSessionRuntime_->stop(request.sessionId, "client_closed")) {
@@ -403,10 +416,10 @@ ApiResponse RecordingMediaSessionController::stopSession(
             "client_stop_runtime_unavailable");
         return stopFailureResponse(
             request.sessionId,
-            "media_session_stop_failed");
+            "media_session_stop_failed", publicTransport);
     }
 
-    return stoppedResponse(request.sessionId);
+    return stoppedResponse(request.sessionId, publicTransport);
 }
 
 ApiResponse RecordingMediaSessionController::seekSession(
@@ -458,5 +471,6 @@ ApiResponse RecordingMediaSessionController::seekSession(
                 : seek.reasonCode);
     }
 
-    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds, publicResponse);
+    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds, publicResponse,
+        usesPublicBrowserTransport(request.sessionId));
 }

@@ -143,7 +143,8 @@ ApiResponse selectedResponse(
     const StoredMediaSession& stored,
     const RecordingMediaSessionAudioTrackSelectionResult& selected,
     const std::string& tracksJson,
-    bool publicResponse)
+    bool publicResponse,
+    bool publicTransport)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -160,7 +161,8 @@ ApiResponse selectedResponse(
         (publicResponse ? std::string{} :
             "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\",") +
         "\"presentationProfileId\":\"progressive-fmp4\"," +
-        "\"mediaPath\":\"/api/media/sessions/" + jsonEscape(stored.sessionId) + "/recording/stream.mp4\"," +
+        "\"mediaPath\":\"" + (publicTransport
+            ? std::string("/api/v1/media/sessions/") : std::string("/api/media/sessions/")) + jsonEscape(stored.sessionId) + "/recording/stream.mp4\"," +
         "\"playback\":{" 
             "\"positionSeconds\":" + std::to_string(position) + "," +
             "\"durationSeconds\":" + std::to_string(duration) + "," +
@@ -413,7 +415,8 @@ ApiResponse RecordingMediaSessionController::selectAudioTrack(
         true,
         selectedSubtitleStreamIndex < 0 ? 1 : 0,
         selectedSubtitleStreamIndex);
-    return selectedResponse(*stored, selected, tracks, publicResponse);
+    return selectedResponse(*stored, selected, tracks, publicResponse,
+        usesPublicBrowserTransport(request.sessionId));
 }
 
 ApiResponse RecordingMediaSessionController::selectSubtitleTrack(

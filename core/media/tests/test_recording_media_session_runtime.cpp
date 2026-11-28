@@ -217,7 +217,12 @@ int main()
         assert(ready.has_value());
         assert(ready->state == "ready");
 
+        assert(!runtime.usesPublicBrowserTransport(issued.session.sessionId));
+        assert(!runtime.markPublicBrowserTransport("unknown-session"));
+        assert(runtime.markPublicBrowserTransport(issued.session.sessionId));
+        assert(runtime.usesPublicBrowserTransport(issued.session.sessionId));
         assert(runtime.stop(issued.session.sessionId, "client_closed"));
+        assert(!runtime.usesPublicBrowserTransport(issued.session.sessionId));
         assert(!runtime.stop(issued.session.sessionId, "client_closed"));
         assert(terminateCalls == 1);
 

@@ -52,8 +52,8 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
-    // Browser CREATE uses the same controller and media cookie/transport as
-    // the existing browser player, after backend-scoped public ID resolution.
+    // Browser CREATE uses the same controller and scoped media credential,
+    // with versioned byte URLs after backend-scoped public ID resolution.
     ApiResponse createBrowserSession(
         const std::string& body,
         const std::string& actorId,
@@ -73,6 +73,7 @@ public:
         const DeviceMediaCapabilityProfile* storedVerifiedProfile = nullptr,
         const DeviceMediaProfileKey* authenticatedPlayer = nullptr) const;
 
+    bool usesPublicBrowserTransport(const std::string& sessionId) const;
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:

@@ -202,7 +202,7 @@ function createRuntime(options) {
         recordingId,
         presentationProfileId: 'progressive-fmp4',
         growing: false,
-        mediaPath: '/api/media/sessions/' + id + '/recording/stream.mp4',
+        mediaPath: '/api/v1/media/sessions/' + id + '/recording/stream.mp4',
         playback: playbackValue
       }
     };
@@ -392,7 +392,7 @@ function createRuntime(options) {
   );
   assert.strictEqual(runtime.videos.length, 1);
   const video = runtime.videos[0];
-  assert.strictEqual(video.src, '/vdr-suite/api/media/sessions/' + id + '/recording/stream.mp4');
+  assert.strictEqual(video.src, '/vdr-suite/api/v1/media/sessions/' + id + '/recording/stream.mp4');
   video.dispatch('playing');
   assert.strictEqual(
     playback.state(),
@@ -424,7 +424,7 @@ function createRuntime(options) {
   assert.strictEqual(seekRequests[0].body.positionSeconds, 28);
   assert.strictEqual(playback.sessionId(), id, 'seek must preserve the MediaSession identity');
   assert.strictEqual(playback.position(), 28);
-  assert.strictEqual(video.src, '/vdr-suite/api/media/sessions/' + id + '/recording/stream.mp4');
+  assert.strictEqual(video.src, '/vdr-suite/api/v1/media/sessions/' + id + '/recording/stream.mp4');
 
   assert.strictEqual(playback.pause(), true);
   assert.strictEqual(playback.state(), 'paused');

@@ -265,6 +265,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
     // The authorized recording is shared by the Browser and Device paths.
     // Only the Device path requests an activated ID and Device projection.
     const bool deviceProjection = activatedSessionId != nullptr;
+    const bool publicBrowser = authorizedRecording != nullptr && !deviceProjection;
     if (!deviceProjection && request.nativeMediaAccessRequested)
         return jsonError(403, "native_media_requires_device");
     if (authorizedRecording != nullptr && !deviceProjection &&
@@ -559,7 +560,9 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 : issuance.reasonCode);
     }
 
-    const std::string cookie = deviceProjection
+    // Browser uses the daemon-root cookie path; the existing nginx
+    // proxy_cookie_path maps it to /vdr-suite exactly once.
+    const std::string cookie = (deviceProjection || publicBrowser)
         ? MediaAccessCredentialHttp::publicV1SessionCookie(
             issuance.session.sessionId,
             issuance.session.accessCredential,
@@ -580,6 +583,8 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
 
     RecordingMediaSessionProvisionResult provision;
     std::string mediaPath;
+    const std::string mediaPrefix = publicBrowser
+        ? "/api/v1/media/sessions/" : "/api/media/sessions/";
     if (profile.protocol == MediaDeliveryProtocol::Progressive) {
         if (profile.profileId == "progressive-direct") {
             if (directSourceRegistry_ == nullptr || sourceResolution.source.growing ||
@@ -604,7 +609,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 issuance.session.grantId,
                 profile,
                 registration);
-            mediaPath = "/api/media/sessions/" +
+            mediaPath = mediaPrefix +
                 issuance.session.sessionId + "/recording/stream.ts";
         }
         else if (profile.profileId == "progressive-fmp4") {
@@ -625,7 +630,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 timeSeekSupported
                     ? indexedSegmentDurations
                     : std::vector<double>{});
-            mediaPath = "/api/media/sessions/" +
+            mediaPath = mediaPrefix +
                 issuance.session.sessionId + "/recording/stream.mp4";
         }
         else {
@@ -655,7 +660,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 profile,
                 sourceResolution.source.segmentPaths);
         }
-        mediaPath = "/api/media/sessions/" +
+        mediaPath = mediaPrefix +
             issuance.session.sessionId + "/hls/master.m3u8";
     }
     else {
@@ -673,6 +678,14 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
             provision.reasonCode.empty()
                 ? "media_provision_failed"
                 : provision.reasonCode);
+    }
+
+    if (publicBrowser && !mediaSessionRuntime_->markPublicBrowserTransport(
+            issuance.session.sessionId)) {
+        mediaSessionRuntime_->stop(issuance.session.sessionId, "media_transport_unavailable");
+        mediaSessionRepository_.endBundle(issuance.session.sessionId, "media_transport_unavailable");
+        issuance.session.clearSecret();
+        return jsonError(503, "media_transport_unavailable");
     }
 
     {

@@ -205,7 +205,7 @@
   function safeMediaPath(value) {
     const path = text(value).trim();
     if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
-    return /^\/api\/media\/sessions\/[A-Za-z0-9._:-]+\/hls\/master\.m3u8$/.test(path)
+    return /^\/api\/(?:v1\/)?media\/sessions\/[A-Za-z0-9._:-]+\/hls\/master\.m3u8$/.test(path)
       ? path
       : '';
   }
