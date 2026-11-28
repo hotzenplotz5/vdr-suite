@@ -66,11 +66,18 @@ public:
         const std::string& publicRecordingId,
         const PublicRecordingProgressRequest& request) const;
 
+    // Uses the already authorized Browser backend and the daemon's canonical
+    // Recording resolver. Legacy callers keep their existing identity contract.
+    using PublicRecordingResolver = std::function<bool(
+        const std::string&, const std::string&, VdrRecording&)>;
+
     bool tryHandlePost(
         const std::string& requestTarget,
         const std::string& body,
         const std::string& actorRef,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& authorizedBackendId = {},
+        const PublicRecordingResolver& resolvePublicRecording = {}) const;
 
 private:
     ContinueWatchingApiRuntime() = default;

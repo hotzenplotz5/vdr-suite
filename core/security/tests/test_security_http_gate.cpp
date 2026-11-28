@@ -375,6 +375,22 @@ int main()
     fixture.addBrowserAuthentication(publicControlWrongScope, true);
     assert(fixture.gate.evaluate(publicControlWrongScope).rejection.statusCode == 403);
 
+    for (const auto* historyPath : {"/api/v1/browser/recording-playback-sessions/progress",
+            "/api/v1/browser/recording-playback-sessions/activity"}) {
+        auto history = fixture.mutationRequest(historyPath, "default");
+        assert(fixture.gate.evaluate(history).rejection.statusCode == 401);
+        fixture.addBrowserAuthentication(history);
+        assert(fixture.gate.evaluate(history).rejection.statusCode == 403);
+        fixture.addBrowserAuthentication(history, true);
+        const auto allowed = fixture.gate.evaluate(history);
+        assert(allowed.allowed && allowed.publicApiV1 && !allowed.protectedMutation);
+        assert(allowed.authorizationDecision.permission == "media.recording.play");
+        assert(allowed.authorizationDecision.backendId == "default");
+        auto wrong = fixture.mutationRequest(historyPath, "house-b");
+        fixture.addBrowserAuthentication(wrong, true);
+        assert(fixture.gate.evaluate(wrong).rejection.statusCode == 403);
+    }
+
     HttpServerRequest livePlaybackWithoutGrant =
         fixture.mutationRequest(
             "/api/media/sessions",

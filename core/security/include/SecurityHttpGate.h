@@ -422,10 +422,13 @@ public:
             isPost && path == "/api/v1/browser/recording-playback-sessions";
         const bool isPublicBrowserRecordingSessionControl =
             isPost && path == "/api/v1/browser/recording-playback-sessions/control";
+        const bool isPublicBrowserRecordingHistory =
+            isPost && (path == "/api/v1/browser/recording-playback-sessions/progress" ||
+                       path == "/api/v1/browser/recording-playback-sessions/activity");
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate =
             isMediaSessionMutation || isPublicBrowserRecordingSessionCreate ||
-            isPublicBrowserRecordingSessionControl;
+            isPublicBrowserRecordingSessionControl || isPublicBrowserRecordingHistory;
         // Control-plane reservation. Media bytes use the separately guarded
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
@@ -3163,7 +3166,8 @@ public:
                 "Credential rotation requires an administrator Browser Session",
                 "");
         }
-        if ((isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl) &&
+        if ((isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl ||
+             isPublicBrowserRecordingHistory) &&
             (!gate.browserAuthenticated || gate.context.actor.type != ActorType::User ||
              !gate.context.session.has_value()))
         {
@@ -3335,7 +3339,8 @@ public:
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
         }
-        else if (isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl)
+        else if (isPublicBrowserRecordingSessionCreate || isPublicBrowserRecordingSessionControl ||
+             isPublicBrowserRecordingHistory)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";

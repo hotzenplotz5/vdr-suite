@@ -9,6 +9,7 @@
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingMetadataJsonSerializer.h"
 
+#include <algorithm>
 #include <cctype>
 #include <climits>
 #include <map>
@@ -22,6 +23,8 @@ namespace
 {
 constexpr const char* ContinueWatchingRoute = "/api/media/continue-watching";
 constexpr const char* RecentlyWatchedRoute = "/api/media/recently-watched";
+constexpr const char* BrowserProgressRoute = "/api/v1/browser/recording-playback-sessions/progress";
+constexpr const char* BrowserActivityRoute = "/api/v1/browser/recording-playback-sessions/activity";
 // A progress checkpoint is saved every few seconds. Surface the first
 // checkpoint, periodic advances and terminal/explicit updates, without
 // turning the finite SSE replay history into a second progress log.
@@ -806,12 +809,15 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     const std::string& requestTarget,
     const std::string& body,
     const std::string& actorRef,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& authorizedBackendId,
+    const PublicRecordingResolver& resolvePublicRecording) const
 {
     const std::size_t query = requestTarget.find('?');
     const std::string path = query == std::string::npos ? requestTarget : requestTarget.substr(0, query);
-    const bool recentlyWatched = path == RecentlyWatchedRoute;
-    if (path != ContinueWatchingRoute && !recentlyWatched) return false;
+    const bool publicBrowser = path == BrowserProgressRoute || path == BrowserActivityRoute;
+    const bool recentlyWatched = path == RecentlyWatchedRoute || path == BrowserActivityRoute;
+    if (path != ContinueWatchingRoute && path != BrowserProgressRoute && !recentlyWatched) return false;
     if (actorRef.empty()) {
         response = errorResponse(401, recentlyWatched
             ? "recently_watched_actor_required"
@@ -833,6 +839,41 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             ? "recently_watched_backend_required"
             : "continue_watching_backend_required");
         return true;
+    }
+
+    VdrRecording admittedRecording;
+    std::string recordingId = parser.stringValue("recordingId");
+    if (publicBrowser) {
+        if (authorizedBackendId.empty() || backendId != authorizedBackendId) {
+            response = errorResponse(403, "backend_scope_denied");
+            return true;
+        }
+        if ((recentlyWatched && operation != "activity") ||
+            (!recentlyWatched && operation != "revision" &&
+                operation != "progress" && operation != "clear")) {
+            response = errorResponse(400, "invalid_browser_history_operation");
+            return true;
+        }
+        if (recordingId.size() != 36U || recordingId.compare(0, 4, "rec_") != 0 ||
+            !std::all_of(recordingId.begin() + 4, recordingId.end(), [](unsigned char ch) {
+                return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+            })) {
+            response = errorResponse(400, "invalid_recording_id");
+            return true;
+        }
+        if (!resolvePublicRecording) {
+            response = errorResponse(503, "recording_identity_unavailable");
+            return true;
+        }
+        if (!resolvePublicRecording(backendId, recordingId, admittedRecording) ||
+            admittedRecording.backendId != backendId || admittedRecording.id.empty() ||
+            admittedRecording.backendNativeId.empty()) {
+            response = errorResponse(404, "recording_not_found");
+            return true;
+        }
+        // All persistence operations continue to use the existing media ID.
+        // No client-provided native identity participates in this resolution.
+        recordingId = admittedRecording.id;
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -857,7 +898,6 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response = errorResponse(400, "recently_watched_operation_invalid");
             return true;
         }
-        const std::string recordingId = parser.stringValue("recordingId");
         const std::string operationId = parser.stringValue("operationId");
         const long long position = parser.numberValue("positionSeconds", -1);
         if (recordingId.empty() || operationId.empty() || position < -1 || position > INT_MAX) {
@@ -891,13 +931,15 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     // Suite. A zero-position tombstone must remain observable so stale
     // checkpoints cannot resurrect it.
     if (operation == "revision") {
-        const std::string requestedId=parser.stringValue("recordingId");
+        const std::string& requestedId=recordingId;
         if (requestedId.empty() || requestedId.size()>512U) {
             response=errorResponse(400,"continue_watching_recording_required");
             return true;
         }
-        const auto current=recordings_->findAllForBackend(backendId);
-        const VdrRecording* recording=findRecording(current,backendId,requestedId);
+        const auto current = publicBrowser ? std::vector<VdrRecording>{}
+            : recordings_->findAllForBackend(backendId);
+        const VdrRecording* recording = publicBrowser ? &admittedRecording
+            : findRecording(current,backendId,requestedId);
         if (!recording || recording->backendNativeId.empty()) {
             response=errorResponse(404,"continue_watching_recording_not_found");
             return true;
@@ -928,7 +970,6 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
         return true;
     }
 
-    const std::string recordingId = parser.stringValue("recordingId");
     const std::string operationId = parser.stringValue("operationId");
     if (recordingId.empty() || operationId.empty()) {
         response = errorResponse(400, "continue_watching_recording_operation_required");
@@ -938,7 +979,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     // P1 opt-in CAS. The legacy protocol remains backwards-compatible;
     // the current Browser frontend opts in, so a late Browser pause/stop
     // cannot blindly overwrite a newer linked Device playback checkpoint.
-    if (parser.hasNumber("expectedRevision")) {
+    if (publicBrowser || parser.hasNumber("expectedRevision")) {
         const long long expected=parser.numberValue("expectedRevision",-1);
         if (expected<0) {
             response=errorResponse(400,"continue_watching_revision_invalid");

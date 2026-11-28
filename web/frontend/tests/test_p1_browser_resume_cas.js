@@ -20,10 +20,11 @@ Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
   configurable:true, get(){return playback;},set(value){playback=value;}
 });
 window.fetch = async (url, init) => {
-  assert.equal(url, '/api/media/continue-watching');
   assert.equal(init.credentials,'same-origin');
   assert.equal(init.headers['X-VDR-Suite-CSRF'],'valid-session-proof');
   const body=JSON.parse(init.body);
+  assert.equal(url, /^rec_[0-9a-f]{32}$/.test(body.recordingId)
+    ? '/api/v1/browser/recording-playback-sessions/progress' : '/api/media/continue-watching');
   if (body.operation==='revision')
     return {ok:true,status:200,json:async()=>({revision})};
   submitted.push(body);
@@ -80,5 +81,15 @@ const item=(pos,id)=>({
   assert.equal(await sync.enqueueVersioned(item(1700,'late-new-session'),second),false);
   assert.equal(storedPosition,0);
   assert(submitted.every(x=>Number.isSafeInteger(x.expectedRevision)));
+  const publicId = 'rec_' + 'a'.repeat(32);
+  const canonicalOwner = {revision:null,loading:null,blocked:false};
+  assert.equal(await sync.enqueueVersioned({...item(1800,'public-progress'),
+    recordingId:publicId},canonicalOwner),true);
+  assert.equal(storedPosition,1800);
+  storedPosition=1900; revision++;
+  assert.equal(await sync.enqueueVersioned({...item(1810,'late-public'),
+    recordingId:publicId},canonicalOwner),false);
+  assert.equal(storedPosition,1900);
+  assert.equal(canonicalOwner.blocked,true);
   console.log('P1 Browser/Device CAS checkpoint and reset contract PASS');
 })().catch(e=>{console.error(e);process.exitCode=1;});

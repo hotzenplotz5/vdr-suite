@@ -2368,6 +2368,37 @@
       return {backendId: input.backendId, recordingId: input.recordingId};
     }
 
+    function browserRecordingHistory(input, operation) {
+      const identity = recordingProgressIdentity(input);
+      const body = {operation, ...identity};
+      if (operation !== 'revision') {
+        if (typeof input.operationId !== 'string' || !/^[!-~]{1,128}$/.test(input.operationId))
+          throw new Error('Confirmed operationId required');
+        body.operationId = input.operationId;
+      }
+      if (operation === 'progress' || operation === 'clear') {
+        if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0)
+          throw new Error('Current progress revision required');
+        body.expectedRevision = input.expectedRevision;
+      }
+      if (operation === 'progress' || (operation === 'activity' && input.positionSeconds !== undefined)) {
+        if (!Number.isInteger(input.positionSeconds) || input.positionSeconds < 0 ||
+            input.positionSeconds > 2147483647)
+          throw new Error('Observed positionSeconds required');
+        body.positionSeconds = input.positionSeconds;
+      }
+      const flags = operation === 'progress' ? ['resumeSupported','notifyLive']
+        : operation === 'activity' ? ['resumeSupportKnown','resumeSupported','ended'] : [];
+      for (const name of flags) {
+        if (input[name] !== undefined) {
+          if (typeof input[name] !== 'boolean') throw new Error('Invalid history flag: ' + name);
+          body[name] = input[name];
+        }
+      }
+      const path = operation === 'activity' ? '/api/v1/browser/recording-playback-sessions/activity' : '/api/v1/browser/recording-playback-sessions/progress';
+      return playbackPost(path, body, input).then(parseJsonBody);
+    }
+
     function listDevicePlaybackHistory(input, resource) {
       if (!input || typeof input.backendId !== 'string' ||
           !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
@@ -2734,6 +2765,18 @@
       },
       selectBrowserRecordingSubtitle(options) {
         return selectRecordingSubtitle(options, true);
+      },
+      getBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'revision');
+      },
+      updateBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'progress');
+      },
+      clearBrowserRecordingProgress(options) {
+        return browserRecordingHistory(options, 'clear');
+      },
+      recordBrowserRecordingActivity(options) {
+        return browserRecordingHistory(options, 'activity');
       },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);

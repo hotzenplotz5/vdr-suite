@@ -2412,7 +2412,9 @@ HttpServerResponse TestHttpServer::handleRequest(
                 request.body);
         }
         else if (request.path == "/api/v1/browser/recording-playback-sessions" ||
-                 request.path == "/api/v1/browser/recording-playback-sessions/control")
+                 request.path == "/api/v1/browser/recording-playback-sessions/control" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/progress" ||
+                 request.path == "/api/v1/browser/recording-playback-sessions/activity")
         {
             apiResponse = apiRouter_.handleBrowserRecordingPlayback(
                 request.path, request.body, gate.context.actor.actorId,

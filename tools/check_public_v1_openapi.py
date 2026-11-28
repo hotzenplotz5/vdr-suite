@@ -299,6 +299,12 @@ BROWSER_PLAYBACK_AUDITED = {
         "post": ("handleBrowserRecordingPlayback(",
                  "isPublicBrowserRecordingSessionControl"),
     },
+    "/api/v1/browser/recording-playback-sessions/progress": {
+        "post": ("handleBrowserRecordingPlayback(", "isPublicBrowserRecordingHistory"),
+    },
+    "/api/v1/browser/recording-playback-sessions/activity": {
+        "post": ("handleBrowserRecordingPlayback(", "isPublicBrowserRecordingHistory"),
+    },
 }
 
 DEVICE_AUDITED = {
@@ -699,6 +705,11 @@ def validate(
                     'recordingMediaSessionController.handleBrowserControl(' not in device_source
                 ):
                     errors.append(f"{where}: Browser control owner missing")
+                if path.endswith(("/progress", "/activity")) and (
+                    'ContinueWatchingApiRuntime::instance().tryHandlePost(' not in device_source
+                    or 'targetResolver.resolveForRead(backend, id)' not in device_source
+                ):
+                    errors.append(f"{where}: Browser history owner/identity missing")
                 if data.get(method, {}).get("security") != [
                     {"browserSession": [], "browserCsrf": []}
                 ]:

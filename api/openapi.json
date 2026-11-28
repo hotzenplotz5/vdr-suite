@@ -18118,6 +18118,272 @@
         }
       }
     },
+    "/api/v1/browser/recording-playback-sessions/progress": {
+      "post": {
+        "tags": [
+          "Browser Recording playback"
+        ],
+        "operationId": "controlBrowserRecordingProgress",
+        "summary": "Read or update Browser Recording progress",
+        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Read revision once for the playback owner; progress and clear use the existing CAS fence and SSE notification semantics. No automatic retry after a revision conflict.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "operation"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "positionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "revision",
+                      "progress",
+                      "clear"
+                    ]
+                  },
+                  "resumeSupported": {
+                    "type": "boolean"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "notifyLive": {
+                    "type": "boolean"
+                  }
+                },
+                "oneOf": [
+                  {
+                    "properties": {
+                      "operation": {
+                        "const": "revision"
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "operationId",
+                      "expectedRevision",
+                      "positionSeconds"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "progress"
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "operationId",
+                      "expectedRevision"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "clear"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid recording identity, operation, or payload."
+          },
+          "401": {
+            "description": "Browser authentication missing."
+          },
+          "403": {
+            "description": "Missing playback grant, scope or CSRF."
+          },
+          "404": {
+            "description": "Recording not found on the backend."
+          },
+          "409": {
+            "description": "Progress revision conflict; do not silently retry."
+          },
+          "503": {
+            "description": "History or recording identity unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/browser/recording-playback-sessions/activity": {
+      "post": {
+        "tags": [
+          "Browser Recording playback"
+        ],
+        "operationId": "recordBrowserRecordingActivity",
+        "summary": "Record observed Browser playback activity",
+        "description": "Shares the existing actor/backend-scoped history repository and canonical Recording resolver. Browser session and existing playback grant authorize the exact backend. Retains position, resume and completion evidence and existing SSE invalidation.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Browser Session, X-CSRF-Token and existing media.recording.play on exact backend."
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "browserCsrf": []
+          }
+        ],
+        "x-vdr-suite-auth-profile": "browserWrite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "operation",
+                  "operationId"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "positionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "activity"
+                    ]
+                  },
+                  "resumeSupported": {
+                    "type": "boolean"
+                  },
+                  "resumeSupportKnown": {
+                    "type": "boolean"
+                  },
+                  "ended": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Actor-scoped history result; progress returns the existing revision and mutation acknowledgement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid recording identity, operation, or payload."
+          },
+          "401": {
+            "description": "Browser authentication missing."
+          },
+          "403": {
+            "description": "Missing playback grant, scope or CSRF."
+          },
+          "404": {
+            "description": "Recording not found on the backend."
+          },
+          "409": {
+            "description": "Progress revision conflict; do not silently retry."
+          },
+          "503": {
+            "description": "History or recording identity unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions": {
       "post": {
         "tags": [

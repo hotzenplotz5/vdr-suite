@@ -259,7 +259,10 @@
     // Reset only the version shown by this card. A newer Device checkpoint
     // must fail the existing CAS comparison instead of being silently erased.
     return Promise.resolve().then(function () {
-      return sync.clear(item.backendId, item.recordingId, item.progressRevision);
+      const shared = global.VdrSuiteRecordings2Shared;
+      const id = shared && typeof shared.publicRecordingId === 'function'
+        ? shared.publicRecordingId(item.recording) : '';
+      return sync.clear(item.backendId, id || item.recordingId, item.progressRevision);
     }).then(function (cleared) {
       return cleared === true;
     }).catch(function () { return false; });

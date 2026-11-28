@@ -195,5 +195,31 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
     {operation:'select-subtitle-track',backendId:identity.backendId,sessionId,
       subtitleTrackId:'off',streamBasePositionSeconds:0}
   ]);
-  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control/tracks client PASS');
+  const browserHistory = {...identity,headers:{'X-CSRF-Token':'browser-fixture'}};
+  await browser.getBrowserRecordingProgress(browserHistory);
+  await browser.updateBrowserRecordingProgress({...browserHistory,
+    positionSeconds:42,expectedRevision:2,operationId:'progress-fixture',
+    resumeSupported:true,notifyLive:true});
+  await browser.clearBrowserRecordingProgress({...browserHistory,
+    expectedRevision:3,operationId:'clear-fixture'});
+  await browser.recordBrowserRecordingActivity({...browserHistory,
+    positionSeconds:42,operationId:'activity-fixture',resumeSupportKnown:true,
+    resumeSupported:true,ended:false});
+  const historyRequests = browserRequests.slice(8);
+  assert.deepStrictEqual(historyRequests.map(entry=>new URL(entry.url).pathname),
+    ['/api/v1/browser/recording-playback-sessions/progress','/api/v1/browser/recording-playback-sessions/progress','/api/v1/browser/recording-playback-sessions/progress','/api/v1/browser/recording-playback-sessions/activity']);
+  assert(historyRequests.every(entry=>entry.credentials==='same-origin' &&
+    entry.headers['X-CSRF-Token']==='browser-fixture'));
+  assert.deepStrictEqual(historyRequests.map(entry=>JSON.parse(entry.body)),[
+    {operation:'revision',...identity},
+    {operation:'progress',...identity,operationId:'progress-fixture',expectedRevision:2,
+      positionSeconds:42,resumeSupported:true,notifyLive:true},
+    {operation:'clear',...identity,operationId:'clear-fixture',expectedRevision:3},
+    {operation:'activity',...identity,operationId:'activity-fixture',positionSeconds:42,
+      resumeSupportKnown:true,resumeSupported:true,ended:false}
+  ]);
+  assert.throws(()=>browser.updateBrowserRecordingProgress({...browserHistory,
+    positionSeconds:42,operationId:'missing-revision'}));
+  assert.strictEqual(browserRequests.length,12);
+  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE/control/tracks/history client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});

@@ -197,6 +197,48 @@ int main()
             assert(history.body.find("publicRecordingId") == std::string::npos);
         }
         assert(lookups == 2);
+        const auto resolve = [&recording](const std::string& backend,
+            const std::string& id, VdrRecording& out) {
+            if (backend != "default" || id != "rec_0123456789abcdef0123456789abcdef")
+                return false;
+            out = recording;
+            return true;
+        };
+        const std::string progress = "/api/v1/browser/recording-playback-sessions/progress";
+        const std::string activity = "/api/v1/browser/recording-playback-sessions/activity";
+        const std::string revisionRead = R"({"operation":"revision","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef"})";
+        assert(runtime.tryHandlePost(progress, revisionRead, actor, history, "other", resolve));
+        assert(history.statusCode == 403);
+        assert(runtime.tryHandlePost(progress, revisionRead, actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        // Legacy and Public-v1 observe the same repository revision. Read the
+        // actual baseline instead of assuming the legacy initial revision.
+        const auto baseline = history.body;
+        assert(runtime.tryHandlePost(cw,
+            R"({"operation":"revision","backendId":"default","recordingId":"history-r1"})", actor, history));
+        assert(history.body == baseline);
+        const std::string revision = baseline.substr(baseline.find(':') + 1,
+            baseline.size() - baseline.find(':') - 2);
+        const std::string write = std::string(R"({"operation":"progress","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"public-history-progress","positionSeconds":240,"resumeSupported":true,"notifyLive":true,"expectedRevision":)") + revision + "}";
+        assert(runtime.tryHandlePost(progress, write, actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        assert(history.body.find("history-r1") == std::string::npos);
+        assert(runtime.tryHandlePost(cw, list, actor, history));
+        assert(history.body.find("\"resumePositionSeconds\":240") != std::string::npos);
+        assert(runtime.tryHandlePost(progress,
+            R"({"operation":"clear","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"stale-clear","expectedRevision":0})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 409);
+        assert(runtime.tryHandlePost(progress,
+            R"({"operation":"revision","backendId":"default","recordingId":"history-r1"})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 400);
+        assert(runtime.tryHandlePost(activity,
+            R"({"operation":"activity","backendId":"default","recordingId":"rec_0123456789abcdef0123456789abcdef","operationId":"public-history-activity","positionSeconds":240,"resumeSupportKnown":true,"resumeSupported":true})",
+            actor, history, "default", resolve));
+        assert(history.statusCode == 200);
+        assert(runtime.tryHandlePost(rw, list, actor, history));
+        assert(history.body.find("\"positionSeconds\":240") != std::string::npos);
         runtime.reset();
     }
     {

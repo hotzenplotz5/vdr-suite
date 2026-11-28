@@ -207,6 +207,21 @@ int runRecordingMediaHttpRuntime(
                 return MediaPlaybackContractResponse::augment(
                     recordingMediaSessionController.handleBrowserControl(
                         body, actorRef, authorizedBackendId), false);
+            if (requestTarget == "/api/v1/browser/recording-playback-sessions/progress" ||
+                requestTarget == "/api/v1/browser/recording-playback-sessions/activity") {
+                ApiResponse response;
+                ContinueWatchingApiRuntime::instance().tryHandlePost(
+                    requestTarget, body, actorRef, response, authorizedBackendId,
+                    [&targetResolver](const std::string& backend, const std::string& id,
+                        VdrRecording& recording) {
+                        const auto target = targetResolver.resolveForRead(backend, id);
+                        if (target.status != PublicRecordingPlaybackTargetStatus::ready)
+                            return false;
+                        recording = target.recording;
+                        return true;
+                    });
+                return response;
+            }
             const auto request = RecordingMediaSessionRequestParser().parse(body);
             if (!request.valid || LiveMediaSessionRequestParser::requestsLiveChannel(body) ||
                 request.nativeMediaAccessRequested || request.deviceMediaProfileRequested)

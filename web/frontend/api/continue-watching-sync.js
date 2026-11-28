@@ -10,6 +10,8 @@
   const RESUME_READY_MAX_ATTEMPTS = 300;
   const CONTINUE_ENDPOINT = '/api/media/continue-watching';
   const HISTORY_ENDPOINT = '/api/media/recently-watched';
+  const PUBLIC_PROGRESS_ENDPOINT = '/api/v1/browser/recording-playback-sessions/progress';
+  const PUBLIC_ACTIVITY_ENDPOINT = '/api/v1/browser/recording-playback-sessions/activity';
   const pending = {backendId: '', recordingId: '', positionSeconds: 0, autoStart: false};
   let operationCounter = 0;
   let historyOperationCounter = 0;
@@ -18,6 +20,19 @@
 
   function text(value) { return value == null ? '' : String(value); }
   function recordingId(recording) { return text(recording && (recording.id || recording.recordingId)); }
+  function persistenceRecordingId(recording) {
+    const shared = global.VdrSuiteRecordings2Shared;
+    const canonical = shared && typeof shared.publicRecordingId === 'function'
+      ? shared.publicRecordingId(recording) : '';
+    return canonical || recordingId(recording);
+  }
+  function historyEndpoint(id, history) {
+    // Only pre-existing cards without canonical identity retain the legacy
+    // route during migration. Never retry a failed Public-v1 mutation there.
+    return /^rec_[0-9a-f]{32}$/.test(text(id))
+      ? (history ? PUBLIC_ACTIVITY_ENDPOINT : PUBLIC_PROGRESS_ENDPOINT)
+      : (history ? HISTORY_ENDPOINT : CONTINUE_ENDPOINT);
+  }
   function nextOperationId(prefix) {
     operationCounter += 1;
     return 'cw-' + prefix + '-' + Date.now().toString(36) + '-' + operationCounter.toString(36);
@@ -45,10 +60,10 @@
     });
   }
   function post(body) {
-    return postTo(CONTINUE_ENDPOINT, body, 'continue watching sync failed');
+    return postTo(historyEndpoint(body.recordingId, false), body, 'continue watching sync failed');
   }
   function postHistory(body) {
-    return postTo(HISTORY_ENDPOINT, body, 'recently watched sync failed');
+    return postTo(historyEndpoint(body.recordingId, true), body, 'recently watched sync failed');
   }
 
   // Browser and Device checkpoints must share the SQLite CAS fence. Acquire
@@ -57,7 +72,7 @@
   function loadRevision(state, backendId, currentRecordingId) {
     if (state.loading) return state.loading;
     const fetcher = global.fetch || fetch;
-    state.loading = fetcher(CONTINUE_ENDPOINT, {
+    state.loading = fetcher(historyEndpoint(currentRecordingId, false), {
       method: 'POST',
       credentials: 'same-origin',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
@@ -89,7 +104,7 @@
       if (state.blocked || !Number.isSafeInteger(state.revision)) return false;
       const fetcher = global.fetch || fetch;
       const request = Object.assign({}, body, {expectedRevision: state.revision});
-      return fetcher(CONTINUE_ENDPOINT, {
+      return fetcher(historyEndpoint(body.recordingId, false), {
         method: 'POST', credentials: 'same-origin',
         headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
         body: JSON.stringify(request)
@@ -315,16 +330,16 @@
       const notifyLive = lastPosition < 0 || allowInactive === true;
       lastPosition = position;
       return enqueueVersioned(complete ? {
-        operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
+        operation: 'clear', backendId, recordingId: persistenceRecordingId(recording), operationId: nextOperationId('clear')
       } : {
-        operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
+        operation: 'progress', backendId, recordingId: persistenceRecordingId(recording), positionSeconds: position,
         resumeSupported: true, notifyLive: notifyLive, operationId: nextOperationId('progress')
       }, revisionState).then(function (success) { return success === true; }, function () { return false; });
     }
     function syncHistory(ended, allowInactive) {
       if (disposed && !ended) return Promise.resolve(false);
       if (!ended && !allowInactive && !snapshotActive(latestSnapshot)) return Promise.resolve(false);
-      const id = recordingId(recording);
+      const id = persistenceRecordingId(recording);
       if (!id) return Promise.resolve(false);
       const positionKnown = typeof owner.position === 'function';
       const position = readPosition();
@@ -421,7 +436,7 @@
         if (historyObserved) syncHistory(false, true);
       }
       if (active) {
-        loadRevision(revisionState, backendId, recordingId(recording));
+        loadRevision(revisionState, backendId, persistenceRecordingId(recording));
         ensureInitialHistory();
         ensureSampling();
       } else stopSampling();
