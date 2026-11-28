@@ -57,32 +57,19 @@ require(
     "requestBinary() must surface the same structured client error",
 )
 
-mutation_contracts = (
-    (
-        "fetchClientSearchTimerExecute",
-        "fetchClientSearchTimerRealTest",
-        "/api/vdr/searchtimers/execute",
-        "/api/searchtimers/execute",
-    ),
-    (
-        "fetchClientSearchTimerUpdateAction",
-        "fetchClientSearchTimerDeleteAction",
-        "/api/vdr/searchtimers/update",
-        "/api/searchtimers/update",
-    ),
-    (
-        "fetchClientSearchTimerDeleteAction",
-        None,
-        "/api/vdr/searchtimers/delete",
-        "/api/searchtimers/delete",
-    ),
+mutation_start = client_api.index("function mutatePublicSearchTimer(options)")
+mutation_end = client_api.index("window.VdrSuiteClientApi", mutation_start)
+mutation_body = client_api[mutation_start:mutation_end]
+require(
+    "publicSearchTimerPath(normalized, '/mutations')" in mutation_body
+    and "queryMutationOptions(jsonPostOptions(" in mutation_body
+    and "'Idempotency-Key'" in mutation_body
+    and "'If-Match'" in mutation_body
+    and "requestJsonWithFallback" not in mutation_body,
+    "Public-v1 SearchTimer mutations must remain version-fenced and one-shot",
 )
-for function_name, next_name, primary_route, alternate_route in mutation_contracts:
-    body = function_body(client_api, function_name, next_name)
-    require("jsonPostOptions(options)" in body, f"{function_name} must preserve JSON POST options")
-    require("requestJson(" in body and primary_route in body, f"{function_name} primary route drifted")
-    require("requestJsonWithFallback" not in body, f"{function_name} restored mutation fallback")
-    require(alternate_route not in body, f"{function_name} restored alternate mutation dispatch")
+
+require("/api/vdr/searchtimers" not in client_api, "retired mutation transport returned")
 
 # ST.V1 supersedes the legacy Browser CREATE with a single Public-v1
 # admission. Keep JSON, CSRF and idempotency, and never re-dispatch on error.
@@ -131,10 +118,8 @@ for token in (
     "service_unavailable",
     "backend_unavailable",
     "assert.strictEqual(emitted.length, 1)",
-    "fetchClientSearchTimerExecute",
     "fetchClientSearchTimerCreateAction",
-    "fetchClientSearchTimerUpdateAction",
-    "fetchClientSearchTimerDeleteAction",
+    "mutatePublicSearchTimer",
 ):
     require(token in test, "focused 69.F regression coverage drifted: " + token)
 

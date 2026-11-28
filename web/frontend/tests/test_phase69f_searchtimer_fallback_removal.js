@@ -85,23 +85,13 @@ async function run() {
   assert.ok(!source.includes('function requestJsonWithFallbacks(paths, options)'));
   assert.ok(!source.includes('/api/vdr/searchtimers/live'));
 
-  await verifyOneShot(
-    'fetchClientSearchTimers',
-    '/api/vdr/searchtimers',
-    'GET'
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerDiscovery',
-    '/api/vdr/searchtimers/discovery',
-    'GET',
-    {backendId: 'living-room'}
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerPreview',
-    '/api/vdr/searchtimers/preview',
-    'GET',
-    {backendId: 'living-room'}
-  );
+  for (const name of ["fetchClientTimerCreateAction","fetchClientTimerUpdateAction","fetchClientTimerDeleteAction","fetchClientSearchTimers","fetchClientSearchTimerDiscovery","fetchClientSearchTimerPreview","fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","fetchClientSearchTimerRealTest","fetchClientSearchTimerUpdateAction","fetchClientSearchTimerDeleteAction"]) {
+    assert.strictEqual(typeof api[name], 'undefined', 'retired wrapper returned: ' + name);
+  }
+  assert.ok(!source.includes('/api/vdr/searchtimers'));
+  assert.ok(!source.includes('/api/searchtimers'));
+  assert.ok(!source.includes('/api/vdr/timers/actions/'));
+
   await verifyOneShot(
     'fetchPublicSearchTimerDraftPreview',
     '/api/v1/search-timers/draft-preview',
@@ -127,25 +117,6 @@ async function run() {
     'POST',
     {backendId: 'living-room'}
   );
-  await verifyOneShot(
-    'fetchClientSearchTimerPlan',
-    '/api/vdr/searchtimers/plan',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerValidate',
-    '/api/vdr/searchtimers/validate',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-  await verifyOneShot(
-    'fetchClientSearchTimerRealTest',
-    '/api/vdr/searchtimers/real-test',
-    'POST',
-    {payload: {query: 'phase69f'}}
-  );
-
   const id = 'st_' + 'a'.repeat(32);
   const revision = 'sr_' + 'b'.repeat(32);
   const backend = 'living-room';
@@ -159,6 +130,8 @@ async function run() {
   assert.strictEqual(pageRequest.searchParams.get('limit'), '30');
   assert.strictEqual(pageRequest.searchParams.get('cursor'), 'cursor-example');
   await verifyOneShot('fetchPublicSearchTimerDetail', '/api/v1/search-timers/' + id,
+    'GET', {backend, searchTimerId: id});
+  await verifyOneShot('fetchPublicSearchTimerPreview', '/api/v1/search-timers/' + id + '/preview',
     'GET', {backend, searchTimerId: id});
   await verifyOneShot('fetchPublicSearchTimerVersion', '/api/v1/search-timers/' + id + '/version',
     'GET', {backend, searchTimerId: id});

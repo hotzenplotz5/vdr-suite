@@ -62,31 +62,17 @@ require(
     "Timer successor must not restore snapshot fallback probing",
 )
 
-searchtimer_contracts = (
-    ("fetchClientSearchTimers", "fetchClientSearchTimerDiscovery", "/api/vdr/searchtimers", "/api/searchtimers"),
-    ("fetchClientSearchTimerDiscovery", "fetchClientSearchTimerPreview", "/api/vdr/searchtimers/discovery", "/api/searchtimers/discovery"),
-    ("fetchClientSearchTimerPreview", "fetchClientSearchTimerPreviewCacheRefresh", "/api/vdr/searchtimers/preview", "/api/searchtimers/preview"),
-    ("fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerPlan", "/api/v1/search-timers/preview-cache/refresh", "/api/vdr/searchtimers/preview/cache/refresh"),
-    ("fetchClientSearchTimerPlan", "fetchClientSearchTimerValidate", "/api/vdr/searchtimers/plan", "/api/searchtimers/plan"),
-    ("fetchClientSearchTimerValidate", "fetchClientSearchTimerExecute", "/api/vdr/searchtimers/validate", "/api/searchtimers/validate"),
-    ("fetchClientSearchTimerExecute", "fetchClientSearchTimerRealTest", "/api/vdr/searchtimers/execute", "/api/searchtimers/execute"),
-    ("fetchClientSearchTimerRealTest", "fetchClientSearchTimerCreateStaged", "/api/vdr/searchtimers/real-test", "/api/searchtimers/real-test"),
-    ("fetchClientSearchTimerUpdateAction", "fetchClientSearchTimerDeleteAction", "/api/vdr/searchtimers/update", "/api/searchtimers/update"),
+for route in ("/api/vdr/searchtimers", "/api/searchtimers", "/api/vdr/timers/actions/"):
+    require(route not in client_api, "retired browser transport returned: " + route)
+
+refresh_body = function_body(client_api, "fetchClientSearchTimerPreviewCacheRefresh", "fetchClientSearchTimerCreateStaged")
+require(
+    "requestJson(" in refresh_body
+    and "/api/v1/search-timers/preview-cache/refresh" in refresh_body
+    and "queryMutationOptions(" in refresh_body
+    and "requestJsonWithFallback" not in refresh_body,
+    "Public-v1 preview refresh must remain one-shot and CSRF-bound",
 )
-for function_name, next_name, primary_route, alternate_route in searchtimer_contracts:
-    body = function_body(client_api, function_name, next_name)
-    require(
-        "requestJson(" in body and primary_route in body,
-        f"{function_name} primary SearchTimer route drifted",
-    )
-    require(
-        "requestJsonWithFallback" not in body,
-        f"{function_name} restored SearchTimer fallback probing",
-    )
-    require(
-        alternate_route not in body,
-        f"{function_name} restored alternate SearchTimer alias probing",
-    )
 
 # SearchTimer CREATE intentionally migrated to one reviewed Public-v1 route.
 # The Browser action delegates instead of probing any legacy alias.
@@ -113,7 +99,7 @@ require(
 )
 operation_get = function_body(
     client_api, "fetchClientSearchTimerOperation",
-    "fetchClientSearchTimerUpdateAction",
+    "fetchPublicSearchTimerPage",
 )
 require(
     "requestJson('/api/v1/operations/' + encodeURIComponent(id)" in operation_get
@@ -121,14 +107,16 @@ require(
     "Browser SearchTimer Operation GET must not probe legacy aliases",
 )
 
-delete_body = function_body(client_api, "fetchClientSearchTimerDeleteAction", None)
+mutation_start = client_api.index("function mutatePublicSearchTimer(options)")
+mutation_end = client_api.index("window.VdrSuiteClientApi", mutation_start)
+mutation_body = client_api[mutation_start:mutation_end]
 require(
-    "requestJson(" in delete_body and "/api/vdr/searchtimers/delete" in delete_body,
-    "fetchClientSearchTimerDeleteAction primary route drifted",
-)
-require(
-    "requestJsonWithFallback" not in delete_body and "/api/searchtimers/delete" not in delete_body,
-    "fetchClientSearchTimerDeleteAction restored alias fallback",
+    "publicSearchTimerPath(normalized, '/mutations')" in mutation_body
+    and "queryMutationOptions(jsonPostOptions(" in mutation_body
+    and "'Idempotency-Key'" in mutation_body
+    and "'If-Match'" in mutation_body
+    and "requestJsonWithFallback" not in mutation_body,
+    "Public-v1 SearchTimer mutations must remain version-fenced and one-shot",
 )
 
 router = read("api/rest/src/ApiRouter.cpp")
@@ -159,13 +147,10 @@ require(
 runtime_test = read("web/frontend/tests/test_phase69f_searchtimer_fallback_removal.js")
 for token in (
     "assert.strictEqual(emitted.length, 1)",
-    "fetchClientSearchTimers",
-    "fetchClientSearchTimerDiscovery",
-    "fetchClientSearchTimerPreview",
     "fetchClientSearchTimerPreviewCacheRefresh",
-    "fetchClientSearchTimerPlan",
-    "fetchClientSearchTimerValidate",
-    "fetchClientSearchTimerRealTest",
+    "fetchPublicSearchTimerDraftPreview",
+    "fetchPublicSearchTimerPreview",
+    "mutatePublicSearchTimer",
     "backend_unavailable",
 ):
     require(token in runtime_test, "focused SearchTimer regression drifted: " + token)

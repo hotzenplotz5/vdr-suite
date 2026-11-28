@@ -53,10 +53,8 @@ Timer:
 
 - `fetchClientTimers`
 - `fetchClientTimerConflicts`
-- `fetchClientTimerCreateAction`
+- `fetchPublicManualTimerCreate`, `fetchPublicNativeTimerModify`, `fetchPublicNativeTimerDelete`, `fetchPublicNativeTimerDirectCreate`, `fetchPublicNativeTimerDirectUpdate`, `fetchPublicNativeTimerDirectDelete` — shared Public-v1 Timer writer, also used for Remote REC stop; no private browser action wrappers.
 - `fetchClientEpgTimerIntentCreate` — Public-v1 EPG create: authoritative `GET /api/v1/epg/event` + strong ETag, one CSRF-/Idempotency-Key-protected `POST /api/v1/epg/timer-intents`; VDR owns margins/native projection. Browser EPG and Channel-day surfaces use this function. `202` means admitted, not recorded; no retry or legacy CREATE fallback.
-- `fetchClientTimerUpdateAction`
-- `fetchClientTimerDeleteAction`
 
 Channels:
 
@@ -148,14 +146,7 @@ Recording trailer contract:
 
 SearchTimer:
 
-- `fetchClientSearchTimers`
-- `fetchClientSearchTimerDiscovery`
-- `fetchClientSearchTimerPreview`
 - `fetchClientSearchTimerPreviewCacheRefresh`
-- `fetchClientSearchTimerPlan`
-- `fetchClientSearchTimerValidate`
-- `fetchClientSearchTimerExecute`
-- `fetchClientSearchTimerRealTest`
 - `fetchClientSearchTimerCreateAction`
 - `fetchClientSearchTimerCreateStaged` — Browser administrator, CSRF + Idempotency-Key, Public-v1 SearchTimer CREATE (active or inactive, explicitly confirmed; no legacy mutation fallback)
 - `fetchPublicSearchTimerPage` — scoped Public-v1 page
@@ -166,8 +157,6 @@ SearchTimer:
 - `fetchPublicSearchTimerDraftPreview` — scoped read-only draft preview for create and edit, with EPG filters
 - `mutatePublicSearchTimer` — confirmed version-fenced Public-v1 mutation, existing CSRF and idempotency; no fallback
 - `fetchClientSearchTimerOperation` — actor-bound, read-only Public-v1 Operation GET to inspect the admitted CREATE result; no blind retry
-- `fetchClientSearchTimerUpdateAction`
-- `fetchClientSearchTimerDeleteAction`
 
 Genre Client API extension:
 

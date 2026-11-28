@@ -602,18 +602,6 @@
       });
   }
 
-  function fetchClientTimerCreateAction(options) {
-    return requestJson('/api/vdr/timers/actions/create', jsonPostOptions(options));
-  }
-
-  function fetchClientTimerUpdateAction(options) {
-    return requestJson('/api/vdr/timers/actions/update', jsonPostOptions(options));
-  }
-
-  function fetchClientTimerDeleteAction(options) {
-    return requestJson('/api/vdr/timers/actions/delete', jsonPostOptions(options));
-  }
-
   // Timer editors, the channel sorter and EPG detail name resolution consume
   // only the compact public Channel projection. The full channel browser
   // still needs its richer legacy representation. Retain the independently
@@ -1258,24 +1246,6 @@
     );
   }
 
-  function fetchClientSearchTimers(options) {
-    return requestJson('/api/vdr/searchtimers', options);
-  }
-
-  function fetchClientSearchTimerDiscovery(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/discovery',
-      backendQueryOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerPreview(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/preview',
-      backendQueryOptions(options)
-    );
-  }
-
   function fetchClientSearchTimerPreviewCacheRefresh(options) {
     const input = normalizeOptions(options);
     const query = copyQuery(input.query);
@@ -1287,34 +1257,6 @@
     query.backendId = backendId;
     return requestJson('/api/v1/search-timers/preview-cache/refresh',
       queryMutationOptions(Object.assign({}, input, {query, method:'POST'})));
-  }
-
-  function fetchClientSearchTimerPlan(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/plan',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerValidate(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/validate',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerExecute(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/execute',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerRealTest(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/real-test',
-      jsonPostOptions(options)
-    );
   }
 
   // Both Browser and Device clients use the same Public-v1 domain CREATE.
@@ -1454,20 +1396,6 @@
     );
   }
 
-  function fetchClientSearchTimerUpdateAction(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/update',
-      jsonPostOptions(options)
-    );
-  }
-
-  function fetchClientSearchTimerDeleteAction(options) {
-    return requestJson(
-      '/api/vdr/searchtimers/delete',
-      jsonPostOptions(options)
-    );
-  }
-
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
     requestBinary: requestBinary,
@@ -1484,10 +1412,7 @@
     fetchPublicNativeTimerDirectDelete: fetchPublicNativeTimerDirectDelete,
     fetchPublicNativeTimerOperation: fetchPublicNativeTimerOperation,
     fetchPublicManualTimerCreate: fetchPublicManualTimerCreate,
-    fetchClientTimerCreateAction: fetchClientTimerCreateAction,
     fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
-    fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
-    fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
     fetchClientTeletextService: fetchClientTeletextService,
     fetchClientTeletextPage: fetchClientTeletextPage,
@@ -1533,14 +1458,7 @@
     fetchPublicRecordingAction: fetchPublicRecordingAction,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
-    fetchClientSearchTimers: fetchClientSearchTimers,
-    fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
-    fetchClientSearchTimerPreview: fetchClientSearchTimerPreview,
     fetchClientSearchTimerPreviewCacheRefresh: fetchClientSearchTimerPreviewCacheRefresh,
-    fetchClientSearchTimerPlan: fetchClientSearchTimerPlan,
-    fetchClientSearchTimerValidate: fetchClientSearchTimerValidate,
-    fetchClientSearchTimerExecute: fetchClientSearchTimerExecute,
-    fetchClientSearchTimerRealTest: fetchClientSearchTimerRealTest,
     fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
     fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
     fetchClientSearchTimerOperation: fetchClientSearchTimerOperation,
@@ -1550,8 +1468,6 @@
     fetchPublicSearchTimerDraftPreview: fetchPublicSearchTimerDraftPreview,
     fetchPublicSearchTimerDetail: fetchPublicSearchTimerDetail,
     fetchPublicSearchTimerVersion: fetchPublicSearchTimerVersion,
-    mutatePublicSearchTimer: mutatePublicSearchTimer,
-    fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
-    fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
+    mutatePublicSearchTimer: mutatePublicSearchTimer
   });
 }());

@@ -12,6 +12,8 @@ Kein Merge, keine Installation, keine Hardwarefreigabe.
 | `a4eab3a34b125a40376bea97e2c77ae5f1365354` | Nachgewiesener Linkerfehler von `test-api-router`: bestehende RecentlyWatched-Implementierungen im Ziel ergänzen, analog zum HTTP-Server-Test. Keine Produktcodeänderung, kein abgeschwächter Test. |
 | `6f7ef01b101d3fa1c62bb1db9a2ee98bfe2001f2` | Public-v1 Recording-, EPG- und Preferred-Artwork-Home-Previews verwenden bestehenden Browser-Session-/Backend-Scope und Final-byte-Validator. Worker, HTTP-Scope- und Preview-Regressionen ergänzt. Keine zweite Cache-Implementierung, kein Polling, keine neue Berechtigung. |
 
+**P1 Timer-Writer:** `3e75226d742e7649cdb4c0cb3284cf67a1103d35` migriert den letzten im Audit von 95 produktiven Browser-JS/HTML-Dateien gefundenen privaten Timer-Schreibaufrufer (Remote REC-Stopp) zum bestehenden Public-v1 Timer-Owner. [Frontend-CI](https://github.com/hotzenplotz5/vdr-suite/actions/runs/46170348397/job/141057186898) PASS einschließlich Cache- und Remote-Regressionen. Nachfolgender Cleanup entfernt zwölf nicht mehr verwendete private Browser-Wrapper; öffentliche Preview-, Operations- und Mutationstests sowie serverseitige Legacy-Verträge bleiben bestehen. CI des Cleanup steht aus.
+
 Finaler C++-/CI- und Real-VDR-Nachweis für die letzten beiden Kandidaten
 steht aus. Public-v1-Bild-Caching betrifft nur explizite `variant=home`
 und erfolgreiche, autorisierte Bild-Reads. Original-/Genre-Bilder und

@@ -148,7 +148,7 @@ async function verifyBinaryErrorUsesSameRepresentation() {
   assert.strictEqual(error.message, 'Presentation backend is unavailable.');
 }
 
-async function verifyMutationDoesNotFallback(functionName, expectedPath) {
+async function verifyMutationDoesNotFallback(functionName, expectedPath, options) {
   const before = requests.length;
   responseFactory = function () {
     return jsonResponse(503, {
@@ -161,7 +161,7 @@ async function verifyMutationDoesNotFallback(functionName, expectedPath) {
   };
 
   const error = await captureFailure(function () {
-    return api[functionName]({
+    return api[functionName](options || {
       payload: {name: 'phase69f'},
       headers: {'X-Test': 'phase69f'}
     });
@@ -172,7 +172,7 @@ async function verifyMutationDoesNotFallback(functionName, expectedPath) {
   assert.strictEqual(error.status, 503);
   assert.strictEqual(error.code, 'backend_unavailable');
   assert.strictEqual(emitted.length, 1);
-  assert.strictEqual(emitted[0].url, expectedPath);
+  assert.strictEqual(emitted[0].url.split('?')[0], expectedPath);
   assert.strictEqual(emitted[0].options.method, 'POST');
 }
 
@@ -272,21 +272,16 @@ async function run() {
   await verifyBinaryErrorUsesSameRepresentation();
 
   await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerExecute',
-    '/api/vdr/searchtimers/execute'
-  );
-  await verifyMutationDoesNotFallback(
     'fetchClientSearchTimerCreateAction',
     '/api/v1/search-timers'
   );
-  await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerUpdateAction',
-    '/api/vdr/searchtimers/update'
-  );
-  await verifyMutationDoesNotFallback(
-    'fetchClientSearchTimerDeleteAction',
-    '/api/vdr/searchtimers/delete'
-  );
+  const id = 'st_' + 'a'.repeat(32);
+  for (const action of ['update', 'activate', 'deactivate', 'delete']) {
+    await verifyMutationDoesNotFallback('mutatePublicSearchTimer',
+      '/api/v1/search-timers/' + id + '/mutations',
+      {backend: 'default', searchTimerId: id, revision: 'sr_' + 'b'.repeat(32),
+        idempotencyKey: 'failure-' + action, payload: {action, confirmed: true}});
+  }
 
   console.log('test_phase69f_client_error_mutation_fallback passed');
 }
