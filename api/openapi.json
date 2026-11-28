@@ -20676,6 +20676,9 @@
     },
     "/api/v1/search-timers/preview-cache/refresh": {
       "post": {
+        "tags": [
+          "SearchTimers"
+        ],
         "operationId": "publicSearchTimerPreviewCacheRefresh",
         "summary": "Explicitly refresh the existing SearchTimer EPG preview cache",
         "description": "Uses the existing backend-specific refresh service, not a SearchTimer mutation. No request body or automatic retry.",

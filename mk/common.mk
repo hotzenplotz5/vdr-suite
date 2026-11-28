@@ -182,6 +182,22 @@ test-api-router-searchtimer-preview-epg-cache-refresh-route: prepare-test-db
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/HbbtvApiRuntime.cpp \
+		core/daemon/src/HbbtvApplicationSessionService.cpp \
+		api/rest/src/LegacyOsdApiRuntime.cpp \
+		core/daemon/src/LegacyOsdSessionService.cpp \
+		core/daemon/src/OsdViewerBindingService.cpp \
+		core/daemon/src/OsdControllerLeaseService.cpp \
+		api/rest/src/ContinueWatchingApiRuntime.cpp \
+		core/media/src/ContinueWatching.cpp \
+		core/media/src/ContinueWatchingRepository.cpp \
+		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
+		api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
+		api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
+		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
