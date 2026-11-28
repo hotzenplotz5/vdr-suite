@@ -47,9 +47,7 @@ function makeHarness(publicMode = false) {
     PAGE_SIZE: 2,
     selectedBackendId() { return backend; },
     clientApi() { return {fetchPublicRecordingFolder:publicMode ? window.VdrSuiteClientApi.fetchPublicRecordingFolder : undefined,
-      fetchClientRecordingForPublicId({backendId,recordingId}) {
-        return Promise.resolve({recording:{backendId, publicRecordingId:recordingId, title:'Resolved detail', path:'Alpha/Title/1.rec'}});
-      }, fetchClientRecordingFolder(options) {
+      fetchClientRecordingFolder(options) {
       const pending = deferred();
       requests.push({options, pending});
       return pending.promise;
@@ -381,7 +379,10 @@ async function testPublicMixedPages() {
   assert.strictEqual(state.breadcrumbs[0].name,'Alpha');
   h.owner().selectRecording(state.serverRecordings[0]);
   await flush();
-  assert.strictEqual(state.selectedRecording.publicRecordingId,rid);
+  assert.strictEqual(state.selectedRecording.recordingId,rid);
+  assert.strictEqual(state.selectedRecording.path,undefined);
+  assert.strictEqual(state.selectedRecording.backendNativeId,undefined);
+  assert.strictEqual(h.requests.length,3,'canonical selection requires no private detail read');
   h.owner().closeDetail();
   await h.advance(0);
   assert.strictEqual(h.requests[3].options.query.folderId,fid);
