@@ -201,6 +201,7 @@ const context = vm.createContext({
 
 const sourcePath = 'web/frontend/api/session-frontend-sync.js';
 const source = fs.readFileSync(sourcePath, 'utf8');
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), context);
 vm.runInContext(source, context, {filename: sourcePath});
 
 assert.ok(window.VdrSuiteLivePlayback);
@@ -406,15 +407,16 @@ assert.strictEqual(
   requests.length = 0;
   videos.length = 0;
   const recordingPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Schnelle Aufnahme'},
+    {id: 'rec_11111111111111111111111111111111', title: 'Schnelle Aufnahme'},
     'living-room'
   );
   const recordingSessionId = await recordingPlayback.start();
   assert.strictEqual(recordingSessionId, 'recording_session_test');
   assert.strictEqual(requests.length, 1);
   const recordingBody = JSON.parse(requests[0].options.body);
+  assert.strictEqual(requests[0].path, '/api/v1/browser/recording-playback-sessions');
   assert.strictEqual(recordingBody.backendId, 'living-room');
-  assert.strictEqual(recordingBody.recordingId, 'recording-42');
+  assert.strictEqual(recordingBody.recordingId, 'rec_11111111111111111111111111111111');
   assert.deepStrictEqual(recordingBody.capabilities.protocols, ['progressive']);
   assert.deepStrictEqual(recordingBody.capabilities.containers, ['fmp4']);
   assert.strictEqual(recordingBody.capabilities.supportsByteRanges, false);
@@ -439,7 +441,7 @@ assert.strictEqual(
   requests.length = 0;
   failFastRecording = true;
   const fallbackPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'growing-recording', title: 'Wachsende Aufnahme'},
+    {id: 'rec_22222222222222222222222222222222', title: 'Wachsende Aufnahme'},
     'living-room'
   );
   const fallbackSession = await fallbackPlayback.start();
@@ -455,7 +457,7 @@ assert.strictEqual(
   requests.length = 0;
   returnHlsRecording = true;
   const selectedHlsPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-hls-selected', title: 'HLS Auswahl'},
+    {id: 'rec_33333333333333333333333333333333', title: 'HLS Auswahl'},
     'living-room'
   );
   const selectedHlsSession = await selectedHlsPlayback.start();
@@ -475,7 +477,7 @@ assert.strictEqual(
   videos.length = 0;
   rejectNextVideoPlay = true;
   const rejectedPlayPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-play-rejected', title: 'Play abgelehnt'},
+    {id: 'rec_44444444444444444444444444444444', title: 'Play abgelehnt'},
     'living-room'
   );
   await rejectedPlayPlayback.start();
@@ -494,7 +496,7 @@ assert.strictEqual(
   requests.length = 0;
   videos.length = 0;
   const stalledPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-stalled', title: 'Fast Path Stall'},
+    {id: 'rec_55555555555555555555555555555555', title: 'Fast Path Stall'},
     'living-room'
   );
   await stalledPlayback.start();
@@ -633,7 +635,7 @@ assert.strictEqual(
   requests.length = 0;
   videos.length = 0;
   const mseRecordingPlayback = window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-mse', title: 'MSE Aufnahme'},
+    {id: 'rec_66666666666666666666666666666666', title: 'MSE Aufnahme'},
     'living-room'
   );
   assert.strictEqual(await mseRecordingPlayback.start(), 'recording_session_test');
