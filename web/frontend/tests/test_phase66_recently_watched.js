@@ -39,7 +39,8 @@ assert(apiSource.includes('recentlyWatchedService_->recordActivity'));
 assert(!apiSource.includes('bool isContinueWatchingRecording('));
 assert(!apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
 assert(!apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
-assert(apiSource.includes('serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_)'));
+assert(apiSource.includes('serializeRecentlyWatched(items, currentRecordings, publicRecordingIdLookup_,') &&
+       apiSource.includes('publicBrowser, publicHistoryArtworkLookup_)'));
 assert(
   (apiSource.match(/VdrRecordingMetadataJsonSerializer::presentationTitle\(/g) || []).length >= 3,
   'History/Continue-Watching must use current canonical Recording titles'

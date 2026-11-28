@@ -70,6 +70,7 @@ test-phase66-continue-watching-install-staging:
 	$(MAKE) install-phase66-continue-watching-assets DESTDIR=/tmp/vdr-suite-phase66-cw-pkgroot PREFIX=/usr
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js
-	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/progress' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
 	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
+	grep -F '/api/v1/browser/recording-playback-sessions/progress' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
 	grep -F "state !== 'starting'" /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
