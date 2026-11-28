@@ -107,8 +107,10 @@ require(
     and "query:{backendId:requestedBackend}" in genres
     and "value.recordingId === recordingId && value.backendId === requestedBackend" in genres
     and "global.VdrSuiteFrontendHelpers.publicRecordingMetadataView(value)" in genres
-    and genres.count("fetchClientRecordingForPublicId(") == 1,
-    "recording genre cards must use scoped public detail and the shared metadata projection; private identity resolution is only for opening",
+    and "fetchClientRecordingForPublicId(" not in genres
+    and "detail.recordingId !== recordingId || detail.backendId !== backendId" in genres
+    and "owner.openRecording(Object.assign({}, recording, detail)" in genres,
+    "recording genre enrichment and opening must use scoped public detail without private identity resolution",
 )
 require(
     "VdrSuiteFrontendHelpers" in genres
@@ -126,8 +128,10 @@ require(
     and "largoCard.projected.preferredArtworkId, 'c'.repeat(32)" in runtime_test
     and "largoCard.projected.backendNativeId, undefined" in runtime_test
     and "rendering cards must not resolve private paths" in runtime_test
-    and "assert.deepStrictEqual(recordingOpenCalls, [publicMembers[0].recordingId])" in runtime_test
-    and "genre card click must hand the original recording" in runtime_test,
+    and "assert.deepStrictEqual(recordingOpenCalls, [])" in runtime_test
+    and "openedRecordings[0].item.recordingId, publicMembers[0].recordingId" in runtime_test
+    and "openedRecordings[0].item.backendNativeId, undefined" in runtime_test
+    and "mismatched backend must not open a different recording" in runtime_test,
     "genre runtime test must prove bounded public poster enrichment and identity-preserving handoff",
 )
 require("openRecording" in recordings, "Recordings 2 external detail handoff is missing")
