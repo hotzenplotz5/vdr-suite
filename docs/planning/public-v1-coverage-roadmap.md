@@ -39,6 +39,17 @@ kein Polling; native-only Karten behalten vorerst ihren bisherigen
 Kompatibilitätspfad. OpenAPI, Referenzclient und fokussierte Regressionen
 ergänzt; finaler CI-/Hardware-Nachweis offen.
 
+**Timer-Editor-Schreibpfad (28.11.2026):** Die Browser-Session nutzt
+für CREATE, UPDATE/TOGGLE und DELETE ausschließlich die bereits vorhandenen
+Public-v1-Writer (durable für gebundene, direkt für externe/ungebundene Timer).
+Die vorhandene AuthorizationService-Grantauswertung ist auch für Human-
+Wildcard-Grants maßgeblich; Device-Exact-Grant und Browser-CSRF bleiben
+unverändert. Fehlende Public-v1-Capability oder Read-/Write-Ablehnung werden
+sichtbar gemeldet, nicht über private Writer umgangen. Die früheren
+unversionierten Wrapper bleiben bis zur vollständigen Aufrufer-Inventur
+bestehen; alte Daemons ohne Direct-Action-Contract sind keine
+Public-v1-Paritätskandidaten. CI und echte VDR-Abnahme sind separat offen.
+
 **Nachweisbare Restlücken:**
 
 - `GET /api/v1/backends` liefert laut Backend-Discovery-Vertrag bewusst nur

@@ -1,7 +1,7 @@
 'use strict';
 
 // F5.6 production-path test: real Timer module form -> browser client API ->
-// durable Public-v1 Operation -> SSE readback, without a legacy CREATE.
+// durable Public-v1 Operation -> SSE readback, without a private CREATE.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -62,7 +62,7 @@ function find(root, condition) {
 }
 const root = new Element('main');
 const calls = [];
-const legacy = [];
+const directCreates = [];
 const reads = [];
 const sources = [];
 let operationState = 'accepted';
@@ -100,9 +100,12 @@ const clientApi = {
     sources.push(source);
     return source;
   },
-  fetchClientTimerCreateAction(options) {
-    legacy.push(options.payload);
+  fetchPublicNativeTimerDirectCreate(options) {
+    directCreates.push(options.payload);
     return Promise.resolve({success: true});
+  },
+  fetchClientTimerCreateAction() {
+    throw new Error('Private CREATE must never be dispatched');
   }
 };
 const contextWindow = {
@@ -158,7 +161,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   submit();
   await tick();
   assert.strictEqual(calls.length, 1, 'one Public-v1 CREATE dispatch');
-  assert.strictEqual(legacy.length, 0, 'no legacy CREATE for one-shot');
+  assert.strictEqual(directCreates.length, 0, 'no direct CREATE for one-shot');
   assert.strictEqual(calls[0].payload.backendId, 'living-room');
   assert.strictEqual(calls[0].payload.title, 'One-shot news');
   assert.strictEqual(calls[0].payload.directory, 'News~Evening');
@@ -189,15 +192,15 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   await tick();
   assert.strictEqual(calls.length, 2);
   assert.notStrictEqual(calls[1].idempotencyKey, calls[0].idempotencyKey);
-  assert.strictEqual(legacy.length, 0);
+  assert.strictEqual(directCreates.length, 0);
 
-  // A transport/backend failure never falls back to legacy CREATE.
+  // A transport/backend failure never falls back to direct CREATE.
   failManual = true;
   fields.title.value = 'No backend';
   submit();
   await tick();
   assert.strictEqual(calls.length, 3);
-  assert.strictEqual(legacy.length, 0);
+  assert.strictEqual(directCreates.length, 0);
   assert(feedback.textContent.includes('nicht bestätigt'));
   const firstFailedKey = calls[2].idempotencyKey;
   submit();
@@ -205,7 +208,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(calls.length, 4, 'only explicit submission may resend');
   assert.strictEqual(calls[3].idempotencyKey, firstFailedKey,
     'an uncertain retry must keep its original idempotency key');
-  assert.strictEqual(legacy.length, 0, 'no legacy retry after Public-v1 error');
+  assert.strictEqual(directCreates.length, 0, 'no direct retry after Public-v1 error');
   failManual = false;
 
   // Repeating timers and opaque Aux must remain functional, not lose fields.
@@ -215,17 +218,17 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   submit();
   await tick();
   assert.strictEqual(calls.length, 4);
-  assert.strictEqual(legacy.length, 1);
-  assert.strictEqual(legacy[0].weekdays, 'M------');
+  assert.strictEqual(directCreates.length, 1);
+  assert.strictEqual(directCreates[0].weekdays, 'M------');
 
   // An explicitly selected first Monday can now go via the same native
-  // Public-v1 CREATE Operation, without a legacy timer write.
+  // Public-v1 CREATE Operation, without an additional direct timer write.
   fields.day.value = '2026-11-30';
   fields.aux.value = '';
   submit();
   await tick();
   assert.strictEqual(calls.length, 5);
-  assert.strictEqual(legacy.length, 1);
+  assert.strictEqual(directCreates.length, 1);
   assert.strictEqual(calls[4].payload.weekdays, 'M------');
   assert.strictEqual(calls[4].payload.startAt,
     new Date(2026, 10, 30, 20, 15).getTime()/1000);
@@ -236,7 +239,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   submit();
   await tick();
   assert.strictEqual(calls.length, 6);
-  assert.strictEqual(legacy.length, 1);
+  assert.strictEqual(directCreates.length, 1);
   assert.strictEqual(calls[5].payload.aux, '<epgsearch/>');
   // F5.6 production composition: same rendered Timer form, actual
   // browser client-api.js and bundled Public-v1 reference client.
@@ -381,8 +384,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     'https://suite.example/api/v1/operations/op_manual_f56');
   assert.strictEqual(httpRequests[1].options.method, 'GET');
   assert.strictEqual(httpRequests.length, 2);
-  assert.strictEqual(legacy.length, 1,
-    'real Browser+reference composition must not call legacy CREATE');
+  assert.strictEqual(directCreates.length, 1,
+    'real Browser+reference composition must not call the fixture direct CREATE');
 
   // Real production browser adapter + reference client for native TOGGLE:
   // GET strong ETag, POST with Browser CSRF and Idempotency-Key, SSE readback.
@@ -413,7 +416,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(nativeRequests[2].url,
     'https://suite.example/api/v1/operations/op_native_f56');
   assert.equal(nativeRequests[2].options.method, 'GET');
-  assert.equal(legacy.length, 1, 'native Public-v1 TOGGLE never dispatched legacy');
+  assert.equal(directCreates.length, 1, 'native Public-v1 TOGGLE never dispatched a second CREATE');
 
   // Production browser -> reference JS -> HTTP MODIFY composition for an
   // explicit Aux update. The previous plugin metadata is carried only on
@@ -445,7 +448,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     '"native-timer-binding/1:fixture:2:3"');
   assert.equal(auxRequests[2].url,
     'https://suite.example/api/v1/operations/op_native_f56');
-  assert.equal(legacy.length, 1, 'Aux edit may not launch a second legacy writer');
+  assert.equal(directCreates.length, 1, 'Aux edit may not launch a second writer');
   // Slice 3: a native VDR Timer created outside Suite is not a managed
   // TimerAssignment. Browser -> real client-api -> HTTP must remain usable
   // without inventing a binding ETag or issuing a duplicate native write.
@@ -560,22 +563,22 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   unsupported.active.checked = false;
   unsupported.vps.checked = false;
   const beforeUnsupported = calls.length;
-  const beforeLegacy = legacy.length;
+  const beforeDirect = directCreates.length;
   unsupportedForm.listeners.submit({preventDefault() {}});
   await tick();
   assert.equal(calls.length, beforeUnsupported);
-  assert.equal(legacy.length, beforeLegacy + 1);
-  assert.equal(legacy[beforeLegacy].aux, unsupported.aux.value);
-  assert.equal(legacy[beforeLegacy].active, false);
+  assert.equal(directCreates.length, beforeDirect + 1);
+  assert.equal(directCreates[beforeDirect].aux, unsupported.aux.value);
+  assert.equal(directCreates[beforeDirect].active, false);
   unsupported.active.checked = true;
   unsupported.vps.checked = true;
   unsupportedForm.listeners.submit({preventDefault() {}});
   await tick();
   assert.equal(calls.length, beforeUnsupported);
-  assert.equal(legacy.length, beforeLegacy + 2);
-  assert.equal(legacy[beforeLegacy + 1].aux, unsupported.aux.value);
-  assert.equal(legacy[beforeLegacy + 1].vps, true);
-  // Production path for the remaining manual editor shapes: no legacy POST.
+  assert.equal(directCreates.length, beforeDirect + 2);
+  assert.equal(directCreates[beforeDirect + 1].aux, unsupported.aux.value);
+  assert.equal(directCreates[beforeDirect + 1].vps, true);
+  // Production path for the remaining manual editor shapes: no private POST.
   browser.configureContext({
     detailDataElement: root, clientApi: realClient,
     getSelectedBackendId() { return 'living-room'; },
@@ -596,7 +599,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   const nativeWeekday=find(nativeForm,item=>item.name==='weekday');
   nativeWeekday.checked=true;
   const directStart=httpRequests.length;
-  const previousLegacy=legacy.length;
+  const previousDirect=directCreates.length;
   nativeForm.listeners.submit({preventDefault(){}});
   await tick();
   assert.equal(httpRequests.length,directStart+1);
@@ -611,7 +614,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(nativeBody.lifetime,0);
   assert.equal(nativeBody.directory,'News~Evening');
   assert.equal(nativeBody.aux,'<epgsearch/>');
-  assert.equal(legacy.length,previousLegacy);
+  assert.equal(directCreates.length,previousDirect);
 
   // An ordinary candidate without a positive prospective proof has no
   // admitted Operation. Only the explicit no-admission code selects the
@@ -633,7 +636,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(httpRequests[beforeTyped].url,'https://suite.example/api/v1/manual/timer-intents');
   assert.equal(httpRequests[beforeTyped+1].url,'https://suite.example/api/v1/native-timers/actions/create');
   assert.equal(JSON.parse(httpRequests[beforeTyped+1].options.body).title,nf.title.value);
-  assert.equal(legacy.length,previousLegacy);
+  assert.equal(directCreates.length,previousDirect);
   // Keep an explicitly selected first airing when preview delegates to VDR.
   nativeWeekday.checked=true;
   nf.day.value='2026-11-30';
@@ -647,7 +650,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   const datedWeekly=JSON.parse(httpRequests[beforeDatedWeekly+1].options.body);
   assert.equal(datedWeekly.day,'2026-11-30');
   assert.equal(datedWeekly.weekdays,'M------');
-  assert.equal(legacy.length,previousLegacy);
+  assert.equal(directCreates.length,previousDirect);
   const report=await realClient.fetchClientTimerConflicts({backendId:'living-room'});
   assert.equal(report.available,true);
   assert.equal(report.count,1);

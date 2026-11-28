@@ -517,26 +517,27 @@
     return spec;
   }
 
-  // Public-v1 modifies only a verified bound native Timer. Retain the
-  // existing permitted editor for legacy-only fields or unbound Timers.
+  // Managed/adopted and external/unbound Timers retain their distinct
+  // existing Public-v1 writers. A denied or unavailable API is not a
+  // reason to retry an unversioned mutation.
   function executePublicNativeTimerAction(type, payload, button, feedback, originalAux) {
-    const legacyType = type === 'toggle' ? 'update' : type;
-    // The browser's recording flag is UI state, not a legacy DELETE field.
-    const legacyPayload = type === 'delete'
+    // The browser's recording flag is UI state, not a DELETE field.
+    const directPayload = type === 'delete'
       ? {backendId: payload.backendId, timerId: payload.timerId} : payload;
     const api = resolvedClientApi();
     if (!api || typeof api.fetchPublicNativeTimerDetail !== 'function' ||
         typeof api.fetchPublicNativeTimerOperation !== 'function' ||
         (type === 'delete'
           ? typeof api.fetchPublicNativeTimerDelete !== 'function'
-          : typeof api.fetchPublicNativeTimerModify !== 'function'))
-      return executeAction(legacyType, legacyPayload, button, feedback);
+          : typeof api.fetchPublicNativeTimerModify !== 'function')) {
+      setFeedback(feedback, 'Public API v1 für Timer-Aktionen ist nicht verfügbar.', true);
+      return Promise.resolve(null);
+    }
 
     const modification = type === 'update'
       ? publicNativeTimerUpdatePayload(payload, originalAux)
       : {kind: 'toggle', enabled: payload.active};
     const fingerprint = JSON.stringify([type, payload]);
-    let publicWriteAttempted = false;
     button.disabled = true;
     setFeedback(feedback, 'Native Timer-Bindung wird geprüft …', false);
     return Promise.resolve().then(() => api.fetchPublicNativeTimerDetail({
@@ -544,10 +545,9 @@
     })).then(detail => {
       if (!detail || detail.status !== 200 || !detail.data)
         throw new Error('Native Timer-Bindung konnte nicht gelesen werden.');
-      // External/unbound Timers cannot use a managed Binding ETag. A
-      // compatible Public-v1 daemon exposes a direct native action which
-      // reuses the established VDR writer; older daemons retain legacy.
-      // Once dispatched, never attempt a second writer after uncertainty.
+      // External/unbound Timers cannot use a managed Binding ETag.
+      // Their public direct action reuses the established VDR writer.
+      // Never dispatch to another writer after a denied or uncertain result.
       if (detail.data.bindingState === 'binding_required' ||
           detail.data.bindingState === 'adoption_required') {
         const direct = detail.data.directActions === true &&
@@ -555,10 +555,9 @@
             ? typeof api.fetchPublicNativeTimerDirectDelete === 'function'
             : typeof api.fetchPublicNativeTimerDirectUpdate === 'function');
         if (!direct)
-          return executeAction(legacyType, legacyPayload, button, feedback);
-        publicWriteAttempted = true;
+          throw new Error('Public API v1 für externe Timer ist nicht verfügbar.');
         const request = {backendId: payload.backendId, timerId: payload.timerId};
-        if (type !== 'delete') request.payload = legacyPayload;
+        if (type !== 'delete') request.payload = directPayload;
         const write = type === 'delete'
           ? api.fetchPublicNativeTimerDirectDelete(request)
           : api.fetchPublicNativeTimerDirectUpdate(request);
@@ -584,7 +583,6 @@
         ifMatch: detail.etag, idempotencyKey: attempt.key};
       // From this point an unknown transport result may already have
       // mutated VDR; NEVER fall back to a second writer.
-      publicWriteAttempted = true;
       const write = type === 'delete'
         ? api.fetchPublicNativeTimerDelete(request)
         : api.fetchPublicNativeTimerModify(Object.assign(request,
@@ -602,12 +600,9 @@
         return result;
       });
     }).catch(error => {
-      // Public Native v1 now accepts existing Human timer grants as well
-      // as administrator sessions. HTTP 403 is a verified pre-dispatch
-      // denial; legacy independently enforces the caller's Timer rights.
-      if (!publicWriteAttempted || (error && error.status === 403))
-        return executeAction(legacyType, legacyPayload, button, feedback);
-      // Never fall through after an uncertain Public-v1 mutation outcome.
+      // The central AuthorizationService owns effective Human grants.
+      // Preserve the error, including CSRF/scope denial, without a second
+      // writer or a private compatibility request.
       setFeedback(feedback, 'Timer-Aktion nicht bestätigt: ' +
         String(error && error.message ? error.message : error), true);
       return null;
@@ -617,12 +612,8 @@
   function actionClientFunction(type) {
     const clientApi = resolvedClientApi();
     if (!clientApi) return null;
-    const name = type === 'create'
-      ? (typeof clientApi.fetchPublicNativeTimerDirectCreate === 'function'
-          ? 'fetchPublicNativeTimerDirectCreate' : 'fetchClientTimerCreateAction')
-      : type === 'update'
-        ? 'fetchClientTimerUpdateAction'
-        : 'fetchClientTimerDeleteAction';
+    if (type !== 'create') return null;
+    const name = 'fetchPublicNativeTimerDirectCreate';
     return typeof clientApi[name] === 'function' ? clientApi[name].bind(clientApi) : null;
   }
 

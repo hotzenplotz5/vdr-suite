@@ -231,48 +231,17 @@ function editor() {
   assert.equal(publicWrites[3].input.payload, undefined);
   assert.equal(legacy.length, 0);
 
-  // An unbound Timer has no public ETag, but its old editor still functions.
+  // An old daemon with no public direct action is not a second writer.
   bindingState = 'binding_required';
   render();
   button('Deaktivieren').listeners.click();
   await tick();
-  assert.equal(legacy.length, 1);
-  assert.equal(legacy[0].action, 'update');
+  assert.equal(legacy.length, 0);
+  assert.equal(directWrites.length, 0);
   assert.equal(publicWrites.length, 4);
-
-  // Slice 3: VDR/epgsearch/LIVE-created timers have no Suite assignment.
-  // Their explicitly authorized existing native editor remains usable for
-  // UPDATE, TOGGLE and DELETE without pretending they are adopted or bound.
-  bindingState = 'adoption_required';
-  render({...nativeTimer, aux: '<epgsearch owned="external"/>'});
-  const externalForm = editor();
-  externalForm.elements.manualChannelId.value = 'C-1';
-  externalForm.elements.title.value = 'Edited outside Suite';
-  externalForm.listeners.submit({preventDefault() {}});
-  await tick();
-  assert.equal(legacy.length, 2);
-  assert.equal(legacy[1].action, 'update');
-  assert.equal(legacy[1].payload.title, 'Edited outside Suite');
-  assert.equal(legacy[1].payload.aux, '<epgsearch owned="external"/>');
-  assert.equal(legacy[1].payload.backendId, 'default');
-  assert.equal(publicWrites.length, 4, 'external UPDATE must not fake a bound Operation');
-
-  render(nativeTimer);
-  button('Timer löschen').listeners.click();
-  await tick();
-  assert.equal(legacy.length, 3);
-  assert.equal(legacy[2].action, 'delete');
-  assert.deepEqual(JSON.parse(JSON.stringify(legacy[2].payload)),
-    {backendId: 'default', timerId: '17'});
-  assert.equal(publicWrites.length, 4, 'external DELETE stays on established writer');
-
-  bindingState = 'binding_required';
-  render(nativeTimer);
-  button('Timer löschen').listeners.click();
-  await tick();
-  assert.equal(legacy.length, 4);
-  assert.equal(legacy[3].action, 'delete');
-  assert.equal(publicWrites.length, 4, 'unbound DELETE needs no invented binding');
+  assert(root.textContent.includes('nicht verfügbar') ||
+    find(root, node => String(node.textContent).includes('nicht verfügbar')),
+    'unsupported Public-v1 direct action must be visible');
 
   // A server advertising the new direct Public-v1 capability performs ONE
   // write via the canonical native writer. No legacy dispatch, no 202/SSE.
@@ -286,13 +255,13 @@ function editor() {
   assert.equal(directWrites[0].input.backendId,'default');
   assert.equal(directWrites[0].input.payload.aux,'<epgsearch/>');
   assert.equal(directWrites[0].input.payload.active,false);
-  assert.equal(legacy.length,4);
+  assert.equal(legacy.length, 0);
   render(nativeTimer);
   button('Timer löschen').listeners.click();
   await tick();
   assert.equal(directWrites.length,2);
   assert.equal(directWrites[1].action,'delete');
-  assert.equal(legacy.length,4);
+  assert.equal(legacy.length, 0);
   bindingState = 'binding_required';
   render(nativeTimer);
   button('Deaktivieren').listeners.click();
@@ -302,9 +271,33 @@ function editor() {
   assert.equal(publicWrites.length,4);
   directActionsAvailable = false;
 
-  // From here the managed-only fixtures continue with the original
-  // legacy count; all subsequent assertions account for these three
-  // additionally verified native actions.
+  // External metadata edit retains the existing direct Public-v1 writer.
+  directActionsAvailable = true;
+  bindingState = 'adoption_required';
+  render({...nativeTimer, aux: '<epgsearch owned="external"/>'});
+  const externalForm = editor();
+  externalForm.elements.manualChannelId.value = 'C-1';
+  externalForm.elements.title.value = 'Edited outside Suite';
+  externalForm.listeners.submit({preventDefault() {}});
+  await tick();
+  assert.equal(directWrites.length, 4);
+  assert.equal(directWrites[3].action, 'update');
+  assert.equal(directWrites[3].input.payload.title, 'Edited outside Suite');
+  assert.equal(directWrites[3].input.payload.aux, '<epgsearch owned="external"/>');
+  assert.equal(directWrites[3].input.backendId, 'default');
+  assert.equal(publicWrites.length, 4);
+  bindingState = 'binding_required';
+  render(nativeTimer);
+  button('Timer löschen').listeners.click();
+  await tick();
+  assert.equal(directWrites.length, 5);
+  assert.equal(directWrites[4].action, 'delete');
+  assert.equal(directWrites[4].input.timerId, '17');
+  assert.equal(directWrites[4].input.payload, undefined);
+  assert.equal(legacy.length, 0);
+  directActionsAvailable = false;
+
+  // Continue with the managed-only fixtures.
   // Native MODIFY preserves the current VDR Aux() verbatim. An unchanged
   // opaque aux value is not a reason to bypass the managed Public-v1 writer.
   bindingState = 'verified';
@@ -316,7 +309,7 @@ function editor() {
   assert.equal(publicWrites.length, 5);
   assert.equal(publicWrites[4].action, 'modify');
   assert.equal(publicWrites[4].input.payload.aux, undefined);
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 0);
 
   // Clearing or adding Aux uses the same Public-v1 native writer with an explicit predecessor value.
   render({...nativeTimer, aux: '<epgsearch/>'});
@@ -325,7 +318,7 @@ function editor() {
   clearAux.elements.aux.value = '';
   clearAux.listeners.submit({preventDefault() {}});
   await tick();
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 0);
   assert.equal(publicWrites.length, 6);
   assert.equal(publicWrites[5].input.payload.expectedAux, '<epgsearch/>');
   assert.equal(publicWrites[5].input.payload.aux, '');
@@ -336,7 +329,7 @@ function editor() {
   addAux.elements.aux.value = '<tvscraper/>';
   addAux.listeners.submit({preventDefault() {}});
   await tick();
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 0);
   assert.equal(publicWrites.length, 7);
   assert.equal(publicWrites[6].input.payload.expectedAux, '');
   assert.equal(publicWrites[6].input.payload.aux, '<tvscraper/>');
@@ -346,7 +339,7 @@ function editor() {
   render({...nativeTimer, recording: true});
   button('Aufnahme stoppen').listeners.click();
   await tick();
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 0);
   assert.equal(publicWrites.length, 8);
   assert.equal(publicWrites[7].action, 'delete');
   assert.equal(publicWrites[7].input.timerId, '17');
@@ -362,18 +355,17 @@ function editor() {
   pending.listeners.click();
   await tick();
   assert.equal(publicWrites.at(-1).input.idempotencyKey, firstKey);
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 0);
 
-  // Public native v1 accepts existing timer grants in the current SecurityHttpGate.
-  // A definitive 403 must not revoke existing independently checked Human
-  // Timer rights on the established browser action route.
+  // Existing Human grants are checked by the same AuthorizationService.
+  // A denied public write may not be retried through a different route.
   failWrite = false;
   denyWrite = true;
   render();
   button('Deaktivieren').listeners.click();
   await tick();
-  assert.equal(legacy.length, 5);
-  assert.equal(legacy[4].action, 'update');
+  assert.equal(legacy.length, 0);
+  assert.equal(directWrites.length, 5);
   denyWrite = false;
   denyDetail = true;
   const previousWrites = publicWrites.length;
@@ -381,19 +373,19 @@ function editor() {
   button('Deaktivieren').listeners.click();
   await tick();
   assert.equal(publicWrites.length, previousWrites);
-  assert.equal(legacy.length, 6);
-  assert.equal(legacy[5].action, 'update');
+  assert.equal(legacy.length, 0);
+  assert.equal(directWrites.length, 5);
 
-  // An unavailable READ is not a failed native write; old Timer permissions
-  // remain usable. An uncertain WRITE (tested above) never receives fallback.
+  // An unavailable READ cannot establish the current native binding.
+  // Neither read failure nor uncertain write may dispatch a legacy action.
   denyDetail = false;
   unavailableDetail = true;
   render();
   button('Deaktivieren').listeners.click();
   await tick();
   assert.equal(publicWrites.length, previousWrites);
-  assert.equal(legacy.length, 7);
-  assert.equal(legacy[6].action, 'update');
+  assert.equal(legacy.length, 0);
+  assert.equal(directWrites.length, 5);
 
-  console.log('Timer browser Public-v1 native actions + legacy parity PASS');
+  console.log('Timer browser Public-v1 managed and external actions without legacy writer PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
