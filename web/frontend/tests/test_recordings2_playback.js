@@ -282,8 +282,15 @@ assert.strictEqual(
     return {totalCount: 1, recordings:[{backendId:'default', backendNativeId:'/old.rec',
       publicRecordingId:canonicalId}]};
   };
-  await test.createSession('default', {id:'old-id', backendNativeId:'/old.rec'});
+  const oldCard = {id:'old-id', backendNativeId:'/old.rec'};
+  await test.createSession('default', oldCard);
   assert.strictEqual(refreshes, 1);
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(oldCard, 'default'), canonicalId);
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(oldCard, 'other'), '');
+  await test.createSession('default', oldCard);
+  assert.strictEqual(refreshes, 1, 'reuse only the already resolved identity of this exact card');
+  assert.strictEqual(window.VdrSuiteRecordings2Shared.publicRecordingId(
+    {...oldCard}, 'default'), '', 'no catalog-wide native identity cache');
   assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
   assert.strictEqual(JSON.parse(request.options.body).recordingId, canonicalId);
   const lastRequest = request;

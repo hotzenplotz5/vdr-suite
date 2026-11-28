@@ -200,7 +200,7 @@ const window = {
     disconnect() {}
   },
   fetch(requestPath, options) {
-    if (requestPath === '/api/media/continue-watching' || requestPath === '/api/media/recently-watched') {
+    if (requestPath === '/api/v1/browser/recording-playback-sessions/progress' || requestPath === '/api/v1/browser/recording-playback-sessions/activity') {
       const body = JSON.parse(options.body);
       suiteWrites.push({path: requestPath, body});
       if (body.operation === 'revision')
@@ -370,7 +370,7 @@ function findLatest(predicate) {
 
 function progressWrite(recordingId) {
   return suiteWrites.filter(entry =>
-    entry.path === '/api/media/continue-watching' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/progress' &&
     entry.body.operation === 'progress' &&
     entry.body.recordingId === recordingId
   ).pop() || null;
@@ -405,7 +405,7 @@ function progressWrite(recordingId) {
   assert.strictEqual(malkovich.canResume(), true);
 
   const historyWrites = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/activity' &&
     entry.body.recordingId === 'rec_66666666666666666666666666666666'
   );
   assert.ok(historyWrites.length >= 1, 'History remains independently persisted');
@@ -485,11 +485,11 @@ function progressWrite(recordingId) {
   assert.strictEqual(progressWrite('rec_77777777777777777777777777777777').body.positionSeconds, 4459,
     'premature progressive EOF must persist the final partial checkpoint');
   assert.strictEqual(suiteWrites.some(entry =>
-    entry.path === '/api/media/continue-watching' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/progress' &&
     entry.body.recordingId === 'rec_77777777777777777777777777777777' && entry.body.operation === 'clear'), false,
     'premature progressive EOF must never clear Continue Watching');
   const prematureFastHistory = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
+    entry.path === '/api/v1/browser/recording-playback-sessions/activity' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
   ).pop();
   assert.ok(prematureFastHistory);
   assert.strictEqual(prematureFastHistory.body.ended, false);
@@ -507,11 +507,11 @@ function progressWrite(recordingId) {
     'premature HLS EOF must preserve canonical resume truth');
   assert.strictEqual(progressWrite('rec_66666666666666666666666666666666').body.positionSeconds, 4459);
   assert.strictEqual(suiteWrites.some(entry =>
-    entry.path === '/api/media/continue-watching' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/progress' &&
     entry.body.recordingId === 'rec_66666666666666666666666666666666' && entry.body.operation === 'clear'), false,
     'premature HLS EOF must never clear Continue Watching');
   const prematureHlsHistory = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/activity' &&
     entry.body.recordingId === 'rec_66666666666666666666666666666666'
   ).pop();
   assert.ok(prematureHlsHistory);
@@ -528,11 +528,11 @@ function progressWrite(recordingId) {
   await flush(40);
   assert.strictEqual(completedFast.canResume(), false);
   assert.strictEqual(suiteWrites.some(entry =>
-    entry.path === '/api/media/continue-watching' &&
+    entry.path === '/api/v1/browser/recording-playback-sessions/progress' &&
     entry.body.recordingId === 'rec_77777777777777777777777777777777' && entry.body.operation === 'clear'), true,
     'full Recording completion must still clear Continue Watching');
   const completedHistory = suiteWrites.filter(entry =>
-    entry.path === '/api/media/recently-watched' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
+    entry.path === '/api/v1/browser/recording-playback-sessions/activity' && entry.body.recordingId === 'rec_77777777777777777777777777777777'
   ).pop();
   assert.ok(completedHistory);
   assert.strictEqual(completedHistory.body.ended, true);

@@ -23,8 +23,8 @@ window.fetch = async (url, init) => {
   assert.equal(init.credentials,'same-origin');
   assert.equal(init.headers['X-VDR-Suite-CSRF'],'valid-session-proof');
   const body=JSON.parse(init.body);
-  assert.equal(url, /^rec_[0-9a-f]{32}$/.test(body.recordingId)
-    ? '/api/v1/browser/recording-playback-sessions/progress' : '/api/media/continue-watching');
+  assert.equal(url, '/api/v1/browser/recording-playback-sessions/progress');
+  assert.match(body.recordingId, /^rec_[0-9a-f]{32}$/);
   if (body.operation==='revision')
     return {ok:true,status:200,json:async()=>({revision})};
   submitted.push(body);
@@ -41,13 +41,13 @@ vm.runInContext(source,context);
 const sync=window.VdrSuiteContinueWatchingSync.__test;
 assert(sync && sync.enqueueVersioned && sync.loadRevision);
 const item=(pos,id)=>({
-  operation:'progress',backendId:'default',recordingId:'r1',
+  operation:'progress',backendId:'default',recordingId:'rec_11111111111111111111111111111111',
   resumeSupported:true,positionSeconds:pos,operationId:id
 });
 (async()=>{
   // Browser starts at revision 2 and commits an actually observed checkpoint.
   const browser={revision:null,loading:null,blocked:false};
-  assert.equal(await sync.loadRevision(browser,'default','r1'),2);
+  assert.equal(await sync.loadRevision(browser,'default','rec_11111111111111111111111111111111'),2);
   assert.equal(await sync.enqueueVersioned(item(450,'browser-1'),browser),true);
   assert.equal(storedPosition,450);
   assert.equal(browser.revision,3);
@@ -73,7 +73,7 @@ const item=(pos,id)=>({
   // earlier progress update after it was confirmed.
   const clear={revision:null,loading:null,blocked:false};
   assert.equal(await sync.enqueueVersioned({
-    operation:'clear',backendId:'default',recordingId:'r1',
+    operation:'clear',backendId:'default',recordingId:'rec_11111111111111111111111111111111',
     operationId:'explicit-clear'
   },clear),true);
   assert.equal(storedPosition,0);
@@ -91,5 +91,10 @@ const item=(pos,id)=>({
     recordingId:publicId},canonicalOwner),false);
   assert.equal(storedPosition,1900);
   assert.equal(canonicalOwner.blocked,true);
+  const lastSubmission = submitted.length;
+  assert.equal(await sync.enqueueVersioned({...item(10,'native-rejected'),
+    recordingId:'native-old-id'}, {revision:null,loading:null,blocked:false}),false);
+  assert.equal(await sync.clearCurrent('default','native-old-id'),false);
+  assert.equal(submitted.length,lastSubmission);
   console.log('P1 Browser/Device CAS checkpoint and reset contract PASS');
 })().catch(e=>{console.error(e);process.exitCode=1;});

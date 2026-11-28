@@ -83,10 +83,21 @@
   // Canonical identities come from the server, never from title, timestamp
   // or a recycled VDR list position. Older browser-cached cards are refreshed
   // through the existing exact-backend recording query before a public write.
-  function publicRecordingId(recording) {
+  // Only remembers the successful exact mapping of this existing card
+  // object. It is not a second catalog or durable identity store.
+  const refreshedRecordingIds = new WeakMap();
+
+  function publicRecordingId(recording, backendId) {
     for (const value of [recording && recording.publicRecordingId,
       recording && recording.recordingId, recording && recording.id]) {
       if (/^rec_[0-9a-f]{32}$/.test(String(value || ''))) return String(value);
+    }
+    if (recording && typeof recording === 'object') {
+      const refreshed = refreshedRecordingIds.get(recording);
+      const backend = String(backendId || recording.backendId || '');
+      const native = String(recording.backendNativeId || recording.nativePath || '');
+      if (refreshed && refreshed.backend === backend && refreshed.native === native)
+        return refreshed.id;
     }
     return '';
   }
@@ -96,7 +107,7 @@
     const unavailable = () => new Error('Kanonische Aufnahme-ID nicht verfügbar. Bitte Aufnahme aktualisieren.');
     if (!recording || !backend || (recording.backendId && recording.backendId !== backend))
       return Promise.reject(unavailable());
-    const direct = publicRecordingId(recording);
+    const direct = publicRecordingId(recording, backend);
     if (direct) return Promise.resolve(direct);
     const native = String(recording.backendNativeId || recording.nativePath || '');
     const client = api || clientApi();
@@ -112,7 +123,11 @@
         const rows = recordingList(data);
         const match = rows.find(candidate => candidate.backendId === backend &&
           candidate.backendNativeId === native && publicRecordingId(candidate));
-        if (match) return publicRecordingId(match);
+        if (match) {
+          const id = publicRecordingId(match);
+          refreshedRecordingIds.set(recording, {backend, native, id});
+          return id;
+        }
         const total = Number(data && data.totalCount);
         if (!rows.length || !Number.isSafeInteger(total) || offset + rows.length >= total)
           throw unavailable();
@@ -127,7 +142,7 @@
   // uses the existing exact-backend refresh before a Public-v1 CREATE.
   function withPublicRecordingId(recording, backendId, api, action) {
     const backend = String(backendId || 'default');
-    const id = publicRecordingId(recording);
+    const id = publicRecordingId(recording, backend);
     if (id && (!recording.backendId || recording.backendId === backend))
       return action(id);
     return resolvePublicRecordingId(recording, backend, api).then(action);

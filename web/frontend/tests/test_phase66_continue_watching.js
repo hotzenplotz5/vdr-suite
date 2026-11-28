@@ -22,7 +22,8 @@ const continueServiceSource = fs.readFileSync(path.join(repositoryRoot, 'core', 
 // Architectural fences: server/actor truth, canonical existing playback owner,
 // preview release before ownership transfer, and no browser-local cross-client truth.
 assert(source.includes('/api/v1/browser/recording-playback-sessions/progress'));
-assert(syncSource.includes('/api/media/continue-watching'));
+assert(syncSource.includes('/api/v1/browser/recording-playback-sessions/progress'));
+assert(!syncSource.includes('/api/media/continue-watching'));
 assert(!source.includes('localStorage'));
 assert(!syncSource.includes('localStorage'));
 assert(source.includes('VdrSuiteRecordings2.openRecording'));
@@ -95,14 +96,14 @@ assert(api._test);
 
 const base = {
     backendId: 'default',
-    recordingId: 'r1',
+    recordingId: 'rec_11111111111111111111111111111111',
     title: 'Film',
     resumePositionSeconds: 120,
     progressRevision: 3,
     durationKnown: true,
     durationSeconds: 600
 };
-assert.strictEqual(api._test.normalizeItem(base).recordingId, 'r1');
+assert.strictEqual(api._test.normalizeItem(base).recordingId, 'rec_11111111111111111111111111111111');
 assert.strictEqual(api._test.normalizeItem({...base, resumePositionSeconds: 0}), null);
 assert.strictEqual(api._test.normalizeItem({...base, resumePositionSeconds: 600}), null);
 
@@ -183,7 +184,7 @@ function flush(count = 8) {
     assert.strictEqual(await api._test.openItem(base, true), true);
     assert.strictEqual(await api._test.openItem(base, false), true);
     assert.strictEqual(opened.length, 2);
-    assert.strictEqual(opened[0].recording.id, 'r1');
+    assert.strictEqual(opened[0].recording.id, 'rec_11111111111111111111111111111111');
     assert.strictEqual(opened[0].recording.resumePositionSeconds, 120);
     assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 120);
     assert.strictEqual(opened[0].options.autoStartPlayback, true);
@@ -191,7 +192,7 @@ function flush(count = 8) {
     assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
     assert.strictEqual(opened[1].options.autoStartPlayback, true);
     assert.deepStrictEqual(homeRestartClears, [{
-        backendId: 'default', recordingId: 'r1', expectedRevision: 3
+        backendId: 'default', recordingId: 'rec_11111111111111111111111111111111', expectedRevision: 3
     }]);
 
     const hlsCalls = [];
@@ -233,13 +234,13 @@ function flush(count = 8) {
     await syncApi.__test.post({
         operation: 'progress',
         backendId: 'default',
-        recordingId: 'r1',
+        recordingId: 'rec_11111111111111111111111111111111',
         positionSeconds: 120,
         resumeSupported: true,
         operationId: 'phase66-progress-test'
     });
     assert.strictEqual(syncRequests.length, 1);
-    assert.strictEqual(syncRequests[0].path, '/api/media/continue-watching');
+    assert.strictEqual(syncRequests[0].path, '/api/v1/browser/recording-playback-sessions/progress');
     assert.strictEqual(syncRequests[0].options.credentials, 'same-origin');
     assert.strictEqual(syncRequests[0].options.headers['Content-Type'], 'application/json');
     assert.strictEqual(syncRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-csrf-token');
@@ -273,8 +274,8 @@ function flush(count = 8) {
         return Promise.resolve({ok: true, status: 200,
             json: async () => ({ok: true, revision: storedRevision})});
     };
-    const firstMutation = syncApi.__test.enqueue({operation: 'progress', backendId: 'default', recordingId: 'r1', positionSeconds: 30, resumeSupported: true, operationId: 'queue-1'});
-    const secondMutation = syncApi.clear('default', 'r1');
+    const firstMutation = syncApi.__test.enqueue({operation: 'progress', backendId: 'default', recordingId: 'rec_11111111111111111111111111111111', positionSeconds: 30, resumeSupported: true, operationId: 'queue-1'});
+    const secondMutation = syncApi.clear('default', 'rec_11111111111111111111111111111111');
     await flush();
     assert.deepStrictEqual(serialized, ['progress:30']);
     releaseFirst();
@@ -282,7 +283,7 @@ function flush(count = 8) {
     assert.strictEqual(await secondMutation, true, 'explicit clear must receive a CAS acknowledgement');
     assert.deepStrictEqual(serialized, ['progress:30', 'revision:0', 'clear:0']);
     assert.strictEqual(serializedBodies[2].backendId, 'default');
-    assert.strictEqual(serializedBodies[2].recordingId, 'r1');
+    assert.strictEqual(serializedBodies[2].recordingId, 'rec_11111111111111111111111111111111');
     assert.strictEqual(serializedBodies[2].expectedRevision, 1);
     assert.match(serializedBodies[2].operationId, /^cw-clear-/);
 
@@ -325,7 +326,7 @@ function flush(count = 8) {
         }
         return {ok: true};
     };
-    const decoratedOwner = syncApi.__test.decorateOwner(owner, {id: 'r-lifecycle'}, 'default');
+    const decoratedOwner = syncApi.__test.decorateOwner(owner, {id: 'rec_22222222222222222222222222222222'}, 'default');
     assert.notStrictEqual(decoratedOwner, owner);
     assert.strictEqual(decoratedOwner.start, owner.start, 'Continue Watching must not intercept start() as lifecycle truth');
     assert.strictEqual(lifecycleListeners.length, 1);
@@ -340,7 +341,7 @@ function flush(count = 8) {
     assert.strictEqual(JSON.parse(syncRequests[beforeLifecycleRequests].options.body).operation, 'revision');
     const lifecycleBody = JSON.parse(syncRequests[syncRequests.length - 1].options.body);
     assert.strictEqual(lifecycleBody.operation, 'progress');
-    assert.strictEqual(lifecycleBody.recordingId, 'r-lifecycle');
+    assert.strictEqual(lifecycleBody.recordingId, 'rec_22222222222222222222222222222222');
     assert.strictEqual(lifecycleBody.positionSeconds, 47);
     assert.strictEqual(lifecycleBody.notifyLive, true,
         'the final playback position signals a prompt Home SSE readback');
@@ -365,25 +366,25 @@ function flush(count = 8) {
         sample.active = false;
         sample.callback();
     }
-    beginObservedPlayback('r-cw-h1-unchanged', 73);
+    beginObservedPlayback('rec_33333333333333333333333333333333', 73);
     await flush(24);
-    const firstSample = playbackWritesFor('r-cw-h1-unchanged');
+    const firstSample = playbackWritesFor('rec_33333333333333333333333333333333');
     assert.strictEqual(firstSample.length, 1, 'initial position must be committed');
     assert.strictEqual(firstSample[0].notifyLive, true, 'initial checkpoint announces real new progress');
     publish({state: 'stopped', sessionId: null, transition: 'stopped'});
     await flush(24);
-    assert.strictEqual(playbackWritesFor('r-cw-h1-unchanged').length, 1,
+    assert.strictEqual(playbackWritesFor('rec_33333333333333333333333333333333').length, 1,
         'unchanged Stop must not advance a revision merely to trigger SSE');
     publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
 
     // A changed final position must create one acknowledged CAS mutation
     // with notifyLive so other authorized Home views can read the new truth.
-    beginObservedPlayback('r-cw-h1-changed', 73);
+    beginObservedPlayback('rec_44444444444444444444444444444444', 73);
     await flush(24);
     absolutePosition = 94;
     publish({state: 'stopped', sessionId: null, transition: 'stopped'});
     await flush(24);
-    const changedWrites = playbackWritesFor('r-cw-h1-changed');
+    const changedWrites = playbackWritesFor('rec_44444444444444444444444444444444');
     assert.strictEqual(changedWrites.length, 2,
         'a changed final position must be persisted when playback stops');
     assert.deepStrictEqual(changedWrites.map(body => body.positionSeconds), [73, 94]);

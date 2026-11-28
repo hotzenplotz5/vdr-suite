@@ -260,9 +260,13 @@
     // must fail the existing CAS comparison instead of being silently erased.
     return Promise.resolve().then(function () {
       const shared = global.VdrSuiteRecordings2Shared;
-      const id = shared && typeof shared.publicRecordingId === 'function'
-        ? shared.publicRecordingId(item.recording) : '';
-      return sync.clear(item.backendId, id || item.recordingId, item.progressRevision);
+      const clear = function (id) {
+        return sync.clear(item.backendId, id, item.progressRevision);
+      };
+      if (shared && typeof shared.withPublicRecordingId === 'function')
+        return shared.withPublicRecordingId(item.recording, item.backendId, null, clear);
+      return /^rec_[0-9a-f]{32}$/.test(item.recordingId)
+        ? clear(item.recordingId) : false;
     }).then(function (cleared) {
       return cleared === true;
     }).catch(function () { return false; });

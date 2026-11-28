@@ -104,7 +104,7 @@ const playbackOwner = {
   duration() { return 600; },
   canResume() { return true; }
 };
-sync.__test.decorateOwner(playbackOwner, {id: 'prewarm-recording'}, 'default');
+sync.__test.decorateOwner(playbackOwner, {id: 'rec_99999999999999999999999999999999'}, 'default');
 function publish(change) {
   snapshot = Object.assign({}, snapshot, change);
   listeners.slice().forEach(listener => listener(snapshot));

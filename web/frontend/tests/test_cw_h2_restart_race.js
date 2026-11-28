@@ -51,7 +51,7 @@ window.VdrSuiteRecordings2 = {
   }
 };
 window.fetch = function (url, options) {
-  assert.equal(url, '/api/media/continue-watching');
+  assert.equal(url, '/api/v1/browser/recording-playback-sessions/progress');
   assert.equal(options.credentials, 'same-origin');
   assert.equal(options.headers['X-VDR-Suite-CSRF'], 'cw-h2-test');
   const body = JSON.parse(options.body);
@@ -111,10 +111,10 @@ function card() {
 
 function item(progressRevision) {
   return {
-    backendId: 'default', recordingId: '18', backendNativeId: 'native-18',
+    backendId: 'default', recordingId: 'rec_88888888888888888888888888888888', backendNativeId: 'native-18',
     title: 'Film', resumePositionSeconds: 180, progressRevision,
     durationKnown: true, durationSeconds: 8085,
-    recording: {id: '18', title: 'Film'}
+    recording: {id: 'rec_88888888888888888888888888888888', title: 'Film'}
   };
 }
 
@@ -200,7 +200,7 @@ async function flush() {
   // after the successful reset.
   const oldOwner = {revision: 8, loading: Promise.resolve(8), blocked: false};
   assert.equal(await sync.enqueueVersioned({
-    operation: 'progress', backendId: 'default', recordingId: '18',
+    operation: 'progress', backendId: 'default', recordingId: 'rec_88888888888888888888888888888888',
     positionSeconds: 600, resumeSupported: true, operationId: 'stale-device'
   }, oldOwner), false);
   assert.equal(persistedPosition, 0);

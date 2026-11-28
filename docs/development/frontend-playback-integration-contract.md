@@ -233,3 +233,7 @@ Canonical Browser Recording CREATE emits `/api/v1/media/sessions/{sessionId}/...
 ## Browser CREATE identity cleanup
 
 All three recording CREATE entry points (progressive, initial HLS and HLS restart/audio replacement) now use only the canonical Public-v1 Browser endpoint. Current cards use their server-supplied rec_ immediately. An old card without that ID first uses the existing exact-backend Recording ID resolver; a failed resolution or failed Public-v1 request is never retried as a native-ID CREATE. The shared resolver is the remaining compatibility read and will be removed only when its older card producers have been migrated. No new playback owner, permission or request timer.
+
+## Browser history identity cleanup
+
+The existing playback observer and Home restart now use Public-v1 progress/activity only. The shared Recording resolver remembers a successful exact old-card mapping only for that card object, backend and native ID so a successful canonical CREATE and its history observer agree without another catalog read. Current cards already provide the rec_ identity. The existing CAS baseline, explicit Home revision, mutation queues and SSE notifications are unchanged. No private history mutation, second durable identity store or new polling. Legacy server interfaces stay available to old external clients. Final cleanup of old card producers remains separate.

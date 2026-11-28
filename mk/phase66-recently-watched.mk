@@ -50,5 +50,4 @@ test-phase66-recently-watched-install-staging:
 	$(MAKE) install-phase66-recently-watched-assets DESTDIR=/tmp/vdr-suite-phase66-recently-watched-pkgroot PREFIX=/usr
 	test -f /tmp/vdr-suite-phase66-recently-watched-pkgroot/usr/share/vdr-suite/web/frontend/home-recently-watched.js
 	grep -F '/api/v1/browser/recording-playback-sessions/activity' /tmp/vdr-suite-phase66-recently-watched-pkgroot/usr/share/vdr-suite/web/frontend/home-recently-watched.js >/dev/null
-	grep -F '/api/media/recently-watched' web/frontend/api/continue-watching-sync.js >/dev/null
 	grep -F '/api/v1/browser/recording-playback-sessions/activity' web/frontend/api/continue-watching-sync.js >/dev/null

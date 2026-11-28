@@ -75,7 +75,7 @@ function jsonResponse(status, payload) {
 const backendNativeId = '/srv/vdr/video/Deferred/2026-08-30.07.00.00-0.rec';
 const item = {
   backendId: 'default',
-  recordingId: 'rec-deferred',
+  recordingId: 'rec_dddddddddddddddddddddddddddddddd',
   backendNativeId,
   title: 'Deferred Recording',
   resumePositionSeconds: 93,
@@ -83,8 +83,8 @@ const item = {
   durationKnown: true,
   durationSeconds: 600,
   recording: {
-    id: 'rec-deferred',
-    recordingId: 'rec-deferred',
+    id: 'rec_dddddddddddddddddddddddddddddddd',
+    recordingId: 'rec_dddddddddddddddddddddddddddddddd',
     backendId: 'default',
     backendNativeId,
     title: 'Deferred Recording',
@@ -175,7 +175,7 @@ const item = {
   ], 'fresh Home must await the canonical Recording playback runtime before opening Continue Watching');
   assert.strictEqual(previewCancels, 1, 'active/pending preview intent must be released before Recording playback');
   assert.strictEqual(opened.length, 1);
-  assert.strictEqual(opened[0].recording.id, 'rec-deferred');
+  assert.strictEqual(opened[0].recording.id, 'rec_dddddddddddddddddddddddddddddddd');
   assert.strictEqual(opened[0].recording.backendId, 'default');
   assert.strictEqual(
     opened[0].recording.backendNativeId,
@@ -209,10 +209,10 @@ const item = {
   assert.strictEqual(opened[1].recording.metadata.provider.genreText, 'Drama');
   assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
   assert.deepStrictEqual(restartClears, [{
-    backendId: 'default', recordingId: 'rec-deferred', expectedRevision: 2
+    backendId: 'default', recordingId: 'rec_dddddddddddddddddddddddddddddddd', expectedRevision: 2
   }]);
   assert.deepStrictEqual(events.slice(-2), [
-    'clear:default:rec-deferred',
+    'clear:default:rec_dddddddddddddddddddddddddddddddd',
     'open:0'
   ], 'From beginning must clear the old resume truth before opening canonical playback at zero');
 
