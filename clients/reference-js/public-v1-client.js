@@ -2122,8 +2122,10 @@
       return input.sessionId;
     }
 
-    function startDeviceRecordingPlayback(input) {
+    function startDeviceRecordingPlayback(input, browser = false) {
       const identity = recordingProgressIdentity(input);
+      if (browser && (input.nativeMediaAccess !== undefined || input.capabilityProfile !== undefined))
+        throw new Error('Device media options are not Browser playback options');
       const capabilities = input.capabilities;
       const protocols = new Set(['hls', 'progressive']);
       const containers = new Set(['mpeg-ts', 'fmp4', 'mp4']);
@@ -2174,7 +2176,7 @@
           throw new Error('nativeMediaAccess must be a boolean');
         body.nativeMediaAccess = input.nativeMediaAccess;
       }
-      const path = '/api/v1/recording-playback-sessions';
+      const path = browser ? '/api/v1/browser/recording-playback-sessions' : '/api/v1/recording-playback-sessions';
       return fetchImpl(buildUrl(baseUrl, path), {
         method: 'POST',
         headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
@@ -2663,6 +2665,9 @@
       },
       createRecordingPlaybackSession(options) {
         return startDeviceRecordingPlayback(options);
+      },
+      createBrowserRecordingPlaybackSession(options) {
+        return startDeviceRecordingPlayback(options, true);
       },
       getRecordingPlaybackSession(options) {
         return deviceSessionRead(options);

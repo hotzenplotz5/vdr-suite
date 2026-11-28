@@ -48,6 +48,7 @@ const context = vm.createContext({
   Uint8Array
 });
 
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-shared.js', 'utf8'), context);
 const playbackSource = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
 vm.runInContext(
   playbackSource,
@@ -264,6 +265,12 @@ assert.strictEqual(
   assert.strictEqual(Object.prototype.hasOwnProperty.call(body, 'accessCredential'), false);
   assert.strictEqual(request.path.indexOf('token='), -1);
   assert.strictEqual(request.path.indexOf('credential='), -1);
+
+  const canonicalId = 'rec_' + 'a'.repeat(32);
+  await test.createSession('default', {id: 'native-media-id', publicRecordingId: canonicalId});
+  assert.strictEqual(request.path, '/api/v1/browser/recording-playback-sessions');
+  assert.strictEqual(JSON.parse(request.options.body).recordingId, canonicalId);
+  assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
 
   await test.stopSession('default', 'mediasess_test');
   assert.strictEqual(request.path, '/api/media/sessions');

@@ -50,7 +50,12 @@
 
   function createSession(backendId, recording) {
     const api = global.VdrSuiteClientApi;
-    const id = recordingId(recording);
+    const shared = global.VdrSuiteRecordings2Shared;
+    const canonicalId = shared && typeof shared.publicRecordingId === 'function'
+      ? shared.publicRecordingId(recording) : '';
+    // Only pre-existing cards without a public identity keep the old CREATE.
+    // Never retry a failed Public-v1 mutation via the legacy route.
+    const id = canonicalId || recordingId(recording);
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
@@ -58,7 +63,8 @@
       return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
     }
 
-    return api.requestJson('/api/media/sessions', {
+    return api.requestJson(canonicalId
+        ? '/api/v1/browser/recording-playback-sessions' : '/api/media/sessions', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify({

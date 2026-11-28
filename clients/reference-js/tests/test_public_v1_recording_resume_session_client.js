@@ -123,5 +123,25 @@ const client = createClient({baseUrl:'https://example.invalid',headers:{
   assert.strictEqual(requests.length,6,'profile check is exactly one read');
   assert(requests.every(x => x.headers.Authorization ===
     'VDR-Suite-Device demo.credential'));
-  console.log('Public-v1 recording resume/native-media/tracks client PASS');
+  const browserRequests = [];
+  const browser = createClient({baseUrl:'https://example.invalid',credentials:'same-origin',
+    fetch: async (url, init) => {
+      browserRequests.push({url, ...init});
+      return response(201,{mediaSession:{id:sessionId,recordingId}});
+    }});
+  await browser.createBrowserRecordingPlaybackSession({
+    ...identity, capabilities, startPositionSeconds:2100, audioTrackId:'audio-2',
+    headers:{'X-CSRF-Token':'browser-fixture'}
+  });
+  assert.strictEqual(browserRequests.length,1);
+  assert.strictEqual(new URL(browserRequests[0].url).pathname,'/api/v1/browser/recording-playback-sessions');
+  assert.strictEqual(browserRequests[0].credentials,'same-origin');
+  assert.strictEqual(browserRequests[0].headers['X-CSRF-Token'],'browser-fixture');
+  assert.deepStrictEqual(JSON.parse(browserRequests[0].body),
+    {...identity,capabilities,startPositionSeconds:2100,audioTrackId:'audio-2'});
+  assert.throws(() => browser.createBrowserRecordingPlaybackSession({
+    ...identity,capabilities,nativeMediaAccess:true
+  }));
+  assert.strictEqual(browserRequests.length,1);
+  console.log('Public-v1 recording resume/native-media/tracks and Browser CREATE client PASS');
 })().catch(error => {console.error(error); process.exitCode=1;});

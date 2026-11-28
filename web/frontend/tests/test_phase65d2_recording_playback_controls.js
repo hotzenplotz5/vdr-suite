@@ -306,6 +306,7 @@ function createRuntime(options) {
     context,
     {filename: 'playback-failure-classification.js'}
   );
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'recordings2-shared.js'), 'utf8'), context);
   vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
   return {window, requests, videos, fallbackStarts};
@@ -314,7 +315,7 @@ function createRuntime(options) {
 (async function () {
   const runtime = createRuntime();
   const playback = runtime.window.VdrSuiteRecordings2Playback.createPanel(
-    {id: 'recording-42', title: 'Seek Test'},
+    {id: 'recording-42', publicRecordingId: 'rec_' + 'a'.repeat(32), title: 'Seek Test'},
     'living-room'
   );
 
@@ -361,6 +362,9 @@ function createRuntime(options) {
   );
 
   const id = await playback.start();
+  const initialCreate = runtime.requests.find(entry => !entry.body.operation);
+  assert.strictEqual(initialCreate.path, '/api/v1/browser/recording-playback-sessions');
+  assert.strictEqual(initialCreate.body.recordingId, 'rec_' + 'a'.repeat(32));
 
   assert.strictEqual(
     canonicalControls.hidden,
