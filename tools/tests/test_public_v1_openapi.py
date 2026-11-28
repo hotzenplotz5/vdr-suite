@@ -80,6 +80,20 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/assign"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
+    def test_public_series_hierarchy_contract_and_existing_grant(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"][guard.SERIES_HIERARCHY_PATH]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+        changed_security = self.security_source.replace(
+            'requestToAuthorize.action = "metadata.recording.hierarchy"',
+            'requestToAuthorize.action = "obsolete.hierarchy"')
+        self.assert_rejected(security_source=changed_security,
+                             reason="existing series hierarchy authorization missing")
+        changed = copy.deepcopy(self.document)
+        changed["paths"][guard.SERIES_HIERARCHY_PATH]["post"]["security"] = [
+            {"browserSession": []}]
+        self.assert_rejected(changed, reason="series hierarchy actor/CSRF contract drifted")
+
     def test_public_trailer_contract_and_read_scope(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/backends/{backendId}/recordings/metadata/trailer"]

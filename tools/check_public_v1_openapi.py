@@ -268,6 +268,11 @@ RECORDING_METADATA_AUDITED["/api/v1/backends/{backendId}/recordings/metadata/gen
     "post": 'route.operation == "genre"',
 }
 
+SERIES_HIERARCHY_PATH = "/api/v1/backends/{backendId}/recordings/series-hierarchy"
+RECORDING_METADATA_AUDITED[SERIES_HIERARCHY_PATH] = {
+    "post": "recordingKey = lookup(backendId, publicId);",
+}
+
 # F6 Public-v1 operations reuse the existing native RecordingMarks/Cut
 # owners. Audit both dispatch reachability and URL/body identity checks.
 RECORDING_NATIVE_EDITING_AUDITED = {
@@ -635,6 +640,29 @@ def validate(
                     native_router_source.find(router_marker) > native_router_source.find(public_dispatch) or
                     gate_marker not in security_source or suffix not in owner_source):
                     errors.append(f"{where}: Media Tools route/owner/security anchor missing")
+            elif path == SERIES_HIERARCHY_PATH:
+                owner = (ROOT / "api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp").read_text(encoding="utf-8")
+                router_marker = "RecordingSeriesHierarchyApiRuntime::instance().tryHandlePost("
+                if (native_router_source.count(router_marker) != 1 or
+                    'PublicRoutePrefix = "/api/v1/backends/"' not in owner or
+                    '"/recordings/series-hierarchy"' not in owner or
+                    'authorizedBackendId != backendId' not in owner or
+                    'strings.count("recordingId")' not in owner or
+                    marker not in owner or
+                    'repository.set(mutation)' not in owner or
+                    'repository.clear(' not in owner):
+                    errors.append(f"{where}: public series hierarchy owner or identity binding missing")
+                if ('isRecordingSeriesHierarchyAction' not in security_source or
+                    'recordingSeriesHierarchyRoute(' not in security_source or
+                    '"/recordings/series-hierarchy"' not in security_source or
+                    'requestToAuthorize.action = "metadata.recording.hierarchy"' not in security_source or
+                    'requestToAuthorize.permission = "metadata.recording.assign"' not in security_source):
+                    errors.append(f"{where}: existing series hierarchy authorization missing")
+                if data.get(method, {}).get("security") != [
+                    {"browserSession": [], "browserCsrf": []},
+                    {"deviceCredential": []}, {"managedBasic": []}
+                ]:
+                    errors.append(f"{where}: series hierarchy actor/CSRF contract drifted")
             elif path in RECORDING_METADATA_AUDITED:
                 router_marker = "ManualRecordingMetadataApiRuntime::instance().tryHandle" + (
                     "Get(" if method == "get" else "Post(")
